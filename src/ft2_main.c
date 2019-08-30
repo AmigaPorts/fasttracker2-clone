@@ -29,10 +29,14 @@
 #include "ft2_sampling.h"
 #include "ft2_audioselector.h"
 #include "ft2_help.h"
+#ifdef MIDI_ENABLED
 #include "ft2_midi.h"
+#endif
 #include "ft2_events.h"
 
+#ifdef MIDI_ENABLED
 static SDL_Thread *initMidiThread;
+#endif
 
 static void setupPerfFreq(void);
 static void initializeVars(void);
@@ -56,12 +60,14 @@ int main(int argc, char *argv[])
 	_CrtSetDbgFlag(_CRTDBG_ALLOC_MEM_DF | _CRTDBG_LEAK_CHECK_DF);
 #endif
 
-#if SDL_PATCHLEVEL < 5
+#if SDL_PATCHLEVEL < 5 && SDL_VERSION_ATLEAST(2,0,0)
 #pragma message("WARNING: The SDL2 dev lib is older than ver 2.0.5. You'll get fullscreen mode issues and no audio input sampling.")
 #pragma message("At least version 2.0.7 is recommended.")
 #endif
 
+#if SDL_VERSION_ATLEAST(2,0,0)
 	SDL_SetThreadPriority(SDL_THREAD_PRIORITY_HIGH);
+#endif
 
 	initializeVars();
 	setupCrashHandler();
@@ -89,7 +95,7 @@ int main(int argc, char *argv[])
 	}
 #endif
 
-#if SDL_PATCHLEVEL >= 4 // SDL 2.0.4 or later
+#if SDL_PATCHLEVEL >= 4 && SDL_VERSION_ATLEAST(2,0,4) // SDL 2.0.4 or later
 	SDL_SetHint(SDL_HINT_WINDOWS_NO_CLOSE_ON_ALT_F4, "1"); // windows only - prevent ALT+F4 from exiting (FT2 uses ALT+F4)
 #endif
 
@@ -196,19 +202,24 @@ int main(int argc, char *argv[])
 	}
 
 	//benchmarkAudioChannelMixer(); // for development testing
-
+#ifdef MIDI_ENABLED
 	// set up MIDI input (in a thread because it can take quite a while on f.ex. macOS)
-	initMidiThread = SDL_CreateThread(initMidiFunc, NULL, NULL);
+	initMidiThread = SDL_CreateThread(initMidiFunc, NULL
+#if SDL_VERSION_ATLEAST(2,0,4)
+		, NULL
+#endif
+);
 	if (initMidiThread == NULL)
 	{
 		showErrorMsgBox("Couldn't create MIDI initialization thread!");
 		cleanUpAndExit();
 		return 1;
 	}
+#if SDL_VERSION_ATLEAST(2,0,4)
 	SDL_DetachThread(initMidiThread); // don't wait for this thread, let it clean up when done
-
 	SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
-
+#endif
+#endif
 	setupWaitVBL();
 	handleModuleLoadFromArg(argc, argv);
 	while (editor.programRunning)
@@ -233,8 +244,8 @@ static void initializeVars(void)
 {
 	int32_t i;
 
-	cpu.hasSSE  = SDL_HasSSE();
-	cpu.hasSSE2 = SDL_HasSSE2();
+	cpu.hasSSE  = false; //SDL_HasSSE();
+	cpu.hasSSE2 = false; //SDL_HasSSE2();
 
 	// clear common structs
 	memset(&video,    0, sizeof (video));
@@ -283,7 +294,9 @@ static void initializeVars(void)
 	memset(editor.copyMask,  1, sizeof (editor.copyMask));
 	memset(editor.pasteMask, 1, sizeof (editor.pasteMask));
 
+#ifdef MIDI_ENABLED
 	midi.enable = true;
+#endif
 
 	editor.diskOpReadOnOpen = true;
 	editor.programRunning   = true;
@@ -291,11 +304,13 @@ static void initializeVars(void)
 
 static void cleanUpAndExit(void) // never call this inside the main loop!
 {
+#ifdef MIDI_ENABLED
 	if (midi.closeMidiOnExit)
 	{
 		closeMidiInDevice();
 		freeMidiIn();
 	}
+#endif
 
 	closeAudio();
 	closeReplayer();
@@ -304,16 +319,20 @@ static void cleanUpAndExit(void) // never call this inside the main loop!
 	freeDiskOp();
 	clearCopyBuffer();
 	freeAudioDeviceSelectorBuffers();
+#ifdef MIDI_ENABLED
 	freeMidiInputDeviceList();
+#endif
 	windUpFTHelp();
 	freeTextBoxes();
 	freeSDL2Cursors();
 
+#ifdef MIDI_ENABLED
 	if (midi.inputDeviceName != NULL)
 	{
 		free(midi.inputDeviceName);
 		midi.inputDeviceName = NULL;
 	}
+#endif
 
 	if (editor.audioDevConfigFileLocation != NULL)
 	{

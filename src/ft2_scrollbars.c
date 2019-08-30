@@ -90,10 +90,11 @@ scrollBar_t scrollBars[NUM_SCROLLBARS] =
 	//x,   y,   w,  h,  type,                 style                   funcOnDown
 	{ 578, 158, 29, 13, SCROLLBAR_HORIZONTAL, SCROLLBAR_THUMB_NOFLAT, sbMIDISens },
 
+#ifdef MIDI_ENABLED
 	// ------ CONFIG MIDI SCROLLBARS ------
 	//x,   y,  w,  h,   type,               style                 funcOnDown
 	{ 483, 15, 18, 143, SCROLLBAR_VERTICAL, SCROLLBAR_THUMB_FLAT, sbMidiInputSetPos },
-
+#endif
 	// ------ DISK OP. SCROLLBARS ------
 	//x,   y,  w,  h,   type,               style                 funcOnDown
 	{ 335, 15, 18, 143, SCROLLBAR_VERTICAL, SCROLLBAR_THUMB_FLAT, sbDiskOpSetPos }
@@ -110,7 +111,7 @@ void drawScrollBar(uint16_t scrollBarID)
 	if (!scrollBar->visible)
 		return;
 
-	assert(scrollBar->x < SCREEN_W && scrollBar->y < SCREEN_H && scrollBar->w >= 3 && scrollBar->h >= 3);
+	//assert(scrollBar->x < SCREEN_W && scrollBar->y < SCREEN_H && scrollBar->w >= 3 && scrollBar->h >= 3);
 
 	thumbX = scrollBar->thumbX;
 	thumbY = scrollBar->thumbY;

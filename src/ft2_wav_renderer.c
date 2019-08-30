@@ -417,7 +417,11 @@ static void wavRender(bool checkOverwrite)
 	}
 
 	mouseAnimOn();
-	thread = SDL_CreateThread(renderWavThread, NULL, NULL);
+	thread = SDL_CreateThread(renderWavThread, NULL
+#if SDL_VERSION_ATLEAST(2,0,0)
+		, NULL
+#endif
+);
 	if (thread == NULL)
 	{
 		fclose((FILE *)editor.wavRendererFileHandle);
@@ -425,7 +429,9 @@ static void wavRender(bool checkOverwrite)
 		return;
 	}
 
+#if SDL_VERSION_ATLEAST(2,0,0)
 	SDL_DetachThread(thread);
+#endif
 }
 
 void pbWavRender(void)

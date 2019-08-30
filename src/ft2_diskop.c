@@ -17,7 +17,7 @@
 #else
 #include <sys/types.h>
 #include <sys/stat.h>
-#include <fts.h> // for fts_open() and stuff in recursiveDelete()
+//#include <fts.h> // for fts_open() and stuff in recursiveDelete()
 #include <unistd.h>
 #include <dirent.h>
 #endif
@@ -254,7 +254,7 @@ void freeDiskOp(void)
 	if (FReq_SmpCurPathU != NULL) { free(FReq_SmpCurPathU); FReq_SmpCurPathU = NULL; }
 	if (FReq_PatCurPathU != NULL) { free(FReq_PatCurPathU); FReq_PatCurPathU = NULL; }
 	if (FReq_TrkCurPathU != NULL) { free(FReq_TrkCurPathU); FReq_TrkCurPathU = NULL; }
-	if (modTmpFNameUTF8 != NULL) { free(modTmpFNameUTF8); modTmpFNameUTF8 = NULL; }
+	//if (modTmpFNameUTF8 != NULL) { free(modTmpFNameUTF8); modTmpFNameUTF8 = NULL; }
 
 	freeDirRecBuffer();
 }
@@ -458,6 +458,7 @@ bool fileExistsAnsi(char *str)
 
 static bool deleteDirRecursive(UNICHAR *strU)
 {
+/*
 	int32_t ret;
 	FTS *ftsp;
 	FTSENT *curr;
@@ -504,6 +505,8 @@ static bool deleteDirRecursive(UNICHAR *strU)
 		fts_close(ftsp);
 
 	return ret;
+*/
+	return false;
 }
 
 static bool makeDirAnsi(char *str)
@@ -2002,7 +2005,11 @@ void startDiskOpFillThread(void)
 	editor.diskOpReadDone = false;
 
 	mouseAnimOn();
-	thread = SDL_CreateThread(diskOp_ReadDirectoryThread, NULL, NULL);
+	thread = SDL_CreateThread(diskOp_ReadDirectoryThread, NULL
+#if SDL_VERSION_ATLEAST(2,0,0)
+			, NULL
+#endif
+			);
 	if (thread == NULL)
 	{
 		editor.diskOpReadDone = true;
@@ -2010,7 +2017,9 @@ void startDiskOpFillThread(void)
 		return;
 	}
 
+#if SDL_VERSION_ATLEAST(2,0,0)
 	SDL_DetachThread(thread);
+#endif
 }
 
 static void drawSaveAsElements(void)

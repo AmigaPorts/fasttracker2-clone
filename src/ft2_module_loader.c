@@ -1665,7 +1665,7 @@ static int32_t SDLCALL loadMusicThread(void *ptr)
 
 	loadedFormat = FORMAT_XM;
 
-	if (h.ver < 0x0102 || h.ver > 0x0104)
+	if (SDL_SwapLE16(h.ver) < 0x0102 || SDL_SwapLE16(h.ver) > 0x0104)
 	{
 		fclose(f);
 
@@ -1677,28 +1677,28 @@ static int32_t SDLCALL loadMusicThread(void *ptr)
 		return false;
 	}
 
-	if (h.len > MAX_ORDERS)
+	if (SDL_SwapLE16(h.len) > MAX_ORDERS)
 	{
 		okBoxThreadSafe(0, "System message", "Error loading .xm: The song has more than 256 orders!");
 		goto xmLoadError;
 	}
 
-	if (h.antPtn > MAX_PATTERNS)
+	if (SDL_SwapLE16(h.antPtn) > MAX_PATTERNS)
 	{
 		okBoxThreadSafe(0, "System message", "Error loading .xm: The song has more than 256 patterns!");
 		goto xmLoadError;
 	}
 
-	if (h.antChn == 0 || h.antChn > MAX_VOICES)
+	if (SDL_SwapLE16(h.antChn) == 0 || SDL_SwapLE16(h.antChn) > MAX_VOICES)
 	{
 		okBoxThreadSafe(0, "System message", "Error loading .xm: Incompatible amount of channels!");
 		goto xmLoadError;
 	}
 
-	if (h.antInstrs > MAX_INST)
+	if (SDL_SwapLE16(h.antInstrs) > MAX_INST)
 		okBoxThreadSafe(0, "System message", "The module has over 128 instruments! Only 128 of them are getting loaded.");
 
-	fseek(f, 60 + h.headerSize, SEEK_SET);
+	fseek(f, 60 + SDL_SwapLE32(h.headerSize), SEEK_SET);
 	if (filelength != 336 && feof(f)) // 336 in length at this point = empty XM
 	{
 		okBoxThreadSafe(0, "System message", "Error loading .xm: The module is empty!");
@@ -1717,13 +1717,13 @@ static int32_t SDLCALL loadMusicThread(void *ptr)
 	memcpy(songTmp.name, h.name, 20);
 	songTmp.name[20] = '\0';
 
-	songTmp.len = h.len;
-	songTmp.repS = h.repS;
-	songTmp.antChn = (uint8_t)h.antChn;
-	songTmp.speed = h.defSpeed ? h.defSpeed : 125;
-	songTmp.tempo = h.defTempo ? h.defTempo : 6;
-	songTmp.ver = h.ver;
-	linearFreqTable = h.flags & 1;
+	songTmp.len = SDL_SwapLE16(h.len);
+	songTmp.repS = SDL_SwapLE16(h.repS);
+	songTmp.antChn = (uint8_t)SDL_SwapLE16(h.antChn);
+	songTmp.speed = SDL_SwapLE16(h.defSpeed) ? SDL_SwapLE16(h.defSpeed) : 125;
+	songTmp.tempo = SDL_SwapLE16(h.defTempo) ? SDL_SwapLE16(h.defTempo) : 6;
+	songTmp.ver = SDL_SwapLE16(h.ver);
+	linearFreqTable = SDL_SwapLE16(h.flags) & 1;
 
 	songTmp.speed = CLAMP(songTmp.speed, 32, 255);
 	if (songTmp.tempo > 31)
@@ -1743,7 +1743,7 @@ static int32_t SDLCALL loadMusicThread(void *ptr)
 	{
 		// old FT2 format
 
-		for (i = 1; i <= h.antInstrs; i++)
+		for (i = 1; i <= SDL_SwapLE16(h.antInstrs); i++)
 		{
 			if (!loadInstrHeader(f, i))
 			{
@@ -1752,13 +1752,13 @@ static int32_t SDLCALL loadMusicThread(void *ptr)
 			}
 		}
 
-		if (!loadPatterns(f, h.antPtn))
+		if (!loadPatterns(f, SDL_SwapLE16(h.antPtn)))
 		{
 			// error message is shown inside loadPattern()
 			goto xmLoadError;
 		}
 
-		for (i = 1; i <= h.antInstrs; i++)
+		for (i = 1; i <= SDL_SwapLE16(h.antInstrs); i++)
 		{
 			if (!loadInstrSample(f, i))
 			{
@@ -1771,13 +1771,13 @@ static int32_t SDLCALL loadMusicThread(void *ptr)
 	{
 		// current FT2 format
 
-		if (!loadPatterns(f, h.antPtn))
+		if (!loadPatterns(f, SDL_SwapLE16(h.antPtn)))
 		{
 			// error message is shown inside loadPattern()
 			goto xmLoadError;
 		}
 
-		for (i = 1; i <= h.antInstrs; i++)
+		for (i = 1; i <= SDL_SwapLE16(h.antInstrs); i++)
 		{
 			if (!loadInstrHeader(f, i))
 			{
@@ -1834,7 +1834,11 @@ void loadMusic(UNICHAR *filenameU)
 	for (i = 0; i < MAX_PATTERNS; i++)
 		pattLensTmp[i] = 64;
 
-	thread = SDL_CreateThread(loadMusicThread, NULL, NULL);
+	thread = SDL_CreateThread(loadMusicThread, NULL
+#if SDL_VERSION_ATLEAST(2,0,4)
+			, NULL
+#endif
+);
 	if (thread == NULL)
 	{
 		editor.loadMusicEvent = EVENT_NONE;
@@ -1843,7 +1847,9 @@ void loadMusic(UNICHAR *filenameU)
 		return;
 	}
 
+#if SDL_VERSION_ATLEAST(2,0,0)
 	SDL_DetachThread(thread);
+#endif
 }
 
 /*
@@ -1914,7 +1920,7 @@ static bool loadInstrHeader(FILE *f, uint16_t i)
 
 	fread(&ih.instrSize, 4, 1, f);
 
-	readSize = ih.instrSize;
+	readSize = SDL_SwapLE32(ih.instrSize);
 	if (readSize < 4 || readSize > INSTR_HEADER_SIZE)
 		readSize = INSTR_HEADER_SIZE;
 
@@ -1922,10 +1928,10 @@ static bool loadInstrHeader(FILE *f, uint16_t i)
 	fread(ih.name, readSize - 4, 1, f); // -4 = skip ih.instrSize
 
 	// FT2 bugfix: skip instrument header data if instrSize is above INSTR_HEADER_SIZE
-	if (ih.instrSize > INSTR_HEADER_SIZE)
-		fseek(f, ih.instrSize - INSTR_HEADER_SIZE, SEEK_CUR);
+	if (SDL_SwapLE32(ih.instrSize) > INSTR_HEADER_SIZE)
+		fseek(f, SDL_SwapLE32(ih.instrSize) - INSTR_HEADER_SIZE, SEEK_CUR);
 
-	if (ih.antSamp > MAX_SMP_PER_INST)
+	if (SDL_SwapLE16(ih.antSamp) > MAX_SMP_PER_INST)
 		return false;
 
 	if (i <= MAX_INST)
@@ -1943,7 +1949,7 @@ static bool loadInstrHeader(FILE *f, uint16_t i)
 		songTmp.instrName[i][22] = '\0';
 	}
 
-	if (ih.antSamp > 0)
+	if (SDL_SwapLE16(ih.antSamp) > 0)
 	{
 		if (i <= MAX_INST)
 		{
@@ -1951,26 +1957,26 @@ static bool loadInstrHeader(FILE *f, uint16_t i)
 				return false;
 
 			// sanitize stuff for malicious instruments
-			ih.midiProgram = CLAMP(ih.midiProgram, 0, 127);
-			ih.midiBend = CLAMP(ih.midiBend, 0, 36);
+			ih.midiProgram = CLAMP(SDL_SwapLE16(ih.midiProgram), 0, 127);
+			ih.midiBend = CLAMP(SDL_SwapLE16(ih.midiBend), 0, 36);
 
-			if (ih.midiChannel > 15) ih.midiChannel = 15;
-			if (ih.mute != 1) ih.mute = 0;
-			if (ih.midiOn != 1) ih.midiOn = 0;
-			if (ih.vibDepth > 0x0F) ih.vibDepth = 0x0F;
-			if (ih.vibRate > 0x3F) ih.vibRate = 0x3F;
-			if (ih.vibTyp > 3) ih.vibTyp = 0;
+			if ((ih.midiChannel) > 15) ih.midiChannel = 15;
+			if ((ih.mute) != 1) ih.mute = 0;
+			if ((ih.midiOn) != 1) ih.midiOn = 0;
+			if ((ih.vibDepth) > 0x0F) ih.vibDepth = 0x0F;
+			if ((ih.vibRate) > 0x3F) ih.vibRate = 0x3F;
+			if ((ih.vibTyp) > 3) ih.vibTyp = 0;
 
 			for (j = 0; j < 96; j++)
 			{
-				if (ih.ta[j] > 15)
+				if ((ih.ta[j]) > 15)
 					ih.ta[j] = 15;
 			}
 			// ----------------------------------------
 
 			// copy over final instrument data from temp buffer
 			memcpy(instrTmp[i], ih.ta, INSTR_SIZE);
-			instrTmp[i]->antSamp = ih.antSamp;
+			instrTmp[i]->antSamp = SDL_SwapLE16(ih.antSamp);
 
 			if (instrTmp[i]->envVPAnt > 12) instrTmp[i]->envVPAnt = 12;
 			if (instrTmp[i]->envVRepS > 11) instrTmp[i]->envVRepS = 11;
@@ -1982,12 +1988,12 @@ static bool loadInstrHeader(FILE *f, uint16_t i)
 			if (instrTmp[i]->envPSust > 11) instrTmp[i]->envPSust = 11;
 		}
 
-		if (fread(ih.samp, ih.antSamp * sizeof (sampleHeaderTyp), 1, f) != 1)
+		if (fread(ih.samp, SDL_SwapLE16(ih.antSamp) * sizeof (sampleHeaderTyp), 1, f) != 1)
 			return false;
 
 		if (i <= MAX_INST)
 		{
-			for (j = 0; j < ih.antSamp; j++)
+			for (j = 0; j < SDL_SwapLE16(ih.antSamp); j++)
 			{
 				s = &instrTmp[i]->samp[j];
 				memcpy(s, &ih.samp[j], 12+4+24);
@@ -2042,7 +2048,7 @@ static bool loadInstrSample(FILE *f, uint16_t i)
 		if ((s->typ & 3) == 3)
 			s->typ &= 0xFE;
 
-		l = s->len;
+		l = SDL_SwapLE32(s->len);
 		if (l <= 0)
 		{
 			s->pek = NULL;
@@ -2082,7 +2088,7 @@ static bool loadInstrSample(FILE *f, uint16_t i)
 				s->repL /= 2;
 				s->repS /= 2;
 
-				newPtr = (int8_t *)realloc(s->pek, s->len + LOOP_FIX_LEN);
+				newPtr = (int8_t *)realloc(s->pek, SDL_SwapLE32(s->len) + LOOP_FIX_LEN);
 				if (newPtr != NULL)
 					s->pek = newPtr;
 
@@ -2093,9 +2099,9 @@ static bool loadInstrSample(FILE *f, uint16_t i)
 		// NON-FT2 FIX: Align to 2-byte if 16-bit sample
 		if (s->typ & 16)
 		{
-			s->repL &= 0xFFFFFFFE;
-			s->repS &= 0xFFFFFFFE;
-			s->len &= 0xFFFFFFFE;
+			s->repL &= SDL_SwapLE32(0xFFFFFFFE);
+			s->repS &= SDL_SwapLE32(0xFFFFFFFE);
+			s->len &= SDL_SwapLE32(0xFFFFFFFE);
 		}
 
 		checkSampleRepeat(s);
@@ -2218,8 +2224,8 @@ static bool loadPatterns(FILE *f, uint16_t antPtn)
 
 			ph.pattLen = tmpLen + 1; // +1 in v1.02
 
-			if (ph.patternHeaderSize > 8)
-				fseek(f, ph.patternHeaderSize - 8, SEEK_CUR);
+			if (SDL_SwapLE32(ph.patternHeaderSize) > 8)
+				fseek(f, SDL_SwapLE32(ph.patternHeaderSize) - 8, SEEK_CUR);
 		}
 		else
 		{
@@ -2229,18 +2235,18 @@ static bool loadPatterns(FILE *f, uint16_t antPtn)
 			if (fread(&ph.dataLen, 2, 1, f) != 1)
 				goto pattCorrupt;
 
-			if (ph.patternHeaderSize > 9)
-				fseek(f, ph.patternHeaderSize - 9, SEEK_CUR);
+			if (SDL_SwapLE32(ph.patternHeaderSize) > 9)
+				fseek(f, SDL_SwapLE32(ph.patternHeaderSize) - 9, SEEK_CUR);
 		}
 
 		if (feof(f))
 			goto pattCorrupt;
 
-		pattLensTmp[i] = ph.pattLen;
+		pattLensTmp[i] = SDL_SwapLE16(ph.pattLen);
 
-		if (ph.dataLen > 0)
+		if (SDL_SwapLE16(ph.dataLen) > 0)
 		{
-			a = ph.pattLen * TRACK_WIDTH;
+			a = SDL_SwapLE16(ph.pattLen) * TRACK_WIDTH;
 
 			pattTmp[i] = (tonTyp *)malloc(a + 16); // + 16 = a little extra for safety
 			if (pattTmp[i] == NULL)
@@ -2252,10 +2258,10 @@ static bool loadPatterns(FILE *f, uint16_t antPtn)
 			pattPtr = (uint8_t *)pattTmp[i];
 			memset(pattPtr, 0, a);
 
-			if (fread(&pattPtr[a - ph.dataLen], 1, ph.dataLen, f) != ph.dataLen)
+			if (fread(&pattPtr[a - SDL_SwapLE16(ph.dataLen)], 1, SDL_SwapLE16(ph.dataLen), f) != SDL_SwapLE16(ph.dataLen))
 				goto pattCorrupt;
 
-			unpackPatt(pattPtr, a - ph.dataLen, ph.pattLen, songTmp.antChn);
+			unpackPatt(pattPtr, a - SDL_SwapLE16(ph.dataLen), SDL_SwapLE16(ph.pattLen), songTmp.antChn);
 			clearUnusedChannels(pattTmp[i], pattLensTmp[i], songTmp.antChn);
 		}
 
@@ -2515,13 +2521,17 @@ void loadDroppedFile(char *fullPathUTF8, bool songModifiedCheck)
 	}
 	else
 	{
+#if SDL_VERSION_ATLEAST(2,0,0)
 		SDL_RestoreWindow(video.window);
+#endif
 
 		if (songModifiedCheck && song.isModified)
 		{
 			// de-minimize window and set focus so that the user sees the message box
+#if SDL_VERSION_ATLEAST(2,0,0)
 			SDL_RestoreWindow(video.window);
 			SDL_RaiseWindow(video.window);
+#endif
 
 			if (okBox(2, "System request", "You have unsaved changes in your song. Load new song and lose all changes?") != 1)
 			{

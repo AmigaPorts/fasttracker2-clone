@@ -160,14 +160,38 @@ void endFPSCounter(void)
 
 void flipFrame(void)
 {
-	uint32_t windowFlags = SDL_GetWindowFlags(video.window);
+	uint32_t windowFlags =
+#if SDL_VERSION_ATLEAST(2,0,0)
+			SDL_GetWindowFlags(video.window);
+#else
+	0;
+#endif
 
 	renderSprites();
-	drawFPSCounter();
-	SDL_UpdateTexture(video.texture, NULL, video.frameBuffer, SCREEN_W * sizeof (int32_t));
-	SDL_RenderClear(video.renderer);
-	SDL_RenderCopy(video.renderer, video.texture, NULL, NULL);
-	SDL_RenderPresent(video.renderer);
+	//drawFPSCounter();
+	//SDL_UpdateTexture(video.texture, NULL, video.frameBuffer, SCREEN_W * sizeof (int32_t));
+	//SDL_RenderClear(video.renderer);
+	//SDL_RenderCopy(video.renderer, video.texture, NULL, NULL);
+	//SDL_RenderPresent(video.renderer);
+
+	SDL_Surface* surface = SDL_GetWindowSurface(video.window);
+	SDL_Surface* testSurface = SDL_CreateRGBSurfaceWithFormatFrom(video.frameBuffer,SCREEN_W, SCREEN_H, 32, SCREEN_W * sizeof(int32_t),0);
+
+	//SDL_FillRect( surface, NULL, SDL_MapRGBA( testSurface->format, 0, 0, 0, 0) );
+	SDL_FillRect( surface, NULL, SDL_MapRGB( surface->format, 0, 0, 0 ) );
+
+	SDL_BlitSurface(testSurface, NULL, surface, NULL);
+
+	SDL_Flip(surface);
+	//SDL_BlitSurface(testSurface, NULL, surface, NULL);
+	//SDL_Flip(surface);
+
+
+	if( SDL_GetTicks() < 1000 / 60 )
+	{
+		SDL_Delay( ( 1000 / 60 ) - SDL_GetTicks() );
+	}
+
 	eraseSprites();
 
 	if (!video.vsync60HzPresent)
@@ -220,11 +244,13 @@ void updateRenderSizeVars(void)
 	float fXScale, fYScale;
 	SDL_DisplayMode dm;
 
+#if SDL_VERSION_ATLEAST(2,0,0)
 	di = SDL_GetWindowDisplayIndex(video.window);
 	if (di < 0)
 		di = 0; // return display index 0 (default) on error
 
 	SDL_GetDesktopDisplayMode(di, &dm);
+#endif
 	video.displayW = dm.w;
 	video.displayH = dm.h;
 
@@ -275,7 +301,7 @@ void enterFullscreen(void)
 	strcpy(editor.ui.fullscreenButtonText, "Go windowed");
 	if (editor.ui.configScreenShown && editor.currConfigScreen == CONFIG_SCREEN_MISCELLANEOUS)
 		showConfigScreen(); // redraw so that we can see the new button text
-
+#if SDL_VERSION_ATLEAST(2,0,0)
 	if (config.windowFlags & FILTERING)
 	{
 		SDL_GetDesktopDisplayMode(0, &dm);
@@ -289,7 +315,7 @@ void enterFullscreen(void)
 	SDL_SetWindowSize(video.window, SCREEN_W, SCREEN_H);
 	SDL_SetWindowFullscreen(video.window, SDL_WINDOW_FULLSCREEN_DESKTOP);
 	SDL_SetWindowGrab(video.window, SDL_TRUE);
-
+#endif
 	updateRenderSizeVars();
 	updateMouseScaling();
 	setMousePosToCenter();
@@ -301,6 +327,7 @@ void leaveFullScreen(void)
 	if (editor.ui.configScreenShown && editor.currConfigScreen == CONFIG_SCREEN_MISCELLANEOUS)
 		showConfigScreen(); // redraw so that we can see the new button text
 
+#if SDL_VERSION_ATLEAST(2,0,0)
 	SDL_SetWindowFullscreen(video.window, 0);
 	SDL_RenderSetLogicalSize(video.renderer, SCREEN_W, SCREEN_H);
 
@@ -308,6 +335,7 @@ void leaveFullScreen(void)
 	SDL_SetWindowSize(video.window, SCREEN_W * video.upscaleFactor, SCREEN_H * video.upscaleFactor);
 	SDL_SetWindowPosition(video.window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 	SDL_SetWindowGrab(video.window, SDL_FALSE);
+#endif
 
 	updateRenderSizeVars();
 	updateMouseScaling();
@@ -474,7 +502,9 @@ void renderSprites(void)
 		if (i == SPRITE_TEXT_CURSOR)
 		{
 			assert(video.window != NULL);
+#if SDL_VERSION_ATLEAST(2,0,0)
 			windowFlags = SDL_GetWindowFlags(video.window);
+#endif
 			if (!(windowFlags & SDL_WINDOW_INPUT_FOCUS))
 				continue;
 		}
@@ -704,7 +734,6 @@ void waitVBL(void)
 	int32_t time32;
 	uint32_t diff32;
 	uint64_t time64;
-
 	time64 = SDL_GetPerformanceCounter();
 	if (time64 < timeNext64)
 	{
@@ -718,7 +747,6 @@ void waitVBL(void)
 		if (time32 > 0)
 			usleep(time32);
 	}
-
 	// update next frame time
 
 	timeNext64 += video.vblankTimeLen;
@@ -766,6 +794,7 @@ void setWindowSizeFromConfig(bool updateRenderer)
 	SDL_DisplayMode dm;
 
 	oldUpscaleFactor = video.upscaleFactor;
+#if SDL_VERSION_ATLEAST(2,0,0)
 	if (config.windowFlags & WINSIZE_AUTO)
 	{
 		// find out which upscaling factor is the biggest to fit on screen
@@ -794,14 +823,15 @@ void setWindowSizeFromConfig(bool updateRenderer)
 	else if (config.windowFlags & WINSIZE_2X) video.upscaleFactor = 2;
 	else if (config.windowFlags & WINSIZE_3X) video.upscaleFactor = 3;
 	else if (config.windowFlags & WINSIZE_4X) video.upscaleFactor = 4;
-
+#endif
 	if (updateRenderer)
 	{
+#if SDL_VERSION_ATLEAST(2,0,0)
 		SDL_SetWindowSize(video.window, SCREEN_W * video.upscaleFactor, SCREEN_H * video.upscaleFactor);
 
 		if (oldUpscaleFactor != video.upscaleFactor)
 			SDL_SetWindowPosition(video.window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
-
+#endif
 		updateRenderSizeVars();
 		updateMouseScaling();
 		setMousePosToCenter();
@@ -854,8 +884,9 @@ bool recreateTexture(void)
 		showErrorMsgBox("Couldn't create a %dx%d GPU texture:\n%s\n\nIs your GPU (+ driver) too old?", SCREEN_W, SCREEN_H, SDL_GetError());
 		return false;
 	}
-
+#if SDL_VERSION_ATLEAST(2,0,0)
 	SDL_SetTextureBlendMode(video.texture, SDL_BLENDMODE_NONE);
+#endif
 	return true;
 }
 
@@ -869,11 +900,12 @@ bool setupWindow(void)
 
 	setWindowSizeFromConfig(false);
 
-#if SDL_PATCHLEVEL >= 5 // SDL 2.0.5 or later
+#if SDL_PATCHLEVEL >= 5 && SDL_VERSION_ATLEAST(2,0,5)// SDL 2.0.5 or later
 	SDL_SetHint(SDL_HINT_MOUSE_FOCUS_CLICKTHROUGH, "1");
 #endif
-
+#if SDL_VERSION_ATLEAST(2,0,0)
 	SDL_GetDesktopDisplayMode(0, &dm);
+#endif
 	video.dMonitorRefreshRate = (double)dm.refresh_rate;
 
 	if (dm.refresh_rate >= 59 && dm.refresh_rate <= 61)
@@ -883,7 +915,7 @@ bool setupWindow(void)
 		video.vsync60HzPresent = false;
 
 	video.window = SDL_CreateWindow("", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-					SCREEN_W * video.upscaleFactor, SCREEN_H * video.upscaleFactor,
+					SCREEN_W /* video.upscaleFactor*/, SCREEN_H /* video.upscaleFactor*/,
 					windowFlags);
 
 	if (video.window == NULL)
@@ -927,11 +959,13 @@ bool setupRenderer(void)
 
 	SDL_RenderSetLogicalSize(video.renderer, SCREEN_W, SCREEN_H);
 
+#if SDL_VERSION_ATLEAST(2,0,0)
 #if SDL_PATCHLEVEL >= 5
 	SDL_RenderSetIntegerScale(video.renderer, SDL_TRUE);
 #endif
 
 	SDL_SetRenderDrawBlendMode(video.renderer, SDL_BLENDMODE_NONE);
+#endif
 
 	if (!recreateTexture())
 	{

@@ -837,9 +837,10 @@ static int32_t SDLCALL scopeThreadFunc(void *ptr)
 
 	(void)ptr;
 
+#if SDL_VERSION_ATLEAST(2,0,0)
 	// this is needed for scope stability (confirmed)
 	SDL_SetThreadPriority(SDL_THREAD_PRIORITY_HIGH);
-
+#endif
 	// set next frame time
 	timeNext64 = SDL_GetPerformanceCounter() + scopeTimeLen;
 	timeNext64Frac = scopeTimeLenFrac;
@@ -894,13 +895,19 @@ bool initScopes(void)
 		dFrac = (double)UINT32_MAX;
 	scopeTimeLenFrac = (uint32_t)round(dFrac);
 
-	scopeThread = SDL_CreateThread(scopeThreadFunc, NULL, NULL);
+	scopeThread = SDL_CreateThread(scopeThreadFunc, NULL
+#if SDL_VERSION_ATLEAST(2,0,0)
+		, NULL
+#endif
+);
 	if (scopeThread == NULL)
 	{
 		showErrorMsgBox("Couldn't create channel scope thread!");
 		return false;
 	}
 
+#if SDL_VERSION_ATLEAST(2,0,0)
 	SDL_DetachThread(scopeThread);
+#endif
 	return true;
 }

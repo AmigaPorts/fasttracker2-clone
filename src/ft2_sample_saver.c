@@ -545,12 +545,17 @@ void saveSample(UNICHAR *filenameU, bool saveAsRange)
 	UNICHAR_STRCPY(editor.tmpFilenameU, filenameU);
 
 	mouseAnimOn();
-	thread = SDL_CreateThread(saveSampleThread, NULL, NULL);
+	thread = SDL_CreateThread(saveSampleThread, NULL
+#if SDL_VERSION_ATLEAST(2,0,4)
+			, NULL
+#endif
+);
 	if (thread == NULL)
 	{
 		okBoxThreadSafe(0, "System message", "Couldn't create thread!");
 		return;
 	}
-
+#if SDL_VERSION_ATLEAST(2,0,0)
 	SDL_DetachThread(thread);
+#endif
 }

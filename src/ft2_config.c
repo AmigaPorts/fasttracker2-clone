@@ -25,7 +25,9 @@
 #include "ft2_mouse.h"
 #include "ft2_wav_renderer.h"
 #include "ft2_audioselector.h"
+#ifdef MIDI_ENABLED
 #include "ft2_midi.h"
+#endif
 #include "ft2_gfxdata.h"
 #include "ft2_palette.h"
 
@@ -251,13 +253,14 @@ bool loadConfig(bool showErrorFlag)
 
 	audio.currOutputDevice = getAudioOutputDeviceFromConfig();
 	audio.currInputDevice = getAudioInputDeviceFromConfig();
-
+#ifdef MIDI_ENABLED
 	if (midi.initThreadDone)
 	{
 		setMidiInputDeviceFromConfig();
 		if (editor.ui.configScreenShown && editor.currConfigScreen == CONFIG_SCREEN_MIDI_INPUT)
 			drawMidiInputList();
 	}
+#endif
 
 	if (editor.configFileLocation == NULL)
 	{
@@ -371,7 +374,9 @@ bool saveConfig(bool showErrorFlag)
 	}
 
 	saveAudioDevicesToConfig(audio.currOutputDevice, audio.currInputDevice);
+#ifdef MIDI_ENABLED
 	saveMidiInputDeviceToConfig();
+#endif
 
 	out = UNICHAR_FOPEN(editor.configFileLocation, "wb");
 	if (out == NULL)
@@ -979,12 +984,14 @@ static void setConfigMiscCheckButtonStates(void)
 	checkBoxes[CB_CONF_REC_KEYOFF].checked = config.recRelease;
 	checkBoxes[CB_CONF_QUANTIZATION].checked = config.recQuant;
 	checkBoxes[CB_CONF_CHANGE_PATTLEN_INS_DEL].checked = config.recTrueInsert;
+#ifdef MIDI_ENABLED
 	checkBoxes[CB_CONF_MIDI_ALLOW_PC].checked = config.recMIDIAllowPC;
 	checkBoxes[CB_CONF_MIDI_ENABLE].checked = midi.enable;
 	checkBoxes[CB_CONF_MIDI_REC_ALL].checked = config.recMIDIAllChn;
 	checkBoxes[CB_CONF_MIDI_REC_TRANS].checked = config.recMIDITransp;
 	checkBoxes[CB_CONF_MIDI_REC_VELOC].checked = config.recMIDIVelosity;
 	checkBoxes[CB_CONF_MIDI_REC_AFTERTOUCH].checked = config.recMIDIAftert;
+#endif
 	checkBoxes[CB_CONF_FORCE_VSYNC_OFF].checked = (config.windowFlags & FORCE_VSYNC_OFF) ? true : false;
 	checkBoxes[CB_CONF_START_IN_FULLSCREEN].checked = (config.windowFlags & START_IN_FULLSCR) ? true : false;
 	checkBoxes[CB_CONF_FILTERING].checked = (config.windowFlags & FILTERING) ? true : false;
@@ -1343,10 +1350,10 @@ void showConfigScreen(void)
 
 			showPushButton(PB_CONFIG_MIDI_INPUT_DOWN);
 			showPushButton(PB_CONFIG_MIDI_INPUT_UP);
-
+#ifdef MIDI_ENABLED
 			rescanMidiInputDevices();
 			drawMidiInputList();
-
+#endif
 			showScrollBar(SB_MIDI_INPUT_SCROLL);
 		}
 		break;
@@ -1961,7 +1968,9 @@ void cbMIDIAllowPC(void)
 
 void cbMIDIEnable(void)
 {
+#ifdef MIDI_ENABLED
 	midi.enable ^= 1;
+#endif
 }
 
 void cbMIDIRecTransp(void)

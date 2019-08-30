@@ -1,7 +1,7 @@
 #pragma once
 
 #include <stdint.h>
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
 bool handleEditKeys(SDL_Keycode keycode, SDL_Scancode scancode);
 void recordNote(uint8_t note, int8_t vol);

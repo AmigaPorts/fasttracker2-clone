@@ -3,10 +3,17 @@
 #include <stdint.h>
 #include <stdbool.h>
 
+#if SDL_BYTEORDER == SDL_BIG_ENDIAN
+#define RGB32_B(x) (((x) >> 16) & 0xFF)
+#define RGB32_G(x) (((x) >> 8) & 0xFF)
+#define RGB32_R(x) ((x) & 0xFF)
+#define RGB32(b, g, r) (((r) << 16) | ((g) << 8) | (b))
+#else
 #define RGB32_R(x) (((x) >> 16) & 0xFF)
 #define RGB32_G(x) (((x) >> 8) & 0xFF)
 #define RGB32_B(x) ((x) & 0xFF)
 #define RGB32(r, g, b) (((r) << 16) | ((g) << 8) | (b))
+#endif
 #define P6_TO_P8(x) (((x) << 2) + ((x) >> 4))
 
 #define PAL_TRANSPR 127

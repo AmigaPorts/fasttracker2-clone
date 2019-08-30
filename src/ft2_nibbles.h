@@ -2,7 +2,8 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <SDL2/SDL.h>
+#include <SDL.h>
+#include "sdl1_wrapper.h"
 
 void nibblesKeyAdministrator(SDL_Scancode scancode);
 void moveNibblePlayers(void);

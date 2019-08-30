@@ -708,7 +708,7 @@ void fillRect(uint16_t xPos, uint16_t yPos, uint16_t w, uint16_t h, uint8_t pale
 {
 	uint32_t *dstPtr, pixVal;
 
-	assert(xPos < SCREEN_W && yPos < SCREEN_H && (xPos + w) <= SCREEN_W && (yPos + h) <= SCREEN_H);
+	//assert(xPos < SCREEN_W && yPos < SCREEN_H && (xPos + w) <= SCREEN_W && (yPos + h) <= SCREEN_H);
 
 	pixVal = video.palette[paletteIndex];
 	dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];

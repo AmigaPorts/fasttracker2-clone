@@ -245,10 +245,12 @@ char *unicharToCp437(UNICHAR *src, bool removeIllegalChars)
 // non-Windows routines
 char *cp437ToUtf8(char *src)
 {
+	return src;
+/*
 	char *inPtr, *outPtr, *outBuf;
 	int32_t rc;
 	size_t srcLen, inLen, outLen;
-	iconv_t cd;
+//	iconv_t cd;
 
 	if (src == NULL)
 		return NULL;
@@ -257,9 +259,9 @@ char *cp437ToUtf8(char *src)
 	if (srcLen <= 0)
 		return NULL;
 
-	cd = iconv_open("UTF-8", "437");
-	if (cd == (iconv_t)-1)
-		return NULL;
+//	cd = iconv_open("UTF-8", "437");
+//	if (cd == (iconv_t)-1)
+//		return NULL;
 
 	outLen = srcLen * 2; // should be sufficient
 
@@ -274,10 +276,10 @@ char *cp437ToUtf8(char *src)
 #if defined(__NetBSD__) || defined(__sun) || defined(sun)
 	rc = iconv(cd, (const char **)&inPtr, &inLen, &outPtr, &outLen);
 #else
-	rc = iconv(cd, &inPtr, &inLen, &outPtr, &outLen);
+//	rc = iconv(cd, &inPtr, &inLen, &outPtr, &outLen);
 #endif
-	iconv(cd, NULL, NULL, &outPtr, &outLen); // flush
-	iconv_close(cd);
+//	iconv(cd, NULL, NULL, &outPtr, &outLen); // flush
+//	iconv_close(cd);
 
 	if (rc == -1)
 	{
@@ -286,15 +288,18 @@ char *cp437ToUtf8(char *src)
 	}
 
 	return outBuf;
+*/
 }
 
 char *utf8ToCp437(char *src, bool removeIllegalChars)
 {
+return src;
+/*
 	char *inPtr, *outPtr, *outBuf;
 	int8_t ch;
 	int32_t rc;
 	size_t srcLen, inLen, outLen;
-	iconv_t cd;
+//	iconv_t cd;
 
 	if (src == NULL)
 		return NULL;
@@ -304,14 +309,14 @@ char *utf8ToCp437(char *src, bool removeIllegalChars)
 		return NULL;
 
 #ifdef __APPLE__
-	cd = iconv_open("437//TRANSLIT//IGNORE", "UTF-8-MAC");
+//	cd = iconv_open("437//TRANSLIT//IGNORE", "UTF-8-MAC");
 #elif defined(__NetBSD__) || defined(__sun) || defined(sun)
-	cd = iconv_open("437", "UTF-8");
+//	cd = iconv_open("437", "UTF-8");
 #else
-	cd = iconv_open("437//TRANSLIT//IGNORE", "UTF-8");
+//	cd = iconv_open("437//TRANSLIT//IGNORE", "UTF-8");
 #endif
-	if (cd == (iconv_t)-1)
-		return NULL;
+//	if (cd == (iconv_t)-1)
+//		return NULL;
 
 	outLen = srcLen * 2; // should be sufficient
 
@@ -352,5 +357,6 @@ char *utf8ToCp437(char *src, bool removeIllegalChars)
 	}
 
 	return outBuf;
+*/
 }
 #endif

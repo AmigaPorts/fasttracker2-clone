@@ -179,14 +179,20 @@ void copyInstr(void) // dstInstr = srcInstr
 		return;
 
 	mouseAnimOn();
-	thread = SDL_CreateThread(copyInstrThread, NULL, NULL);
+	thread = SDL_CreateThread(copyInstrThread, NULL
+#if SDL_VERSION_ATLEAST(2,0,0)
+			, NULL
+#endif
+			);
 	if (thread == NULL)
 	{
 		okBox(0, "System message", "Couldn't create thread!");
 		return;
 	}
 
+#if SDL_VERSION_ATLEAST(2,0,0)
 	SDL_DetachThread(thread);
+#endif
 }
 
 void xchgInstr(void) // dstInstr <-> srcInstr
@@ -3011,14 +3017,20 @@ void saveInstr(UNICHAR *filenameU, int16_t nr)
 	UNICHAR_STRCPY(editor.tmpFilenameU, filenameU);
 
 	mouseAnimOn();
-	thread = SDL_CreateThread(saveInstrThread, NULL, NULL);
+	thread = SDL_CreateThread(saveInstrThread, NULL
+#if SDL_VERSION_ATLEAST(2,0,0)
+	, NULL
+#endif
+);
 	if (thread == NULL)
 	{
 		okBox(0, "System message", "Couldn't create thread!");
 		return;
 	}
 
+#if SDL_VERSION_ATLEAST(2,0,0)
 	SDL_DetachThread(thread);
+#endif
 }
 
 static int16_t getPATNote(int32_t freq)
@@ -3369,14 +3381,20 @@ void loadInstr(UNICHAR *filenameU)
 	{
 		// load as instrument
 		mouseAnimOn();
-		thread = SDL_CreateThread(loadInstrThread, NULL, NULL);
+		thread = SDL_CreateThread(loadInstrThread, NULL
+#if SDL_VERSION_ATLEAST(2,0,0)
+				, NULL
+#endif
+);
 		if (thread == NULL)
 		{
 			okBox(0, "System message", "Couldn't create thread!");
 			return;
 		}
 
+#if SDL_VERSION_ATLEAST(2,0,0)
 		SDL_DetachThread(thread);
+#endif
 	}
 	else
 	{

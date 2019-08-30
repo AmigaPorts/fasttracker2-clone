@@ -1,6 +1,8 @@
 #pragma once
 
-#include <SDL2/SDL.h>
+#include <SDL.h>
+#include <SDL_endian.h>
+#include "sdl1_wrapper.h"
 #include <stdint.h>
 #include <stdbool.h>
 #include <assert.h>
