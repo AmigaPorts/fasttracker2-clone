@@ -2,7 +2,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
 #define MIDI_INPUT_SELECTOR_BOX_WIDTH 247
 #define MAX_MIDI_DEVICES 99

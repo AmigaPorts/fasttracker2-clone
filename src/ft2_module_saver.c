@@ -582,14 +582,19 @@ void saveMusic(UNICHAR *filenameU)
 	UNICHAR_STRCPY(editor.tmpFilenameU, filenameU);
 
 	mouseAnimOn();
-	thread = SDL_CreateThread(saveMusicThread, NULL, NULL);
+	thread = SDL_CreateThread(saveMusicThread, NULL
+#if SDL_VERSION_ATLEAST(2,0,4)
+		, NULL
+#endif
+);
 	if (thread == NULL)
 	{
 		okBoxThreadSafe(0, "System message", "Couldn't create thread!");
 		return;
 	}
-
+#if SDL_VERSION_ATLEAST(2,0,0)
 	SDL_DetachThread(thread);
+#endif
 }
 
 static uint16_t packPatt(uint8_t *pattPtr, uint16_t numRows)

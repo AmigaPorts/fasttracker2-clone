@@ -13,7 +13,7 @@
 #include "ft2_audio.h"
 #include "ft2_mouse.h"
 #include "ft2_pattern_ed.h"
-#include "rtmidi/rtmidi_c.h"
+//#include "rtmidi/rtmidi_c.h"
 
 // hide POSIX warnings
 #ifdef _MSC_VER
@@ -21,7 +21,7 @@
 #endif
 
 // MIDI INPUT ONLY!
-
+#ifdef MIDI_ENABLED
 static volatile bool midiDeviceOpened;
 static bool recMIDIValidChn = true;
 static RtMidiPtr midiDev;
@@ -518,3 +518,4 @@ int32_t SDLCALL initMidiFunc(void *ptr)
 
 	return true;
 }
+#endif

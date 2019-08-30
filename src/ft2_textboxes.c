@@ -240,7 +240,9 @@ static void copyMarkedText(textBox_t *t)
 	utf8Text = cp437ToUtf8(&t->textPtr[start]);
 	if (utf8Text != NULL)
 	{
+#if SDL_VERSION_ATLEAST(2,0,0)
 		SDL_SetClipboardText(utf8Text);
+#endif
 		free(utf8Text);
 	}
 }
@@ -262,9 +264,12 @@ static void pasteText(textBox_t *t)
 	char *copiedText, *copiedTextUtf8, *endPart;
 	uint16_t endOffset;
 	int32_t textLength, roomLeft, copiedTextLength, endPartLength;
-
+#if SDL_VERSION_ATLEAST(2,0,0)
 	if (!SDL_HasClipboardText())
 		return;
+#else
+	return;
+#endif
 
 	// if we've marked text, delete it and remove text marking
 	if (textIsMarked())

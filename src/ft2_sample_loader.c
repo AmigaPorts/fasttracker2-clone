@@ -1983,15 +1983,20 @@ bool loadSample(UNICHAR *filenameU, uint8_t smpNr, bool instrFlag)
 			UNICHAR_STRCPY(editor.tmpFilenameU, filenameU);
 
 			mouseAnimOn();
-			thread = SDL_CreateThread(loadWAVSample, NULL, NULL);
+			thread = SDL_CreateThread(loadWAVSample, NULL
+#if SDL_VERSION_ATLEAST(2,0,4)
+		, NULL
+#endif
+);
 			if (thread == NULL)
 			{
 				okBox(0, "System message", "Couldn't create thread!");
 				sampleIsLoading = false;
 				return false;
 			}
-
+#if SDL_VERSION_ATLEAST(2,0,0)
 			SDL_DetachThread(thread);
+#endif
 			return true;
 		}
 
@@ -2020,7 +2025,11 @@ bool loadSample(UNICHAR *filenameU, uint8_t smpNr, bool instrFlag)
 				UNICHAR_STRCPY(editor.tmpFilenameU, filenameU);
 
 				mouseAnimOn();
-				thread = SDL_CreateThread(loadAIFFSample, NULL, NULL);
+				thread = SDL_CreateThread(loadAIFFSample, NULL
+#if SDL_VERSION_ATLEAST(2,0,0)
+		, NULL
+#endif
+);
 				if (thread == NULL)
 				{
 					okBox(0, "System message", "Couldn't create thread!");
@@ -2028,7 +2037,9 @@ bool loadSample(UNICHAR *filenameU, uint8_t smpNr, bool instrFlag)
 					return false;
 				}
 
+#if SDL_VERSION_ATLEAST(2,0,0)
 				SDL_DetachThread(thread);
+#endif
 				return true;
 			}
 			else if (!strncmp("8SVX", tmpBuffer + 8, 4) || !strncmp("16SV", tmpBuffer + 8, 4))
@@ -2041,7 +2052,11 @@ bool loadSample(UNICHAR *filenameU, uint8_t smpNr, bool instrFlag)
 				UNICHAR_STRCPY(editor.tmpFilenameU, filenameU);
 
 				mouseAnimOn();
-				thread = SDL_CreateThread(loadIFFSample, NULL, NULL);
+				thread = SDL_CreateThread(loadIFFSample, NULL
+#if SDL_VERSION_ATLEAST(2,0,0)
+		, NULL
+#endif
+);
 				if (thread == NULL)
 				{
 					okBox(0, "System message", "Couldn't create thread!");
@@ -2049,7 +2064,9 @@ bool loadSample(UNICHAR *filenameU, uint8_t smpNr, bool instrFlag)
 					return false;
 				}
 
+#if SDL_VERSION_ATLEAST(2,0,0)
 				SDL_DetachThread(thread);
+#endif
 				return true;
 			}
 		}
@@ -2063,7 +2080,11 @@ bool loadSample(UNICHAR *filenameU, uint8_t smpNr, bool instrFlag)
 	UNICHAR_STRCPY(editor.tmpFilenameU, filenameU);
 
 	mouseAnimOn();
-	thread = SDL_CreateThread(loadRawSample, NULL, NULL);
+	thread = SDL_CreateThread(loadRawSample, NULL
+#if SDL_VERSION_ATLEAST(2,0,0)
+		, NULL
+#endif
+);
 	if (thread == NULL)
 	{
 		okBox(0, "System message", "Couldn't create thread!");
@@ -2071,7 +2092,9 @@ bool loadSample(UNICHAR *filenameU, uint8_t smpNr, bool instrFlag)
 		return false;
 	}
 
+#if SDL_VERSION_ATLEAST(2,0,0)
 	SDL_DetachThread(thread);
+#endif
 	return true;
 }
 

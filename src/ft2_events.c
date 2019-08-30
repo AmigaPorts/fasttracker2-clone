@@ -21,7 +21,9 @@
 #include "ft2_module_saver.h"
 #include "ft2_sample_loader.h"
 #include "ft2_mouse.h"
+#ifdef MIDI_ENABLED
 #include "ft2_midi.h"
+#endif
 #include "ft2_video.h"
 #include "ft2_trim.h"
 #include "ft2_inst_ed.h"
@@ -105,6 +107,7 @@ void handleThreadEvents(void)
 
 void handleEvents(void)
 {
+#ifdef MIDI_ENABLED
 	// called after MIDI has been initialized
 	if (midi.rescanDevicesFlag)
 	{
@@ -114,6 +117,7 @@ void handleEvents(void)
 		if (editor.ui.configScreenShown && editor.currConfigScreen == CONFIG_SCREEN_MIDI_INPUT)
 			drawMidiInputList();
 	}
+#endif
 
 	if (editor.trimThreadWasDone)
 	{
@@ -382,13 +386,14 @@ void setupCrashHandler(void)
 
 	memset(&act, 0, sizeof (act));
 	act.sa_handler = exceptionHandler;
-	act.sa_flags = SA_RESETHAND;
-
+//	act.sa_flags = SA_RESETHAND;
+/*
 	sigaction(SIGILL | SIGABRT | SIGFPE | SIGSEGV, &act, &oldAct);
 	sigaction(SIGILL, &act, &oldAct);
 	sigaction(SIGABRT, &act, &oldAct);
 	sigaction(SIGFPE, &act, &oldAct);
 	sigaction(SIGSEGV, &act, &oldAct);
+*/
 #endif
 #endif
 }
@@ -406,6 +411,7 @@ static void handleInput(void)
 
 	while (SDL_PollEvent(&event))
 	{
+#if SDL_VERSION_ATLEAST(2,0,0)
 		if (video.vsync60HzPresent)
 		{
 			/* if we minimize the window and vsync is present, vsync is temporarily turned off.
@@ -416,7 +422,7 @@ static void handleInput(void)
 				setupWaitVBL();
 			}
 		}
-
+#endif
 		if (editor.busy)
 		{
 			eventType = event.type;
@@ -459,7 +465,7 @@ static void handleInput(void)
 					keyb.ignoreTextEditKey = false;
 					continue;
 				}
-
+#if SDL_VERSION_ATLEAST(2,0,0)
 				inputText = utf8ToCp437(event.text.text, false);
 				if (inputText != NULL)
 				{
@@ -468,19 +474,24 @@ static void handleInput(void)
 
 					free(inputText);
 				}
+#endif
 			}
 		}
+#if SDL_VERSION_ATLEAST(2,0,0)
 		else if (event.type == SDL_MOUSEWHEEL)
 		{
 			     if (event.wheel.y > 0) mouseWheelHandler(MOUSE_WHEEL_UP);
 			else if (event.wheel.y < 0) mouseWheelHandler(MOUSE_WHEEL_DOWN);
 		}
+#endif
+#if SDL_VERSION_ATLEAST(2,0,0)
 		else if (event.type == SDL_DROPFILE)
 		{
 			editor.autoPlayOnDrop = false;
 			loadDroppedFile(event.drop.file, true);
 			SDL_free(event.drop.file);
 		}
+#endif
 		else if (event.type == SDL_QUIT)
 		{
 			if (editor.ui.sysReqShown)
@@ -495,13 +506,14 @@ static void handleInput(void)
 			}
 			else
 			{
+#if SDL_VERSION_ATLEAST(2,0,0)
 				if (!video.fullscreen)
 				{
 					// de-minimize window and set focus so that the user sees the message box
 					SDL_RestoreWindow(video.window);
 					SDL_RaiseWindow(video.window);
 				}
-
+#endif
 				if (quitBox(true) == 1)
 					editor.throwExit = true;
 			}
@@ -512,7 +524,13 @@ static void handleInput(void)
 		}
 		else if (event.type == SDL_KEYDOWN)
 		{
-			keyDownHandler(event.key.keysym.scancode, event.key.keysym.sym, event.key.repeat);
+			keyDownHandler(event.key.keysym.scancode, event.key.keysym.sym,
+#if SDL_VERSION_ATLEAST(2,0,0)
+					event.key.repeat
+#else
+false
+#endif
+					);
 		}
 		else if (event.type == SDL_MOUSEBUTTONUP)
 		{
@@ -527,8 +545,10 @@ static void handleInput(void)
 			editor.programRunning = false;
 	}
 
+#ifdef MIDI_ENABLED
 	// MIDI vibrato
 	vibDepth = (midi.currMIDIVibDepth >> 9) & 0x0F;
 	if (vibDepth > 0)
 		recordMIDIEffect(0x04, 0xA0 | vibDepth);
+#endif
 }

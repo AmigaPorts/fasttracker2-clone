@@ -16,7 +16,7 @@
 #include "ft2_audio.h"
 #include "ft2_mouse.h"
 
-// Messy But Works™
+// Messy But Worksï¿½
 
 static char byteFormatBuffer[64], tmpInstrName[1 + MAX_INST][22 + 1], tmpInstName[MAX_INST][22 + 1];
 static bool removePatt, removeInst, removeSamp, removeChans, removeSmpDataAfterLoop, convSmpsTo8Bit;
@@ -1222,7 +1222,11 @@ void pbTrimDoTrim(void)
 	mouseAnimOn();
 	pauseAudio();
 
-	trimThread = SDL_CreateThread(trimThreadFunc, NULL, NULL);
+	trimThread = SDL_CreateThread(trimThreadFunc, NULL
+#if SDL_VERSION_ATLEAST(2,0,0)
+		, NULL
+#endif
+);
 	if (trimThread == NULL)
 	{
 		resumeAudio();
@@ -1230,7 +1234,9 @@ void pbTrimDoTrim(void)
 		return;
 	}
 
+#if SDL_VERSION_ATLEAST(2,0,0)
 	SDL_DetachThread(trimThread);
+#endif
 }
 
 void resetTrimSizes(void)

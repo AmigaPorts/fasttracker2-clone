@@ -40,18 +40,24 @@ static void windowOpen(void)
 	editor.ui.sysReqShown = true;
 	editor.ui.sysReqEnterPressed = false;
 
+#if SDL_VERSION_ATLEAST(2,0,0)
 #ifndef __APPLE__
 	if (!video.fullscreen) // release mouse button trap
 		SDL_SetWindowGrab(video.window, SDL_FALSE);
 #endif
+#endif
 
 	unstuckLastUsedGUIElement();
+#if SDL_VERSION_ATLEAST(2,0,4)
 	SDL_EventState(SDL_DROPFILE, SDL_DISABLE);
+#endif
 }
 
 static void windowClose(bool rewriteSample)
 {
+#if SDL_VERSION_ATLEAST(2,0,4)
 	SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
+#endif
 
 	if (exitFlag || rewriteSample)
 		writeSample(true);
@@ -188,14 +194,19 @@ static int32_t SDLCALL resampleThread(void *ptr)
 static void pbDoResampling(void)
 {
 	mouseAnimOn();
-	thread = SDL_CreateThread(resampleThread, NULL, NULL);
+	thread = SDL_CreateThread(resampleThread, NULL
+#if SDL_VERSION_ATLEAST(2,0,4)
+			, NULL
+#endif
+);
 	if (thread == NULL)
 	{
 		okBox(0, "System message", "Couldn't create thread!");
 		return;
 	}
-
+#if SDL_VERSION_ATLEAST(2,0,4)
 	SDL_DetachThread(thread);
+#endif
 }
 
 static void drawResampleBox(void)
@@ -575,14 +586,19 @@ static void pbCreateEcho(void)
 	stopThread = false;
 
 	mouseAnimOn();
-	thread = SDL_CreateThread(createEchoThread, NULL, NULL);
+	thread = SDL_CreateThread(createEchoThread, NULL
+	#if SDL_VERSION_ATLEAST(2,0,4)
+			, NULL
+	#endif
+	);
 	if (thread == NULL)
 	{
 		okBox(0, "System message", "Couldn't create thread!");
 		return;
 	}
-
+#if SDL_VERSION_ATLEAST(2,0,0)
 	SDL_DetachThread(thread);
+#endif
 }
 
 static void drawEchoBox(void)
@@ -976,14 +992,20 @@ static int32_t SDLCALL mixThread(void *ptr)
 static void pbMix(void)
 {
 	mouseAnimOn();
-	thread = SDL_CreateThread(mixThread, NULL, NULL);
+	thread = SDL_CreateThread(mixThread, NULL
+#if SDL_VERSION_ATLEAST(2,0,4)
+		, NULL
+#endif
+);
 	if (thread == NULL)
 	{
 		okBox(0, "System message", "Couldn't create thread!");
 		return;
 	}
 
+#if SDL_VERSION_ATLEAST(2,0,0)
 	SDL_DetachThread(thread);
+#endif
 }
 
 static void sbSetMixBalancePos(uint32_t pos)
@@ -1301,14 +1323,19 @@ static void pbApplyVolume(void)
 	}
 
 	mouseAnimOn();
-	thread = SDL_CreateThread(applyVolumeThread, NULL, NULL);
+	thread = SDL_CreateThread(applyVolumeThread, NULL
+#if SDL_VERSION_ATLEAST(2,0,0)
+		, NULL
+#endif
+);
 	if (thread == NULL)
 	{
 		okBox(0, "System message", "Couldn't create thread!");
 		return;
 	}
-
+#if SDL_VERSION_ATLEAST(2,0,0)
 	SDL_DetachThread(thread);
+#endif
 }
 
 static int32_t SDLCALL getMaxScaleThread(void *ptr)
@@ -1414,14 +1441,19 @@ getScaleExit:
 static void pbGetMaxScale(void)
 {
 	mouseAnimOn();
-	thread = SDL_CreateThread(getMaxScaleThread, NULL, NULL);
+	thread = SDL_CreateThread(getMaxScaleThread, NULL
+#if SDL_VERSION_ATLEAST(2,0,0)
+		, NULL
+#endif
+);
 	if (thread == NULL)
 	{
 		okBox(0, "System message", "Couldn't create thread!");
 		return;
 	}
-
+#if SDL_VERSION_ATLEAST(2,0,0)
 	SDL_DetachThread(thread);
+#endif
 }
 
 static void drawSampleVolumeBox(void)
