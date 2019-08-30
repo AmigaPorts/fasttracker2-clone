@@ -1,5 +1,5 @@
 These graphics (except "ft2-clone.ico", "logo.bmp" and "midilogo.bmp")
-are copyrighted Magnus "Vogue" Högdahl and can ONLY be used for non-commercial
+are copyrighted Magnus "Vogue" HÃ¶gdahl and can ONLY be used for non-commercial
 purposes! Some of the graphics have been slightly altered by me (8bitbubsy).
 The rest of the graphics uses the same BSD 3-clause license as the source code.
 
@@ -426,7 +426,7 @@ Section 8 -- Interpretation.
 Creative Commons is not a party to its public
 licenses. Notwithstanding, Creative Commons may elect to apply one of
 its public licenses to material it publishes and in those instances
-will be considered the “Licensor.” The text of the Creative Commons
+will be considered the Â“Licensor.Â” The text of the Creative Commons
 public licenses is dedicated to the public domain under the CC0 Public
 Domain Dedication. Except for the limited purpose of indicating that
 material is shared under a Creative Commons public license or as
