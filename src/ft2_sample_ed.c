@@ -74,7 +74,7 @@ void fixSample(sampleTyp *s)
 				return;
 
 			len /= 2;
-			ptr16 = (int16_t *)s->pek;
+			ptr16 = SDL_SwapLE16((int16_t *)s->pek);
 
 			// write new values
 			ptr16[len+0] = 0;
@@ -114,13 +114,13 @@ void fixSample(sampleTyp *s)
 			loopStart = SDL_SwapLE32(s->repS) / 2;
 			loopEnd = (SDL_SwapLE32(s->repS) + SDL_SwapLE32(s->repL)) / 2;
 
-			ptr16 = (int16_t *)s->pek;
+			ptr16 = SDL_SwapLE16((int16_t *)s->pek);
 
 			// store old values and old fix position
-			s->fixedSmp1 = SDL_SwapLE16(ptr16[loopEnd]);
+			s->fixedSmp1 = (ptr16[loopEnd]);
 			s->fixedPos = SDL_SwapLE32(s->repS) + SDL_SwapLE32(s->repL);
 #ifndef LERPMIX
-			s->fixedSmp2 = SDL_SwapLE16(ptr16[loopEnd+1]);
+			s->fixedSmp2 = (ptr16[loopEnd+1]);
 #endif
 			// write new values
 			ptr16[loopEnd+0] = SDL_SwapLE16(ptr16[loopStart+0]);
