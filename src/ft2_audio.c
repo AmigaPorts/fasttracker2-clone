@@ -1217,7 +1217,7 @@ bool setupAudio(bool showErrorMsg)
 
 	// these three may change after opening a device, but our mixer is dealing with it
 	want.freq     = config.audioFreq;
-	want.format   = AUDIO_S16SYS;//(config.specialFlags & BITDEPTH_24) ? AUDIO_F32 : AUDIO_S16;
+	want.format   = (config.specialFlags & BITDEPTH_24) ? AUDIO_F32 : AUDIO_S16;
 	want.channels = 2;
 	// -------------------------------------------------------------------------------
 	want.callback = mixCallback;
@@ -1233,7 +1233,7 @@ bool setupAudio(bool showErrorMsg)
 	}
 
 	// test if the received audio format is compatible
-/*	if (have.format != AUDIO_S16 && have.format != AUDIO_F32)
+	if (have.format != AUDIO_S16 && have.format != AUDIO_F32)
 	{
 		//if (showErrorMsg)
 			showErrorMsgBox("Couldn't open audio device:\nThe program doesn't support an SDL_AudioFormat of '%d' (not 16-bit or 24-bit float).%s",
@@ -1252,7 +1252,7 @@ bool setupAudio(bool showErrorMsg)
 		closeAudio();
 		return false;
 	}
-*/
+
 	if (!setupAudioBuffers())
 	{
 		if (showErrorMsg)

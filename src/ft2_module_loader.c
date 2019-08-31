@@ -2047,8 +2047,11 @@ static bool loadInstrSample(FILE *f, uint16_t i)
 		// if a sample has both forward loop and pingpong loop set, make it pingpong loop only (FT2 behavior)
 		if ((s->typ & 3) == 3)
 			s->typ &= 0xFE;
+		s->len = SDL_SwapLE32(s->len);
+		s->repL = SDL_SwapLE32(s->repL);
+		s->repS = SDL_SwapLE32(s->repS);
 
-		l = SDL_SwapLE32(s->len);
+		l = s->len;
 		if (l <= 0)
 		{
 			s->pek = NULL;
@@ -2088,7 +2091,7 @@ static bool loadInstrSample(FILE *f, uint16_t i)
 				s->repL /= 2;
 				s->repS /= 2;
 
-				newPtr = (int8_t *)realloc(s->pek, SDL_SwapLE32(s->len) + LOOP_FIX_LEN);
+				newPtr = (int8_t *)realloc(s->pek, s->len + LOOP_FIX_LEN);
 				if (newPtr != NULL)
 					s->pek = newPtr;
 
@@ -2099,9 +2102,9 @@ static bool loadInstrSample(FILE *f, uint16_t i)
 		// NON-FT2 FIX: Align to 2-byte if 16-bit sample
 		if (s->typ & 16)
 		{
-			s->repL &= SDL_SwapLE32(0xFFFFFFFE);
-			s->repS &= SDL_SwapLE32(0xFFFFFFFE);
-			s->len &= SDL_SwapLE32(0xFFFFFFFE);
+			s->repL &= 0xFFFFFFFE;
+			s->repS &= 0xFFFFFFFE;
+			s->len &= 0xFFFFFFFE;
 		}
 
 		checkSampleRepeat(s);
