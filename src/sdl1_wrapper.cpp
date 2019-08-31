@@ -338,6 +338,7 @@ int SDL_UpdateTexture(SDL_Texture* texture, const SDL_Rect* rect, const void* pi
 	amask = 0xff000000;
 #endif
 	texture = SDL_CreateRGBSurfaceFrom(const_cast<void*>(pixels), 600, 400, D_BPP, pitch, rmask, gmask, bmask, amask);
+	return 1;
 }
 
 SDL_Texture* SDL_CreateTexture(SDL_Renderer* renderer, Uint32 format, int access, int w, int h)

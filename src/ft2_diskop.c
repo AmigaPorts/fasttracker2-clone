@@ -243,6 +243,7 @@ void freeDiskOp(void)
 		editor.tmpInstrFilenameU = NULL;
 	}
 
+
 	if (modTmpFName != NULL) { free(modTmpFName); modTmpFName = NULL; }
 	if (insTmpFName != NULL) { free(insTmpFName); insTmpFName = NULL; }
 	if (smpTmpFName != NULL) { free(smpTmpFName); smpTmpFName = NULL; }
