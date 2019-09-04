@@ -416,6 +416,21 @@ void mouseButtonUpHandler(uint8_t mouseButton)
 	{
 		mouse.rightButtonPressed  = false;
 		mouse.rightButtonReleased = true;
+
+		if (editor.editSampleFlag)
+		{
+			if (currSmp != NULL)
+				fixSample(currSmp);
+
+			resumeAudio();
+
+			if (editor.ui.sampleEditorShown)
+				writeSample(true);
+
+			setSongModifiedFlag();
+			editor.editSampleFlag = false;
+		}
+
 	}
 
 	mouse.firstTimePressingButton = false;

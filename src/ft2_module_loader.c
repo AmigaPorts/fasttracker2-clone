@@ -6,6 +6,9 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdbool.h>
+#ifndef _WIN32
+#include <unistd.h>
+#endif
 #include "ft2_header.h"
 #include "ft2_audio.h"
 #include "ft2_config.h"
@@ -484,7 +487,7 @@ static bool loadMusicMOD(FILE *f, uint32_t fileLength)
 
 			s->len = 2 * SWAP16(h_MOD31.instr[a].len);
 
-			s->pek = (int8_t *)(malloc(s->len + 4));
+			s->pek = (int8_t *)(malloc(s->len + LOOP_FIX_LEN));
 			if (s->pek == NULL)
 			{
 				freeTmpModule();
@@ -547,16 +550,16 @@ static bool loadMusicMOD(FILE *f, uint32_t fileLength)
 				s->repS = 0;
 			}
 
-			if (fread(s->pek, s->len, 1, f) != 1)
+			if (fread(s->pek, s->len, 1, f) == 1)
 			{
-				freeTmpModule();
-				fclose(f);
-				okBoxThreadSafe(0, "System message", "General I/O error during loading! Possibly corrupt module?");
-				moduleFailedToLoad = true;
-				return (false);
+				fixSample(s);
 			}
-
-			fixSample(s);
+			else
+			{
+				free(s->pek);
+				s->pek = NULL;
+				s->len = 0;
+			}
 		}
 	}
 
@@ -821,7 +824,7 @@ static bool loadMusicSTM(FILE *f, uint32_t fileLength)
 		{
 			s = &instrTmp[1 + i].samp[0];
 
-			s->pek = (int8_t *)(malloc(h_STM.instr[i].len + 4));
+			s->pek = (int8_t *)(malloc(h_STM.instr[i].len + LOOP_FIX_LEN));
 			if (s->pek == NULL)
 			{
 				freeTmpModule();
@@ -1495,7 +1498,7 @@ static bool loadMusicS3M(FILE *f, uint32_t dataLength)
 				if ((h_S3MInstr.flags & 4) != 0) // 16-bit
 					len *= 2;
 
-				tmpSmp = (int8_t *)(malloc(len + 4));
+				tmpSmp = (int8_t *)(malloc(len + LOOP_FIX_LEN));
 				if (tmpSmp == NULL)
 				{
 					freeTmpModule();
@@ -1556,7 +1559,7 @@ static bool loadMusicS3M(FILE *f, uint32_t dataLength)
 					{
 						conv16BitSample(tmpSmp, len, h_S3MInstr.flags & 2);
 
-						s->pek = (int8_t *)(malloc((h_S3MInstr.len * 2) + 4));
+						s->pek = (int8_t *)(malloc((h_S3MInstr.len * 2) + LOOP_FIX_LEN));
 						if (s->pek == NULL)
 						{
 							free(tmpSmp);
@@ -1577,7 +1580,7 @@ static bool loadMusicS3M(FILE *f, uint32_t dataLength)
 					{
 						conv8BitSample(tmpSmp, len, h_S3MInstr.flags & 2);
 
-						s->pek = (int8_t *)(malloc(h_S3MInstr.len + 4));
+						s->pek = (int8_t *)(malloc(h_S3MInstr.len + LOOP_FIX_LEN));
 						if (s->pek == NULL)
 						{
 							free(tmpSmp);
@@ -2104,6 +2107,7 @@ static void checkSampleRepeat(sampleTyp *s)
 
 static bool loadInstrSample(FILE *f, uint16_t i)
 {
+	int8_t *newPtr;
 	uint16_t j, k;
 	int32_t l, bytesToSkip;
 	sampleTyp *s;
@@ -2140,7 +2144,7 @@ static bool loadInstrSample(FILE *f, uint16_t i)
 				l = MAX_SAMPLE_LEN;
 			}
 
-			s->pek = (int8_t *)(malloc(l + 4));
+			s->pek = (int8_t *)(malloc(l + LOOP_FIX_LEN));
 			if (s->pek == NULL)
 				return (false);
 
@@ -2160,7 +2164,9 @@ static bool loadInstrSample(FILE *f, uint16_t i)
 				s->repL /= 2;
 				s->repS /= 2;
 
-				s->pek = (int8_t *)(realloc(s->pek, s->len + 4));
+				newPtr = (int8_t *)(realloc(s->pek, s->len + LOOP_FIX_LEN));
+				if (newPtr != NULL)
+					s->pek = newPtr;
 
 				stereoSamplesWarn = true;
 			}
@@ -2544,8 +2550,9 @@ static void setupLoadedModule(void)
 
 bool handleModuleLoadFromArg(int argc, char **argv)
 {
+	int32_t filesize;
 	uint32_t filenameLen;
-	UNICHAR *filenameU;
+	UNICHAR *filenameU, tmpPathU[PATH_MAX + 2];
 
 	// this is crude, we always expect only one parameter, and that it is the module.
 
@@ -2572,16 +2579,42 @@ bool handleModuleLoadFromArg(int argc, char **argv)
 	strcpy(filenameU, argv[1]);
 #endif
 
+	// store old path
+	UNICHAR_GETCWD(tmpPathU, PATH_MAX);
+
+	// set binary path
+	UNICHAR_CHDIR(editor.binaryPathU);
+
+	filesize = getFileSize(filenameU);
+
+	if (filesize == -1) // >2GB
+	{
+		okBox(0, "System message", "The file is too big and can't be loaded (over 2GB).");
+		goto argLoadErr;
+	}
+
+	if (filesize >= (128L * 1024 * 1024)) // 128MB
+	{
+		if (okBox(2, "System request", "Are you sure you want to load such a big file?") != 1)
+			goto argLoadErr;
+	}
+
 	editor.loadMusicEvent = EVENT_LOADMUSIC_ARGV;
 	loadMusic(filenameU);
+	
+	UNICHAR_CHDIR(tmpPathU); // set old path back
 	free(filenameU);
-
 	return (true);
+
+argLoadErr:
+	UNICHAR_CHDIR(tmpPathU); // set old path back
+	free(filenameU);
+	return (false);
 }
 
 void loadDroppedFile(char *fullPathUTF8, bool songModifiedCheck)
 {
-	int32_t fullPathLen;
+	int32_t fullPathLen, filesize;
 	UNICHAR *fullPathU;
 
 	if (editor.ui.sysReqShown || (fullPathUTF8 == NULL))
@@ -2604,6 +2637,26 @@ void loadDroppedFile(char *fullPathUTF8, bool songModifiedCheck)
 	strcpy(fullPathU, fullPathUTF8);
 #endif
 
+	filesize = getFileSize(fullPathU);
+
+	if (filesize == -1) // >2GB
+	{
+		okBox(0, "System message", "The file is too big and can't be loaded (over 2GB).");
+		free(fullPathU);
+		return;
+	}
+
+	if (filesize >= (128L * 1024 * 1024)) // 128MB
+	{
+		if (okBox(2, "System request", "Are you sure you want to load such a big file?") != 1)
+		{
+			free(fullPathU);
+			return;
+		}
+	}
+
+	// pass UTF8 to these tests so that we can test file ending in ASCII/ANSI
+
 	if (fileIsInstrument(fullPathUTF8))
 	{
 		loadInstr(fullPathU);
@@ -2624,10 +2677,11 @@ void loadDroppedFile(char *fullPathUTF8, bool songModifiedCheck)
 
 			if (okBox(2, "System request", "You have unsaved changes in your song. Load new song and lose all changes?") != 1)
 			{
-				free(fullPathU); // allocated above
+				free(fullPathU);
 				return;
 			}
 		}
+
 		editor.loadMusicEvent = EVENT_LOADMUSIC_DRAGNDROP;
 		loadMusic(fullPathU);
 	}

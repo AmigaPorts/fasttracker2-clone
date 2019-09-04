@@ -370,55 +370,58 @@ bool testScopesMouseDown(void)
 	return (false);
 }
 
-static void triggerScope(uint8_t ch, int8_t *pek, int32_t len, int32_t repS, int32_t repL, uint8_t typ, int32_t playOffset)
+static void scopeTrigger(uint8_t ch, sampleTyp *s, int32_t playOffset)
 {
 	bool sampleIs16Bit;
 	uint8_t loopType;
+	int32_t length, loopBegin, loopLength;
 	volatile scope_t *sc;
 	scope_t tempState;
 
 	sc = &scope[ch];
 
-	loopType = typ & 3;
-	sampleIs16Bit = (typ >> 4) & 1;
+	length = s->len;
+	loopBegin = s->repS;
+	loopLength = s->repL;
+	loopType = s->typ & 3;
+	sampleIs16Bit = (s->typ >> 4) & 1;
 
-	if ((pek == NULL) || (len < 1))
+	if (sampleIs16Bit)
+	{
+		assert(!(length & 1));
+		assert(!(loopBegin & 1));
+		assert(!(loopLength & 1));
+
+		length >>= 1;
+		loopBegin >>= 1;
+		loopLength >>= 1;
+	}
+
+	if ((s->pek == NULL) || (length < 1))
 	{
 		sc->active = false; // shut down scope (illegal parameters)
 		return;
 	}
 
-	if (sampleIs16Bit)
-	{
-		assert(!(repS & 1));
-		assert(!(len  & 1));
-		assert(!(repL & 1));
-
-		repS >>= 1;
-		len  >>= 1;
-		repL >>= 1;
-
-		tempState.sampleData16 = (const int16_t *)(pek);
-	}
-	else
-	{
-		tempState.sampleData8 = (const int8_t *)(pek);
-	}
-
-	if (repL < 1)
+	if (loopLength < 1) // disable loop if loopLength is below 1
 		loopType = 0;
 
-	tempState.sample16Bit = sampleIs16Bit;
+	if (sampleIs16Bit)
+		tempState.sampleData16 = (const int16_t *)(s->pek);
+	else
+		tempState.sampleData8 = (const int8_t *)(s->pek);
 
-	tempState.posXOR   = 0; // forwards
-	tempState.SLen     = (loopType > 0) ? (repS + repL) : len;
-	tempState.SRepS    = repS;
-	tempState.SRepL    = repL;
-	tempState.SPos     = playOffset;
-	tempState.SPosDec  = 0; // position fraction
+	tempState.sample16Bit = sampleIs16Bit;
 	tempState.loopType = loopType;
 
-	// if 9xx position overflows, shut down scopes (confirmed FT2 behavior)
+	tempState.posXOR  = 0; // forwards
+	tempState.SLen    = (loopType > 0) ? (loopBegin + loopLength) : length;
+	tempState.SRepS   = loopBegin;
+	tempState.SRepL   = loopLength;
+	tempState.SPos    = playOffset;
+	tempState.SPosDec = 0; // position fraction
+	
+	// if 9xx position overflows, shut down scopes
 	if (tempState.SPos >= tempState.SLen)
 	{
 		sc->active = false;
@@ -435,7 +438,7 @@ static void triggerScope(uint8_t ch, int8_t *pek, int32_t len, int32_t repS, int
 	** In theory it -can- be written to in the middle of a cached read,
     ** then the read thread writes its own non-updated cached copy back and
 	** the trigger never happens. So far I have never seen it happen,
-	** so it's probably very rare. */
+	** so it's probably very rare. Yes, this is not good coding... */
 
 	*sc = tempState;
 }
@@ -791,8 +794,8 @@ void handleScopesFromChQueue(chSyncData_t *chSyncData, uint8_t *scopeUpdateStatu
 	uint8_t i, status;
 	double dFrq;
 	syncedChannel_t *ch;
-	sampleTyp *s;
 	volatile scope_t *sc;
+	sampleTyp *smpPtr;
 
 	for (i = 0; i < song.antChn; ++i)
 	{
@@ -820,8 +823,8 @@ void handleScopesFromChQueue(chSyncData_t *chSyncData, uint8_t *scopeUpdateStatu
 		// start scope sample
 		if (status & IS_NyTon)
 		{
-			s = &instr[ch->instrNr].samp[ch->sampleNr];
-			triggerScope(i, s->pek, s->len, s->repS, s->repL, s->typ, ch->smpStartPos);
+			smpPtr = &instr[ch->instrNr].samp[ch->sampleNr];
+			scopeTrigger(i, smpPtr, ch->smpStartPos);
 
 			// set stuff used by Smp. Ed. for sampling position line
 
@@ -893,7 +896,7 @@ bool initScopes(void)
 	dFrac = modf(editor.dPerfFreq / SCOPE_HZ, &dInt);
 
 	// integer part
-	double2int32_trunc(scopeTimeLen, dInt);
+	scopeTimeLen = (uint32_t)(dInt);
 
 	// fractional part scaled to 0..2^32-1
 	dFrac *= (UINT32_MAX + 1.0);

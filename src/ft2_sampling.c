@@ -21,16 +21,20 @@ static SDL_AudioDeviceID recordDev;
 
 static void SDLCALL samplingCallback(void *userdata, Uint8 *stream, int len)
 {
+	int8_t *newPtr;
+
 	if ((currSmp == NULL) || (len < 0))
 		return;
 
-	currSmp->pek = (int8_t *)(realloc(currSmp->pek, (currSmp->len + len) + 4)); // +4 for interpolation loop fix
-	if (currSmp->pek == NULL)
+	newPtr = (int8_t *)(realloc(currSmp->pek, (currSmp->len + len) + LOOP_FIX_LEN));
+	if (newPtr == NULL)
 	{
 		drawSamplingBufferFlag = false;
 		outOfMemoryFlag = true;
 		return;
 	}
+
+	currSmp->pek = newPtr;
 
 	displayBufferLen = MAX(SAMPLING_BUFFER_SIZE * 2, len);
 	currSampleLen = currSmp->len;

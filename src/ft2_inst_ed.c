@@ -16,6 +16,7 @@
 #include "ft2_mouse.h"
 #include "ft2_video.h"
 #include "ft2_sample_loader.h"
+#include "ft2_diskop.h"
 
 #ifdef _MSC_VER
 #pragma pack(push)
@@ -134,14 +135,14 @@ static int32_t SDLCALL copyInstrThread(void *ptr)
 		dstSmp->pek = NULL;
 		if (srcSmp->pek != NULL)
 		{
-			p = (int8_t *)(malloc(srcSmp->len + 4));
+			p = (int8_t *)(malloc(srcSmp->len + LOOP_FIX_LEN));
 			if (p == NULL)
 			{
 				okBoxThreadSafe(0, "System message", "Not enough memory!");
 				break;
 			}
 
-			memcpy(p, srcSmp->pek, srcSmp->len + 4); // +4 = include loop fix area
+			memcpy(p, srcSmp->pek, srcSmp->len + LOOP_FIX_LEN);
 			dstSmp->pek = p;
 		}
 	}
@@ -3264,6 +3265,7 @@ static int16_t getPATNote(int32_t freq)
 static int32_t SDLCALL loadInstrThread(void *ptr)
 {
 	bool stereoWarning;
+	int8_t *newPtr;
 	int16_t i, j, a, b;
 	double dFreq;
 	FILE *f;
@@ -3400,7 +3402,7 @@ static int32_t SDLCALL loadInstrThread(void *ptr)
 
 			if (s->len > 0)
 			{
-				s->pek = (int8_t *)(malloc(s->len + 4));
+				s->pek = (int8_t *)(malloc(s->len + LOOP_FIX_LEN));
 				if (s->pek == NULL)
 				{
 					clearInstr(editor.curInstr);
@@ -3428,7 +3430,9 @@ static int32_t SDLCALL loadInstrThread(void *ptr)
 					s->repL /= 2;
 					s->repS /= 2;
 
-					s->pek = (int8_t *)(realloc(s->pek, s->len + 4));
+					newPtr = (int8_t *)(realloc(s->pek, s->len + LOOP_FIX_LEN));
+					if (newPtr != NULL)
+						s->pek = newPtr;
 
 					stereoWarning = true;
 				}
@@ -3484,7 +3488,7 @@ static int32_t SDLCALL loadInstrThread(void *ptr)
 					goto loadDone;
 				}
 
-				s->pek = (int8_t *)(malloc(ih_PATWave.waveSize + 4));
+				s->pek = (int8_t *)(malloc(ih_PATWave.waveSize + LOOP_FIX_LEN));
 				if (s->pek == NULL)
 				{
 					clearInstr(editor.curInstr);

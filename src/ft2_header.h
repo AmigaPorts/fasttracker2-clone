@@ -14,7 +14,7 @@
 #endif
 #include "ft2_replayer.h"
 
-#define BETA_VERSION 156
+#define BETA_VERSION 157
 
 // do NOT change these! It will only mess things up...
 
@@ -29,6 +29,10 @@
 #define FT2_VBLANK_HZ 70
 #define SCREEN_W 632
 #define SCREEN_H 400
+
+/* Amount of extra bytes to allocate for every instrument sample.
+** Warning: Do not change this! */
+#define LOOP_FIX_LEN 4
 
 #ifndef _WIN32
 #define _stricmp strcasecmp
@@ -67,29 +71,26 @@
 
 // - float/double to int32_t intrinsics -
 
-#if defined __APPLE__ || defined __amd64__ || defined _WIN64 // guaranteed to have SSE2
+#if defined __APPLE__ || defined __amd64__ || defined _WIN64 // guaranteed to have SSE and SSE2
+
+#define float2int32_round(i, f)  (i = _mm_cvt_ss2si(_mm_load_ss(&f)))
 #define double2int32_round(i, d) (i = _mm_cvtsd_si32(_mm_load_sd(&d)))
-#define double2int32_trunc(i, d) (i = _mm_cvttsd_si32(_mm_load_sd(&d)))
-#define float2int32_round(i, f)  (i = _mm_cvt_ss2si(_mm_load_ss(&f)))
-#define float2int32_trunc(i, f)  (i = _mm_cvtt_ss2si(_mm_load_ss(&f)))
+
 #elif defined _WIN32 || defined __i386__ // has SSE, may have SSE2
-#define float2int32_round(i, f)  (i = _mm_cvt_ss2si(_mm_load_ss(&f)))
-#define float2int32_trunc(i, f)  (i = _mm_cvtt_ss2si(_mm_load_ss(&f)))
-#define double2int32_trunc(i, d) \
-	if (cpu.hasSSE2) \
-		i = _mm_cvttsd_si32(_mm_load_sd(&d)); \
-	else \
-		i = (int32_t)(d);
+
+#define float2int32_round(i, f) i = _mm_cvt_ss2si(_mm_load_ss(&f));
+
 #define double2int32_round(i, d) \
 	if (cpu.hasSSE2) \
 		i = _mm_cvtsd_si32(_mm_load_sd(&d)); \
 	else \
 		i = (int32_t)(round(d));
-#else // no SSE, let the compiler optimize
-#define double2int32_round(i, d) i = (int32_t)(round(d));
-#define double2int32_trunc(i, d) i = (int32_t)(d);
+
+#else // no SSE/SSE2, let the compiler optimize
+
 #define float2int32_round(i, f)  i = (int32_t)(roundf(f));
-#define float2int32_trunc(i, f)  i = (int32_t)(f);
+#define double2int32_round(i, d) i = (int32_t)(round(d));
+
 #endif
 
 struct cpu_t
@@ -138,6 +139,7 @@ struct editor_t
 		int8_t object;
 	} cursor;
 
+	UNICHAR binaryPathU[PATH_MAX + 2];
 	UNICHAR *tmpFilenameU, *tmpInstrFilenameU; // used by saving/loading threads
 	UNICHAR *configFileLocation, *audioDevConfigFileLocation, *midiConfigFileLocation;
 
@@ -147,7 +149,7 @@ struct editor_t
 	volatile FILE *wavRendererFileHandle;
 
 	bool autoPlayOnDrop, trimThreadWasDone, throwExit, editTextFlag;
-	bool copyMaskEnable, diskOpReadOnOpen, samplingAudioFlag;
+	bool copyMaskEnable, diskOpReadOnOpen, samplingAudioFlag, editSampleFlag;
 	bool instrBankSwapped, channelMute[MAX_VOICES], NI_Play;
 
 	uint8_t curPlayInstr, curPlaySmp, curSmpChannel, currPanEnvPoint, currVolEnvPoint, currPaletteEdit;

@@ -1223,7 +1223,7 @@ bool loadTrack(UNICHAR *filenameU)
 		return (false);
 	}
 
-	nr      = editor.editPattern;
+	nr = editor.editPattern;
 	pattLen = pattLens[nr];
 
 	if (fread(&th, 1, sizeof (th), f) != sizeof (th))

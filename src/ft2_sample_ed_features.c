@@ -110,7 +110,7 @@ static int32_t SDLCALL resampleThread(void *ptr)
 
 	newLen = (int32_t)(dNewLen) & mask;
 
-	p2 = (int8_t *)(malloc(newLen + 4));
+	p2 = (int8_t *)(malloc(newLen + LOOP_FIX_LEN));
 	if (p2 == NULL)
 	{
 		outOfMemory = true;
@@ -423,7 +423,7 @@ static void pbEchoFadeoutUp(void)
 
 static int32_t SDLCALL createEchoThread(void *ptr)
 {
-	int8_t *readPtr, *writePtr;
+	int8_t *readPtr, *writePtr, *newPtr;
 	bool is16Bit;
 	int32_t numEchoes, distance, readLen, writeLen, i, j;
 	int32_t tmp32, smpOut, smpMul, echoRead, echoCycle, writeIdx;
@@ -459,7 +459,7 @@ static int32_t SDLCALL createEchoThread(void *ptr)
 			writeLen &= 0xFFFFFFFE;
 	}
 
-	writePtr = (int8_t *)(malloc(writeLen + 4));
+	writePtr = (int8_t *)(malloc(writeLen + LOOP_FIX_LEN));
 	if (writePtr == NULL)
 	{
 		outOfMemory = true;
@@ -519,7 +519,11 @@ static int32_t SDLCALL createEchoThread(void *ptr)
 	if (stopThread)
 	{
 		writeLen = writeIdx;
-		currSmp->pek = (int8_t *)(realloc(writePtr, writeIdx + 4));
+
+		newPtr = (int8_t *)(realloc(writePtr, writeIdx + LOOP_FIX_LEN));
+		if (newPtr != NULL)
+			currSmp->pek = newPtr;
+
 		editor.updateCurSmp = true;
 	}
 	else

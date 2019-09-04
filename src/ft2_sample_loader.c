@@ -15,6 +15,9 @@
 #include "ft2_mouse.h"
 #include "ft2_diskop.h"
 
+/* All of these routines were written from scratch and were not present
+** in original FT2. */
+
 enum
 {
 	STEREO_SAMPLE_READ_LEFT  = 1,
@@ -32,7 +35,6 @@ static int16_t stereoSampleLoadMode;
 static SDL_Thread *thread;
 
 static void normalize32bitSigned(int32_t *sampleData, uint32_t sampleLength);
-static void normalize24bitSigned(int32_t *sampleData, uint32_t sampleLength);
 static void normalize16bitFloatSigned(float *fSampleData, uint32_t sampleLength);
 static void normalize64bitDoubleSigned(double *dSampleData, uint32_t sampleLength);
 
@@ -41,29 +43,27 @@ void removeSampleIsLoadingFlag(void)
 	sampleIsLoading = false;
 }
 
-static double aiffRateToDouble(uint8_t *in)
+static int32_t getAIFFRate(uint8_t *in)
 {
-	int32_t neg, exp;
+	int32_t exp;
 	uint32_t lo, hi;
 	double dOut;
 
-	neg = (int32_t)(in[0] >> 7);
 	exp = (int32_t)(((in[0] & 0x7F) << 8) | in[1]);
 	lo  = (in[2] << 24) | (in[3] << 16) | (in[4] << 8) | in[5];
 	hi  = (in[6] << 24) | (in[7] << 16) | (in[8] << 8) | in[9];
 
 	if ((exp == 0) && (lo == 0) && (hi == 0))
-		return (0.0);
+		return (0);
 
 	exp -= 16383;
 
 	dOut = ldexp(lo, -31 + exp) + ldexp(hi, -63 + exp);
-	return (neg ? -dOut : dOut);
+	return ((int32_t)(round(dOut)));
 }
 
 static bool aiffIsStereo(FILE *f) // only ran on files that are confirmed to be AIFFs
 {
-	bool stereoFlag;
 	uint16_t numChannels;
 	int32_t bytesRead, endOfChunk, filesize;
 	uint32_t chunkID, chunkSize, commPtr, commLen;
@@ -115,18 +115,13 @@ static bool aiffIsStereo(FILE *f) // only ran on files that are confirmed to be 
 
 	fseek(f, commPtr, SEEK_SET);
 	fread(&numChannels, 2, 1, f); numChannels = SWAP16(numChannels);
-
-	stereoFlag = false;
-	if (numChannels == 2)
-		stereoFlag = true;
-
 	fseek(f, oldPos, SEEK_SET);
-	return (stereoFlag);
+
+	return (numChannels == 2);
 }
 
 static bool wavIsStereo(FILE *f) // only ran on files that are confirmed to be WAVs
 {
-	bool stereoFlag;
 	uint16_t numChannels;
 	int32_t bytesRead, endOfChunk, filesize;
 	uint32_t chunkID, chunkSize, fmtPtr, fmtLen;
@@ -179,21 +174,17 @@ static bool wavIsStereo(FILE *f) // only ran on files that are confirmed to be W
 
 	fseek(f, fmtPtr + 2, SEEK_SET);
 	fread(&numChannels, 2, 1, f);
-
-	stereoFlag = false;
-	if (numChannels == 2)
-		stereoFlag = true;
-
 	fseek(f, oldPos, SEEK_SET);
-	return (stereoFlag);
+
+	return (numChannels == 2);
 }
 
 static int32_t SDLCALL loadAIFFSample(void *ptr)
 {
 	char *tmpFilename, *tmpPtr, compType[4];
-	bool is16Bit;
+	int8_t *audioDataS8, *newPtr;
 	uint8_t sampleRateBytes[10], *audioDataU8;
-	int16_t *audioDataS16, smp16;
+	int16_t *audioDataS16, *audioDataS16_2, smp16;
 	uint16_t numChannels, bitDepth;
 	int32_t j, filesize, smp32, *audioDataS32;
 	uint32_t i, filenameLen, sampleRate, sampleLength, blockName, blockSize;
@@ -308,7 +299,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 		}
 	}
 
-	sampleRate = (int32_t)(round(aiffRateToDouble(sampleRateBytes)));
+	sampleRate = getAIFFRate(sampleRateBytes);
 
 	// sample data chunk
 
@@ -329,9 +320,6 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 	if (sampleLength > MAX_SAMPLE_LEN)
 		sampleLength = MAX_SAMPLE_LEN;
 
-	is16Bit = bitDepth > 8;
-
-	tmpSmp.pek = NULL;
 	freeSample(&tmpSmp);
 
 	// read sample data
@@ -340,7 +328,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 	{
 		// 8-BIT SIGNED PCM
 
-		tmpSmp.pek = (int8_t *)(malloc(sampleLength + 4));
+		tmpSmp.pek = (int8_t *)(malloc(sampleLength + LOOP_FIX_LEN));
 		if (tmpSmp.pek == NULL)
 		{
 			okBoxThreadSafe(0, "System message", "Not enough memory!");
@@ -353,6 +341,9 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 			goto aiffLoadError;
 		}
 
+		audioDataS8 = (int8_t *)(tmpSmp.pek);
+
+		// stereo conversion
 		if (numChannels == 2)
 		{
 			sampleLength /= 2;
@@ -362,7 +353,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 				case STEREO_SAMPLE_READ_LEFT:
 				{
 					for (i = 1; i < sampleLength; i++)
-						tmpSmp.pek[i] = tmpSmp.pek[(i * 2) + 0];
+						audioDataS8[i] = audioDataS8[(i * 2) + 0];
 				}
 				break;
 
@@ -370,9 +361,9 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 				{
 					len32 = sampleLength - 1;
 					for (i = 0; i < len32; i++)
-						tmpSmp.pek[i] = tmpSmp.pek[(i * 2) + 1];
+						audioDataS8[i] = audioDataS8[(i * 2) + 1];
 
-					tmpSmp.pek[i] = 0;
+					audioDataS8[i] = 0;
 				}
 				break;
 
@@ -382,36 +373,35 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 					len32 = sampleLength - 1;
 					for (i = 0; i < len32; i++)
 					{
-						smp16 = tmpSmp.pek[(i * 2) + 0] + tmpSmp.pek[(i * 2) + 1];
-						tmpSmp.pek[i] = (int8_t)(smp16 >> 1);
+						smp16 = (audioDataS8[(i * 2) + 0] + audioDataS8[(i * 2) + 1]) >> 1;
+						audioDataS8[i] = (int8_t)(smp16);
 					}
 
-					tmpSmp.pek[i] = 0;
+					audioDataS8[i] = 0;
 				}
 				break;
 			}
 
-			// decrease the memory allocation size now
-			tmpSmp.pek = (int8_t *)(realloc(tmpSmp.pek, sampleLength + 4));
-			if (tmpSmp.pek == NULL)
-			{
-				okBoxThreadSafe(0, "System message", "Not enough memory!");
-				goto aiffLoadError;
-			}
+			// reduce memory needed
+			newPtr = (int8_t *)(realloc(tmpSmp.pek, sampleLength + LOOP_FIX_LEN));
+			if (newPtr != NULL)
+				tmpSmp.pek = newPtr;
 		}
 	}
 	else if (bitDepth == 16)
 	{
 		// 16-BIT SIGNED PCM
 
-		tmpSmp.pek = (int8_t *)(malloc(sampleLength + 4));
+		sampleLength /= 2;
+
+		tmpSmp.pek = (int8_t *)(malloc((sampleLength * 2) + LOOP_FIX_LEN));
 		if (tmpSmp.pek == NULL)
 		{
 			okBoxThreadSafe(0, "System message", "Not enough memory!");
 			goto aiffLoadError;
 		}
 
-		if (fread(tmpSmp.pek, sampleLength, 1, f) != 1)
+		if (fread(tmpSmp.pek, sampleLength, 2, f) != 2)
 		{
 			okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
 			goto aiffLoadError;
@@ -419,11 +409,10 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 
 		// fix endianness
 		audioDataS16 = (int16_t *)(tmpSmp.pek);
-		len32 = sampleLength / 2;
-
-		for (i = 0; i < len32; ++i)
+		for (i = 0; i < sampleLength; ++i)
 			audioDataS16[i] = SWAP16(audioDataS16[i]);
 
+		// stereo conversion
 		if (numChannels == 2)
 		{
 			sampleLength /= 2;
@@ -432,19 +421,14 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 			{
 				case STEREO_SAMPLE_READ_LEFT:
 				{
-					audioDataS16 = (int16_t *)(tmpSmp.pek);
-					len32 = sampleLength / 2;
-
-					for (i = 1; i < len32; i++)
+					for (i = 1; i < sampleLength; i++)
 						audioDataS16[i] = audioDataS16[(i * 2) + 0];
 				}
 				break;
 
 				case STEREO_SAMPLE_READ_RIGHT:
 				{
-					audioDataS16 = (int16_t *)(tmpSmp.pek);
-					len32 = (sampleLength / 2) - 1;
-
+					len32 = sampleLength - 1;
 					for (i = 0; i < len32; i++)
 						audioDataS16[i] = audioDataS16[(i * 2) + 1];
 
@@ -455,13 +439,11 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 				default:
 				case STEREO_SAMPLE_CONVERT:
 				{
-					audioDataS16 = (int16_t *)(tmpSmp.pek);
-					len32 = (sampleLength / 2) - 1;
-
+					len32 = sampleLength - 1;
 					for (i = 0; i < len32; i++)
 					{
-						smp32 = audioDataS16[(i * 2) + 0] + audioDataS16[(i * 2) + 1];
-						audioDataS16[i] = (int16_t)(smp32 >> 1);
+						smp32 = (audioDataS16[(i * 2) + 0] + audioDataS16[(i * 2) + 1]) >> 1;
+						audioDataS16[i] = (int16_t)(smp32);
 					}
 
 					audioDataS16[i] = 0;
@@ -469,49 +451,47 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 				break;
 			}
 
-			// decrease the memory allocation size now
-			tmpSmp.pek = (int8_t *)(realloc(tmpSmp.pek, sampleLength + 4));
-			if (tmpSmp.pek == NULL)
-			{
-				okBoxThreadSafe(0, "System message", "Not enough memory!");
-				goto aiffLoadError;
-			}
-		}
+			sampleLength *= 2;
 
-		sampleLength &= 0xFFFFFFFE;
+			// reduce memory needed
+			newPtr = (int8_t *)(realloc(tmpSmp.pek, sampleLength + LOOP_FIX_LEN));
+			if (newPtr != NULL)
+				tmpSmp.pek = newPtr;
+
+			tmpSmp.typ |= 16;
+		}
 	}
 	else if (bitDepth == 24)
 	{
 		// 24-BIT SIGNED PCM
 
-		sampleLength = (sampleLength * 4) / 3;
+		sampleLength /= 3;
 
-		tmpSmp.pek = (int8_t *)(malloc(sampleLength + 4));
+		tmpSmp.pek = (int8_t *)(malloc((sampleLength * 3) + LOOP_FIX_LEN));
 		if (tmpSmp.pek == NULL)
 		{
 			okBoxThreadSafe(0, "System message", "Not enough memory!");
 			goto aiffLoadError;
 		}
 
-		// read sample data
-		audioDataU8 = (uint8_t *)(tmpSmp.pek);
-		len32 = sampleLength / 4;
-
-		for (i = 0; i < len32; i++)
+		if (fread(tmpSmp.pek, sampleLength, 3, f) != 3)
 		{
-			fread(audioDataU8, 3, 1, f);
-			audioDataU8[3] = 0;
-
-			audioDataU8 += sizeof (int32_t);
+			okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
+			goto aiffLoadError;
 		}
 
-		// fix endianness
-		audioDataS32 = (int32_t *)(tmpSmp.pek);
-		len32 = sampleLength / 4;
+		audioDataS16 = (int16_t *)(tmpSmp.pek);
 
-		for (i = 0; i < len32; ++i)
-			audioDataS32[i] = SWAP32(audioDataS32[i]);
+		// convert to 16-bit
+		audioDataU8 = (uint8_t *)(tmpSmp.pek);
+		for (i = 0; i < sampleLength; i++)
+		{
+			// read as bytes to prevent unaligned word access
+			audioDataS16[i] = (audioDataU8[0] << 8) | audioDataU8[1];
+			audioDataU8 += 3;
+		}
 
+		// stereo conversion
 		if (numChannels == 2)
 		{
 			sampleLength /= 2;
@@ -520,81 +500,60 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 			{
 				case STEREO_SAMPLE_READ_LEFT:
 				{
-					audioDataS32 = (int32_t *)(tmpSmp.pek);
-					len32 = sampleLength / 4;
-
-					for (i = 1; i < len32; i++)
-						audioDataS32[i] = audioDataS32[(i * 2) + 0];
+					for (i = 1; i < sampleLength; i++)
+						audioDataS16[i] = audioDataS16[(i * 2) + 0];
 				}
 				break;
 
 				case STEREO_SAMPLE_READ_RIGHT:
 				{
-					audioDataS32 = (int32_t *)(tmpSmp.pek);
-					len32 = (sampleLength / 4) - 1;
-
+					len32 = sampleLength - 1;
 					for (i = 0; i < len32; i++)
-						audioDataS32[i] = audioDataS32[(i * 2) + 1];
+						audioDataS16[i] = audioDataS16[(i * 2) + 1];
 
-					audioDataS32[i] = 0;
+					audioDataS16[i] = 0;
 				}
 				break;
 
 				default:
 				case STEREO_SAMPLE_CONVERT:
 				{
-					audioDataS32 = (int32_t *)(tmpSmp.pek);
-					len32 = (sampleLength / 4) - 1;
-
+					len32 = sampleLength - 1;
 					for (i = 0; i < len32; i++)
 					{
-						smp64   = audioDataS32[(i * 2) + 0];
-						smp64  += audioDataS32[(i * 2) + 1];
-						smp64 >>= 1;
-
-						audioDataS32[i] = (int32_t)(smp64);
+						smp32 = (audioDataS16[(i * 2) + 0] + audioDataS16[(i * 2) + 1]) >> 1;
+						audioDataS16[i] = (int16_t)(smp32);
 					}
 
-					audioDataS32[i] = 0;
+					audioDataS16[i] = 0;
 				}
 				break;
 			}
 		}
 
-		normalize24bitSigned(audioDataS32, sampleLength / 4);
+		sampleLength *= 2;
 
-		// downscale to 16-bit
+		// reduce memory needed
+		newPtr = (int8_t *)(realloc(tmpSmp.pek, sampleLength + LOOP_FIX_LEN));
+		if (newPtr != NULL)
+			tmpSmp.pek = newPtr;
 
-		audioDataS16 = (int16_t *)(tmpSmp.pek);
-		audioDataS32 = (int32_t *)(tmpSmp.pek);
-		len32 = sampleLength / 4;
-
-		for (i = 0; i < len32; ++i)
-			audioDataS16[i] = (int16_t)(audioDataS32[i] >> 8);
-
-		sampleLength /= 2;
-		sampleLength &= 0xFFFFFFFE;
-
-		// decrease the memory allocation size now
-		tmpSmp.pek = (int8_t *)(realloc(tmpSmp.pek, sampleLength + 4));
-		if (tmpSmp.pek == NULL)
-		{
-			okBoxThreadSafe(0, "System message", "Not enough memory!");
-			goto aiffLoadError;
-		}
+		tmpSmp.typ |= 16;
 	}
 	else if (bitDepth == 32)
 	{
 		// 32-BIT SIGNED PCM
 
-		tmpSmp.pek = (int8_t *)(malloc(sampleLength + 4));
+		sampleLength /= 4;
+
+		tmpSmp.pek = (int8_t *)(malloc((sampleLength * 4) + LOOP_FIX_LEN));
 		if (tmpSmp.pek == NULL)
 		{
 			okBoxThreadSafe(0, "System message", "Not enough memory!");
 			goto aiffLoadError;
 		}
 
-		if (fread(tmpSmp.pek, sampleLength, 1, f) != 1)
+		if (fread(tmpSmp.pek, sampleLength, 4, f) != 4)
 		{
 			okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
 			goto aiffLoadError;
@@ -602,11 +561,10 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 
 		// fix endianness
 		audioDataS32 = (int32_t *)(tmpSmp.pek);
-		len32 = sampleLength / 4;
-
-		for (i = 0; i < len32; ++i)
+		for (i = 0; i < sampleLength; ++i)
 			audioDataS32[i] = SWAP32(audioDataS32[i]);
 
+		// stereo conversion
 		if (numChannels == 2)
 		{
 			sampleLength /= 2;
@@ -615,19 +573,14 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 			{
 				case STEREO_SAMPLE_READ_LEFT:
 				{
-					audioDataS32 = (int32_t *)(tmpSmp.pek);
-					len32 = sampleLength / 4;
-
-					for (i = 1; i < len32; i++)
+					for (i = 1; i < sampleLength; i++)
 						audioDataS32[i] = audioDataS32[(i * 2) + 0];
 				}
 				break;
 
 				case STEREO_SAMPLE_READ_RIGHT:
 				{
-					audioDataS32 = (int32_t *)(tmpSmp.pek);
-					len32 = (sampleLength / 4) - 1;
-
+					len32 = sampleLength - 1;
 					for (i = 0; i < len32; i++)
 						audioDataS32[i] = audioDataS32[(i * 2) + 1];
 
@@ -638,9 +591,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 				default:
 				case STEREO_SAMPLE_CONVERT:
 				{
-					audioDataS32 = (int32_t *)(tmpSmp.pek);
-					len32 = (sampleLength / 4) - 1;
-
+					len32 = sampleLength - 1;
 					for (i = 0; i < len32; i++)
 					{
 						smp64   = audioDataS32[(i * 2) + 0];
@@ -656,35 +607,31 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 			}
 		}
 
-		normalize32bitSigned(audioDataS32, sampleLength / 4);
+		normalize32bitSigned(audioDataS32, sampleLength);
 
-		// downscale to 16-bit
+		// downscale to 16-bit (ultra fast method!)
 
-		audioDataS16 = (int16_t *)(tmpSmp.pek);
-		audioDataS32 = (int32_t *)(tmpSmp.pek);
-		len32 = sampleLength / 4;
+		audioDataS16   = (int16_t *)(tmpSmp.pek);
+		audioDataS16_2 = (int16_t *)(tmpSmp.pek + 2);
 
-		for (i = 0; i < len32; ++i)
-			audioDataS16[i] = (int16_t)(audioDataS32[i] >> 16);
-
-		sampleLength /= 2;
-		sampleLength &= 0xFFFFFFFE;
-
-		// decrease the memory allocation size now
-		tmpSmp.pek = (int8_t *)(realloc(tmpSmp.pek, sampleLength + 4));
-		if (tmpSmp.pek == NULL)
+		for (i = 0; i < sampleLength; ++i)
 		{
-			okBoxThreadSafe(0, "System message", "Not enough memory!");
-			goto aiffLoadError;
+			audioDataS16[i] = audioDataS16_2[i];
+			audioDataS16_2++;
 		}
+
+		sampleLength *= 2;
+
+		// reduce memory needed
+		newPtr = (int8_t *)(realloc(tmpSmp.pek, sampleLength + LOOP_FIX_LEN));
+		if (newPtr != NULL)
+			tmpSmp.pek = newPtr;
+
+		tmpSmp.typ |= 16;
 	}
 
 	// set sample attributes
 	tmpSmp.len = sampleLength;
-
-	if (is16Bit)
-		tmpSmp.typ |= 16;
-
 	tmpSmp.vol = 64;
 	tmpSmp.pan = 128;
 
@@ -765,9 +712,10 @@ static int32_t SDLCALL loadIFFSample(void *ptr)
 	UNICHAR *filename;
 	sampleTyp tmpSmp, *s;
 
+	memset(&tmpSmp, 0, sizeof(sampleTyp));
+
 	// this is important for the "goto" on load error
 	f = NULL;
-	tmpSmp.pek = NULL;
 
 	if (editor.tmpFilenameU == NULL)
 	{
@@ -872,10 +820,12 @@ static int32_t SDLCALL loadIFFSample(void *ptr)
 	}
 
 	fread(&sampleVol, 4, 1, f); sampleVol = SWAP32(sampleVol);
-	if (sampleVol > 65536)
-		sampleVol = 65536;
+	if (sampleVol > 65535)
+		sampleVol = 65535;
 
 	sampleVol = (uint32_t)(round(sampleVol / 1024.0));
+	if (sampleVol > 64)
+		sampleVol = 64;
 
 	sampleLength = bodyLen;
 	if (sampleLength > MAX_SAMPLE_LEN)
@@ -902,7 +852,7 @@ static int32_t SDLCALL loadIFFSample(void *ptr)
 	tmpSmp.pek = NULL;
 	freeSample(&tmpSmp);
 
-	tmpSmp.pek = (int8_t *)(malloc(sampleLength + 4));
+	tmpSmp.pek = (int8_t *)(malloc(sampleLength + LOOP_FIX_LEN));
 	if (tmpSmp.pek == NULL)
 	{
 		okBoxThreadSafe(0, "System message", "Not enough memory!");
@@ -928,6 +878,7 @@ static int32_t SDLCALL loadIFFSample(void *ptr)
 
 	if (is16Bit)
 	{
+		tmpSmp.len  &= 0xFFFFFFFE;
 		tmpSmp.repS &= 0xFFFFFFFE;
 		tmpSmp.repL &= 0xFFFFFFFE;
 		tmpSmp.typ |= 16;
@@ -1028,9 +979,10 @@ static int32_t SDLCALL loadRawSample(void *ptr)
 	UNICHAR *filename;
 	sampleTyp tmpSmp, *s;
 
+	memset(&tmpSmp, 0, sizeof(sampleTyp));
+
 	// this is important for the "goto" on load error
 	f = NULL;
-	tmpSmp.pek = NULL;
 
 	if (editor.tmpFilenameU == NULL)
 	{
@@ -1051,16 +1003,18 @@ static int32_t SDLCALL loadRawSample(void *ptr)
 	filesize = ftell(f);
 	rewind(f);
 
+	if (filesize > MAX_SAMPLE_LEN)
+		filesize = MAX_SAMPLE_LEN;
+
 	if (filesize == 0)
 	{
 		okBoxThreadSafe(0, "System message", "Error loading sample: The sample is not supported or is invalid!");
 		goto rawLoadError;
 	}
 
-	tmpSmp.pek = NULL;
 	freeSample(&tmpSmp);
 
-	tmpSmp.pek = (int8_t *)(malloc(filesize + 4));
+	tmpSmp.pek = (int8_t *)(malloc(filesize + LOOP_FIX_LEN));
 	if (tmpSmp.pek == NULL)
 	{
 		okBoxThreadSafe(0, "System message", "Not enough memory!");
@@ -1142,16 +1096,17 @@ rawLoadError:
 static int32_t SDLCALL loadWAVSample(void *ptr)
 {
 	char chr, *tmpFilename, *tmpPtr;
+	int8_t *newPtr;
 	uint8_t *audioDataU8;
-	int16_t *audioDataS16, *ptr16;
+	int16_t *audioDataS16, *audioDataS16_2, *ptr16;
 	uint16_t audioFormat, numChannels, bitsPerSample, tempPan, tempVol;
 	int32_t j, *audioDataS32, smp32;
-	uint32_t filenameLen, i, *audioDataU32, sampleRate, chunkID, chunkSize, sampleLength, filesize;
+	uint32_t filenameLen, i, sampleRate, chunkID, chunkSize, sampleLength, filesize;
 	uint32_t numLoops, loopType, loopStart, loopEnd, bytesRead, endOfChunk, dataPtr, dataLen, fmtPtr;
 	uint32_t fmtLen, inamPtr, inamLen, smplPtr, smplLen, xtraPtr, xtraLen, xtraFlags, len32;
 	int64_t smp64;
-	float fSmp, *fAudioDataFloat;
-	double *dAudioDataDouble, dSmp;
+	float *fAudioDataFloat;
+	double *dAudioDataDouble;
 	FILE *f;
 	sampleTyp tmpSmp, *s;
 	UNICHAR *filename;
@@ -1159,13 +1114,6 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
 	// this is important for the "goto" on load error
 	f = NULL;
 	tmpSmp.pek = NULL;
-
-	// zero out memory pointers
-	audioDataU8      = NULL;
-	audioDataS16     = NULL;
-	audioDataS32     = NULL;
-	audioDataU32     = NULL;
-	dAudioDataDouble = NULL;
 
 	// zero out chunk pointers and lengths
 	fmtPtr  = 0; fmtLen  = 0;
@@ -1333,17 +1281,25 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
 	tmpSmp.pek = NULL;
 	freeSample(&tmpSmp);
 
+	if (sampleLength > MAX_SAMPLE_LEN)
+		sampleLength = MAX_SAMPLE_LEN;
+
 	if (bitsPerSample == 8) // 8-BIT INTEGER SAMPLE
 	{
-		audioDataU8 = (uint8_t *)(malloc(sampleLength * sizeof (int8_t)));
-		if (audioDataU8 == NULL)
+		tmpSmp.pek = (int8_t *)(malloc(sampleLength + LOOP_FIX_LEN));
+		if (tmpSmp.pek == NULL)
 		{
 			okBoxThreadSafe(0, "System message", "Not enough memory!");
 			goto wavLoadError;
 		}
 
-		// read sample data
-		fread(audioDataU8, sizeof (int8_t), sampleLength, f);
+		if (fread(tmpSmp.pek, sampleLength, 1, f) != 1)
+		{
+			okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
+			goto wavLoadError;
+		}
+
+		audioDataU8 = (uint8_t *)(tmpSmp.pek);
 
 		// stereo conversion
 		if (numChannels == 2)
@@ -1366,7 +1322,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
 					for (i = 0; i < len32; i++)
 						audioDataU8[i] = audioDataU8[(i * 2) + 1];
 
-					audioDataU8[i] = 0;
+					audioDataU8[i] = 128;
 				}
 				break;
 
@@ -1378,39 +1334,41 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
 					for (i = 0; i < len32; i++)
 						audioDataU8[i] = (audioDataU8[(i * 2) + 0] + audioDataU8[(i * 2) + 1]) >> 1;
 
-					audioDataU8[i] = 0;
+					audioDataU8[i] = 128;
 				}
 				break;
 			}
 		}
 
-		if (sampleLength > MAX_SAMPLE_LEN)
-			sampleLength = MAX_SAMPLE_LEN;
+		// convert from unsigned to signed
+		for (i = 0; i < sampleLength; ++i)
+			tmpSmp.pek[i] ^= 0x80;
 
-		tmpSmp.pek = (int8_t *)(malloc(sampleLength + 4));
+		// reduce memory needed
+		newPtr = (int8_t *)(realloc(tmpSmp.pek, sampleLength + LOOP_FIX_LEN));
+		if (newPtr != NULL)
+			tmpSmp.pek = newPtr;
+
+		tmpSmp.typ &= ~16; // 8-bit
+	}
+	else if (bitsPerSample == 16) // 16-BIT INTEGER SAMPLE
+	{
+		sampleLength /= 2;
+
+		tmpSmp.pek = (int8_t *)(malloc((sampleLength * 2) + LOOP_FIX_LEN));
 		if (tmpSmp.pek == NULL)
 		{
 			okBoxThreadSafe(0, "System message", "Not enough memory!");
 			goto wavLoadError;
 		}
 
-		tmpSmp.typ &= ~16; // 8-bit
-		for (i = 0; i < sampleLength; ++i)
-			tmpSmp.pek[i] = audioDataU8[i] - 128;
-	}
-	else if (bitsPerSample == 16) // 16-BIT INTEGER SAMPLE
-	{
-		sampleLength /= sizeof (int16_t);
-
-		audioDataS16 = (int16_t *)(malloc(sampleLength * sizeof (int16_t)));
-		if (audioDataS16 == NULL)
+		if (fread(tmpSmp.pek, sampleLength, 2, f) != 2)
 		{
-			okBoxThreadSafe(0, "System message", "Not enough memory!");
+			okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
 			goto wavLoadError;
 		}
 
-		// read sample data
-		fread(audioDataS16, sizeof (int16_t), sampleLength, f);
+		audioDataS16 = (int16_t *)(tmpSmp.pek);
 
 		// stereo conversion
 		if (numChannels == 2)
@@ -1456,39 +1414,41 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
 		}
 
 		sampleLength *= 2;
-		if (sampleLength > MAX_SAMPLE_LEN)
-			sampleLength = MAX_SAMPLE_LEN;
 
-		tmpSmp.pek = (int8_t *)(malloc(sampleLength + 4));
+		// reduce memory needed
+		newPtr = (int8_t *)(realloc(tmpSmp.pek, sampleLength + LOOP_FIX_LEN));
+		if (newPtr != NULL)
+			tmpSmp.pek = newPtr;
+
+		tmpSmp.typ |= 16; // 16-bit
+	}
+	else if (bitsPerSample == 24) // 24-BIT INTEGER SAMPLE
+	{
+		sampleLength /= 3;
+
+		tmpSmp.pek = (int8_t *)(malloc((sampleLength * 3) + LOOP_FIX_LEN));
 		if (tmpSmp.pek == NULL)
 		{
 			okBoxThreadSafe(0, "System message", "Not enough memory!");
 			goto wavLoadError;
 		}
 
-		tmpSmp.typ |= 16; // 16-bit
-		memcpy(tmpSmp.pek, audioDataS16, sampleLength);
-	}
-	else if (bitsPerSample == 24) // 24-BIT INTEGER SAMPLE
-	{
-		sampleLength /= (sizeof (int32_t) - 1);
-
-		audioDataS32 = (int32_t *)(malloc(sampleLength * sizeof (int32_t)));
-		if (audioDataS32 == NULL)
+		if (fread(tmpSmp.pek, sampleLength, 3, f) != 3)
 		{
-			okBoxThreadSafe(0, "System message", "Not enough memory!");
+			okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
 			goto wavLoadError;
 		}
 
-		// read sample data
-		audioDataU8 = (uint8_t *)(audioDataS32);
+		audioDataS16 = (int16_t *)(tmpSmp.pek);
+
+		// convert to 16-bit
+		audioDataU8 = (uint8_t *)(tmpSmp.pek + 1);
 		for (i = 0; i < sampleLength; i++)
 		{
-			audioDataU8[0] = 0;
-			fread(&audioDataU8[1], 3, 1, f);
-			audioDataU8 += sizeof (int32_t);
+			// read as bytes to prevent unaligned word access
+			audioDataS16[i] = (audioDataU8[1] << 8) | audioDataU8[0];
+			audioDataU8 += 3;
 		}
-		audioDataU8 = NULL; // IMPORTANT!
 
 		// stereo conversion
 		if (numChannels == 2)
@@ -1500,7 +1460,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
 				{
 					// remove right channel data
 					for (i = 1; i < sampleLength; i++)
-						audioDataS32[i] = audioDataS32[(i * 2) + 0];
+						audioDataS16[i] = audioDataS16[(i * 2) + 0];
 				}
 				break;
 
@@ -1509,9 +1469,9 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
 					// remove left channel data
 					len32 = sampleLength - 1;
 					for (i = 0; i < len32; i++)
-						audioDataS32[i] = audioDataS32[(i * 2) + 1];
+						audioDataS16[i] = audioDataS16[(i * 2) + 1];
 
-					audioDataS32[i] = 0;
+					audioDataS16[i] = 0;
 				}
 				break;
 
@@ -1522,56 +1482,43 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
 					len32 = sampleLength - 1;
 					for (i = 0; i < len32; i++)
 					{
-						smp64   = audioDataS32[(i * 2) + 0];
-						smp64  += audioDataS32[(i * 2) + 1];
-						smp64 >>= 1;
-
-						audioDataS32[i] = (int32_t)(smp64);
+						smp32 = (audioDataS16[(i * 2) + 0] + audioDataS16[(i * 2) + 1]) >> 1;
+						audioDataS16[i] = (int16_t)(smp32);
 					}
 
-					audioDataS32[i] = 0;
+					audioDataS16[i] = 0;
 				}
 				break;
 			}
 		}
 
-		normalize24bitSigned(audioDataS32, sampleLength);
-
 		sampleLength *= 2;
-		if (sampleLength > MAX_SAMPLE_LEN)
-			sampleLength = MAX_SAMPLE_LEN;
 
-		tmpSmp.pek = (int8_t *)(malloc(sampleLength + 4));
+		// reduce memory needed
+		newPtr = (int8_t *)(realloc(tmpSmp.pek, sampleLength + LOOP_FIX_LEN));
+		if (newPtr != NULL)
+			tmpSmp.pek = newPtr;
+
+		tmpSmp.typ |= 16; // 16-bit
+	}
+	else if ((audioFormat == WAV_FORMAT_PCM) && (bitsPerSample == 32)) // 32-BIT INTEGER SAMPLE
+	{
+		sampleLength /= 4;
+
+		tmpSmp.pek = (int8_t *)(malloc((sampleLength * 4) + LOOP_FIX_LEN));
 		if (tmpSmp.pek == NULL)
 		{
 			okBoxThreadSafe(0, "System message", "Not enough memory!");
 			goto wavLoadError;
 		}
 
-		tmpSmp.typ |= 16; // 16-bit
-
-		ptr16 = (int16_t *)(tmpSmp.pek);
-		len32 = sampleLength / 2;
-
-		for (i = 0; i < len32; ++i)
-			ptr16[i] = (int16_t)(audioDataS32[i] >> 8);
-
-		free(audioDataS32);
-		audioDataS32 = NULL;
-	}
-	else if ((audioFormat == WAV_FORMAT_PCM) && (bitsPerSample == 32)) // 32-BIT INTEGER SAMPLE
-	{
-		sampleLength /= sizeof (int32_t);
-
-		audioDataS32 = (int32_t *)(malloc(sampleLength * sizeof (int32_t)));
-		if (audioDataS32 == NULL)
+		if (fread(tmpSmp.pek, sampleLength, 4, f) != 4)
 		{
-			okBoxThreadSafe(0, "System message", "Not enough memory!");
+			okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
 			goto wavLoadError;
 		}
 
-		// read sample data
-		fread(audioDataS32, sizeof (int32_t), sampleLength, f);
+		audioDataS32 = (int32_t *)(tmpSmp.pek);
 
 		// stereo conversion
 		if (numChannels == 2)
@@ -1620,42 +1567,44 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
 
 		normalize32bitSigned(audioDataS32, sampleLength);
 
-		audioDataS16 = NULL;
+		// downscale to 16-bit (ultra fast method!)
+
+		audioDataS16   = (int16_t *)(tmpSmp.pek);
+		audioDataS16_2 = (int16_t *)(tmpSmp.pek + 2);
+
+		for (i = 0; i < sampleLength; ++i)
+		{
+			audioDataS16[i] = audioDataS16_2[i];
+			audioDataS16_2++;
+		}
 
 		sampleLength *= 2;
-		if (sampleLength > MAX_SAMPLE_LEN)
-			sampleLength = MAX_SAMPLE_LEN;
 
-		tmpSmp.pek = (int8_t *)(malloc(sampleLength + 4));
+		// reduce memory needed
+		newPtr = (int8_t *)(realloc(tmpSmp.pek, sampleLength + LOOP_FIX_LEN));
+		if (newPtr != NULL)
+			tmpSmp.pek = newPtr;
+
+		tmpSmp.typ |= 16; // 16-bit
+	}
+	else if ((audioFormat == WAV_FORMAT_IEEE_FLOAT) && (bitsPerSample == 32)) // 32-BIT FLOATING POINT SAMPLE
+	{
+		sampleLength /= 4;
+
+		tmpSmp.pek = (int8_t *)(malloc((sampleLength * 4) + LOOP_FIX_LEN));
 		if (tmpSmp.pek == NULL)
 		{
 			okBoxThreadSafe(0, "System message", "Not enough memory!");
 			goto wavLoadError;
 		}
 
-		tmpSmp.typ |= 16; // 16-bit
-
-		ptr16 = (int16_t *)(tmpSmp.pek);
-		len32 = sampleLength / 2;
-
-		for (i = 0; i < len32; ++i)
-			ptr16[i] = (int16_t)(audioDataS32[i] >> 16);
-	}
-	else if ((audioFormat == WAV_FORMAT_IEEE_FLOAT) && (bitsPerSample == 32)) // 32-BIT FLOATING POINT SAMPLE
-	{
-		sampleLength /= sizeof (float);
-
-		audioDataU32 = (uint32_t *)(malloc(sampleLength * sizeof (float)));
-		if (audioDataU32 == NULL)
+		if (fread(tmpSmp.pek, sampleLength, 4, f) != 4)
 		{
-			okBoxThreadSafe(0, "System message", "Not enough memory!");
+			okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
 			goto wavLoadError;
 		}
 
-		// read sample data
-		fread(audioDataU32, sizeof (float), sampleLength, f);
-
-		fAudioDataFloat = (float *)(audioDataU32);
+		fAudioDataFloat = (float *)(tmpSmp.pek);
 
 		// stereo conversion
 		if (numChannels == 2)
@@ -1698,55 +1647,37 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
 
 		normalize16bitFloatSigned(fAudioDataFloat, sampleLength);
 
-		sampleLength *= 2;
-		if (sampleLength > MAX_SAMPLE_LEN)
-			sampleLength = MAX_SAMPLE_LEN;
+		ptr16 = (int16_t *)(tmpSmp.pek);
+		for (i = 0; i < sampleLength; ++i)
+			ptr16[i] = (int16_t)(fAudioDataFloat[i]); // should use SIMD if available
 
-		tmpSmp.pek = (int8_t *)(malloc(sampleLength + 4));
+		sampleLength *= 2;
+
+		// reduce memory needed
+		newPtr = (int8_t *)(realloc(tmpSmp.pek, sampleLength + LOOP_FIX_LEN));
+		if (newPtr != NULL)
+			tmpSmp.pek = newPtr;
+
+		tmpSmp.typ |= 16; // 16-bit
+	}
+	else if ((audioFormat == WAV_FORMAT_IEEE_FLOAT) && (bitsPerSample == 64)) // 64-BIT FLOATING POINT SAMPLE
+	{
+		sampleLength /= 8;
+
+		tmpSmp.pek = (int8_t *)(malloc((sampleLength * 8) + LOOP_FIX_LEN));
 		if (tmpSmp.pek == NULL)
 		{
 			okBoxThreadSafe(0, "System message", "Not enough memory!");
 			goto wavLoadError;
 		}
 
-		tmpSmp.typ |= 16; // 16-bit
-
-		ptr16 = (int16_t *)(tmpSmp.pek);
-		len32 = sampleLength / 2;
-
-		if (cpu.hasSSE)
+		if (fread(tmpSmp.pek, sampleLength, 8, f) != 8)
 		{
-			for (i = 0; i < len32; ++i)
-			{
-				fSmp = fAudioDataFloat[i];
-				float2int32_round(smp32, fSmp);
-				CLAMP16(smp32);
-				ptr16[i] = (int16_t)(smp32);
-			}
-		}
-		else
-		{
-			for (i = 0; i < len32; ++i)
-			{
-				smp32 = (int32_t)(roundf(fAudioDataFloat[i]));
-				CLAMP16(smp32);
-				ptr16[i] = (int16_t)(smp32);
-			}
-		}
-	}
-	else if ((audioFormat == WAV_FORMAT_IEEE_FLOAT) && (bitsPerSample == 64)) // 64-BIT FLOATING POINT SAMPLE
-	{
-		sampleLength /= sizeof (double);
-
-		dAudioDataDouble = (double *)(malloc(sampleLength * sizeof (double)));
-		if (dAudioDataDouble == NULL)
-		{
-			okBoxThreadSafe(0, "System message", "Not enough memory!");
+			okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
 			goto wavLoadError;
 		}
 
-		// read sample data
-		fread(dAudioDataDouble, sizeof (double), sampleLength, f);
+		dAudioDataDouble = (double *)(tmpSmp.pek);
 
 		// stereo conversion
 		if (numChannels == 2)
@@ -1789,29 +1720,18 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
 
 		normalize64bitDoubleSigned(dAudioDataDouble, sampleLength);
 
-		sampleLength *= 2;
-		if (sampleLength > MAX_SAMPLE_LEN)
-			sampleLength = MAX_SAMPLE_LEN;
+		ptr16 = (int16_t *)(tmpSmp.pek);
+		for (i = 0; i < sampleLength; ++i)
+			ptr16[i] = (int16_t)(dAudioDataDouble[i]); // should use SIMD if available
 
-		tmpSmp.pek = (int8_t *)(malloc(sampleLength + 4));
-		if (tmpSmp.pek == NULL)
-		{
-			okBoxThreadSafe(0, "System message", "Not enough memory!");
-			goto wavLoadError;
-		}
+		sampleLength *= 2;
+
+		// reduce memory needed
+		newPtr = (int8_t*)(realloc(tmpSmp.pek, sampleLength + LOOP_FIX_LEN));
+		if (newPtr != NULL)
+			tmpSmp.pek = newPtr;
 
 		tmpSmp.typ |= 16; // 16-bit
-
-		ptr16 = (int16_t *)(tmpSmp.pek);
-		len32 = sampleLength / 2;
-
-		for (i = 0; i < len32; ++i)
-		{
-			dSmp = dAudioDataDouble[i];
-			double2int32_round(smp32, dSmp);
-			CLAMP16(smp32);
-			ptr16[i] = (int16_t)(smp32);
-		}
 	}
 
 	tuneSample(&tmpSmp, sampleRate);
@@ -1934,11 +1854,6 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
 	}
 
 	fclose(f);
-	if (audioDataU8  != NULL) free(audioDataU8);
-	if (audioDataS16 != NULL) free(audioDataS16);
-	if (audioDataS32 != NULL) free(audioDataS32);
-	if (audioDataU32 != NULL) free(audioDataU32);
-	if (dAudioDataDouble != NULL) free(dAudioDataDouble);
 
 	// if loaded in instrument mode
 	if (loadAsInstrFlag)
@@ -1963,13 +1878,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
 
 wavLoadError:
 	if (f != NULL) fclose(f);
-
-	if (tmpSmp.pek   != NULL) free(tmpSmp.pek);
-	if (audioDataU8  != NULL) free(audioDataU8);
-	if (audioDataS16 != NULL) free(audioDataS16);
-	if (audioDataS32 != NULL) free(audioDataS32);
-	if (audioDataU32 != NULL) free(audioDataU32);
-	if (dAudioDataDouble != NULL) free(dAudioDataDouble);
+	if (tmpSmp.pek != NULL) free(tmpSmp.pek);
 
 	stereoSampleLoadMode = -1;
 	sampleIsLoading = false;
@@ -1987,7 +1896,7 @@ bool loadSample(UNICHAR *filenameU, uint8_t smpNr, bool instrFlag)
 
 	stereoSampleLoadMode = 0;
 
-	sampleSlot      = smpNr;
+	sampleSlot = smpNr;
 	loadAsInstrFlag = instrFlag;
 
 	if (editor.curInstr == 0)
@@ -2117,9 +2026,8 @@ bool loadSample(UNICHAR *filenameU, uint8_t smpNr, bool instrFlag)
 
 static void normalize32bitSigned(int32_t *sampleData, uint32_t sampleLength)
 {
-	int32_t smp32;
 	uint32_t i, sample, sampleVolPeak;
-	double dGain, dSmp;
+	double dGain;
 
 	sampleVolPeak = 0;
 	for (i = 0; i < sampleLength; ++i)
@@ -2129,45 +2037,12 @@ static void normalize32bitSigned(int32_t *sampleData, uint32_t sampleLength)
 			sampleVolPeak = sample;
 	}
 
-	// prevent division by zero!
 	if (sampleVolPeak < 1)
-		sampleVolPeak = 1;
+		return;
 
 	dGain = (double)(INT_MAX) / sampleVolPeak;
 	for (i = 0; i < sampleLength; ++i)
-	{
-		dSmp = sampleData[i] * dGain;
-		double2int32_trunc(smp32, dSmp);
-		sampleData[i] = smp32;
-	}
-}
-
-static void normalize24bitSigned(int32_t *sampleData, uint32_t sampleLength)
-{
-	int32_t smp32;
-	uint32_t i, sample, sampleVolPeak;
-	double dGain, dSmp;
-
-	sampleVolPeak = 0;
-	for (i = 0; i < sampleLength; ++i)
-	{
-		sample = ABS(sampleData[i]);
-		if (sampleVolPeak < sample)
-			sampleVolPeak = sample;
-	}
-
-	// prevent division by zero!
-	if (sampleVolPeak < 1)
-		sampleVolPeak = 1;
-
-	// 8388607 = (2^24 / 2) - 1
-	dGain = 8388607.0 / sampleVolPeak;
-	for (i = 0; i < sampleLength; ++i)
-	{
-		dSmp = sampleData[i] * dGain;
-		double2int32_trunc(smp32, dSmp);
-		sampleData[i] = smp32;
-	}
+		sampleData[i] = (int32_t)(sampleData[i] * dGain);
 }
 
 static void normalize16bitFloatSigned(float *fSampleData, uint32_t sampleLength)
@@ -2183,12 +2058,12 @@ static void normalize16bitFloatSigned(float *fSampleData, uint32_t sampleLength)
 			fSampleVolPeak = fSample;
 	}
 
-	if (fSampleVolPeak > 0.0f)
-	{
-		fGain = (float)(INT16_MAX) / fSampleVolPeak;
-		for (i = 0; i < sampleLength; ++i)
-			fSampleData[i] *= fGain;
-	}
+	if (fSampleVolPeak < 1.0f)
+		return;
+
+	fGain = (float)(INT16_MAX) / fSampleVolPeak;
+	for (i = 0; i < sampleLength; ++i)
+		fSampleData[i] *= fGain;
 }
 
 static void normalize64bitDoubleSigned(double *dSampleData, uint32_t sampleLength)
@@ -2204,12 +2079,12 @@ static void normalize64bitDoubleSigned(double *dSampleData, uint32_t sampleLengt
 			dSampleVolPeak = dSample;
 	}
 
-	if (dSampleVolPeak > 0.0)
-	{
-		dGain = (double)(INT16_MAX) / dSampleVolPeak;
-		for (i = 0; i < sampleLength; ++i)
-			dSampleData[i] *= dGain;
-	}
+	if (dSampleVolPeak < 1.0)
+		return;
+
+	dGain = (double)(INT16_MAX) / dSampleVolPeak;
+	for (i = 0; i < sampleLength; ++i)
+		dSampleData[i] *= dGain;
 }
 
 bool fileIsInstrument(char *fullPath)

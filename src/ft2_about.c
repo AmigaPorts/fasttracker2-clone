@@ -200,7 +200,7 @@ static void realStars(void)
 		screenBufferPos = ((y + 4) * SCREEN_W) + (x + 4);
 		if ((video.frameBuffer[screenBufferPos] >> 24) == PAL_BCKGRND)
 		{
-			col = ((uint8_t)(0 - (z >> 8)) >> 3) - (22 - 8);
+			col = ((uint8_t)(~(z >> 8)) >> 3) - (22 - 8);
 			if (col < 24)
 			{
 				video.frameBuffer[screenBufferPos] = video.palette[starColConv[col]] & 0x00FFFFFF;

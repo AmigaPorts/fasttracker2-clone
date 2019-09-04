@@ -104,44 +104,30 @@
 
 // 3-tap quadratic interpolation (default - slower, but better quality)
 
-// in: int32_t s1,s2,s3 = -128..127 | f = 0..65535 (frac) | out: s1 (can exceed 16-bits because of under-/overshoot)
+// in: int32_t s1,s2,s3 = -128..127 | f = 0..65535 (frac) | out: s1 (will exceed 16-bits because of overshoot)
 #define INTERPOLATE8(s1, s2, s3, f) \
 { \
-	int32_t frac, s4; \
+	int32_t s4, frac = f >> 1; \
 	\
-	frac = (f) >> 1; \
 	s2 <<= 8; \
-	s4 = (s1 + s3) << 7; \
-	s4 -= s2; \
-	s4 = (s4 * frac) >> 16; \
-	s3 += s1; \
-	s3 <<= 8; \
-	s1 <<= 9; \
-	s3 = (s3 + s1) >> 2; \
-	s1 >>= 1; \
-	s4 += s2; \
-	s4 -= s3; \
-	s4 = (s4 * frac) >> 14; \
-	s1 += s4; \
+	s4 = ((s1 + s3) << (8 - 1)) - s2; \
+	s4 = ((s4 * frac) >> 16) + s2; \
+	s3 = (s1 + s3) << (8 - 1); \
+	s1 <<= 8; \
+	s3 = (s1 + s3) >> 1; \
+	s1 += (((s4 - s3) * frac) >> 14); \
 } \
 
-// in: int32_t s1,s2,s3 = -32768..32767 | f = 0..65535 (frac) | out: s1 (can exceed 16-bits because of under-/overshoot)
+// in: int32_t s1,s2,s3 = -32768..32767 | f = 0..65535 (frac) | out: s1 (will exceed 16-bits because of overshoot)
 #define INTERPOLATE16(s1, s2, s3, f)  \
 { \
-	int32_t frac, s4; \
+	int32_t s4, frac = f >> 1; \
 	\
-	frac = (f) >> 1; \
-	s4 = (s1 + s3) >> 1; \
-	s4 -= s2; \
-	s4 = (s4 * frac) >> 16; \
-	s3 += s1; \
-	s1 += s1; \
-	s3 = (s3 + s1) >> 2; \
-	s1 >>= 1; \
-	s4 += s2; \
-	s4 -= s3; \
-	s4 = (s4 * frac) >> 14; \
-	s1 += s4; \
+	s4 = ((s1 + s3) >> 1) - s2; \
+	s4 = ((s4 * frac) >> 16) + s2; \
+	s3 = (s1 + s3) >> 1; \
+	s3 = (s1 + s3) >> 1; \
+	s1 += (((s4 - s3) * frac) >> 14); \
 } \
 
 #define RENDER_8BIT_SMP_INTRP \
@@ -193,17 +179,14 @@
 // in: int32_t s1,s2 = -128..127 | f = 0..65535 (frac) | out: s1 = -32768..32767
 #define INTERPOLATE8(s1, s2, f) \
 	s2 -= s1; \
-	s2 *= (int32_t)(f); \
+	s2 = (s2 * (int32_t)(f)) >> (16 - 8); \
 	s1 <<= 8; \
-	s2 >>= (16 - 8); \
 	s1 += s2; \
 
 // in: int32_t s1,s2 = -32768..32767 | f = 0..65535 (frac) | out: s1 = -32768..32767
 #define INTERPOLATE16(s1, s2, f) \
-	s2 -= s1; \
-	s2 >>= 1; \
-	s2 *= (int32_t)(f); \
-	s2 >>= (16 - 1); \
+	s2 = (s2 - s1) >> 1; \
+	s2 = (s2 * (int32_t)(f)) >> (16 - 1); \
 	s1 += s2; \
 
 #define RENDER_8BIT_SMP_INTRP \

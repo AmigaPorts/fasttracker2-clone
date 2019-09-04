@@ -168,7 +168,7 @@ void setSpeed(uint16_t bpm)
 			dFrac = modf(speedVal * audio.dSpeedValMul, &dInt);
 
 			// integer part
-			double2int32_trunc(tickTimeLen, dInt);
+			tickTimeLen = (uint32_t)(dInt);
 
 			// fractional part (scaled to 0..2^32-1)
 			dFrac *= (UINT32_MAX + 1.0);
@@ -260,51 +260,65 @@ static inline void voiceUpdateVolumes(uint8_t i, uint8_t status)
 	}
 }
 
-static void voiceTrigger(uint8_t i, const int8_t *sampleData,
-	int32_t sampleLength,  int32_t sampleLoopBegin, int32_t sampleLoopLength,
-	uint8_t loopType, bool sampleIs16Bit, int32_t position)
+static void voiceTrigger(uint8_t i, sampleTyp *s, int32_t position)
 {
+	bool sampleIs16Bit;
+	uint8_t loopType;
+	int32_t oldSLen, length, loopBegin, loopLength, loopLengthUnrolled;
 	voice_t *v;
 
 	v = &voice[i];
 
-	if ((sampleData == NULL) || (sampleLength < 1))
+	length = s->len;
+	loopBegin = s->repS;
+	loopLength = s->repL;
+	loopLengthUnrolled = s->repLUnrolled;
+	loopType = s->typ & 3;
+	sampleIs16Bit = (s->typ >> 4) & 1;
+
+	if (sampleIs16Bit)
+	{
+		assert(!(length & 1));
+		assert(!(loopBegin & 1));
+		assert(!(loopLength & 1));
+		assert(!(loopLengthUnrolled & 1));
+
+		length >>= 1;
+		loopBegin >>= 1;
+		loopLength >>= 1;
+		loopLengthUnrolled >>= 1;
+	}
+
+	if ((s->pek == NULL) || (length < 1))
 	{
 		v->mixRoutine = NULL; // shut down voice (illegal parameters)
 		return;
 	}
 
+	if (loopLength < 1) // disable loop if loopLength is below 1
+		loopType = 0;
+
 	if (sampleIs16Bit)
 	{
-		assert(!(sampleLoopBegin  & 1));
-		assert(!(sampleLength     & 1));
-		assert(!(sampleLoopLength & 1));
-
-		sampleLoopBegin  >>= 1;
-		sampleLength     >>= 1;
-		sampleLoopLength >>= 1;
-
-		v->SBase16 = (const int16_t *)(sampleData);
-		v->SRevBase16 = &v->SBase16[sampleLoopBegin + (sampleLoopLength + sampleLoopBegin)];
+		v->SBase16 = (const int16_t *)(s->pek);
+		v->SRevBase16 = &v->SBase16[loopBegin + (loopLengthUnrolled + loopBegin)]; // for pingpong loops
 	}
 	else
 	{
-		v->SBase8 = sampleData;
-		v->SRevBase8 = &v->SBase8[sampleLoopBegin + (sampleLoopLength + sampleLoopBegin)];
+		v->SBase8 = s->pek;
+		v->SRevBase8 = &v->SBase8[loopBegin + (loopLengthUnrolled + loopBegin)]; // for pingpong loops
 	}
 
-	if (sampleLoopLength < 1)
-		loopType = 0;
-
 	v->backwards = false;
-	v->SLen      = (loopType > 0) ? (sampleLoopBegin + sampleLoopLength) : sampleLength;
-	v->SRepS     = sampleLoopBegin;
-	v->SRepL     = sampleLoopLength;
+	v->SLen      = (loopType > 0) ? (loopBegin + loopLengthUnrolled) : length;
+	v->SRepS     = loopBegin;
+	v->SRepL     = loopLengthUnrolled;
 	v->SPos      = position;
 	v->SPosDec   = 0; // position fraction
 
-	// if 9xx position overflows, shut down voice (confirmed FT2 behavior)
-	if (v->SPos >= v->SLen)
+	// if 9xx position overflows, shut down voice
+	oldSLen = (loopType > 0) ? (loopBegin + loopLength) : length;
+	if (v->SPos >= oldSLen)
 	{
 		v->mixRoutine = NULL;
 		return;
@@ -335,7 +349,6 @@ void mix_UpdateChannelVolPanFrq(void)
 	uint16_t vol;
 	stmTyp *ch;
 	voice_t *v;
-	sampleTyp *s;
 
 	for (i = 0; i < song.antChn; ++i)
 	{
@@ -384,10 +397,7 @@ void mix_UpdateChannelVolPanFrq(void)
 
 			// sample trigger (note)
 			if (status & IS_NyTon)
-			{
-				s = ch->smpPtr;
-				voiceTrigger(i, s->pek, s->len, s->repS, s->repL, s->typ & 3, (s->typ >> 4) & 1, ch->smpStartPos);
-			}
+				voiceTrigger(i, ch->smpPtr, ch->smpStartPos);
 		}
 	}
 }
@@ -1153,7 +1163,7 @@ static void calcAudioLatencyVars(uint16_t haveSamples, int32_t haveFreq)
 	dFrac = modf(dAudioLatencySecs * editor.dPerfFreq, &dInt);
 
 	// integer part
-	double2int32_trunc(audio.audLatencyPerfValInt, dInt);
+	audio.audLatencyPerfValInt = (uint32_t)(dInt);
 
 	// fractional part (scaled to 0..2^32-1)
 	dFrac *= (UINT32_MAX + 1.0);
@@ -1262,7 +1272,7 @@ bool setupAudio(bool showErrorMsg)
 	if (!setupAudioBuffers())
 	{
 		if (showErrorMsg)
-			showErrorMsgBox("Out of memory!");
+			showErrorMsgBox("Not enough memory!");
 
 		closeAudio();
 		return (false);

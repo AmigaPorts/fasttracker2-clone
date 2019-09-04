@@ -127,6 +127,7 @@ int main(int argc, char *argv[])
 #ifdef __APPLE__
 	osxSetDirToProgramDirFromArgs(argv);
 #endif
+	UNICHAR_GETCWD(editor.binaryPathU, PATH_MAX);
 
 	loadConfigOrSetDefaults();
 	if (!setupWindow() || !setupRenderer())
@@ -185,8 +186,6 @@ int main(int argc, char *argv[])
 	resumeAudio();
 	rescanAudioDevices();
 
-	handleModuleLoadFromArg(argc, argv);
-
 	SDL_ShowWindow(video.window);
 	if (config.windowFlags & START_IN_FULLSCR)
 	{
@@ -209,6 +208,9 @@ int main(int argc, char *argv[])
 	SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 
 	setupWaitVBL();
+
+	handleModuleLoadFromArg(argc, argv);
+
 	while (editor.programRunning)
 	{
 		beginFPSCounter();
@@ -388,7 +390,7 @@ static void setupPerfFreq(void)
 	dFrac = modf(editor.dPerfFreq / VBLANK_HZ, &dInt);
 
 	// integer part
-	double2int32_trunc(video.vblankTimeLen, dInt);
+	video.vblankTimeLen = (uint32_t)(dInt);
 
 	// fractional part scaled to 0..2^32-1
 	dFrac *= (UINT32_MAX + 1.0);

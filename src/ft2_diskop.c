@@ -3,6 +3,8 @@
 #include <crtdbg.h>
 #endif
 
+#define _FILE_OFFSET_BITS 64
+
 #include <stdint.h>
 #include <stdio.h>
 #include <math.h>
@@ -78,6 +80,38 @@ static DirRec *FReq_Buffer;
 static SDL_Thread *thread;
 
 static void setDiskOpItem(uint8_t item);
+
+int32_t getFileSize(UNICHAR *fileName) // returning -1 = filesize over 2GB
+{
+#ifdef _WIN32
+	FILE *f;
+#else
+	struct stat st;
+#endif
+	int64_t fSize;
+
+#ifdef _WIN32
+	f = UNICHAR_FOPEN(fileName, "rb");
+	if (f == NULL)
+		return (0);
+
+	_fseeki64(f, 0, SEEK_END);
+	fSize = _ftelli64(f);
+	fclose(f);
+#else
+	if (stat(fileName, &st) != 0)
+		return (0);
+
+	fSize = (int64_t)(st.st_size);
+#endif
+	if (fSize < 0)
+		fSize = 0;
+
+	if (fSize > INT32_MAX)
+		return (-1);
+	
+	return (fSize & 0xFFFFFFFF);
+}
 
 uint8_t getDiskOpItem(void)
 {
@@ -640,6 +674,7 @@ void diskOpSetFilename(uint8_t type, UNICHAR *pathU)
 
 static void openFile(UNICHAR *filenameU, bool songModifiedCheck)
 {
+	int32_t filesize;
 	FILE *f;
 
 	// first check if we can actually open the requested file
@@ -650,6 +685,19 @@ static void openFile(UNICHAR *filenameU, bool songModifiedCheck)
 		return;
 	}
 	fclose(f);
+
+	filesize = getFileSize(filenameU);
+	if (filesize == -1) // >2GB
+	{
+		okBox(0, "System message", "The file is too big and can't be loaded (over 2GB).");
+		return;
+	}
+
+	if (filesize >= (128L * 1024 * 1024)) // 128MB
+	{
+		if (okBox(2, "System request", "Are you sure you want to load such a big file?") != 1)
+			return;
+	}
 
 	// file is readable, handle file...
 	switch (FReq_Item)
@@ -1348,26 +1396,14 @@ static uint8_t handleEntrySkip(UNICHAR *nameU, bool isDir)
 	return (false); // "Show All Files" mode is enabled, don't skip entry
 }
 
-#ifndef _WIN32
-static off_t fsize(const char *filename)
-{
-	struct stat st;
-
-	if (stat(filename, &st) == 0)
-		return (st.st_size);
-
-	return (-1);
-}
-#endif
-
 static int8_t findFirst(DirRec *searchRec)
 {
 #ifdef _WIN32
 	WIN32_FIND_DATAW fData;
-	int32_t filesize;
 #else
 	struct dirent *fData;
 	struct stat st;
+	int64_t fSize;
 #endif
 
 	searchRec->nameU = NULL; // this one must be initialized
@@ -1381,11 +1417,7 @@ static int8_t findFirst(DirRec *searchRec)
 	if (searchRec->nameU == NULL)
 		return (LFF_SKIP);
 
-	filesize = (int32_t)(fData.nFileSizeLow);
-	if (fData.nFileSizeHigh > 0)
-		filesize = -1;
-
-	searchRec->filesize = filesize;
+	searchRec->filesize = (fData.nFileSizeHigh > 0) ? -1 : fData.nFileSizeLow;
 	searchRec->isDir = (fData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? true : false;
 #else
 	hFind = opendir(".");
@@ -1400,21 +1432,27 @@ static int8_t findFirst(DirRec *searchRec)
 	if (searchRec->nameU == NULL)
 		return (LFF_SKIP);
 
-	searchRec->filesize = -1;
+	searchRec->filesize = 0;
 	searchRec->isDir = (fData->d_type == DT_DIR) ? true : false;
 
 	if ((fData->d_type == DT_UNKNOWN) || (fData->d_type == DT_LNK))
 	{
 		if (stat(fData->d_name, &st) == 0)
 		{
-			searchRec->filesize = (int32_t)(st.st_size);
+			fSize = (int64_t)(st.st_size);
+			searchRec->filesize = (fSize > INT32_MAX) ? -1 : (fSize & 0xFFFFFFFF);
+
 			if ((st.st_mode & S_IFMT) == S_IFDIR)
 				searchRec->isDir = true;
 		}
 	}
 	else if (!searchRec->isDir)
 	{
-		searchRec->filesize = (int32_t)(fsize(fData->d_name));
+		if (stat(fData->d_name, &st) == 0)
+		{
+			fSize = (int64_t)(st.st_size);
+			searchRec->filesize = (fSize > INT32_MAX) ? -1 : (fSize & 0xFFFFFFFF);
+		}
 	}
 #endif
 
@@ -1434,10 +1472,10 @@ static int8_t findNext(DirRec *searchRec)
 {
 #ifdef _WIN32
 	WIN32_FIND_DATAW fData;
-	int32_t filesize;
 #else
 	struct dirent *fData;
 	struct stat st;
+	int64_t fSize;
 #endif
 
 	searchRec->nameU = NULL; // important
@@ -1450,11 +1488,7 @@ static int8_t findNext(DirRec *searchRec)
 	if (searchRec->nameU == NULL)
 		return (LFF_SKIP);
 
-	filesize = (int32_t)(fData.nFileSizeLow);
-	if (fData.nFileSizeHigh > 0)
-		filesize = -1;
-
-	searchRec->filesize = filesize;
+	searchRec->filesize = (fData.nFileSizeHigh > 0) ? -1 : fData.nFileSizeLow;
 	searchRec->isDir = (fData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? true : false;
 #else
 	if ((hFind == NULL) || ((fData = readdir(hFind)) == NULL))
@@ -1464,21 +1498,27 @@ static int8_t findNext(DirRec *searchRec)
 	if (searchRec->nameU == NULL)
 		return (LFF_SKIP);
 
-	searchRec->filesize = -1;
+	searchRec->filesize = 0;
 	searchRec->isDir = (fData->d_type == DT_DIR) ? true : false;
 
 	if ((fData->d_type == DT_UNKNOWN) || (fData->d_type == DT_LNK))
 	{
 		if (stat(fData->d_name, &st) == 0)
 		{
-			searchRec->filesize = (int32_t)(st.st_size);
+			fSize = (int64_t)(st.st_size);
+			searchRec->filesize = (fSize > INT32_MAX) ? -1 : (fSize & 0xFFFFFFFF);
+
 			if ((st.st_mode & S_IFMT) == S_IFDIR)
 				searchRec->isDir = true;
 		}
 	}
 	else if (!searchRec->isDir)
 	{
-		searchRec->filesize = (int32_t)(fsize(fData->d_name));
+		if (stat(fData->d_name, &st) == 0)
+		{
+			fSize = (int64_t)(st.st_size);
+			searchRec->filesize = (fSize > INT32_MAX) ? -1 : (fSize & 0xFFFFFFFF);
+		}
 	}
 #endif
 
@@ -1656,12 +1696,16 @@ static void printFormattedFilesize(uint16_t x, uint16_t y, uint32_t bufEntry)
 	int32_t filesize;
 
 	filesize = FReq_Buffer[bufEntry].filesize;
-	if (filesize & 0x80000000)
+	
+	if (filesize == -1)
 	{
 		x += 6;
 		textOut(x, y, PAL_BLCKTXT, ">2GB");
 		return;
 	}
+
+	if (filesize < 0)
+		filesize = 0;
 
 	if (filesize >= (1000 * 1000 * 10)) // >= 10MB?
 	{
@@ -1844,7 +1888,7 @@ static DirRec *bufferCreateEmptyDir(void) // special case: creates a dir entry w
 static int32_t SDLCALL diskOp_ReadDirectoryThread(void *ptr)
 {
 	uint8_t lastFindFileFlag;
-	DirRec tmpBuffer;
+	DirRec tmpBuffer, *newPtr;
 
 	FReq_DirPos = 0;
 
@@ -1882,13 +1926,15 @@ static int32_t SDLCALL diskOp_ReadDirectoryThread(void *ptr)
 			lastFindFileFlag = findNext(&tmpBuffer);
 			if ((lastFindFileFlag != LFF_DONE) && (lastFindFileFlag != LFF_SKIP))
 			{
-				FReq_Buffer = (DirRec *)(realloc(FReq_Buffer, sizeof (DirRec) * (FReq_FileCount + 1)));
-				if (FReq_Buffer == NULL)
+				newPtr = (DirRec *)(realloc(FReq_Buffer, sizeof (DirRec) * (FReq_FileCount + 1)));
+				if (newPtr == NULL)
 				{
 					freeDirRecBuffer();
 					okBoxThreadSafe(0, "System message", "Not enough memory!");
 					break;
 				}
+
+				FReq_Buffer = newPtr;
 
 				memcpy(&FReq_Buffer[FReq_FileCount], &tmpBuffer, sizeof (DirRec));
 				FReq_FileCount++;

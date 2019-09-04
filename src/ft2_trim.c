@@ -432,6 +432,7 @@ static void wipeSamplesUnused(bool testWipeSize, int16_t ai)
 
 static void wipeSmpDataAfterLoop(bool testWipeSize, int16_t ai)
 {
+	int8_t *newPtr;
 	int16_t i, j, l;
 	instrTyp *ins;
 	sampleTyp *s;
@@ -478,7 +479,9 @@ static void wipeSmpDataAfterLoop(bool testWipeSize, int16_t ai)
 					}
 					else
 					{
-						s->pek = (int8_t *)(realloc(s->pek, s->len + 4));
+						newPtr = (int8_t *)(realloc(s->pek, s->len + LOOP_FIX_LEN));
+						if (newPtr != NULL)
+							s->pek = newPtr;
 					}
 				}
 
@@ -491,7 +494,7 @@ static void wipeSmpDataAfterLoop(bool testWipeSize, int16_t ai)
 
 static void convertSamplesTo8bit(bool testWipeSize, int16_t ai)
 {
-	int8_t *dst8, smp8;
+	int8_t *dst8, smp8, *newPtr;
 	int16_t *src16, i, j, k;
 	int32_t a, newLen;
 	instrTyp *ins;
@@ -551,7 +554,9 @@ static void convertSamplesTo8bit(bool testWipeSize, int16_t ai)
 					s->len  /= 2;
 					s->typ &= ~16;
 
-					s->pek = (int8_t *)(realloc(s->pek, s->len + 4));
+					newPtr = (int8_t *)(realloc(s->pek, s->len + LOOP_FIX_LEN));
+					if (newPtr != NULL)
+						s->pek = newPtr;
 
 					fixSample(s);
 				}

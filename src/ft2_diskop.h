@@ -22,6 +22,7 @@ enum
 	SMP_SAVE_MODE_WAV   = 2
 };
 
+int32_t getFileSize(UNICHAR *fileName);
 uint8_t getDiskOpItem(void);
 void updateCurrSongFilename(void); // for window title
 char *getCurrSongFilename(void);   // for window title

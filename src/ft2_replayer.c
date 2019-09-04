@@ -114,6 +114,7 @@ void tuneSample(sampleTyp *s, uint32_t midCFreq)
 bool setPatternLen(uint16_t nr, int16_t len)
 {
 	bool audioWasntLocked;
+	tonTyp *newPtr;
 
 	assert(nr < MAX_PATTERNS);
 
@@ -148,14 +149,18 @@ bool setPatternLen(uint16_t nr, int16_t len)
 		return (true);
 	}
 
-	patt[nr] = (tonTyp *)(realloc(patt[nr], len * TRACK_WIDTH));
-	if (patt[nr] == NULL)
+	newPtr = (tonTyp *)(realloc(patt[nr], len * TRACK_WIDTH));
+	if (newPtr == NULL)
 	{
+		okBox(0, "Status message", "Not enough memory!");
+
 		if (audioWasntLocked)
 			unlockAudio();
 
 		return (false);
 	}
+
+	patt[nr] = newPtr;
 
 	// if we enlarged the pattern length, wipe the new data
 	if (len >= pattLens[nr])
