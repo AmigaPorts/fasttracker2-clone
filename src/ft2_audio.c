@@ -105,12 +105,13 @@ bool setNewAudioSettings(void) // only call this from the main input/video threa
 // ampFactor = 1..32, masterVol = 0..256
 void setAudioAmp(int16_t ampFactor, int16_t master, bool bitDepth32Flag)
 {
-	int32_t newAmp, i;
+	int32_t i;
 
-	// voiceVolume = (vol(0..255) * pan(0..65536) * amp(0..256)) >> 4
-	const float fAudioNorm = 1.0f / (float)(((255UL * 65536 * 256) / 16) / MAX_VOICES);
+	ampFactor = CLAMP(ampFactor, 1, 32);
+	master    = CLAMP(master,    0, 256);
 
-	assert((ampFactor >= 0) && (ampFactor <= 32) && (master >= 0) && (master <= 256));
+	// voiceVolume = (vol(0..2047) * amp(1..32) * pan(0..65536)) >> 4
+	const float fAudioNorm = 1.0f / (float)(((2047UL * 32 * 65536) / 16) / MAX_VOICES);
 
 	if (bitDepth32Flag)
 	{
@@ -125,10 +126,9 @@ void setAudioAmp(int16_t ampFactor, int16_t master, bool bitDepth32Flag)
 
 	// calculate channel amp
 
-	newAmp = ampFactor * (256 / 32);
-	if (amp != newAmp)
+	if (amp != ampFactor)
 	{
-		amp = newAmp;
+		amp = ampFactor;
 
 		// make all channels update volume because of amp change
 		for (i = 0; i < song.antChn; ++i)
@@ -200,11 +200,11 @@ static inline void voiceUpdateVolumes(uint8_t i, uint8_t status)
 
 	v = &voice[i];
 
-	volL = v->SVol * amp;
+	volL = v->SVol * amp; // 0..2047 * 1..32 = 0..65504
 
-	// 0..267386880
-	volR = (volL * panningTab[      v->SPan]) >> (32 - 28);
-	volL = (volL * panningTab[256 - v->SPan]) >> (32 - 28);
+	// (0..65504 * 0..65536) >> 4 = 0..267386880
+	volR = ((uint32_t)(volL) * panningTab[      v->SPan]) >> 4;
+	volL = ((uint32_t)(volL) * panningTab[256 - v->SPan]) >> 4;
 
 	if (!audio.volumeRampingFlag)
 	{
@@ -351,10 +351,10 @@ void mix_UpdateChannelVolPanFrq(void)
 			if (status & IS_Vol)
 			{
 				vol = ch->finalVol;
-				if (vol > 0) // yes, FT2 does this! now it's 0..255 instead
+				if (vol > 0) // yes, FT2 does this!
 					vol--;
 
-				v->SVol = (uint8_t)(vol);
+				v->SVol = vol;
 			}
 
 			// panning change

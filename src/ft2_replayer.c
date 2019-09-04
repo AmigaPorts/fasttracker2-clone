@@ -1232,8 +1232,9 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 	uint8_t envPos;
 	int16_t autoVibVal, panTmp;
 	uint16_t autoVibAmp, tmpPeriod, envVal;
-	int32_t tmp32;
+	int32_t vol, tmp32;
 	instrTyp *ins;
+	double dVol;
 
 	ins = ch->instrPtr;
 
@@ -1338,14 +1339,35 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 				}
 			}
 
+			/* old integer method with bad precision
 			envVal >>= 8;
-
 			ch->finalVol = (song.globVol * (((envVal * ch->outVol) * ch->fadeOutAmp) >> (16 + 2))) >> 7;
+			*/
+
+			// calculate with four times more precision (+ rounding).
+			// also, env. range is now 0..16384 instead of being shifted to 0..64.
+
+			dVol  = song.globVol * ch->outVol * ch->fadeOutAmp;
+			dVol *= envVal; // we need a float mul because it would overflow 32-bit integer
+			dVol *= (1.0 / ((64.0 * 64.0 * 32768.0 * 16384.0) / 2048.0)); // 0..2048 (real FT2 is 0..256)
+
+			double2int32_round(vol, dVol);
+			ch->finalVol = (uint16_t)(CLAMP(vol, 0, 2048));
+
 			ch->status  |= IS_Vol;
 		}
 		else
 		{
+			/* old integer method with bad precision
 			ch->finalVol = (song.globVol * (((ch->outVol << 4) * ch->fadeOutAmp) >> 16)) >> 7;
+			*/
+
+			// calculate with four times more precision (+ rounding)
+			dVol  = song.globVol * ch->outVol * ch->fadeOutAmp;
+			dVol *= (1.0 / ((64.0 * 64.0 * 32768.0) / 2048.0)); // 0..2048 (real FT2 is 0..256)
+
+			double2int32_round(vol, dVol);
+			ch->finalVol = (uint16_t)(CLAMP(vol, 0, 2048));
 		}
 	}
 	else

@@ -802,7 +802,7 @@ void handleScopesFromChQueue(chSyncData_t *chSyncData, uint8_t *scopeUpdateStatu
 
 		// set scope volume
 		if (status & IS_Vol)
-			sc->SVol = (int8_t)((ch->finalVol * SCOPE_DATA_HEIGHT) >> 8);
+			sc->SVol = (int8_t)(((uint32_t)(ch->finalVol) * SCOPE_DATA_HEIGHT) >> 11);
 
 		// set scope frequency
 		if (status & IS_Period)

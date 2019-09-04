@@ -42,7 +42,8 @@ typedef struct
 	const int8_t *SBase8, *SRevBase8;
 	const int16_t *SBase16, *SRevBase16;
 	bool backwards, isFadeOutVoice;
-	uint8_t SVol, SPan;
+	uint8_t SPan;
+	uint16_t SVol;
 	int32_t SLVol1, SRVol1, SLVol2, SRVol2, SLVolIP, SRVolIP, SVolIPLen, SPos, SLen, SRepS, SRepL;
 	uint32_t SPosDec, SFrq, SFrqRev;
 	void (*mixRoutine)(void *, int32_t); // function pointer to mix routine
