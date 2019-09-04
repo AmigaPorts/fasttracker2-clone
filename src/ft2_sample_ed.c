@@ -1844,12 +1844,19 @@ static int32_t SDLCALL sampPasteThread(void *ptr)
 	int8_t *p, *ptr8;
 	int16_t *ptr16;
 	int32_t i, l, d, realCopyLen, len32;
-	sampleTyp *s = getCurSample();
+	sampleTyp *s;
 
 	(void)ptr;
 
-	// non-FT2 feature: paste without selecting where (overwrite)
-	if (smpEd_Rx2 == 0)
+	if (instr[editor.curInstr] == NULL && !allocateInstr(editor.curInstr))
+	{
+		okBoxThreadSafe(0, "System message", "Not enough memory!");
+		return true;
+	}
+
+	s = getCurSample();
+
+	if (smpEd_Rx2 == 0) // paste without selecting where (overwrite)
 	{
 		p = (int8_t *)malloc(smpCopySize + LOOP_FIX_LEN);
 		if (p == NULL)
@@ -1859,21 +1866,17 @@ static int32_t SDLCALL sampPasteThread(void *ptr)
 		}
 
 		pauseAudio();
-		restoreSample(s);
 
 		if (s->pek != NULL)
 			free(s->pek);
 
+		memset(s, 0, sizeof (sampleTyp));
 		memcpy(p, smpCopyBuff, smpCopySize);
 
 		s->pek = p;
 		s->len = smpCopySize;
-		s->repL = 0;
-		s->repS = 0;
 		s->vol = 64;
 		s->pan = 128;
-		s->relTon = 0;
-		s->fine = 0;
 		s->typ = (smpCopyBits == 16) ? 16 : 0;
 
 		fixSample(s);
