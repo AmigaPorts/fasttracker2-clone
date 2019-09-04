@@ -128,6 +128,9 @@ int16_t okBox(int16_t typ, char *headline, char *text)
         SDL_SetWindowGrab(video.window, false);
 #endif
 
+    if (editor.ui.editTextFlag)
+        exitTextEditing();
+
     if (mouse.mode != MOUSE_MODE_NORMAL)
         setMouseMode(MOUSE_MODE_NORMAL);
 
@@ -328,6 +331,9 @@ int16_t inputBox(int16_t typ, char *headline, char *edText, uint16_t maxStrLen)
     pushButton_t *p;
     textBox_t *t;
 
+    if (editor.ui.editTextFlag)
+        exitTextEditing();
+
     if (mouse.mode != MOUSE_MODE_NORMAL)
         setMouseMode(MOUSE_MODE_NORMAL);
 
@@ -413,6 +419,7 @@ int16_t inputBox(int16_t typ, char *headline, char *edText, uint16_t maxStrLen)
 
     mouse.lastEditBox = 0;
     editor.ui.editTextFlag = true;
+    SDL_StartTextInput();
 
     mouse.lastUsedObjectType = OBJECT_NONE;
     mouse.lastUsedObjectID   = OBJECT_ID_NONE;
@@ -532,6 +539,7 @@ int16_t inputBox(int16_t typ, char *headline, char *edText, uint16_t maxStrLen)
     }
 
     editor.ui.editTextFlag = false;
+    SDL_StopTextInput();
 
     for (i = 0; i < knp; ++i)
         hidePushButton(i);

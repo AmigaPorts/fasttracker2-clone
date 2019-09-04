@@ -7,7 +7,7 @@
 
 /* ported from original FT2 code */
 
-#define NUM_STARS      500
+#define NUM_STARS      700
 #define ABOUT_SCREEN_W 626
 #define ABOUT_SCREEN_H 167
 #define FT2_LOGO_W     449

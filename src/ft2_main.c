@@ -105,11 +105,16 @@ int main(int argc, char *argv[])
     disableWasapi(); /* disable problematic WASAPI SDL2 audio driver on Windows (causes clicks/pops sometimes...) */
 #endif
 
-    if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0)
+    if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO) != 0)
     {
         showErrorMsgBox("Couldn't initialize SDL:\n%s", SDL_GetError());
         return (1);
     }
+
+    /* Text input is started by default in SDL2, turn it off to remove ~2ms spikes per key press.
+    ** We manuallay start it again when someone clicks on a text edit box, and stop it when done.
+    ** Ref.: https://bugzilla.libsdl.org/show_bug.cgi?id=4166 */
+    SDL_StopTextInput();
 
     /* this is mostly needed for situations without vsync */
     SDL_SetThreadPriority(SDL_THREAD_PRIORITY_HIGH);
@@ -186,8 +191,6 @@ int main(int argc, char *argv[])
         enterFullscreen();
     }
 
-    SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
-
     //benchmarkAudioChannelMixer(); /* for development testing */
 
     /* set up MIDI input (in a thread because it can take quite a while on f.ex. macOS) */
@@ -199,6 +202,8 @@ int main(int argc, char *argv[])
         return (1);
     }
     SDL_DetachThread(initMidiThread); /* don't wait for this thread, let it clean up when done */
+
+    SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 
     setupWaitVBL();
     while (editor.programRunning)

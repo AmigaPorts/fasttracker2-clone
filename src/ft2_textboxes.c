@@ -339,27 +339,28 @@ static void pasteText(textBox_t *t)
 
 void exitTextEditing(void)
 {
-    if (editor.ui.editTextFlag)
+    if (!editor.ui.editTextFlag)
+        return;
+
+    if ((mouse.lastEditBox >= 0) && (mouse.lastEditBox < NUM_TEXTBOXES))
     {
-        if ((mouse.lastEditBox >= 0) && (mouse.lastEditBox < NUM_TEXTBOXES))
-        {
-            textBoxes[mouse.lastEditBox].bufOffset = 0;
+        textBoxes[mouse.lastEditBox].bufOffset = 0;
 
-            removeTextMarking();
-            drawTextBox(mouse.lastEditBox);
-        }
-
-        if ((mouse.lastEditBox == TB_DISKOP_FILENAME) && (getDiskOpItem() == DISKOP_ITEM_MODULE))
-        {
-            updateCurrSongFilename(); /* for window title */
-            updateWindowTitle(true);
-        }
-
-        keyb.ignoreCurrKeyUp = true; /* prevent a note being played (on enter key) */
-        editor.ui.editTextFlag = false;
+        removeTextMarking();
+        drawTextBox(mouse.lastEditBox);
     }
 
+    if ((mouse.lastEditBox == TB_DISKOP_FILENAME) && (getDiskOpItem() == DISKOP_ITEM_MODULE))
+    {
+        updateCurrSongFilename(); /* for window title */
+        updateWindowTitle(true);
+    }
+
+    keyb.ignoreCurrKeyUp = true; /* prevent a note being played (on enter key) */
+    editor.ui.editTextFlag = false;
+
     hideSprite(SPRITE_TEXT_CURSOR);
+    SDL_StopTextInput();
 }
 
 static int16_t cursorPosToX(textBox_t *t)
@@ -761,13 +762,16 @@ int8_t testTextBoxMouseDown(void)
                 mouse.lastUsedObjectID = i;
 
                 editor.ui.editTextFlag = true;
+
+                SDL_StartTextInput();
                 return (true);
             }
         }
     }
 
     /* if we were editing text and we clicked outside of a text box, exit text editing */
-    exitTextEditing();
+    if (editor.ui.editTextFlag)
+        exitTextEditing();
 
     return (false);
 }

@@ -13,7 +13,7 @@
 #endif
 #include "ft2_replayer.h"
 
-#define BETA_VERSION 129
+#define BETA_VERSION 130
 
 /* do NOT change these! It will only mess things up... */
 #define VBLANK_HZ 60
