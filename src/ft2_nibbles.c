@@ -409,8 +409,6 @@ static void nibblesDecLives(int16_t l1, int16_t l2)
 			okBox(0, "Nibbles message", "Player 2 died!");
 	}
 
-	NI_P1Score = 0x1234567;
-
 	if (NI_P1Lives == 0 || NI_P2Lives == 0)
 	{
 		editor.NI_Play = false;
