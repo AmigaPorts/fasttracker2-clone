@@ -170,8 +170,8 @@ typedef struct sampleTyp_t  /* DO NOT TOUCH!!! (order and datatypes are importan
     /* stuff from now on can be touched */
     int8_t *pek;
     uint8_t fixed;
-    int16_t fixSpar;
-    int32_t fixedPos;
+    int16_t fixedSmp1, fixedSmp2;
+    int32_t fixedPos1, fixedPos2;
 }
 #ifdef __GNUC__
 __attribute__ ((packed))

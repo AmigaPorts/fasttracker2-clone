@@ -36,7 +36,7 @@ static double dPos2ScrMul, dScr2SmpPosMul;
 int32_t smpEd_Rx1 = 0, smpEd_Rx2 = 0;
 sampleTyp *currSmp = NULL;
 
-/* adds wrapped sample after loop/end (for branchless linear interpolation) */
+/* adds wrapped samples after loop/end (for branchless mixer interpolation) */
 void fixSample(sampleTyp *s)
 {
     uint8_t loopType;
@@ -60,14 +60,18 @@ void fixSample(sampleTyp *s)
             len  /= 2;
             ptr16 = (int16_t *)(s->pek);
 
-            ptr16[len] = 0;
+            /* write new values */
+            ptr16[len + 0] = 0;
+            ptr16[len + 1] = 0;
         }
         else
         {
             if (len < 1)
                 return;
 
-            s->pek[len] = 0;
+            /* write new values */
+            s->pek[len + 0] = 0;
+            s->pek[len + 1] = 0;
         }
 
         return;
@@ -91,11 +95,15 @@ void fixSample(sampleTyp *s)
             loopEnd   = (s->repS + s->repL) / 2;
             ptr16     = (int16_t *)(s->pek);
 
-            s->fixSpar = ptr16[loopEnd]; /* store old value */
-            ptr16[loopEnd] = ptr16[loopStart]; /* write new value */
+            /* store old values and old fix positions */
+            s->fixedSmp1 = ptr16[loopEnd + 0];
+            s->fixedSmp2 = ptr16[loopEnd + 1];
+            s->fixedPos1 = s->repS + s->repL;
+            s->fixedPos2 = s->repS + s->repL + 2;
 
-            s->fixedPos = s->repS + s->repL;
-            s->fixed = true;
+            /* write new values */
+            ptr16[loopEnd + 0] = ptr16[loopStart + 0];
+            ptr16[loopEnd + 1] = ptr16[loopStart + 1];
         }
         else
         {
@@ -104,13 +112,18 @@ void fixSample(sampleTyp *s)
             if (s->repL < 1)
                 return;
 
-            loopEnd = s->repS + s->repL;
+            loopStart = s->repS;
+            loopEnd   = s->repS + s->repL;
 
-            s->fixSpar = s->pek[loopEnd]; /* store old value */
-            s->pek[loopEnd] = s->pek[s->repS]; /* write new value */
+            /* store old values and old fix positions */
+            s->fixedSmp1 = s->pek[loopEnd + 0];
+            s->fixedSmp2 = s->pek[loopEnd + 1];
+            s->fixedPos1 = loopEnd + 0;
+            s->fixedPos2 = loopEnd + 1;
 
-            s->fixedPos = loopEnd;
-            s->fixed = true;
+            /* write new values */
+            s->pek[loopEnd + 0] = s->pek[loopStart + 0];
+            s->pek[loopEnd + 1] = s->pek[loopStart + 1];
         }
     }
     else
@@ -127,11 +140,15 @@ void fixSample(sampleTyp *s)
             loopEnd = (s->repS + s->repL) / 2;
             ptr16   = (int16_t *)(s->pek);
 
-            s->fixSpar = ptr16[loopEnd]; /* store old value */
-            ptr16[loopEnd] = ptr16[loopEnd - 1];
+            /* store old values and old fix positions */
+            s->fixedSmp1 = ptr16[loopEnd + 0];
+            s->fixedSmp2 = ptr16[loopEnd + 1];
+            s->fixedPos1 = s->repS + s->repL;
+            s->fixedPos2 = s->repS + s->repL + 2;
 
-            s->fixedPos = s->repS + s->repL;
-            s->fixed    = true;
+            /* write new values */
+            ptr16[loopEnd + 0] = ptr16[loopEnd - 1];
+            ptr16[loopEnd + 1] = ptr16[loopEnd - 2];
         }
         else
         {
@@ -142,16 +159,22 @@ void fixSample(sampleTyp *s)
 
             loopEnd = s->repS + s->repL;
 
-            s->fixSpar = s->pek[loopEnd]; /* store old value */
-            s->pek[loopEnd] = s->pek[loopEnd - 1];
+            /* store old values and old fix positions */
+            s->fixedSmp1 = s->pek[loopEnd + 0];
+            s->fixedSmp2 = s->pek[loopEnd + 1];
+            s->fixedPos1 = loopEnd + 0;
+            s->fixedPos2 = loopEnd + 1;
 
-            s->fixedPos = loopEnd;
-            s->fixed    = true;
+            /* write new values */
+            s->pek[loopEnd + 0] = s->pek[loopEnd - 1];
+            s->pek[loopEnd + 1] = s->pek[loopEnd - 2];
         }
     }
+
+    s->fixed = true;
 }
 
-/* reverts wrapped sample after loop/end (for branchless linear interpolation) */
+/* reverts wrapped samples after loop/end (for branchless mixer interpolation) */
 void restoreSample(sampleTyp *s)
 {
     int16_t *ptr16;
@@ -165,18 +188,20 @@ void restoreSample(sampleTyp *s)
     {
         /* 16-bit sample */
 
-        MY_ASSERT((s->len >= 4) && (s->fixedPos < (s->len + 2)) && !(s->fixedPos & 1))
+        MY_ASSERT((s->len >= 4) && (s->fixedPos1 < (s->len + 4)) && !(s->fixedPos1 & 1) && (s->fixedPos2 < (s->len + 4)) && !(s->fixedPos2 & 1))
 
         ptr16 = (int16_t *)(s->pek);
-        ptr16[s->fixedPos / 2] = s->fixSpar;
+        ptr16[s->fixedPos1 / 2] = s->fixedSmp1;
+        ptr16[s->fixedPos2 / 2] = s->fixedSmp2;
     }
     else
     {
         /* 8-bit sample */
 
-        MY_ASSERT((s->len >= 2) && (s->fixedPos < (s->len + 2)))
+        MY_ASSERT((s->len >= 2) && (s->fixedPos1 < (s->len + 4)) && (s->fixedPos2 < (s->len + 4)))
 
-        s->pek[s->fixedPos] = (int8_t)(s->fixSpar);
+        s->pek[s->fixedPos1] = (int8_t)(s->fixedSmp1);
+        s->pek[s->fixedPos2] = (int8_t)(s->fixedSmp2);
     }
 }
 
@@ -399,11 +424,11 @@ void copySmp(void) /* copy sample from srcInstr->srcSmp to curInstr->curSmp */
     pauseAudio();
     if (src->pek != NULL)
     {
-        p = (int8_t *)(malloc(src->len + 2));
+        p = (int8_t *)(malloc(src->len + 4));
         if (p != NULL)
         {
             memcpy(dst, src, sizeof (sampleTyp));
-            memcpy(p, src->pek, src->len + 2); /* +2 = include loop unroll area */
+            memcpy(p, src->pek, src->len +4); /* +4 = include loop fix area */
             dst->pek = p;
         }
         else
@@ -484,11 +509,20 @@ int8_t getScaledSample(int32_t index)
 
         MY_ASSERT(!(index & 1))
 
-        /* restore fixed linear interpolation sample after loop end */
-        if (currSmp->fixed && (index == currSmp->fixedPos))
-            tmp32 = currSmp->fixSpar * SAMPLE_AREA_HEIGHT;
+        /* restore fixed mixer interpolation samples */
+        if (currSmp->fixed)
+        {
+            if (index == currSmp->fixedPos1)
+                tmp32 = currSmp->fixedSmp1 * SAMPLE_AREA_HEIGHT;
+            else if (index == currSmp->fixedPos2)
+                tmp32 = currSmp->fixedSmp2 * SAMPLE_AREA_HEIGHT;
+            else
+                tmp32 = ptr16[index / 2] * SAMPLE_AREA_HEIGHT;
+        }
         else
+        {
             tmp32 = ptr16[index / 2] * SAMPLE_AREA_HEIGHT;
+        }
 
         sample = (int8_t)(tmp32 >> 16);
     }
@@ -496,11 +530,20 @@ int8_t getScaledSample(int32_t index)
     {
         ptr8 = currSmp->pek;
 
-        /* restore fixed linear interpolation sample after loop end */
-        if (currSmp->fixed && (index == currSmp->fixedPos))
-            tmp32 = (int8_t)(currSmp->fixSpar) * SAMPLE_AREA_HEIGHT;
+        /* restore fixed mixer interpolation samples */
+        if (currSmp->fixed)
+        {
+            if (index == currSmp->fixedPos1)
+                tmp32 = (int8_t)(currSmp->fixedSmp1) * SAMPLE_AREA_HEIGHT;
+            else if (index == currSmp->fixedPos2)
+                tmp32 = (int8_t)(currSmp->fixedSmp2) * SAMPLE_AREA_HEIGHT;
+            else
+                tmp32 = ptr8[index] * SAMPLE_AREA_HEIGHT;
+        }
         else
+        {
             tmp32 = ptr8[index] * SAMPLE_AREA_HEIGHT;
+        }
 
         sample = (int8_t)(tmp32 >> 8);
     }
@@ -1433,7 +1476,7 @@ int8_t cutRange(void)
     len = currSmp->len - smpEd_Rx2 + smpEd_Rx1;
     if (len > 0)
     {
-        currSmp->pek = (int8_t *)(realloc(currSmp->pek, len + 2));
+        currSmp->pek = (int8_t *)(realloc(currSmp->pek, len + 4));
         if (currSmp->pek == NULL)
         {
             freeSample(currSmp);
@@ -1541,7 +1584,7 @@ void sampPaste(void)
     /* paste without selecting where (overwrite) */
     if (smpEd_Rx2 == 0)
     {
-        ptr = (int8_t *)(malloc(smpCopySize + 2));
+        ptr = (int8_t *)(malloc(smpCopySize + 4));
         if (ptr == NULL)
         {
             okBox(0, "System message", "Not enough memory!");
@@ -1610,7 +1653,7 @@ void sampPaste(void)
         l = smpCopySize;
     }
 
-    ptr = (int8_t *)(malloc(l + 2));
+    ptr = (int8_t *)(malloc(l + 4));
     if (ptr == NULL)
     {
         okBox(0, "System message", "Not enough memory!");
@@ -2113,7 +2156,7 @@ void rbSample8bit(void)
     {
         newLen = currSmp->len / 2;
 
-        dst8 = (int8_t *)(malloc(newLen + 2));
+        dst8 = (int8_t *)(malloc(newLen + 4));
         if (dst8 == NULL)
         {
             okBox(0, "System message", "Not enough memory!");
@@ -2177,7 +2220,7 @@ void rbSample16bit(void)
 
         newLen = currSmp->len * 2;
 
-        dst8 = (int8_t *)(malloc(newLen + 2));
+        dst8 = (int8_t *)(malloc(newLen + 4));
         if (dst8 == NULL)
         {
             okBox(0, "System message", "Not enough memory!");
@@ -2264,7 +2307,7 @@ void sampMin(void)
 
         currSmp->len = currSmp->repS + currSmp->repL;
 
-        currSmp->pek = (int8_t *)(realloc(currSmp->pek, currSmp->len + 2));
+        currSmp->pek = (int8_t *)(realloc(currSmp->pek, currSmp->len + 4));
         if (currSmp->pek == NULL)
         {
             freeSample(currSmp);
@@ -2538,10 +2581,19 @@ static void writeSamplePosLine(void)
     int32_t scrPos;
     stmTyp *ch;
 
-#ifdef _DEBUG
-    if ((editor.curSmpChannel < 0) || (editor.curSmpChannel >= MAX_VOICES))
-        return;
-#endif
+    if (editor.curSmpChannel == 255) /* is channel latching? (from user input in UI) */
+    {
+        /* remove old line */
+        if (smpEd_OldSmpPosLine != -1)
+        {
+            writeSmpXORLine(smpEd_OldSmpPosLine);
+            smpEd_OldSmpPosLine = -1;
+        }
+
+        return; 
+    }
+
+    MY_ASSERT(editor.curSmpChannel < MAX_VOICES)
 
     ch = &stm[editor.curSmpChannel];
     if ((ch->instrNr == editor.curInstr) && (ch->sampleNr == editor.curSmp))
@@ -2554,13 +2606,15 @@ static void writeSamplePosLine(void)
 
         if (scrPos != smpEd_OldSmpPosLine)
         {
-            writeSmpXORLine(smpEd_OldSmpPosLine);
-            writeSmpXORLine(scrPos);
+            writeSmpXORLine(smpEd_OldSmpPosLine); /* remove old line */
+            writeSmpXORLine(scrPos);              /* write new line */
         }
     }
     else
     {
-        writeSmpXORLine(smpEd_OldSmpPosLine);
+        if (smpEd_OldSmpPosLine != -1)
+            writeSmpXORLine(smpEd_OldSmpPosLine);
+
         scrPos = -1;
     }
 

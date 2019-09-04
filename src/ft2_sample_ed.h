@@ -8,8 +8,8 @@
 #define SAMPLE_AREA_WIDTH    632
 #define SAMPLE_AREA_Y_CENTER 250
 
-void fixSample(sampleTyp *s); /* adds wrapped sample after loop/end (for branchless linear interpolation) */
-void restoreSample(sampleTyp *s); /* reverts wrapped sample after loop/end (for branchless linear interpolation) */
+void fixSample(sampleTyp *s); /* adds wrapped sample after loop/end (for branchless mixer interpolation) */
+void restoreSample(sampleTyp *s); /* reverts wrapped sample after loop/end (for branchless mixer interpolation) */
 
 void clearSample(void);
 void clearCopyBuffer(void);

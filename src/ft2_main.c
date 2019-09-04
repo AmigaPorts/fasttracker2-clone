@@ -62,14 +62,16 @@ int main(int argc, char *argv[])
 
     initializeVars();
 
-    /* test if the CPU has SSE2 (not needed on OS X as it needs OS X 10.6 or later, guaranteed that the CPU has SSE2) */
 #ifdef _WIN32
+    /* test if the CPU has SSE2 (not needed on OS X as it needs OS X 10.7 or later, guaranteed that the CPU has SSE2) */
     if (!IsProcessorFeaturePresent(PF_XMMI64_INSTRUCTIONS_AVAILABLE)) /* test if we have SSE2 */
     {
         showErrorMsgBox("Your computer's processor doesn't have the SSE2 instruction set\n" \
                         "which is needed for this program to run. Sorry!");
         return (0);
     }
+
+    setupWin32Usleep();
 #endif
 
     setupCrashHandler();
@@ -131,8 +133,6 @@ int main(int argc, char *argv[])
     }
 
 #ifdef _WIN32
-    timeBeginPeriod(1);
-
     /* allow only one instance, and send arguments to it (what song to play) */
     if (handleSingleInstancing(argc, argv))
     {
@@ -232,7 +232,7 @@ static void initializeVars(void)
     memset(&pattMark, 0, sizeof (pattMark));
     memset(&pattSync, 0, sizeof (pattSync));
     memset(&chSync,   0, sizeof (chSync));
-    memset(&song,     0, sizeof(song));
+    memset(&song,     0, sizeof (song));
 
     /* now set data that must be initialized to non-zero values... */
 
@@ -256,7 +256,7 @@ static void initializeVars(void)
     editor.curOctave    = 4;
     editor.smpEd_NoteNr = 48 + 1; /* middle-C */
 
-  //editor.ptnJumpPos[0] = 0x00;
+    editor.ptnJumpPos[0] = 0x00;
     editor.ptnJumpPos[1] = 0x10;
     editor.ptnJumpPos[2] = 0x20;
     editor.ptnJumpPos[3] = 0x30;
@@ -321,7 +321,7 @@ static void cleanUpAndExit(void) /* never call this inside the main loop! */
     }
 
 #ifdef _WIN32
-    timeEndPeriod(1);
+    freeWin32Usleep();
     closeSingleInstancing();
 #endif
 

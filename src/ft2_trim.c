@@ -479,7 +479,7 @@ static void wipeSmpDataAfterLoop(uint8_t testWipeSize, int16_t ai)
                     }
                     else
                     {
-                        s->pek = (int8_t *)(realloc(s->pek, s->len + 2));
+                        s->pek = (int8_t *)(realloc(s->pek, s->len + 4));
                     }
                 }
 
@@ -535,7 +535,7 @@ static void convertSamplesTo8bit(uint8_t testWipeSize, int16_t ai)
                 }
                 else
                 {
-                    newSmpPtr = (int8_t *)(malloc((s->len / 2) + 2));
+                    newSmpPtr = (int8_t *)(malloc((s->len / 2) + 4));
                     if (newSmpPtr != NULL)
                     {
                         restoreSample(s);

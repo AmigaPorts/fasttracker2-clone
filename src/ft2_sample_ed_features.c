@@ -103,7 +103,7 @@ static void pbDoResampling(void)
     dLenMul = pow(2.0, smpEd_RelReSmp / 12.0);
     newLen  = (int32_t)(currSmp->len * dLenMul) & mask;
 
-    p2 = (int8_t *)(malloc(newLen + 2));
+    p2 = (int8_t *)(malloc(newLen + 4));
     if (p2 == NULL)
     {
         okBox(0, "System message", "Not enough memory!");
@@ -430,7 +430,7 @@ static int32_t SDLCALL createEchoThread(void *ptr)
             writeLen &= 0xFFFFFFFE;
     }
 
-    writePtr = (int8_t *)(malloc(writeLen + 2));
+    writePtr = (int8_t *)(malloc(writeLen + 4));
     if (writePtr == NULL)
     {
         okBoxThreadSafe(0, "System message", "Not enough memory!");

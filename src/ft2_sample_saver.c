@@ -49,7 +49,7 @@ static const char rangedDataStr[] = "Ranged data from FT2";
 static uint8_t saveRangeFlag;
 static SDL_Thread *thread;
 
-/* used to restore linear interpolation unroll sample on .RAW/.IFF/.WAV files after save */
+/* used to restore mixer interpolation fix .RAW/.IFF/.WAV files after save */
 static int8_t fileRestoreSampleData(UNICHAR *filenameU, int32_t sampleDataOffset, sampleTyp *smp)
 {
     int8_t fixSpar8;
@@ -65,20 +65,37 @@ static int8_t fileRestoreSampleData(UNICHAR *filenameU, int32_t sampleDataOffset
     if (smp->typ & 16)
     {
         /* 16-bit sample */
-        if (smp->fixedPos < (smp->len / 2))
+        if (smp->fixedPos1 < (smp->len / 2))
         {
-            fseek(f, sampleDataOffset + (smp->fixedPos * 2), SEEK_SET);
-            fwrite(&smp->fixSpar, sizeof (int16_t), 1, f);
+            fseek(f, sampleDataOffset + (smp->fixedPos1 * 2), SEEK_SET);
+            fwrite(&smp->fixedSmp1, sizeof (int16_t), 1, f);
+        }
+
+        if (smp->fixedPos2 < (smp->len / 2))
+        {
+            fseek(f, sampleDataOffset + (smp->fixedPos2 * 2), SEEK_SET);
+            fwrite(&smp->fixedSmp2, sizeof (int16_t), 1, f);
         }
     }
     else
     {
         /* 8-bit sample */
-        if (smp->fixedPos < smp->len)
+        if (smp->fixedPos1 < smp->len)
         {
-            fseek(f, sampleDataOffset + smp->fixedPos, SEEK_SET);
+            fseek(f, sampleDataOffset + smp->fixedPos1, SEEK_SET);
 
-            fixSpar8 = (int8_t)(smp->fixSpar);
+            fixSpar8 = (int8_t)(smp->fixedSmp1);
+            if (editor.sampleSaveMode == SMP_SAVE_MODE_WAV) /* on 8-bit WAVs the sample data is unsigned */
+                fixSpar8 += 128;
+
+            fwrite(&fixSpar8, sizeof (int8_t), 1, f);
+        }
+
+        if (smp->fixedPos2 < smp->len)
+        {
+            fseek(f, sampleDataOffset + smp->fixedPos2, SEEK_SET);
+
+            fixSpar8 = (int8_t)(smp->fixedSmp2);
             if (editor.sampleSaveMode == SMP_SAVE_MODE_WAV) /* on 8-bit WAVs the sample data is unsigned */
                 fixSpar8 += 128;
 
@@ -125,13 +142,13 @@ static int8_t saveRawSample(UNICHAR *filenameU, uint8_t saveRangedData)
     if (fwrite(samplePtr, sampleLen, 1, f) != 1)
     {
         fclose(f);
-        setMouseBusy(false);
+        okBoxThreadSafe(0, "System message", "Error saving sample: General I/O error!");
         return (false);
     }
 
     fclose(f);
 
-    /* restore linear interpolation unroll sample after loop end */
+    /* restore mixer interpolation fix */
     fileRestoreSampleData(filenameU, 0, smp);
 
     editor.diskOpReadDir = true; /* force diskop re-read */
@@ -274,7 +291,7 @@ static int8_t saveIFFSample(UNICHAR *filenameU, uint8_t saveRangedData)
 
     fclose(f);
 
-    /* restore linear interpolation unroll sample after loop end */
+    /* restore mixer interpolation fix */
     fileRestoreSampleData(filenameU, sampleDataPos, smp);
 
     editor.diskOpReadDir = true; /* force diskop re-read */
@@ -465,7 +482,7 @@ static int8_t saveWAVSample(UNICHAR *filenameU, uint8_t saveRangedData)
 
     fclose(f);
 
-    /* restore linear interpolation unroll sample after loop end */
+    /* restore mixer interpolation fix */
     fileRestoreSampleData(filenameU, sampleDataPos, smp);
 
     editor.diskOpReadDir = true; /* force diskop re-read */

@@ -42,7 +42,7 @@ static void addText(helpRec *t, int16_t xPos, uint8_t color, char *text)
     t->bigFont = false;
     t->noLine  = false;
     strcpy(t->text, text);
-    *text = '\0';
+    *text = '\0'; /* empty old string */
 
     textLine++;
 }
@@ -279,27 +279,27 @@ static void bigTextOutHalf(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, u
         if (c == '\0')
             break;
 
-        if ((c == ' ') || (c >= FONT_CHARS))
-            continue;
-
-        if (lowerHalf)
-            srcPtr = &font2Data[c * FONT2_CHAR_W];
-        else
-            srcPtr = &font2Data[((FONT2_CHAR_H / 2) * FONT2_WIDTH) + (c * FONT2_CHAR_W)];
-
-        dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + currX];
-        pixVal = video.palette[paletteIndex];
-
-        for (y = 0; y < (FONT2_CHAR_H / 2); ++y)
+        if ((c != ' ') && (c < FONT_CHARS))
         {
-            for (x = 0; x < FONT2_CHAR_W; ++x)
-            {
-                if (srcPtr[x])
-                    dstPtr[x] = pixVal;
-            }
+            if (lowerHalf)
+                srcPtr = &font2Data[c * FONT2_CHAR_W];
+            else
+                srcPtr = &font2Data[((FONT2_CHAR_H / 2) * FONT2_WIDTH) + (c * FONT2_CHAR_W)];
 
-            srcPtr += FONT2_WIDTH;
-            dstPtr += SCREEN_W;
+            dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + currX];
+            pixVal = video.palette[paletteIndex];
+
+            for (y = 0; y < (FONT2_CHAR_H / 2); ++y)
+            {
+                for (x = 0; x < FONT2_CHAR_W; ++x)
+                {
+                    if (srcPtr[x])
+                        dstPtr[x] = pixVal;
+                }
+
+                srcPtr += FONT2_WIDTH;
+                dstPtr += SCREEN_W;
+            }
         }
 
         currX += bigCharWidth(c);

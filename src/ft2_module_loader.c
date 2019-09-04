@@ -479,7 +479,7 @@ int8_t loadMusicMOD(FILE *f, uint32_t fileLength)
 
             s->len = 2 * SWAP16(h_MOD31.instr[a].len);
 
-            s->pek = (int8_t *)(malloc(s->len + 2));
+            s->pek = (int8_t *)(malloc(s->len + 4));
             if (s->pek == NULL)
             {
                 freeTmpModule();
@@ -829,7 +829,7 @@ int8_t loadMusicSTM(FILE *f, uint32_t fileLength)
         {
             s = &instrTmp[1 + i].samp[0];
 
-            s->pek = (int8_t *)(malloc(h_STM.instr[i].len + 2));
+            s->pek = (int8_t *)(malloc(h_STM.instr[i].len + 4));
             if (s->pek == NULL)
             {
                 freeTmpModule();
@@ -1491,7 +1491,7 @@ int8_t loadMusicS3M(FILE *f, uint32_t dataLength)
                 if ((h_S3MInstr.flags & 4) != 0) /* 16-bit */
                     len *= 2;
 
-                tmpSmp = (int8_t *)(malloc(len + 2));
+                tmpSmp = (int8_t *)(malloc(len + 4));
                 if (tmpSmp == NULL)
                 {
                     freeTmpModule();
@@ -1552,7 +1552,7 @@ int8_t loadMusicS3M(FILE *f, uint32_t dataLength)
                     {
                         conv16BitSample(tmpSmp, len, h_S3MInstr.flags & 2);
 
-                        s->pek = (int8_t *)(malloc((h_S3MInstr.len * 2) + 2));
+                        s->pek = (int8_t *)(malloc((h_S3MInstr.len * 2) + 4));
                         if (s->pek == NULL)
                         {
                             free(tmpSmp);
@@ -1573,7 +1573,7 @@ int8_t loadMusicS3M(FILE *f, uint32_t dataLength)
                     {
                         conv8BitSample(tmpSmp, len, h_S3MInstr.flags & 2);
 
-                        s->pek = (int8_t *)(malloc(h_S3MInstr.len + 2));
+                        s->pek = (int8_t *)(malloc(h_S3MInstr.len + 4));
                         if (s->pek == NULL)
                         {
                             free(tmpSmp);
@@ -2132,7 +2132,7 @@ static int8_t loadInstrSample(FILE *f, uint16_t i)
         }
         else
         {
-            s->pek = (int8_t *)(malloc(l + 2));
+            s->pek = (int8_t *)(malloc(l + 4));
             if (s->pek == NULL)
                 return (false);
 
@@ -2149,7 +2149,7 @@ static int8_t loadInstrSample(FILE *f, uint16_t i)
                 s->repL /= 2;
                 s->repS /= 2;
 
-                s->pek = (int8_t *)(realloc(s->pek, s->len + 2));
+                s->pek = (int8_t *)(realloc(s->pek, s->len + 4));
 
                 stereoWarn = true;
             }

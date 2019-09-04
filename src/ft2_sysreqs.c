@@ -559,10 +559,6 @@ int16_t inputBox(int16_t typ, char *headline, char *edText, uint16_t maxStrLen)
 /* WARNING: This routine must NOT be called from the main input/video thread!! */
 int16_t okBoxThreadSafe(int16_t typ, char *headline, char *text)
 {
-    volatile uint8_t wasBusy;
-
-    wasBusy = editor.busy;
-
     /* block multiple calls before they are completed (for safety) */
     while (okBoxData.active) SDL_Delay(1000 / VBLANK_HZ);
 
@@ -573,9 +569,6 @@ int16_t okBoxThreadSafe(int16_t typ, char *headline, char *text)
     okBoxData.active = true;
     while (okBoxData.active)
         SDL_Delay(1000 / VBLANK_HZ);
-
-    if (wasBusy)
-        setMouseBusy(true);
 
     return (okBoxData.returnData);
 }

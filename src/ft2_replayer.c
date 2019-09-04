@@ -429,7 +429,7 @@ static void startTone(uint8_t ton, uint8_t effTyp, uint8_t eff, stmTyp *ch)
         keyOff(ch);
         return;
     }
-    /* ------------------------------------------------------------ */
+    /* -------------------------------- */
 
     /* if we came from Rxy (retrig), we didn't check note (Ton) yet */
     if (ton == 0)
@@ -448,7 +448,7 @@ static void startTone(uint8_t ton, uint8_t effTyp, uint8_t eff, stmTyp *ch)
 
     ch->mute = ins->mute;
 
-    if (ton > 96) /* added security check */
+    if (ton > 96) /* non-FT2 security check */
         ton = 96;
 
     smp = ins->ta[ton - 1] & 0x0F;
@@ -492,7 +492,7 @@ static void startTone(uint8_t ton, uint8_t effTyp, uint8_t eff, stmTyp *ch)
         if (eff)
             ch->smpOffset = ch->eff;
 
-        ch->smpStartPos = 256 * ch->smpOffset;
+        ch->smpStartPos = ch->smpOffset * 256;
     }
     else
     {
@@ -2984,6 +2984,7 @@ void playTone(uint8_t stmm, uint8_t inst, uint8_t ton, int8_t vol, uint16_t midi
     unlockAudio();
 }
 
+
 /* smp. ed. */
 void playSample(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t midiVibDepth, uint16_t midiPitch)
 {
@@ -2995,6 +2996,7 @@ void playSample(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t
     ch = &stm[stmm];
 
     pauseMusic();
+    editor.curSmpChannel = 255;
     memcpy(&instr[MAX_INST + 1].samp[0], &instr[inst].samp[smpNr], sizeof (sampleTyp));
     vol = instr[inst].samp[smpNr].vol;
     editor.samplePlayOffset = 0;
@@ -3050,6 +3052,7 @@ void playRange(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t 
     MY_ASSERT((stmm < MAX_VOICES) && (inst < MAX_INST) && (smpNr < MAX_SMP_PER_INST) && (ton <= 97))
 
     pauseMusic();
+    editor.curSmpChannel = 255;
 
     ch = &stm[stmm];
     s  = &instr[MAX_INST + 1].samp[0];

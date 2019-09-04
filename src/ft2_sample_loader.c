@@ -343,7 +343,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
     {
         /* 8-BIT SIGNED PCM */
 
-        tmpSmp.pek = (int8_t *)(malloc(sampleLength + 2));
+        tmpSmp.pek = (int8_t *)(malloc(sampleLength + 4));
         if (tmpSmp.pek == NULL)
         {
             okBoxThreadSafe(0, "System message", "Not enough memory!");
@@ -393,7 +393,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
             }
 
             /* decrease the memory allocation size now */
-            tmpSmp.pek = (int8_t *)(realloc(tmpSmp.pek, sampleLength + 2));
+            tmpSmp.pek = (int8_t *)(realloc(tmpSmp.pek, sampleLength + 4));
             if (tmpSmp.pek == NULL)
             {
                 okBoxThreadSafe(0, "System message", "Not enough memory!");
@@ -405,7 +405,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
     {
         /* 16-BIT SIGNED PCM */
 
-        tmpSmp.pek = (int8_t *)(malloc(sampleLength + 2));
+        tmpSmp.pek = (int8_t *)(malloc(sampleLength + 4));
         if (tmpSmp.pek == NULL)
         {
             okBoxThreadSafe(0, "System message", "Not enough memory!");
@@ -463,7 +463,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
             }
 
             /* decrease the memory allocation size now */
-            tmpSmp.pek = (int8_t *)(realloc(tmpSmp.pek, sampleLength + 2));
+            tmpSmp.pek = (int8_t *)(realloc(tmpSmp.pek, sampleLength + 4));
             if (tmpSmp.pek == NULL)
             {
                 okBoxThreadSafe(0, "System message", "Not enough memory!");
@@ -479,7 +479,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 
         sampleLength = (sampleLength * 4) / 3;
 
-        tmpSmp.pek = (int8_t *)(malloc(sampleLength + 2));
+        tmpSmp.pek = (int8_t *)(malloc(sampleLength + 4));
         if (tmpSmp.pek == NULL)
         {
             okBoxThreadSafe(0, "System message", "Not enough memory!");
@@ -558,7 +558,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
         sampleLength &= 0xFFFFFFFE;
 
         /* decrease the memory allocation size now */
-        tmpSmp.pek = (int8_t *)(realloc(tmpSmp.pek, sampleLength + 2));
+        tmpSmp.pek = (int8_t *)(realloc(tmpSmp.pek, sampleLength + 4));
         if (tmpSmp.pek == NULL)
         {
             okBoxThreadSafe(0, "System message", "Not enough memory!");
@@ -569,7 +569,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
     {
         /* 32-BIT SIGNED PCM */
 
-        tmpSmp.pek = (int8_t *)(malloc(sampleLength + 2));
+        tmpSmp.pek = (int8_t *)(malloc(sampleLength + 4));
         if (tmpSmp.pek == NULL)
         {
             okBoxThreadSafe(0, "System message", "Not enough memory!");
@@ -644,7 +644,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
         sampleLength &= 0xFFFFFFFE;
 
         /* decrease the memory allocation size now */
-        tmpSmp.pek = (int8_t *)(realloc(tmpSmp.pek, sampleLength + 2));
+        tmpSmp.pek = (int8_t *)(realloc(tmpSmp.pek, sampleLength + 4));
         if (tmpSmp.pek == NULL)
         {
             okBoxThreadSafe(0, "System message", "Not enough memory!");
@@ -875,7 +875,7 @@ static int32_t SDLCALL loadIFFSample(void *ptr)
     tmpSmp.pek = NULL;
     freeSample(&tmpSmp);
 
-    tmpSmp.pek = (int8_t *)(malloc(sampleLength + 2));
+    tmpSmp.pek = (int8_t *)(malloc(sampleLength + 4));
     if (tmpSmp.pek == NULL)
     {
         okBoxThreadSafe(0, "System message", "Not enough memory!");
@@ -1036,7 +1036,7 @@ static int32_t SDLCALL loadRawSample(void *ptr)
     tmpSmp.pek = NULL;
     freeSample(&tmpSmp);
 
-    tmpSmp.pek = (int8_t *)(malloc(filesize + 2));
+    tmpSmp.pek = (int8_t *)(malloc(filesize + 4));
     if (tmpSmp.pek == NULL)
     {
         okBoxThreadSafe(0, "System message", "Not enough memory!");
@@ -1364,7 +1364,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
         if (sampleLength > MAX_SAMPLE_LEN)
             sampleLength = MAX_SAMPLE_LEN;
 
-        tmpSmp.pek = (int8_t *)(malloc(sampleLength + 2));
+        tmpSmp.pek = (int8_t *)(malloc(sampleLength + 4));
         if (tmpSmp.pek == NULL)
         {
             okBoxThreadSafe(0, "System message", "Not enough memory!");
@@ -1434,7 +1434,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
         if (sampleLength > MAX_SAMPLE_LEN)
             sampleLength = MAX_SAMPLE_LEN;
 
-        tmpSmp.pek = (int8_t *)(malloc(sampleLength + 2));
+        tmpSmp.pek = (int8_t *)(malloc(sampleLength + 4));
         if (tmpSmp.pek == NULL)
         {
             okBoxThreadSafe(0, "System message", "Not enough memory!");
@@ -1514,7 +1514,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
         if (sampleLength > MAX_SAMPLE_LEN)
             sampleLength = MAX_SAMPLE_LEN;
 
-        tmpSmp.pek = (int8_t *)(malloc(sampleLength + 2));
+        tmpSmp.pek = (int8_t *)(malloc(sampleLength + 4));
         if (tmpSmp.pek == NULL)
         {
             okBoxThreadSafe(0, "System message", "Not enough memory!");
@@ -1595,7 +1595,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
         if (sampleLength > MAX_SAMPLE_LEN)
             sampleLength = MAX_SAMPLE_LEN;
 
-        tmpSmp.pek = (int8_t *)(malloc(sampleLength + 2));
+        tmpSmp.pek = (int8_t *)(malloc(sampleLength + 4));
         if (tmpSmp.pek == NULL)
         {
             okBoxThreadSafe(0, "System message", "Not enough memory!");
@@ -1667,7 +1667,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
         if (sampleLength > MAX_SAMPLE_LEN)
             sampleLength = MAX_SAMPLE_LEN;
 
-        tmpSmp.pek = (int8_t *)(malloc(sampleLength + 2));
+        tmpSmp.pek = (int8_t *)(malloc(sampleLength + 4));
         if (tmpSmp.pek == NULL)
         {
             okBoxThreadSafe(0, "System message", "Not enough memory!");
@@ -1742,7 +1742,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
         if (sampleLength > MAX_SAMPLE_LEN)
             sampleLength = MAX_SAMPLE_LEN;
 
-        tmpSmp.pek = (int8_t *)(malloc(sampleLength + 2));
+        tmpSmp.pek = (int8_t *)(malloc(sampleLength + 4));
         if (tmpSmp.pek == NULL)
         {
             okBoxThreadSafe(0, "System message", "Not enough memory!");

@@ -18,13 +18,14 @@ enum
 void handleThreadEvents(void);
 void readInput(void);
 void handleEvents(void);
-void handleInput(void);
 void setupCrashHandler(void);
 
 #ifdef _WIN32
 int8_t handleSingleInstancing(int32_t argc, char **argv);
 void closeSingleInstancing(void);
-#else
+void usleep(uint32_t usec);
+void setupWin32Usleep(void);
+void freeWin32Usleep(void);
 #endif
 
 #endif

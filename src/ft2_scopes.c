@@ -4,13 +4,11 @@
 #endif
 
 #include <stdint.h>
-#ifdef _WIN32
-#define WIN32_MEAN_AND_LEAN
-#include <windows.h>
-#else
+#ifndef _WIN32
 #include <unistd.h> /* usleep() */
 #endif
 #include "ft2_header.h"
+#include "ft2_events.h"
 #include "ft2_config.h"
 #include "ft2_audio.h"
 #include "ft2_gui.h"
@@ -55,10 +53,6 @@ static uint64_t timeNext64, timeNext64Frac;
 static scope_t scope[MAX_VOICES];
 static SDL_Thread *scopeThread;
 static volatile scopeState_t scopeNewState[MAX_VOICES][NUM_LATCH_BUFFERS];
-
-#ifdef _WIN32
-static NTSTATUS (__stdcall *NtDelayExecution)(BOOL Alertable, PLARGE_INTEGER DelayInterval);
-#endif
 
 static const uint16_t scopeLenTab[16][32] =
 {
@@ -367,52 +361,6 @@ int8_t testScopesMouseDown(void)
     }
 
     return (false);
-}
-
-void setScopeRate(uint8_t ch, uint32_t rate)
-{
-    const uint32_t scopeRateMul = (uint32_t)((1ULL << 32) / VBLANK_HZ); /* for DIV->MUL trick */
-    scope_t *s;
-
-    s = &scope[ch];
-
-    /* since "(rate:0..534749 << 16) / VBLANK_HZ" would overflow in 32-bit calculation, we need
-    ** to do a 64-bit DIV (or MUL using a trick, slightly faster) */
-
-    if (rate == 0)
-        s->SFrq = 0; /* no need to waste cycles on 64-bit stuff if we know the result */
-    else
-        s->SFrq = (uint32_t)(((uint64_t)(rate) * scopeRateMul) >> 16); /* fast code even on x86 (imul + shrd) */
-
-    s->drawSFrq = rate << 4; /* sample data read delta (when drawing the samples) */
-}
-
-void setScopeVolume(uint8_t ch, uint16_t vol)
-{
-    scope[ch].SVol = (int8_t)((vol * SCOPE_DATA_HEIGHT) / 256);
-}
-
-void latchScope(uint8_t ch, int8_t *pek, int32_t len, int32_t repS, int32_t repL, uint8_t typ, int32_t playOffset)
-{
-    volatile scopeState_t *newState;
-    scope_t *s;
-
-    s = &scope[ch];
-
-    s->latchOffset = s->nextLatchOffset;
-    s->nextLatchOffset = (s->nextLatchOffset + 1) % NUM_LATCH_BUFFERS;
-
-    newState = &scopeNewState[ch][s->latchOffset];
-
-    newState->pek  = pek;
-    newState->len  = len;
-    newState->repS = repS;
-    newState->repL = repL;
-    newState->typ  = typ;
-    newState->playOffset = playOffset;
-
-    /* XXX: let's hope the CPU does no reordering on this one... */
-    s->latchFlag = true;
 }
 
 static void triggerScope(uint8_t ch)
@@ -835,64 +783,99 @@ void drawScopeFramework(void)
         redrawScope(i);
 }
 
+static void latchScope(uint8_t ch, int8_t *pek, int32_t len, int32_t repS, int32_t repL, uint8_t typ, int32_t playOffset)
+{
+    volatile scopeState_t *newState;
+    scope_t *s;
+
+    s = &scope[ch];
+
+    s->latchOffset = s->nextLatchOffset;
+    s->nextLatchOffset = (s->nextLatchOffset + 1) % NUM_LATCH_BUFFERS;
+
+    newState = &scopeNewState[ch][s->latchOffset];
+
+    newState->pek  = pek;
+    newState->len  = len;
+    newState->repS = repS;
+    newState->repL = repL;
+    newState->typ  = typ;
+    newState->playOffset = playOffset;
+
+    /* XXX: let's hope the CPU does no reordering on this one... */
+    s->latchFlag = true;
+}
+
 void handleScopesFromChQueue(chSyncData_t *chSyncData, uint8_t *scopeUpdateStatus)
 {
     uint8_t i, status;
+    uint32_t rate;
     channel_t *ch;
     sampleTyp *s;
+    scope_t *sc;
 
     for (i = 0; i < song.antChn; ++i)
     {
+        sc = &scope[i];
         ch = &chSyncData->channels[i];
         status = scopeUpdateStatus[i];
 
-        if (status & IS_Vol)    setScopeVolume(i, ch->finalVol);
-        if (status & IS_Period) setScopeRate(i, getFrequenceValueScope(ch->finalPeriod));
+        /* set scope volume */
+        if (status & IS_Vol)
+            sc->SVol = (int8_t)((ch->finalVol * SCOPE_DATA_HEIGHT) / 256);
 
-        if (status & IS_NyTon) /* trigger sample */
+        /* set scope frequency */
+        if (status & IS_Period)
+        {
+            const uint32_t scopeRateMul = (uint32_t)((1ULL << 32) / VBLANK_HZ); /* for DIV->MUL trick */
+
+            rate = getFrequenceValueScope(ch->finalPeriod);
+
+            /* since "(0..534749 (rate) << 16) / VBLANK_HZ" would overflow in 32-bit calculation, we need
+            ** to do a 64-bit DIV (or MUL using a trick, slightly faster) */
+
+            if (rate == 0)
+            {
+                /* no need to waste cycles on 64-bit stuff if we know the result */
+                sc->SFrq = 0;
+                sc->drawSFrq = 0;
+            }
+            else
+            {
+                sc->SFrq = (uint32_t)(((uint64_t)(rate) * scopeRateMul) >> 16); /* fast code even on x86 (imul + shrd) */
+                sc->drawSFrq = rate << 4; /* sample data read delta (when drawing the samples) */
+            }
+        }
+
+        /* start scope sample */
+        if (status & IS_NyTon) 
         {
             s = ch->smpPtr;
             if (s != NULL)
             {
                 if (ch->instrNr == (MAX_INST + 1))
                 {
-                    /* sample editor ("Wave, "Range", "Display") */
+                    /* sample triggered from sample editor ("Wave, "Range", "Display") */
+
                     latchScope(i, s->pek, s->len, s->repS, s->repL, s->typ, ch->smpStartPos + editor.samplePlayOffset);
                     editor.samplePlayOffset = 0;
+
+                    editor.curSmpChannel = i; /* set curr. channel for getting sampling position line (sample editor) */
                 }
                 else
                 {
-                    /* normal note jamming */
-                    latchScope(i, s->pek, s->len, s->repS, s->repL, s->typ, ch->smpStartPos);
-                }
+                    /* sample triggered from song or keyboard */
 
-                /* set curr. channel for getting sampling position line (sample editor) */
-                if ((ch->instrNr == (MAX_INST + 1)) || ((editor.curInstr == ch->instrNr) && (editor.curSmp == ch->sampleNr)))
-                    editor.curSmpChannel = i;
+                    latchScope(i, s->pek, s->len, s->repS, s->repL, s->typ, ch->smpStartPos);
+
+                    /* set curr. channel for getting sampling position line (sample editor) */
+                    if ((editor.curInstr == ch->instrNr) && (editor.curSmp == ch->sampleNr))
+                        editor.curSmpChannel = i;
+                }
             }
         }
     }
 }
-
-#ifdef _WIN32 /* usleep() implementation for Windows */
-static void usleep(uint32_t usec)
-{
-    LARGE_INTEGER lpDueTime;
-
-    if (NtDelayExecution == NULL)
-    {
-        Sleep((uint32_t)((usec / 1000.0) + 0.5));
-    }
-    else
-    {
-        /* this prevents a 64-bit MUL (will not overflow with typical values anyway) */
-        lpDueTime.HighPart = 0xFFFFFFFF;
-        lpDueTime.LowPart  = (DWORD)(-10 * (int32_t)(usec));
-
-        NtDelayExecution(false, &lpDueTime);
-    }
-}
-#endif
 
 static int32_t SDLCALL scopeThreadFunc(void *ptr)
 {
@@ -947,10 +930,6 @@ static int32_t SDLCALL scopeThreadFunc(void *ptr)
 
 uint8_t initScopes(void)
 {
-#ifdef _WIN32
-    NtDelayExecution = (NTSTATUS (__stdcall *)(BOOL, PLARGE_INTEGER))(GetProcAddress(GetModuleHandle("ntdll.dll"), "NtDelayExecution"));
-#endif
-
     scopeThread = SDL_CreateThread(scopeThreadFunc, "FT2 Clone Visuals Thread", NULL);
     if (scopeThread == NULL)
     {

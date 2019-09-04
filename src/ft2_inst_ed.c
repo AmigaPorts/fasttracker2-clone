@@ -128,14 +128,14 @@ void copyInstr(void) /* dstInstr = srcInstr */
         dstSmp->pek = NULL;
         if (srcSmp->pek != NULL)
         {
-            p = (int8_t *)(malloc(srcSmp->len + 2));
+            p = (int8_t *)(malloc(srcSmp->len + 4));
             if (p == NULL)
             {
                 okBox(0, "System message", "Not enough memory!");
                 break;
             }
 
-            memcpy(p, srcSmp->pek, srcSmp->len + 2); /* +2 = include loop unroll area */
+            memcpy(p, srcSmp->pek, srcSmp->len + 4); /* +4 = include loop fix area */
             dstSmp->pek = p;
         }
     }
@@ -3146,11 +3146,11 @@ int8_t testInstrSwitcherMouseDown(void)
 
 static int32_t SDLCALL saveInstrThread(void *ptr)
 {
-    int8_t *smpData;
     int16_t i, n;
+    size_t result;
     FILE *f;
     instrXIHeaderTyp ih;
-    sampleTyp *srcSmp, dstSmp;
+    sampleTyp *srcSmp;
     sampleHeaderTyp *dstSmpHdr;
 
     (void)(ptr);
@@ -3199,35 +3199,38 @@ static int32_t SDLCALL saveInstrThread(void *ptr)
             dstSmpHdr->len = 0;
     }
 
-    fwrite(&ih, INSTR_XI_HEADER_SIZE + (ih.antSamp * sizeof (sampleHeaderTyp)), 1, f);
+    result = fwrite(&ih, INSTR_XI_HEADER_SIZE + (ih.antSamp * sizeof (sampleHeaderTyp)), 1, f);
+    if (result != 1)
+    {
+        fclose(f);
+        okBoxThreadSafe(0, "System message", "Error saving instrument: general I/O error!");
+        return (false);
+    }
 
+    pauseAudio();
     for (i = 0; i < n; ++i)
     {
         srcSmp = &instr[saveInstrNr].samp[i];
         if (srcSmp->pek != NULL)
         {
-            smpData = (int8_t *)(malloc(srcSmp->len + 2));
-            if (smpData == NULL)
+            restoreSample(srcSmp);
+            samp2Delta(srcSmp->pek, srcSmp->len, srcSmp->typ);
+
+            result = fwrite(srcSmp->pek, 1, srcSmp->len, f);
+
+            delta2Samp(srcSmp->pek, srcSmp->len, srcSmp->typ);
+            fixSample(srcSmp);
+
+            if (result != (size_t)(srcSmp->len)) /* write not OK */
             {
+                resumeAudio();
                 fclose(f);
-                okBoxThreadSafe(0, "System message", "Not enough memory!");
+                okBoxThreadSafe(0, "System message", "Error saving instrument: general I/O error!");
                 return (false);
             }
-
-            /* copy sample struct to new temp struct */
-            memcpy(&dstSmp, srcSmp, sizeof (sampleTyp));
-            dstSmp.pek = smpData;
-
-            /* copy over sample data and revert linear interpolation loop fix */
-            memcpy(dstSmp.pek, srcSmp->pek, srcSmp->len);
-            restoreSample(&dstSmp);
-
-            /* encode sample data and write it */
-            samp2Delta(dstSmp.pek, dstSmp.len, dstSmp.typ);
-            fwrite(smpData, 1, dstSmp.len, f);
-            free(smpData);
         }
     }
+    resumeAudio();
 
     fclose(f);
 
@@ -3409,7 +3412,7 @@ static int32_t SDLCALL loadInstrThread(void *ptr)
 
             if (s->len > 0)
             {
-                s->pek = (int8_t *)(malloc(s->len + 2));
+                s->pek = (int8_t *)(malloc(s->len + 4));
                 if (s->pek == NULL)
                 {
                     clearInstr(editor.curInstr);
@@ -3437,7 +3440,7 @@ static int32_t SDLCALL loadInstrThread(void *ptr)
                     s->repL /= 2;
                     s->repS /= 2;
 
-                    s->pek = (int8_t *)(realloc(s->pek, s->len + 2));
+                    s->pek = (int8_t *)(realloc(s->pek, s->len + 4));
 
                     stereoWarning = true;
                 }
@@ -3493,7 +3496,7 @@ static int32_t SDLCALL loadInstrThread(void *ptr)
                     goto loadDone;
                 }
 
-                s->pek = (int8_t *)(malloc(ih_PATWave.waveSize + 2));
+                s->pek = (int8_t *)(malloc(ih_PATWave.waveSize + 4));
                 if (s->pek == NULL)
                 {
                     clearInstr(editor.curInstr);

@@ -3,7 +3,6 @@
 
 #include <SDL2/SDL.h>
 #include <stdint.h>
-#include <math.h> /* round(), roundf() */
 #ifdef _WIN32
 #define WIN32_MEAN_AND_LEAN
 #include <windows.h>
@@ -13,7 +12,7 @@
 #endif
 #include "ft2_replayer.h"
 
-#define BETA_VERSION 130
+#define BETA_VERSION 132
 
 /* do NOT change these! It will only mess things up... */
 #define VBLANK_HZ 60
@@ -146,8 +145,8 @@ struct editor_t
     volatile uint8_t wavReachedEndFlag;
     volatile FILE *wavRendererFileHandle;
 
-    int8_t buttonContrast, desktopContrast, curSmpChannel;
-    uint8_t autoPlayOnDrop, trimThreadWasDone;
+    int8_t buttonContrast, desktopContrast;
+    uint8_t autoPlayOnDrop, trimThreadWasDone, curSmpChannel;
     uint8_t currPanEnvPoint, currVolEnvPoint, patternMode, currPaletteEdit, vsync60HzPresent;
     uint8_t copyMaskEnable, copyMask[5], pasteMask[5], transpMask[5], updateWindowTitle;
     uint8_t smpEd_NoteNr, instrBankSwapped, instrBankOffset, sampleBankOffset, channelMute[MAX_VOICES];

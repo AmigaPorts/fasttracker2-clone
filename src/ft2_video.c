@@ -48,10 +48,6 @@ static sprite_t sprites[SPRITE_NUM];
 
 static void drawReplayerData(void);
 
-#ifdef _WIN32
-static NTSTATUS (__stdcall *NtDelayExecution)(BOOL Alertable, PLARGE_INTEGER DelayInterval);
-#endif
-
 void flipFrame(void)
 {
     renderSprites();
@@ -678,32 +674,8 @@ void renderLoopPins(void)
     }
 }
 
-#ifdef _WIN32 /* usleep() implementation for Windows */
-static void usleep(uint32_t usec)
-{
-    LARGE_INTEGER lpDueTime;
-
-    if (NtDelayExecution == NULL)
-    {
-        Sleep((uint32_t)((usec / 1000.0) + 0.5));
-    }
-    else
-    {
-        /* this prevents a 64-bit MUL (will not overflow with typical values anyway) */
-        lpDueTime.HighPart = 0xFFFFFFFF;
-        lpDueTime.LowPart  = (DWORD)(-10 * (int32_t)(usec));
-
-        NtDelayExecution(false, &lpDueTime);
-    }
-}
-#endif
-
 void setupWaitVBL(void)
 {
-#ifdef _WIN32
-    NtDelayExecution = (NTSTATUS (__stdcall *)(BOOL, PLARGE_INTEGER))(GetProcAddress(GetModuleHandle("ntdll.dll"), "NtDelayExecution"));
-#endif
-
     /* set next frame time */
     timeNext64     = SDL_GetPerformanceCounter() + video.vblankTimeLen;
     timeNext64Frac = video.vblankTimeLenFrac;

@@ -61,20 +61,45 @@
 /*                          SAMPLE RENDERING MACROS                        */
 /* ----------------------------------------------------------------------- */
 
-/* linear interpolation */
-#define _LERP8(s1, s2, f) /* s1,s2 = -128..127 | f = 0..65535 (frac) - 8-bit precision */ \
-    s2 -= s1; \
-    s2 *= (f); \
-    s2 >>= (16 - 8); \
-    s1 <<= 8; \
-    s1 += s2; \
+/* 3-tap quadratic interpolation (original FT2 uses 2-tap linear interpolation) */
 
-#define _LERP16(s1, s2, f) /* s1,s2 = -32768..32767 | f = 0..65535 (frac) - 15-bit precision */ \
-    s2 -= s1; \
-    s2 >>= 1; \
-    s2 *= (f); \
-    s2 >>= (16 - 1); \
-    s1 += s2; \
+#define _QLERP8(s1, s2, s3, f) /* in: s1,s2,s3 = -128..127 | f = 0..65535 (frac) | out: s1 = -32768..32767 */ \
+{ \
+    int32_t frac, s4; \
+    \
+    frac = (f) >> 1; \
+    s2 <<= 8; \
+    s4 = (s1 + s3) << 7; \
+    s4 -= s2; \
+    s4 = (s4 * frac) >> 16; \
+    s3 += s1; \
+    s3 <<= 8; \
+    s1 <<= 9; \
+    s3 = (s3 + s1) >> 2; \
+    s1 >>= 1; \
+    s4 += s2; \
+    s4 -= s3; \
+    s4 = (s4 * frac) >> 14; \
+    s1 += s4; \
+} \
+
+#define _QLERP16(s1, s2, s3, f) /* in: s1,s2,s3 = -32768..32767 | f = 0..65535 (frac) | out: s1 = -32768..32767 */ \
+{ \
+    int32_t frac, s4; \
+    \
+    frac = (f) >> 1; \
+    s4 = (s1 + s3) >> 1; \
+    s4 -= s2; \
+    s4 = (s4 * frac) >> 16; \
+    s3 += s1; \
+    s1 += s1; \
+    s3 = (s3 + s1) >> 2; \
+    s1 >>= 1; \
+    s4 += s2; \
+    s4 -= s3; \
+    s4 = (s4 * frac) >> 14; \
+    s1 += s4; \
+} \
 
 /* all the 64-bit MULs here convert to fast logic on most 32-bit CPUs */
 
@@ -84,17 +109,19 @@
     *audioMixR++ += (int32_t)(((int64_t)(sample) * CDA_RVol) >> 32); \
 
 #define RENDER_8BIT_SMP_LERP \
-    sample  = *(smpPtr    ); \
+    sample  = *(smpPtr + 0); \
     sample2 = *(smpPtr + 1); \
-    _LERP8(sample, sample2, pos) \
+    sample3 = *(smpPtr + 2); \
+    _QLERP8(sample, sample2, sample3, pos) \
     sample <<= (28 - 16); \
     *audioMixL++ += (int32_t)(((int64_t)(sample) * CDA_LVol) >> 32); \
     *audioMixR++ += (int32_t)(((int64_t)(sample) * CDA_RVol) >> 32); \
 
 #define RENDER_8BIT_SMP_LERP_BACKWARDS \
-    sample  = *(smpPtr    ); \
+    sample  = *(smpPtr + 0); \
     sample2 = *(smpPtr + 1); \
-    _LERP8(sample, sample2, pos ^ 0xFFFF) \
+    sample3 = *(smpPtr + 2); \
+    _QLERP8(sample, sample2, sample3, pos ^ 0xFFFF) \
     sample <<= (28 - 16); \
     *audioMixL++ += (int32_t)(((int64_t)(sample) * CDA_LVol) >> 32); \
     *audioMixR++ += (int32_t)(((int64_t)(sample) * CDA_RVol) >> 32); \
@@ -106,18 +133,20 @@
     *audioMixR++ += sample; \
 
 #define RENDER_8BIT_SMP_MONO_LERP \
-    sample  = *(smpPtr    ); \
+    sample  = *(smpPtr + 0); \
     sample2 = *(smpPtr + 1); \
-    _LERP8(sample, sample2, pos) \
+    sample3 = *(smpPtr + 2); \
+    _QLERP8(sample, sample2, sample3, pos) \
     sample <<= (28 - 16); \
     sample = (int32_t)(((int64_t)(sample) * CDA_LVol) >> 32); \
     *audioMixL++ += sample; \
     *audioMixR++ += sample; \
 
 #define RENDER_8BIT_SMP_MONO_LERP_BACKWARDS \
-    sample  = *(smpPtr    ); \
+    sample  = *(smpPtr + 0); \
     sample2 = *(smpPtr + 1); \
-    _LERP8(sample, sample2, pos ^ 0xFFFF) \
+    sample3 = *(smpPtr + 1); \
+    _QLERP8(sample, sample2, sample3, pos ^ 0xFFFF) \
     sample <<= (28 - 16); \
     sample = (int32_t)(((int64_t)(sample) * CDA_LVol) >> 32); \
     *audioMixL++ += sample; \
@@ -129,17 +158,19 @@
     *audioMixR++ += (int32_t)(((int64_t)(sample) * CDA_RVol) >> 32); \
 
 #define RENDER_16BIT_SMP_LERP \
-    sample  = *(smpPtr    ); \
+    sample  = *(smpPtr + 0); \
     sample2 = *(smpPtr + 1); \
-    _LERP16(sample, sample2, pos) \
+    sample3 = *(smpPtr + 2); \
+    _QLERP16(sample, sample2, sample3, pos) \
     sample <<= (28 - 16); \
     *audioMixL++ += (int32_t)(((int64_t)(sample) * CDA_LVol) >> 32); \
     *audioMixR++ += (int32_t)(((int64_t)(sample) * CDA_RVol) >> 32); \
 
 #define RENDER_16BIT_SMP_LERP_BACKWARDS \
-    sample  = *(smpPtr    ); \
+    sample  = *(smpPtr + 0); \
     sample2 = *(smpPtr + 1); \
-    _LERP16(sample, sample2, pos ^ 0xFFFF) \
+    sample3 = *(smpPtr + 2); \
+    _QLERP16(sample, sample2, sample3, pos ^ 0xFFFF) \
     sample <<= (28 - 16); \
     *audioMixL++ += (int32_t)(((int64_t)(sample) * CDA_LVol) >> 32); \
     *audioMixR++ += (int32_t)(((int64_t)(sample) * CDA_RVol) >> 32); \
@@ -151,18 +182,20 @@
     *audioMixR++ += sample; \
 
 #define RENDER_16BIT_SMP_MONO_LERP \
-    sample  = *(smpPtr    ); \
+    sample  = *(smpPtr + 0); \
     sample2 = *(smpPtr + 1); \
-    _LERP16(sample, sample2, pos) \
+    sample3 = *(smpPtr + 2); \
+    _QLERP16(sample, sample2, sample3, pos) \
     sample <<= (28 - 16); \
     sample = (int32_t)(((int64_t)(sample) * CDA_LVol) >> 32); \
     *audioMixL++ += sample; \
     *audioMixR++ += sample; \
 
 #define RENDER_16BIT_SMP_MONO_LERP_BACKWARDS \
-    sample  = *(smpPtr    ); \
+    sample  = *(smpPtr + 0); \
     sample2 = *(smpPtr + 1); \
-    _LERP16(sample, sample2, pos ^ 0xFFFF) \
+    sample3 = *(smpPtr + 2); \
+    _QLERP16(sample, sample2, sample3, pos ^ 0xFFFF) \
     sample <<= (28 - 16); \
     sample = (int32_t)(((int64_t)(sample) * CDA_LVol) >> 32); \
     *audioMixL++ += sample; \

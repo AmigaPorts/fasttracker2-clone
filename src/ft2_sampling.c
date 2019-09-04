@@ -28,7 +28,7 @@ static void SDLCALL samplingCallback(void *userdata, Uint8 *stream, int len)
         return;
     }
 
-    currSmp->pek = (int8_t *)(realloc(currSmp->pek, (currSmp->len + len) + 2)); /* +2 for interpolation loop fix */
+    currSmp->pek = (int8_t *)(realloc(currSmp->pek, (currSmp->len + len) + 4)); /* +4 for interpolation loop fix */
     if (currSmp->pek == NULL)
     {
         drawSamplingBufferFlag = false;

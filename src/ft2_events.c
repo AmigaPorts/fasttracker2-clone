@@ -40,9 +40,45 @@ static uint8_t backupMadeAfterCrash;
 static HWND hWnd;
 static HANDLE oneInstHandle, hMapFile;
 static LPCTSTR sharedMemBuf;
+
+/* used for Windows usleep() implementation */
+static NTSTATUS (__stdcall *NtDelayExecution)(BOOL Alertable, PLARGE_INTEGER DelayInterval);
 #endif
 
-void handleInput(void);
+static void handleInput(void);
+
+/* usleep() implementation for Windows */
+#ifdef _WIN32
+void usleep(uint32_t usec)
+{
+    LARGE_INTEGER lpDueTime;
+
+    if (NtDelayExecution == NULL)
+    {
+        /* NtDelayExecution() is not available (shouldn't happen), use regular sleep() */
+        Sleep((uint32_t)((usec / 1000.0) + 0.5));
+    }
+    else
+    {
+        /* this prevents a 64-bit MUL (will not overflow with typical values anyway) */
+        lpDueTime.HighPart = 0xFFFFFFFF;
+        lpDueTime.LowPart  = (DWORD)(-10 * (int32_t)(usec));
+
+        NtDelayExecution(false, &lpDueTime);
+    }
+}
+
+void setupWin32Usleep(void)
+{
+    NtDelayExecution = (NTSTATUS (__stdcall *)(BOOL, PLARGE_INTEGER))(GetProcAddress(GetModuleHandle("ntdll.dll"), "NtDelayExecution"));
+    timeBeginPeriod(0); /* enter highest timer resolution */
+}
+
+void freeWin32Usleep(void)
+{
+    timeEndPeriod(0); /* exit highest timer resolution */
+}
+#endif
 
 void readInput(void)
 {
@@ -364,7 +400,7 @@ void setupCrashHandler(void)
 #endif
 }
 
-void handleInput(void)
+static void handleInput(void)
 {
     char *inputText;
     uint8_t vibDepth;
