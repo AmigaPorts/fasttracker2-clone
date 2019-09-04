@@ -44,12 +44,12 @@
 #define INC_POS \
     pos += delta; \
     smpPtr += (pos >> 16); \
-    pos &= 0xFFFF; \
+    pos &= 0x0000FFFF; \
 
 #define DEC_POS \
     pos += delta; \
     smpPtr -= (pos >> 16); \
-    pos &= 0xFFFF; \
+    pos &= 0x0000FFFF; \
 
 #define SET_BACK_MIXER_POS \
     v->SPosDec = pos; \
@@ -93,7 +93,8 @@
 
 /* 3-tap quadratic interpolation (default - slower, but sharper sound) */
 
-#define INTERPOLATE8(s1, s2, s3, f) /* in: int32_t s1,s2,s3 = -128..127 | f = 0..65535 (frac) | out: s1 = -32768..32767 */ \
+/* in: int32_t s1,s2,s3 = -128..127 | f = 0..65535 (frac) | out: s1 (can overflow 16-bit because of splines) */
+#define INTERPOLATE8(s1, s2, s3, f) \
 { \
     int32_t frac, s4; \
     \
@@ -113,7 +114,8 @@
     s1 += s4; \
 } \
 
-#define INTERPOLATE16(s1, s2, s3, f) /* in: int32_t s1,s2,s3 = -32768..32767 | f = 0..65535 (frac) | out: s1 = -32768..32767 */ \
+/* in: int32_t s1,s2,s3 = -32768..32767 | f = 0..65535 (frac) | out: s1 (can overflow 16-bit because of splines) */
+#define INTERPOLATE16(s1, s2, s3, f)  \
 { \
     int32_t frac, s4; \
     \
@@ -144,7 +146,7 @@
     sample  = *(smpPtr + 0); \
     sample2 = *(smpPtr + 1); \
     sample3 = *(smpPtr + 2); \
-    INTERPOLATE8(sample, sample2, sample3, pos ^ 0xFFFF) \
+    INTERPOLATE8(sample, sample2, sample3, pos ^ 0x0000FFFF) \
     sample <<= (28 - 16); \
     *audioMixL++ += (int32_t)(((int64_t)(sample) * CDA_LVol) >> 32); \
     *audioMixR++ += (int32_t)(((int64_t)(sample) * CDA_RVol) >> 32); \
@@ -163,7 +165,7 @@
     sample  = *(smpPtr + 0); \
     sample2 = *(smpPtr + 1); \
     sample3 = *(smpPtr + 1); \
-    INTERPOLATE8(sample, sample2, sample3, pos ^ 0xFFFF) \
+    INTERPOLATE8(sample, sample2, sample3, pos ^ 0x0000FFFF) \
     sample <<= (28 - 16); \
     sample = (int32_t)(((int64_t)(sample) * CDA_LVol) >> 32); \
     *audioMixL++ += sample; \
@@ -182,7 +184,7 @@
     sample  = *(smpPtr + 0); \
     sample2 = *(smpPtr + 1); \
     sample3 = *(smpPtr + 2); \
-    INTERPOLATE16(sample, sample2, sample3, pos ^ 0xFFFF) \
+    INTERPOLATE16(sample, sample2, sample3, pos ^ 0x0000FFFF) \
     sample <<= (28 - 16); \
     *audioMixL++ += (int32_t)(((int64_t)(sample) * CDA_LVol) >> 32); \
     *audioMixR++ += (int32_t)(((int64_t)(sample) * CDA_RVol) >> 32); \
@@ -201,7 +203,7 @@
     sample  = *(smpPtr + 0); \
     sample2 = *(smpPtr + 1); \
     sample3 = *(smpPtr + 2); \
-    INTERPOLATE16(sample, sample2, sample3, pos ^ 0xFFFF) \
+    INTERPOLATE16(sample, sample2, sample3, pos ^ 0x0000FFFF) \
     sample <<= (28 - 16); \
     sample = (int32_t)(((int64_t)(sample) * CDA_LVol) >> 32); \
     *audioMixL++ += sample; \
@@ -236,7 +238,7 @@
 #define RENDER_8BIT_SMP_INTRP_BACKWARDS \
     sample  = *(smpPtr + 0); \
     sample2 = *(smpPtr + 1); \
-    INTERPOLATE8(sample, sample2, pos ^ 0xFFFF) \
+    INTERPOLATE8(sample, sample2, pos ^ 0x0000FFFF) \
     sample <<= (28 - 16); \
     *audioMixL++ += (int32_t)(((int64_t)(sample) * CDA_LVol) >> 32); \
     *audioMixR++ += (int32_t)(((int64_t)(sample) * CDA_RVol) >> 32); \
@@ -253,7 +255,7 @@
 #define RENDER_8BIT_SMP_MONO_INTRP_BACKWARDS \
     sample  = *(smpPtr + 0); \
     sample2 = *(smpPtr + 1); \
-    INTERPOLATE8(sample, sample2, pos ^ 0xFFFF) \
+    INTERPOLATE8(sample, sample2, pos ^ 0x0000FFFF) \
     sample <<= (28 - 16); \
     sample = (int32_t)(((int64_t)(sample) * CDA_LVol) >> 32); \
     *audioMixL++ += sample; \
@@ -270,7 +272,7 @@
 #define RENDER_16BIT_SMP_INTRP_BACKWARDS \
     sample  = *(smpPtr + 0); \
     sample2 = *(smpPtr + 1); \
-    INTERPOLATE16(sample, sample2, pos ^ 0xFFFF) \
+    INTERPOLATE16(sample, sample2, pos ^ 0x0000FFFF) \
     sample <<= (28 - 16); \
     *audioMixL++ += (int32_t)(((int64_t)(sample) * CDA_LVol) >> 32); \
     *audioMixR++ += (int32_t)(((int64_t)(sample) * CDA_RVol) >> 32); \
@@ -287,7 +289,7 @@
 #define RENDER_16BIT_SMP_MONO_INTRP_BACKWARDS \
     sample  = *(smpPtr + 0); \
     sample2 = *(smpPtr + 1); \
-    INTERPOLATE16(sample, sample2, pos ^ 0xFFFF) \
+    INTERPOLATE16(sample, sample2, pos ^ 0x0000FFFF) \
     sample <<= (28 - 16); \
     sample = (int32_t)(((int64_t)(sample) * CDA_LVol) >> 32); \
     *audioMixL++ += sample; \
@@ -439,9 +441,9 @@
 /* ----------------------------------------------------------------------- */
 
 #define VOL0_OPTIMIZATION_NO_LOOP \
-    pos     = v->SPosDec + ((v->SFrq & 0xFFFF) * numSamples); \
-    realPos = v->SPos    + ((v->SFrq >>    16) * numSamples) + (pos >> 16); \
-    pos    &= 0xFFFF; \
+    pos     = v->SPosDec + ((v->SFrq & 0x0000FFFF) * numSamples); \
+    realPos = v->SPos    + ((v->SFrq >> 16)        * numSamples) + (pos >> 16); \
+    pos    &= 0x0000FFFF; \
     \
     if (realPos >= v->SLen) \
     { \
@@ -452,9 +454,9 @@
     SET_BACK_MIXER_POS
 
 #define VOL0_OPTIMIZATION_LOOP \
-    pos     = v->SPosDec + ((v->SFrq & 0xFFFF) * numSamples); \
-    realPos = v->SPos    + ((v->SFrq >>    16) * numSamples) + (pos >> 16); \
-    pos    &= 0xFFFF; \
+    pos     = v->SPosDec + ((v->SFrq & 0x0000FFFF) * numSamples); \
+    realPos = v->SPos    + ((v->SFrq >> 16)        * numSamples) + (pos >> 16); \
+    pos    &= 0x0000FFFF; \
     \
     while (realPos >= v->SLen) \
            realPos -= v->SRepL; \
@@ -467,9 +469,9 @@
     if (v->backwards) \
         v->SPos = (v->SLen - 1) - (v->SPos - v->SRepS); \
     \
-    pos     = v->SPosDec + ((v->SFrq & 0xFFFF) * numSamples); \
-    realPos = v->SPos    + ((v->SFrq >>    16) * numSamples) + (pos >> 16); \
-    pos    &= 0xFFFF; \
+    pos     = v->SPosDec + ((v->SFrq & 0x0000FFFF) * numSamples); \
+    realPos = v->SPos    + ((v->SFrq >> 16)        * numSamples) + (pos >> 16); \
+    pos    &= 0x0000FFFF; \
     \
     while (realPos >= v->SLen) \
     { \

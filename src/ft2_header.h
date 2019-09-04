@@ -14,7 +14,7 @@
 #endif
 #include "ft2_replayer.h"
 
-#define BETA_VERSION 137
+#define BETA_VERSION 139
 
 /* do NOT change these! It will only mess things up... */
 #define VBLANK_HZ 60
@@ -30,7 +30,6 @@
 #define PATH_MAX 260
 #endif
 
-/* some of these may not be platform safe... */
 #define SGN(x) (((x) >= 0) ? 1 : -1)
 #define ABS(a) (((a) < 0) ? -(a) : (a))
 #define MIN(a, b) (((a) < (b)) ? (a) : (b))

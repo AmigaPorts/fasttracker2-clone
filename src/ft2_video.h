@@ -27,7 +27,7 @@ struct video_t
 {
     uint8_t customContrasts[2]; /* for palette */
     uint8_t upscaleFactor, fullscreen, vsync60HzPresent;
-    int32_t renderW, renderH;
+    int32_t renderX, renderY, renderW, renderH;
     uint32_t *frameBuffer, palette[PAL_NUM], vblankTimeLen, vblankTimeLenFrac;
     uint32_t xScaleMul, yScaleMul;
 #ifdef _WIN32

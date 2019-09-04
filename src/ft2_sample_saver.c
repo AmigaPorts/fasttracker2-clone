@@ -65,24 +65,26 @@ static int8_t fileRestoreSampleData(UNICHAR *filenameU, int32_t sampleDataOffset
     if (smp->typ & 16)
     {
         /* 16-bit sample */
-        if (smp->fixedPos1 < (smp->len / 2))
+        if (smp->fixedPos < (smp->len / 2))
         {
-            fseek(f, sampleDataOffset + (smp->fixedPos1 * 2), SEEK_SET);
+            fseek(f, sampleDataOffset + (smp->fixedPos * 2), SEEK_SET);
             fwrite(&smp->fixedSmp1, sizeof (int16_t), 1, f);
         }
 
-        if (smp->fixedPos2 < (smp->len / 2))
+#ifndef LERPMIX
+        if ((smp->fixedPos + 2) < (smp->len / 2))
         {
-            fseek(f, sampleDataOffset + (smp->fixedPos2 * 2), SEEK_SET);
+            fseek(f, sampleDataOffset + ((smp->fixedPos + 2) * 2), SEEK_SET);
             fwrite(&smp->fixedSmp2, sizeof (int16_t), 1, f);
         }
+#endif
     }
     else
     {
         /* 8-bit sample */
-        if (smp->fixedPos1 < smp->len)
+        if (smp->fixedPos < smp->len)
         {
-            fseek(f, sampleDataOffset + smp->fixedPos1, SEEK_SET);
+            fseek(f, sampleDataOffset + smp->fixedPos, SEEK_SET);
 
             fixSpar8 = (int8_t)(smp->fixedSmp1);
             if (editor.sampleSaveMode == SMP_SAVE_MODE_WAV) /* on 8-bit WAVs the sample data is unsigned */
@@ -91,9 +93,10 @@ static int8_t fileRestoreSampleData(UNICHAR *filenameU, int32_t sampleDataOffset
             fwrite(&fixSpar8, sizeof (int8_t), 1, f);
         }
 
-        if (smp->fixedPos2 < smp->len)
+#ifndef LERPMIX
+        if ((smp->fixedPos + 1) < smp->len)
         {
-            fseek(f, sampleDataOffset + smp->fixedPos2, SEEK_SET);
+            fseek(f, sampleDataOffset + (smp->fixedPos + 1), SEEK_SET);
 
             fixSpar8 = (int8_t)(smp->fixedSmp2);
             if (editor.sampleSaveMode == SMP_SAVE_MODE_WAV) /* on 8-bit WAVs the sample data is unsigned */
@@ -101,6 +104,7 @@ static int8_t fileRestoreSampleData(UNICHAR *filenameU, int32_t sampleDataOffset
 
             fwrite(&fixSpar8, sizeof (int8_t), 1, f);
         }
+#endif
     }
 
     fclose(f);

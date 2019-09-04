@@ -170,8 +170,11 @@ typedef struct sampleTyp_t  /* DO NOT TOUCH!!! (order and datatypes are importan
     /* stuff from now on can be touched */
     int8_t *pek;
     uint8_t fixed;
-    int16_t fixedSmp1, fixedSmp2;
-    int32_t fixedPos1, fixedPos2;
+    int16_t fixedSmp1;
+#ifndef LERPMIX
+    int16_t fixedSmp2;
+#endif
+    int32_t fixedPos;
 }
 #ifdef __GNUC__
 __attribute__ ((packed))
@@ -257,7 +260,6 @@ void calcReplayRate(uint32_t rate);
 void resetOldRates(void);
 void tuneSample(sampleTyp *s, uint32_t midCFreq);
 uint32_t getFrequenceValue(uint16_t period);
-uint32_t getFrequenceValueScope(uint16_t period);
 int16_t relocateTon(int16_t period, int8_t relativeNote, stmTyp *ch);
 void clearInstr(uint8_t i);
 void clearAllInstr(void);

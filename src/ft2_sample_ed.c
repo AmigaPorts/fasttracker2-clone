@@ -23,7 +23,12 @@
 #include "ft2_diskop.h"
 #include "ft2_keyboard.h"
 
-static char smpEd_SysReqText[128];
+static const char sharpNote1Char[12] = { 'C', 'C', 'D', 'D', 'E', 'F', 'F', 'G', 'G', 'A', 'A', 'B' };
+static const char sharpNote2Char[12] = { '-', '#', '-', '#', '-', '-', '#', '-', '#', '-', '#', '-' };
+static const char flatNote1Char[12]  = { 'C', 'D', 'D', 'E', 'E', 'F', 'G', 'G', 'A', 'A', 'B', 'B' };
+static const char flatNote2Char[12]  = { '-', 'b', '-', 'b', '-', '-', 'b', '-', 'b', '-', 'b', '-' };
+
+static char smpEd_SysReqText[64];
 static int8_t *smpCopyBuff;
 static uint8_t updateLoopsOnMouseUp;
 static int32_t smpEd_OldSmpPosLine = -1; /* must be initialized to -1! */
@@ -41,15 +46,16 @@ void fixSample(sampleTyp *s)
 {
     uint8_t loopType;
     int16_t *ptr16;
-    int32_t loopStart, loopEnd, len;
+    int32_t loopStart, loopLen, loopEnd, len;
 
-    len = s->len;
     if (s->pek == NULL)
         return; /* empty sample */
 
     loopType = s->typ & 3;
     if (loopType == 0)
     {
+        len = s->len;
+
         /* no loop (don't mess with fixed, fixSpar of fixedPos) */
 
         if (s->typ & 16)
@@ -99,12 +105,11 @@ void fixSample(sampleTyp *s)
             loopEnd   = (s->repS + s->repL) / 2;
             ptr16     = (int16_t *)(s->pek);
 
-            /* store old values and old fix positions */
-            s->fixedSmp1 = ptr16[loopEnd + 0];
-            s->fixedPos1 = s->repS + s->repL;
+            /* store old values and old fix position */
+            s->fixedSmp1 = ptr16[loopEnd];
+            s->fixedPos  = s->repS + s->repL;
 #ifndef LERPMIX
             s->fixedSmp2 = ptr16[loopEnd + 1];
-            s->fixedPos2 = s->repS + s->repL + 2;
 #endif
             /* write new values */
             ptr16[loopEnd + 0] = ptr16[loopStart + 0];
@@ -122,12 +127,11 @@ void fixSample(sampleTyp *s)
             loopStart = s->repS;
             loopEnd   = s->repS + s->repL;
 
-            /* store old values and old fix positions */
-            s->fixedSmp1 = s->pek[loopEnd + 0];
-            s->fixedPos1 = loopEnd + 0;
+            /* store old values and old fix position */
+            s->fixedSmp1 = s->pek[loopEnd];
+            s->fixedPos  = loopEnd;
 #ifndef LERPMIX
             s->fixedSmp2 = s->pek[loopEnd + 1];
-            s->fixedPos2 = loopEnd + 1;
 #endif
             /* write new values */
             s->pek[loopEnd + 0] = s->pek[loopStart + 0];
@@ -147,20 +151,24 @@ void fixSample(sampleTyp *s)
             if (s->repL < 2)
                 return;
 
-            loopEnd = (s->repS + s->repL) / 2;
-            ptr16   = (int16_t *)(s->pek);
+            loopStart = s->repS / 2;
+            loopLen   = s->repL / 2;
+            loopEnd   = loopStart + loopLen;
+            ptr16     = (int16_t *)(s->pek);
 
-            /* store old values and old fix positions */
-            s->fixedSmp1 = ptr16[loopEnd + 0];
-            s->fixedPos1 = s->repS + s->repL;
+            /* store old values and old fix position */
+            s->fixedSmp1 = ptr16[loopEnd];
+            s->fixedPos  = s->repS + s->repL;
 #ifndef LERPMIX
             s->fixedSmp2 = ptr16[loopEnd + 1];
-            s->fixedPos2 = s->repS + s->repL + 2;
 #endif
             /* write new values */
             ptr16[loopEnd + 0] = ptr16[loopEnd - 1];
 #ifndef LERPMIX
-            ptr16[loopEnd + 1] = ptr16[loopEnd - 2];
+            if (loopLen >= 2)
+                ptr16[loopEnd + 1] = ptr16[loopEnd - 2];
+            else
+                ptr16[loopEnd + 1] = ptr16[loopStart];
 #endif
         }
         else
@@ -170,19 +178,23 @@ void fixSample(sampleTyp *s)
             if (s->repL < 1)
                 return;
 
-            loopEnd = s->repS + s->repL;
+            loopStart = s->repS;
+            loopLen   = s->repL;
+            loopEnd   = loopStart + loopLen;
 
-            /* store old values and old fix positions */
-            s->fixedSmp1 = s->pek[loopEnd + 0];
-            s->fixedPos1 = loopEnd + 0;
+            /* store old values and old fix position */
+            s->fixedSmp1 = s->pek[loopEnd];
+            s->fixedPos  = loopEnd;
 #ifndef LERPMIX
             s->fixedSmp2 = s->pek[loopEnd + 1];
-            s->fixedPos2 = loopEnd + 1;
 #endif
             /* write new values */
             s->pek[loopEnd + 0] = s->pek[loopEnd - 1];
 #ifndef LERPMIX
-            s->pek[loopEnd + 1] = s->pek[loopEnd - 2];
+            if (loopLen >= 2)
+                s->pek[loopEnd + 1] = s->pek[loopEnd - 2];
+            else
+                s->pek[loopEnd + 1] = s->pek[loopStart];
 #endif
         }
     }
@@ -204,25 +216,19 @@ void restoreSample(sampleTyp *s)
     {
         /* 16-bit sample */
 
-        assert((s->len >= 4) && (s->fixedPos1 < (s->len + 4)) && !(s->fixedPos1 & 1));
         ptr16 = (int16_t *)(s->pek);
-        ptr16[s->fixedPos1 / 2] = s->fixedSmp1;
-
+        ptr16[s->fixedPos / 2] = s->fixedSmp1;
 #ifndef LERPMIX
-        assert((s->fixedPos2 < (s->len + 4)) && !(s->fixedPos2 & 1));
-        ptr16[s->fixedPos2 / 2] = s->fixedSmp2;
+        ptr16[(s->fixedPos + 2) / 2] = s->fixedSmp2;
 #endif
     }
     else
     {
         /* 8-bit sample */
 
-        assert((s->len >= 2) && (s->fixedPos1 < (s->len + 4)));
-        s->pek[s->fixedPos1] = (int8_t)(s->fixedSmp1);
-
+        s->pek[s->fixedPos] = (int8_t)(s->fixedSmp1);
 #ifndef LERPMIX
-        assert((s->fixedPos2 < (s->len + 4)));
-        s->pek[s->fixedPos2] = (int8_t)(s->fixedSmp2);
+        s->pek[s->fixedPos + 1] = (int8_t)(s->fixedSmp2);
 #endif
     }
 }
@@ -271,12 +277,12 @@ void clearCopyBuffer(void)
 
 uint32_t getSampleMiddleCRate(sampleTyp *s)
 {
-    double dFtune;
+    double dFTune;
 
     /* FT2 fix: get correct finetune value (replayer is shifting it to the right by 3) */
-    dFtune = (s->fine >> 3) / (128.0 / (double)(1 << 3));
+    dFTune = (s->fine >> 3) / (128.0 / (double)(1 << 3));
 
-    return ((uint32_t)(round(8363.0 * pow(2.0, (s->relTon + dFtune) / 12.0))));
+    return ((uint32_t)(round(8363.0 * pow(2.0, (s->relTon + dFTune) / 12.0))));
 }
 
 int32_t getSampleRangeStart(void)
@@ -324,22 +330,6 @@ static int32_t smpPos2Scr(int32_t pos) /* sample pos -> screen x pos (result can
     /* rounding is needed here */
     dPos = pos * dPos2ScrMul;
     double2int32_round(pos, dPos);
-    pos -= scrPosScaled;
-
-    return (pos);
-}
-
-/* this one is for the sampling line */
-static int32_t smpPos2ScrNoRound(int32_t pos) /* sample pos -> screen x pos (result can and will overflow) */
-{
-    assert(currSmp != NULL);
-    if (smpEd_ViewSize <= 0)
-        return (0);
-
-    if (pos > currSmp->len)
-        pos = currSmp->len;
-
-    pos  = (int32_t)(pos * dPos2ScrMul);
     pos -= scrPosScaled;
 
     return (pos);
@@ -421,7 +411,7 @@ int8_t getCopyBuffer(int32_t size)
     if (smpCopyBuff != NULL)
         free(smpCopyBuff);
 
-    smpCopyBuff = (int8_t *)(malloc(size));
+    smpCopyBuff = (int8_t *)(malloc(size + 4));
     if (smpCopyBuff == NULL)
     {
         smpCopySize = 0;
@@ -450,7 +440,7 @@ void copySmp(void) /* copy sample from srcInstr->srcSmp to curInstr->curSmp */
         if (p != NULL)
         {
             memcpy(dst, src, sizeof (sampleTyp));
-            memcpy(p, src->pek, src->len +4); /* +4 = include loop fix area */
+            memcpy(p, src->pek, src->len + 4); /* +4 = include loop fix area */
             dst->pek = p;
         }
         else
@@ -491,7 +481,7 @@ void writeRange(void)
 
     /* very first sample (rx1=0,rx2=0) is the "no range" special case */
     if (!editor.ui.sampleEditorShown || (smpEd_ViewSize == 0) || ((smpEd_Rx1 == 0) && (smpEd_Rx2 == 0)))
-        return; 
+        return;
 
     start = smpPos2Scr(smpEd_Rx1);
     end   = smpPos2Scr(smpEd_Rx2);
@@ -534,21 +524,21 @@ int8_t getScaledSample(int32_t index)
         /* restore fixed mixer interpolation sample(s) */
         if (currSmp->fixed)
         {
-            if (index == currSmp->fixedPos1)
-                tmp32 = currSmp->fixedSmp1 * SAMPLE_AREA_HEIGHT;
+            if (index == currSmp->fixedPos)
+                tmp32 = currSmp->fixedSmp1;
 #ifndef LERPMIX
-            else if (index == currSmp->fixedPos2)
-                tmp32 = currSmp->fixedSmp2 * SAMPLE_AREA_HEIGHT;
+            else if (index == (currSmp->fixedPos + 2))
+                tmp32 = currSmp->fixedSmp2;
 #endif
             else
-                tmp32 = ptr16[index / 2] * SAMPLE_AREA_HEIGHT;
+                tmp32 = ptr16[index / 2];
         }
         else
         {
-            tmp32 = ptr16[index / 2] * SAMPLE_AREA_HEIGHT;
+            tmp32 = ptr16[index / 2];
         }
 
-        sample = (int8_t)(tmp32 >> 16);
+        sample = (int8_t)((tmp32 * SAMPLE_AREA_HEIGHT) >> 16);
     }
     else
     {
@@ -557,21 +547,21 @@ int8_t getScaledSample(int32_t index)
         /* restore fixed mixer interpolation sample(s) */
         if (currSmp->fixed)
         {
-            if (index == currSmp->fixedPos1)
-                tmp32 = (int8_t)(currSmp->fixedSmp1) * SAMPLE_AREA_HEIGHT;
+            if (index == currSmp->fixedPos)
+                tmp32 = currSmp->fixedSmp1;
 #ifndef LERPMIX
-            else if (index == currSmp->fixedPos2)
-                tmp32 = (int8_t)(currSmp->fixedSmp2) * SAMPLE_AREA_HEIGHT;
+            else if (index == (currSmp->fixedPos + 1))
+                tmp32 = currSmp->fixedSmp2;
 #endif
             else
-                tmp32 = ptr8[index] * SAMPLE_AREA_HEIGHT;
+                tmp32 = ptr8[index];
         }
         else
         {
-            tmp32 = ptr8[index] * SAMPLE_AREA_HEIGHT;
+            tmp32 = ptr8[index];
         }
 
-        sample = (int8_t)(tmp32 >> 8);
+        sample = (int8_t)((tmp32 * SAMPLE_AREA_HEIGHT) >> 8);
     }
 
     return (sample);
@@ -676,7 +666,7 @@ static void getMinMax16(const void *p, uint32_t scanLen, int16_t *min16, int16_t
     __m128i minVal, maxVal, minVal2, maxVal2, curVals;
 
     /* Put minimum / maximum in 8 packed int16 values */
-    minVal = _mm_set1_epi16(32767);
+    minVal = _mm_set1_epi16( 32767);
     maxVal = _mm_set1_epi16(-32768);
 
     scanLen8 = scanLen / 8;
@@ -759,7 +749,7 @@ static void getMinMax8(const void *p, uint32_t scanLen, int8_t *min8, int8_t *ma
 
     /* Put minimum / maximum in 8 packed int16 values (-1 and 0 because unsigned) */
     minVal = _mm_set1_epi8(-1);
-    maxVal = _mm_set1_epi8(0);
+    maxVal = _mm_set1_epi8( 0);
 
     /* For signed <-> unsigned conversion (_mm_min_epi8/_mm_max_epi8 is SSE4) */
     xorVal = _mm_set1_epi8(0x80);
@@ -1089,10 +1079,6 @@ void updateSampleEditorSample(void)
 
 void updateSampleEditor(void)
 {
-    const char sharpNote1Char[12] = { 'C', 'C', 'D', 'D', 'E', 'F', 'F', 'G', 'G', 'A', 'A', 'B' };
-    const char sharpNote2Char[12] = { '-', '#', '-', '#', '-', '-', '#', '-', '#', '-', '#', '-' };
-    const char flatNote1Char[12]  = { 'C', 'D', 'D', 'E', 'E', 'F', 'G', 'G', 'A', 'A', 'B', 'B' };
-    const char flatNote2Char[12]  = { '-', 'b', '-', 'b', '-', '-', 'b', '-', 'b', '-', 'b', '-' };
     char noteChar1, noteChar2, octaChar;
     uint8_t note;
 
@@ -1982,9 +1968,7 @@ void sampXFade(void)
                 return;
             }
 
-            dist = 1;
-            if (is16Bit)
-                dist++;
+            dist = is16Bit ? 2 : 1;
 
             pauseAudio();
             restoreSample(currSmp);
@@ -2054,6 +2038,7 @@ void sampXFade(void)
         }
 
         dR = (currSmp->repS - i) / (double)(x2 - x1);
+        dist = is16Bit ? 2 : 1;
 
         pauseAudio();
         restoreSample(currSmp);
@@ -2087,7 +2072,7 @@ void sampXFade(void)
             putSampleValueNr(currSmp->pek, t, y1 + i, c);
             putSampleValueNr(currSmp->pek, t, y2 + i, d);
 
-            i += (is16Bit ? 2 : 1);
+            i += dist;
         }
 
         fixSample(currSmp);
@@ -2363,8 +2348,8 @@ void sampRepeatUp(void)
     }
     else
     {
-        lenSub  = 2;
-        addVal  = 1;
+        lenSub = 2;
+        addVal = 1;
     }
 
     repS = curSmpRepS;
@@ -2394,9 +2379,7 @@ void sampRepeatDown(void)
     if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len == 0))
         return;
 
-    delta = 1;
-    if (currSmp->typ & 16)
-        delta *= 2;
+    delta = (currSmp->typ & 16) ? 2 : 1;
 
     repS = curSmpRepS - delta;
     if (repS < 0)
@@ -2415,9 +2398,7 @@ void sampReplenUp(void)
     if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len == 0))
         return;
 
-    delta = 1;
-    if (currSmp->typ & 16)
-        delta *= 2;
+    delta = (currSmp->typ & 16) ? 2 : 1;
 
     repL = curSmpRepL + delta;
     if ((curSmpRepS + repL) > currSmp->len)
@@ -2436,9 +2417,7 @@ void sampReplenDown(void)
     if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len == 0))
         return;
 
-    delta = 1;
-    if (currSmp->typ & 16)
-        delta *= 2;
+    delta = (currSmp->typ & 16) ? 2 : 1;
 
     repL = curSmpRepL - delta;
     if (repL < 0)
@@ -2628,7 +2607,7 @@ static void writeSamplePosLine(void)
 
         /* convert sample position to screen position */
         if (scrPos != -1)
-            scrPos = smpPos2ScrNoRound(scrPos);
+            scrPos = smpPos2Scr(scrPos);
 
         if (scrPos != smpEd_OldSmpPosLine)
         {
@@ -3145,7 +3124,7 @@ void sampleConv(void)
     }
     else
     {
-        len = currSmp->len;
+        len  = currSmp->len;
         ptr8 = currSmp->pek;
 
         for (i = 0; i < len; ++i)

@@ -127,7 +127,9 @@ static int16_t nibblesGetBuffer(int16_t nr)
     if (n->antal > 0)
     {
         dataOut = n->data[0];
-        memmove(&n->data[0], &n->data[1], 7); /* memmove() must be used instead of memcpy() because of overlapping */
+
+        /* memmove() must be used instead of memcpy() because of overlapping */
+        memmove(&n->data[0], &n->data[1], 7); 
         n->antal--;
 
         return (dataOut);
@@ -226,7 +228,7 @@ static void nibbleWriteLevelSprite(int16_t xOut, int16_t yOut, int16_t nr)
     for (y = 0; y < (23 + 2); ++y)
     {
         for (x = 0; x < (51 + 2); ++x)
-            *dst++ = video.palette[*src++]; /* this is safe, data never exceeds palette length */
+            *dst++ = video.palette[*src++];
 
         src += (530      - (51 + 2));
         dst += (SCREEN_W - (51 + 2));
@@ -815,10 +817,8 @@ void nibblesPlay(void)
     NI_CurSpeed = NI_Speeds[config.NI_Speed];
 
     /* adjust for 70Hz -> 60Hz frames */
-    NI_CurSpeed60Hz = (uint8_t)(round(NI_CurSpeed * (VBLANK_HZ / 70.0)));
-
-    /* adjust for 70Hz -> 60Hz frames */
-    NI_CurTick60Hz = (uint8_t)(round(NI_Speeds[2] * (VBLANK_HZ / 70.0)));
+    NI_CurSpeed60Hz = (uint8_t)(round(NI_CurSpeed  * (VBLANK_HZ / 70.0)));
+    NI_CurTick60Hz  = (uint8_t)(round(NI_Speeds[2] * (VBLANK_HZ / 70.0)));
 
     editor.NI_Play = true;
     NI_P1Score = 0;

@@ -30,6 +30,10 @@
 #include "ft2_sysreqs.h"
 #include "ft2_keyboard.h"
 
+#define CRASH_TEXT "Oh no!\nThe Fasttracker II clone has crashed...\n\nA backup .xm was hopefully " \
+                   "saved to the current module directory.\n\nPlease report this to 8bitbubsy " \
+                   "(IRC or olav.sorensen@live.no).\nTry to mention what you did before the crash happened."
+
 static uint8_t backupMadeAfterCrash;
 
 #ifdef _WIN32
@@ -326,10 +330,7 @@ static LONG WINAPI exceptionHandler(EXCEPTION_POINTERS *ptr)
         }
 
         backupMadeAfterCrash = true; /* set this flag to prevent multiple backups from being saved at once */
-
-        showErrorMsgBox("Oh no!\nThe Fasttracker II clone has crashed...\n\nA backup .xm was hopefully " \
-                        "saved to the current module directory.\n\nPlease report this to 8bitbubsy " \
-                        "(IRC or olav.sorensen@live.no).\nTry to mention what you did before the crash happened.");
+        showErrorMsgBox(CRASH_TEXT);
     }
 
     return (EXCEPTION_CONTINUE_SEARCH);
@@ -370,10 +371,7 @@ static void exceptionHandler(int32_t signal)
         }
 
         backupMadeAfterCrash = true; /* set this flag to prevent multiple backups from being saved at once */
-
-        showErrorMsgBox("Oh no!\nThe Fasttracker II clone has crashed...\n\nA backup .xm was hopefully " \
-                        "saved to the current module directory.\n\nPlease report this to 8bitbubsy " \
-                        "(IRC or olav.sorensen@live.no).\nTry to mention what you did before the crash happened.");
+        showErrorMsgBox(CRASH_TEXT);
     }
 }
 #endif

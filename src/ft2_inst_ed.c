@@ -87,6 +87,13 @@ instrXIHeaderTyp;
 #define PIANOKEY_BLACK_W  7
 #define PIANOKEY_BLACK_H 29
 
+static const char sharpNote1Char[12] = { 'C', 'C', 'D', 'D', 'E', 'F', 'F', 'G', 'G', 'A', 'A', 'B' };
+static const char sharpNote2Char[12] = { '-', '#', '-', '#', '-', '-', '#', '-', '#', '-', '#', '-' };
+static const char flatNote1Char[12]  = { 'C', 'D', 'D', 'E', 'E', 'F', 'G', 'G', 'A', 'A', 'B', 'B' };
+static const char flatNote2Char[12]  = { '-', 'b', '-', 'b', '-', '-', 'b', '-', 'b', '-', 'b', '-' };
+static const uint8_t whiteKeyIndex[7] = { 0, 2, 4, 5, 7, 9, 11 };
+static const uint8_t whiteKeysBmpOrder[12] = { 0, 0, 1, 0, 2, 0, 0, 1, 0, 1, 0, 2 };
+static const uint8_t keyNumX[12] = { 11, 16, 22, 27, 33, 44, 49, 55, 60, 66, 71, 77 };
 static const uint8_t keyXPos[12] = { 0, 7, 11, 18, 22, 33, 40, 44, 51, 55, 62, 66 };
 static volatile uint8_t updateVolEnv, updatePanEnv;
 static uint8_t pianoKeyStatus[96];
@@ -492,10 +499,6 @@ static void drawVibSweep(void)
 
 static void drawRelTone(void)
 {
-    const char sharpNote1Char[12] = { 'C', 'C', 'D', 'D', 'E', 'F', 'F', 'G', 'G', 'A', 'A', 'B' };
-    const char sharpNote2Char[12] = { '-', '#', '-', '#', '-', '-', '#', '-', '#', '-', '#', '-' };
-    const char flatNote1Char[12]  = { 'C', 'D', 'D', 'E', 'E', 'F', 'G', 'G', 'A', 'A', 'B', 'B' };
-    const char flatNote2Char[12]  = { '-', 'b', '-', 'b', '-', '-', 'b', '-', 'b', '-', 'b', '-' };
     char noteChar1, noteChar2, octaChar;
     int8_t note2, note;
     instrTyp *ins;
@@ -1739,7 +1742,6 @@ static void smallHexOutBg(uint16_t xPos, uint16_t yPos, uint8_t fgPalette, uint8
 
 static void writePianoNumber(uint8_t note)
 {
-    const uint8_t keyNumX[12] = { 11, 16, 22, 27, 33, 44, 49, 55, 60, 66, 71, 77 };
     uint8_t number, key;
     uint16_t x;
 
@@ -1776,7 +1778,6 @@ static void drawBlackPianoKey(uint8_t note, uint8_t keyDown)
 
 static void drawWhitePianoKey(uint8_t note, uint8_t keyDown)
 {
-    const uint8_t whiteKeysBmpOrder[12] = { 0, 0, 1, 0, 2, 0, 0, 1, 0, 1, 0, 2 };
     uint8_t key;
     uint16_t x;
 
@@ -1805,7 +1806,6 @@ void redrawPiano(void)
 
 int8_t testPianoKeysMouseDown(uint8_t buttonDown)
 {
-    const uint8_t whiteKeyIndex[7] = { 0, 2, 4, 5, 7, 9, 11 };
     uint8_t key, note, octave;
     int32_t mx, my;
     instrTyp *ins;

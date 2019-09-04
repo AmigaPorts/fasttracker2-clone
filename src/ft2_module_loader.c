@@ -113,6 +113,9 @@ songS3MHeaderTyp;
 
 static volatile uint8_t musicIsLoading, loadedFormat, moduleLoaded, moduleFailedToLoad;
 static uint8_t freqTabType, oldPlayMode, pattBuff[12288];
+static const uint8_t st2TempoFactor[16] = { 140, 50, 25, 15, 10, 7, 6, 4, 3, 3, 2, 2, 2, 2, 1, 1 };
+static const uint8_t stmEff[16] = { 0, 0, 11, 0, 10, 2, 1, 3, 4, 7, 0, 5 ,6, 0, 0, 0 };
+
 static SDL_Thread *thread;
 
 /* these temporarily read to, then copied to real struct if load was OK (should not need to be volatile'd) */
@@ -617,7 +620,6 @@ int8_t loadMusicMOD(FILE *f, uint32_t fileLength)
 /* taken with permission from the OpenMPT project (and slightly modified) */
 static uint16_t stmTempoToBPM(uint8_t tempo) 
 {
-    const uint8_t st2TempoFactor[16] = { 140, 50, 25, 15, 10, 7, 6, 4, 3, 3, 2, 2, 2, 2, 1, 1 };
     uint16_t bpm;
     static const uint32_t st2MixingRate = 23863; /* highest possible setting in ST2 */
     int32_t samplesPerTick;
@@ -635,7 +637,6 @@ static uint16_t stmTempoToBPM(uint8_t tempo)
 
 int8_t loadMusicSTM(FILE *f, uint32_t fileLength)
 {
-    const uint8_t stmEff[16] = { 0, 0, 11, 0, 10, 2, 1, 3, 4, 7, 0, 5 ,6, 0, 0, 0 };
     uint8_t check3xx, typ, tmp8, tempo;
     int16_t i, j, k, ai, ap, tmp;
     uint16_t a;

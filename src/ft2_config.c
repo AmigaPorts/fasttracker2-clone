@@ -131,7 +131,7 @@ static void loadConfigFromBuffer(uint8_t defaults)
         config.recQuantRes = 16;
     }
 
-    if ((config.audioFreq != 32000) && (config.audioFreq != 44100) && (config.audioFreq != 48000) && (config.audioFreq != 96000))
+    if ((config.audioFreq != 44100) && (config.audioFreq != 48000) && (config.audioFreq != 96000))
     {
 #ifdef __APPLE__
         config.audioFreq = 44100; /* set default */
@@ -955,7 +955,6 @@ void setConfigIORadioButtonStates(void) /* accessed by other .c files */
     uncheckRadioButtonGroup(RB_GROUP_CONFIG_AUDIO_FREQ);
     switch (config.audioFreq)
     {
-                 case 32000: tmpID = RB_CONFIG_AUDIO_32KHZ; break;
 #ifdef __APPLE__
         default: case 44100: tmpID = RB_CONFIG_AUDIO_44KHZ; break;
                  case 48000: tmpID = RB_CONFIG_AUDIO_48KHZ; break;
@@ -1276,15 +1275,14 @@ void showConfigScreen(void)
             textOutShadow(406, 160, PAL_FORGRND, PAL_DSKTOP2, "1.5-bit dither");
 
             textOutShadow(509,   3, PAL_FORGRND, PAL_DSKTOP2, "Mixing frequency:");
-            textOutShadow(525,  17, PAL_FORGRND, PAL_DSKTOP2, "32000Hz");
 #ifdef __APPLE__
-            textOutShadow(525,  31, PAL_FORGRND, PAL_DSKTOP2, "44100Hz (default)");
-            textOutShadow(525,  45, PAL_FORGRND, PAL_DSKTOP2, "48000Hz");
+            textOutShadow(525,  17, PAL_FORGRND, PAL_DSKTOP2, "44100Hz (default)");
+            textOutShadow(525,  31, PAL_FORGRND, PAL_DSKTOP2, "48000Hz");
 #else
-            textOutShadow(525,  31, PAL_FORGRND, PAL_DSKTOP2, "44100Hz");
-            textOutShadow(525,  45, PAL_FORGRND, PAL_DSKTOP2, "48000Hz (default)");
+            textOutShadow(525,  17, PAL_FORGRND, PAL_DSKTOP2, "44100Hz");
+            textOutShadow(525,  31, PAL_FORGRND, PAL_DSKTOP2, "48000Hz (default)");
 #endif
-            textOutShadow(525,  59, PAL_FORGRND, PAL_DSKTOP2, "96000Hz");
+            textOutShadow(525,  45, PAL_FORGRND, PAL_DSKTOP2, "96000Hz");
 
             textOutShadow(509,  76, PAL_FORGRND, PAL_DSKTOP2, "Frequency table:");
             textOutShadow(525,  90, PAL_FORGRND, PAL_DSKTOP2, "Amiga freq.-table");
@@ -1722,12 +1720,6 @@ void rbConfigAudio24bit(void)
     if (editor.currConfigScreen == CONFIG_SCREEN_IO_DEVICES)
         drawCheckBox(CB_CONF_DITHER);
 
-    setNewAudioSettings();
-}
-
-void rbConfigAudio32kHz(void)
-{
-    config.audioFreq = 32000;
     setNewAudioSettings();
 }
 
@@ -2257,7 +2249,13 @@ void sbPalRPos(uint32_t pos)
 
         switch (paletteEntry)
         {
-            case PAL_PATTEXT: config.palPattTextR    = (uint8_t)(r); updateLoopPinPalette(); break;
+            case PAL_PATTEXT:
+            {
+                config.palPattTextR = (uint8_t)(r);
+                updateLoopPinPalette();
+            }
+            break;
+
             case PAL_BLCKMRK: config.palBlockMarkR   = (uint8_t)(r); break;
             case PAL_BLCKTXT: config.palTextOnBlockR = (uint8_t)(r); break;
             case PAL_MOUSEPT: config.palMouseR       = (uint8_t)(r); break;
@@ -2297,7 +2295,13 @@ void sbPalGPos(uint32_t pos)
 
         switch (paletteEntry)
         {
-            case PAL_PATTEXT: config.palPattTextG    = (uint8_t)(g); updateLoopPinPalette(); break;
+            case PAL_PATTEXT:
+            {
+                config.palPattTextG = (uint8_t)(g);
+                updateLoopPinPalette();
+            }
+            break;
+
             case PAL_BLCKMRK: config.palBlockMarkG   = (uint8_t)(g); break;
             case PAL_BLCKTXT: config.palTextOnBlockG = (uint8_t)(g); break;
             case PAL_MOUSEPT: config.palMouseG       = (uint8_t)(g); break;
@@ -2337,7 +2341,13 @@ void sbPalBPos(uint32_t pos)
 
         switch (paletteEntry)
         {
-            case PAL_PATTEXT: config.palPattTextB    = (uint8_t)(b); updateLoopPinPalette(); break;
+            case PAL_PATTEXT:
+            {
+                config.palPattTextB = (uint8_t)(b);
+                updateLoopPinPalette();
+            }
+            break;
+
             case PAL_BLCKMRK: config.palBlockMarkB   = (uint8_t)(b); break;
             case PAL_BLCKTXT: config.palTextOnBlockB = (uint8_t)(b); break;
             case PAL_MOUSEPT: config.palMouseB       = (uint8_t)(b); break;
@@ -2398,7 +2408,7 @@ void configPalRDown(void)
     uint32_t *pixel;
 
     paletteEntry = getCurrentPaletteEntry();
-    pixel        = &video.palette[paletteEntry];
+    pixel = &video.palette[paletteEntry];
 
     r = P8_TO_P6(RGB_R(*pixel));
     if (r > 0)
@@ -2410,7 +2420,13 @@ void configPalRDown(void)
 
         switch (paletteEntry)
         {
-            case PAL_PATTEXT: config.palPattTextR    = (uint8_t)(r); updateLoopPinPalette(); break;
+            case PAL_PATTEXT:
+            {
+                config.palPattTextR = (uint8_t)(r);
+                updateLoopPinPalette();
+            }
+            break;
+
             case PAL_BLCKMRK: config.palBlockMarkR   = (uint8_t)(r); break;
             case PAL_BLCKTXT: config.palTextOnBlockR = (uint8_t)(r); break;
             case PAL_MOUSEPT: config.palMouseR       = (uint8_t)(r); break;
@@ -2435,7 +2451,7 @@ void configPalRUp(void)
     uint32_t *pixel;
 
     paletteEntry = getCurrentPaletteEntry();
-    pixel        = &video.palette[paletteEntry];
+    pixel = &video.palette[paletteEntry];
 
     r = P8_TO_P6(RGB_R(*pixel));
     if (r < 63)
@@ -2447,7 +2463,13 @@ void configPalRUp(void)
 
         switch (paletteEntry)
         {
-            case PAL_PATTEXT: config.palPattTextR    = (uint8_t)(r); updateLoopPinPalette(); break;
+            case PAL_PATTEXT:
+            {
+                config.palPattTextR = (uint8_t)(r);
+                updateLoopPinPalette();
+            }
+            break;
+
             case PAL_BLCKMRK: config.palBlockMarkR   = (uint8_t)(r); break;
             case PAL_BLCKTXT: config.palTextOnBlockR = (uint8_t)(r); break;
             case PAL_MOUSEPT: config.palMouseR       = (uint8_t)(r); break;
@@ -2484,7 +2506,13 @@ void configPalGDown(void)
 
         switch (paletteEntry)
         {
-            case PAL_PATTEXT: config.palPattTextG    = (uint8_t)(g); updateLoopPinPalette(); break;
+            case PAL_PATTEXT:
+            {
+                config.palPattTextG = (uint8_t)(g);
+                updateLoopPinPalette();
+            }
+            break;
+
             case PAL_BLCKMRK: config.palBlockMarkG   = (uint8_t)(g); break;
             case PAL_BLCKTXT: config.palTextOnBlockG = (uint8_t)(g); break;
             case PAL_MOUSEPT: config.palMouseG       = (uint8_t)(g); break;
@@ -2509,7 +2537,7 @@ void configPalGUp(void)
     uint32_t *pixel;
 
     paletteEntry = getCurrentPaletteEntry();
-    pixel        = &video.palette[paletteEntry];
+    pixel = &video.palette[paletteEntry];
 
     g = P8_TO_P6(RGB_G(*pixel));
     if (g < 63)
@@ -2521,7 +2549,13 @@ void configPalGUp(void)
 
         switch (paletteEntry)
         {
-            case PAL_PATTEXT: config.palPattTextG    = (uint8_t)(g); updateLoopPinPalette(); break;
+            case PAL_PATTEXT:
+            {
+                config.palPattTextG = (uint8_t)(g);
+                updateLoopPinPalette();
+            }
+            break;
+
             case PAL_BLCKMRK: config.palBlockMarkG   = (uint8_t)(g); break;
             case PAL_BLCKTXT: config.palTextOnBlockG = (uint8_t)(g); break;
             case PAL_MOUSEPT: config.palMouseG       = (uint8_t)(g); break;
@@ -2546,7 +2580,7 @@ void configPalBDown(void)
     uint32_t *pixel;
 
     paletteEntry = getCurrentPaletteEntry();
-    pixel        = &video.palette[paletteEntry];
+    pixel = &video.palette[paletteEntry];
 
     b = P8_TO_P6(RGB_B(*pixel));
     if (b > 0)
@@ -2558,7 +2592,13 @@ void configPalBDown(void)
 
         switch (paletteEntry)
         {
-            case PAL_PATTEXT: config.palPattTextB    = (uint8_t)(b); updateLoopPinPalette(); break;
+            case PAL_PATTEXT:
+            {
+                config.palPattTextB = (uint8_t)(b);
+                updateLoopPinPalette();
+            }
+            break;
+
             case PAL_BLCKMRK: config.palBlockMarkB   = (uint8_t)(b); break;
             case PAL_BLCKTXT: config.palTextOnBlockB = (uint8_t)(b); break;
             case PAL_MOUSEPT: config.palMouseB       = (uint8_t)(b); break;
@@ -2583,7 +2623,7 @@ void configPalBUp(void)
     uint32_t *pixel;
 
     paletteEntry = getCurrentPaletteEntry();
-    pixel        = &video.palette[paletteEntry];
+    pixel = &video.palette[paletteEntry];
 
     b = P8_TO_P6(RGB_B(*pixel));
     if (b < 63)
@@ -2595,7 +2635,13 @@ void configPalBUp(void)
 
         switch (paletteEntry)
         {
-            case PAL_PATTEXT: config.palPattTextB    = (uint8_t)(b); updateLoopPinPalette(); break;
+            case PAL_PATTEXT:
+            {
+                config.palPattTextB = (uint8_t)(b);
+                updateLoopPinPalette();
+            }
+            break;
+
             case PAL_BLCKMRK: config.palBlockMarkB   = (uint8_t)(b); break;
             case PAL_BLCKTXT: config.palTextOnBlockB = (uint8_t)(b); break;
             case PAL_MOUSEPT: config.palMouseB       = (uint8_t)(b); break;
@@ -2806,7 +2852,7 @@ void configQuantizeDown(void)
 void configMIDIChnUp(void)
 {
     config.recMIDIChn++;
-    config.recMIDIChn = (config.recMIDIChn - 1) % 16+1;
+    config.recMIDIChn = ((config.recMIDIChn - 1) % 16) + 1;
 
     drawMIDIChanValue();
 }
@@ -2814,7 +2860,7 @@ void configMIDIChnUp(void)
 void configMIDIChnDown(void)
 {
     config.recMIDIChn--;
-    config.recMIDIChn = ((uint16_t)(config.recMIDIChn - 1)) % 16+1;
+    config.recMIDIChn = (((uint16_t)(config.recMIDIChn - 1)) % 16) + 1;
 
     drawMIDIChanValue();
 }

@@ -858,7 +858,7 @@ static void diskOpSave(uint8_t checkOverwrite)
 
             saveInstr(fileNameU, editor.curInstr);
             free(fileNameU);
-            /* sets editor.diskOpReadDir after thread is done */
+            /* editor.diskOpReadDir is set after thread is done */
         }
         break;
 
@@ -887,7 +887,7 @@ static void diskOpSave(uint8_t checkOverwrite)
 
             saveSample(fileNameU, SAVE_NORMAL);
             free(fileNameU);
-            /* sets editor.diskOpReadDir after thread is done */
+            /* editor.diskOpReadDir is set after thread is done */
         }
         break;
 
@@ -1111,8 +1111,7 @@ int8_t testDiskOpMouseDown(uint8_t mouseHeldDlown)
     lastMouseY = mouse.y;
 
     tmpEntry = (mouse.y - 4) / (FONT1_CHAR_H + 1);
-    if ((mouse.y <   4) || (tmpEntry < 0) || (tmpEntry >= max) ||
-        (mouse.x < 169) || (mouse.x > 331))
+    if ((mouse.y < 4) || (tmpEntry < 0) || (tmpEntry >= max) || (mouse.x < 169) || (mouse.x > 331))
     {
         FReq_EntrySelected = -1;
         diskOp_DrawDirectory();
@@ -1133,11 +1132,8 @@ void testDiskOpMouseRelease(void)
 {
     if (editor.ui.diskOpShown && (FReq_EntrySelected != -1))
     {
-        if ((mouse.x >= 169) && (mouse.x <= 329) &&
-            (mouse.y >=   4) && (mouse.y <= 168))
-        {
+        if ((mouse.x >= 169) && (mouse.x <= 329) && (mouse.y >= 4) && (mouse.y <= 168))
             fileListPressed((mouse.y - 4) / (FONT1_CHAR_H + 1));
-        }
 
         FReq_EntrySelected = -1;
         diskOp_DrawDirectory();
@@ -1714,7 +1710,7 @@ static void displayCurrPath(void)
         memset(tmpPath, 0, sizeof (tmpPath));
 #ifdef _WIN32
         strncpy(tmpPath, p, 3);
-        strcat(tmpPath, ".\001");
+        strcat(tmpPath, ".\001"); /* special character in font */
 #else
         strcpy(tmpPath, "/");
         strcat(tmpPath, "..");

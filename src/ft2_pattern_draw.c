@@ -24,6 +24,22 @@ extern const markCoord_t markCoordTable[2][2][2];
 extern const uint8_t pattCursorXTab[2 * 4 * 8];
 extern const uint8_t pattCursorWTab[2 * 4 * 8];
 
+static const uint8_t vol2charTab1[16] = { 39, 0, 1, 2, 3, 4, 36, 52, 53, 54, 28, 31, 25, 58, 59, 22 };
+static const uint8_t vol2charTab2[16] = { 42, 0, 1, 2, 3, 4, 36, 37, 38, 39, 28, 31, 25, 40, 41, 22 };
+static const uint8_t columnModeTab[12] = { 0, 0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 3 };
+static const uint8_t sharpNote1Char_small[12] = {  8*6,  8*6,  9*6,  9*6, 10*6, 11*6, 11*6, 12*6, 12*6, 13*6, 13*6, 14*6 };
+static const uint8_t sharpNote2Char_small[12] = { 16*6, 15*6, 16*6, 15*6, 16*6, 16*6, 15*6, 16*6, 15*6, 16*6, 15*6, 16*6 };
+static const uint8_t flatNote1Char_small[12] = {  8*6,  9*6,  9*6, 10*6, 10*6, 11*6, 12*6, 12*6, 13*6, 13*6, 14*6, 14*6 };
+static const uint8_t flatNote2Char_small[12] = { 16*6, 17*6, 16*6, 17*6, 16*6, 16*6, 17*6, 16*6, 17*6, 16*6, 17*6, 16*6 };
+static const uint8_t sharpNote1Char_med[12] = { 12*8, 12*8, 13*8, 13*8, 14*8, 15*8, 15*8, 16*8, 16*8, 10*8, 10*8, 11*8 };
+static const uint16_t sharpNote2Char_med[12] = { 36*8, 37*8, 36*8, 37*8, 36*8, 36*8, 37*8, 36*8, 37*8, 36*8, 37*8, 36*8 };
+static const uint8_t flatNote1Char_med[12] = { 12*8, 13*8, 13*8, 14*8, 14*8, 15*8, 16*8, 16*8, 10*8, 10*8, 11*8, 11*8 };
+static const uint16_t flatNote2Char_med[12] = { 36*8, 38*8, 36*8, 38*8, 36*8, 36*8, 38*8, 36*8, 38*8, 36*8, 38*8, 36*8 };
+static const uint16_t sharpNote1Char_big[12] = { 12*16, 12*16, 13*16, 13*16, 14*16, 15*16, 15*16, 16*16, 16*16, 10*16, 10*16, 11*16 };
+static const uint16_t sharpNote2Char_big[12] = { 36*16, 37*16, 36*16, 37*16, 36*16, 36*16, 37*16, 36*16, 37*16, 36*16, 37*16, 36*16 };
+static const uint16_t flatNote1Char_big[12] = { 12*16, 13*16, 13*16, 14*16, 14*16, 15*16, 16*16, 16*16, 10*16, 10*16, 11*16, 11*16 };
+static const uint16_t flatNote2Char_big[12] = { 36*16, 38*16, 36*16, 38*16, 36*16, 36*16, 38*16, 36*16, 38*16, 36*16, 38*16, 36*16 };
+
 static void rowNumOut(uint32_t yPos, uint8_t paletteIndex, uint8_t rowChar1, uint8_t rowChar2);
 static void pattCharOut(uint32_t xPos, uint32_t yPos, uint8_t paletteIndex, uint8_t chr, uint8_t fontType);
 static void drawEmptyNoteSmall(uint16_t x, uint16_t y, uint8_t paletteIndex);
@@ -165,7 +181,6 @@ void drawPatternBorders(void)
 
 static void writeCursor(void)
 {
-    const uint8_t columnModeTab[12] = { 0, 0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 3 };
     uint32_t *dstPtr, xPos, x, y, width, tabOffset;
 
     tabOffset = (config.ptnS3M * 32) + (columnModeTab[editor.ui.numChannelsShown - 1] * 8) + editor.cursor.object;
@@ -410,8 +425,6 @@ static void showInstrNum(uint8_t pal, uint16_t xPos, uint16_t yPos, uint8_t ins)
 
 static void showVolEfx(uint8_t pal, uint16_t xPos, uint16_t yPos, uint8_t vol)
 {
-    const uint8_t vol2charTab1[16] = { 39, 0, 1, 2, 3, 4, 36, 52, 53, 54, 28, 31, 25, 58, 59, 22 };
-    const uint8_t vol2charTab2[16] = { 42, 0, 1, 2, 3, 4, 36, 37, 38, 39, 28, 31, 25, 40, 41, 22 };
     uint8_t char1, char2, fontType, charW;
 
     if (editor.ui.numChannelsShown <= 4)
@@ -966,29 +979,27 @@ static void drawKeyOffSmall(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex)
 
 static void drawNoteSmall(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, int16_t ton)
 {
-    const uint8_t sharpNote1Char[12] = {  8*6,  8*6,  9*6,  9*6, 10*6, 11*6, 11*6, 12*6, 12*6, 13*6, 13*6, 14*6 };
-    const uint8_t sharpNote2Char[12] = { 16*6, 15*6, 16*6, 15*6, 16*6, 16*6, 15*6, 16*6, 15*6, 16*6, 15*6, 16*6 };
-    const uint8_t flatNote1Char[12]  = {  8*6,  9*6,  9*6, 10*6, 10*6, 11*6, 12*6, 12*6, 13*6, 13*6, 14*6, 14*6 };
-    const uint8_t flatNote2Char[12]  = { 16*6, 17*6, 16*6, 17*6, 16*6, 16*6, 17*6, 16*6, 17*6, 16*6, 17*6, 16*6 };
     const uint8_t *ch1Ptr, *ch2Ptr, *ch3Ptr;
     uint8_t note;
     uint32_t x, y, *dstPtr, pixVal, char1, char2, char3;
 
-    assert((ton >= 0) && (ton <= 97));
+    assert((ton >= 1) && (ton <= 97));
 
-    note = --ton % 12;
+    ton--;
+
+    note  =  ton % 12;
+    char3 = (ton / 12) * FONT7_CHAR_W;
+
     if (config.ptnAcc == 0)
     {
-        char1 = sharpNote1Char[note];
-        char2 = sharpNote2Char[note];
+        char1 = sharpNote1Char_small[note];
+        char2 = sharpNote2Char_small[note];
     }
     else
     {
-        char1 = flatNote1Char[note];
-        char2 = flatNote2Char[note];
+        char1 = flatNote1Char_small[note];
+        char2 = flatNote2Char_small[note];
     }
-
-    char3 = (ton / 12) * FONT7_CHAR_W;
 
     pixVal = video.palette[paletteIndex];
     ch1Ptr = &font7Data[char1];
@@ -1058,29 +1069,27 @@ static void drawKeyOffMedium(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex)
 
 static void drawNoteMedium(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, int16_t ton)
 {
-    const uint8_t sharpNote1Char[12]  = { 12*8, 12*8, 13*8, 13*8, 14*8, 15*8, 15*8, 16*8, 16*8, 10*8, 10*8, 11*8 };
-    const uint16_t sharpNote2Char[12] = { 36*8, 37*8, 36*8, 37*8, 36*8, 36*8, 37*8, 36*8, 37*8, 36*8, 37*8, 36*8 };
-    const uint8_t flatNote1Char[12]   = { 12*8, 13*8, 13*8, 14*8, 14*8, 15*8, 16*8, 16*8, 10*8, 10*8, 11*8, 11*8 };
-    const uint16_t flatNote2Char[12]  = { 36*8, 38*8, 36*8, 38*8, 36*8, 36*8, 38*8, 36*8, 38*8, 36*8, 38*8, 36*8 };
     const uint8_t *ch1Ptr, *ch2Ptr, *ch3Ptr;
     uint8_t note;
     uint32_t x, y, *dstPtr, pixVal, fontOffset, char1, char2, char3;
 
-    assert((ton >= 0) && (ton <= 97));
+    assert((ton >= 1) && (ton <= 97));
 
-    note = --ton % 12;
+    ton--;
+
+    note  =  ton % 12;
+    char3 = (ton / 12) * FONT4_CHAR_W;
+
     if (config.ptnAcc == 0)
     {
-        char1 = sharpNote1Char[note];
-        char2 = sharpNote2Char[note];
+        char1 = sharpNote1Char_med[note];
+        char2 = sharpNote2Char_med[note];
     }
     else
     {
-        char1 = flatNote1Char[note];
-        char2 = flatNote2Char[note];
+        char1 = flatNote1Char_med[note];
+        char2 = flatNote2Char_med[note];
     }
-
-    char3 = (ton / 12) * FONT4_CHAR_W;
 
     pixVal     = video.palette[paletteIndex];
     fontOffset = config.ptnFont * (FONT4_WIDTH * FONT4_CHAR_H);
@@ -1151,29 +1160,27 @@ static void drawKeyOffBig(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex)
 
 static void drawNoteBig(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, int16_t ton)
 {
-    const uint16_t sharpNote1Char[12] = { 12*16, 12*16, 13*16, 13*16, 14*16, 15*16, 15*16, 16*16, 16*16, 10*16, 10*16, 11*16 };
-    const uint16_t sharpNote2Char[12] = { 36*16, 37*16, 36*16, 37*16, 36*16, 36*16, 37*16, 36*16, 37*16, 36*16, 37*16, 36*16 };
-    const uint16_t flatNote1Char[12]  = { 12*16, 13*16, 13*16, 14*16, 14*16, 15*16, 16*16, 16*16, 10*16, 10*16, 11*16, 11*16 };
-    const uint16_t flatNote2Char[12]  = { 36*16, 38*16, 36*16, 38*16, 36*16, 36*16, 38*16, 36*16, 38*16, 36*16, 38*16, 36*16 };
     const uint8_t *ch1Ptr, *ch2Ptr, *ch3Ptr;
     uint8_t note;
     uint32_t x, y, *dstPtr, pixVal, fontOffset, char1, char2, char3;
 
-    assert((ton >= 0) && (ton <= 97));
+    assert((ton >= 1) && (ton <= 97));
 
-    note = --ton % 12;
+    ton--;
+
+    note  =  ton % 12;
+    char3 = (ton / 12) * FONT5_CHAR_W;
+
     if (config.ptnAcc == 0)
     {
-        char1 = sharpNote1Char[note];
-        char2 = sharpNote2Char[note];
+        char1 = sharpNote1Char_big[note];
+        char2 = sharpNote2Char_big[note];
     }
     else
     {
-        char1 = flatNote1Char[note];
-        char2 = flatNote2Char[note];
+        char1 = flatNote1Char_big[note];
+        char2 = flatNote2Char_big[note];
     }
-
-    char3 = (ton / 12) * FONT5_CHAR_W;
 
     pixVal     = video.palette[paletteIndex];
     fontOffset = config.ptnFont * (FONT5_WIDTH * FONT5_CHAR_H);

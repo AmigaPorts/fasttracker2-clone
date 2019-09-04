@@ -89,12 +89,14 @@ void updateRenderSizeVars(void)
 
     if (video.fullscreen)
     {
+        SDL_GetDesktopDisplayMode(0, &dm);
+
         if (config.windowFlags & FILTERING)
         {
-            SDL_GetDesktopDisplayMode(0, &dm);
-
             video.renderW = dm.w;
             video.renderH = dm.h;
+            video.renderX = 0;
+            video.renderY = 0;
         }
         else
         {
@@ -106,7 +108,6 @@ void updateRenderSizeVars(void)
 #ifdef __APPLE__
             /* retina high-DPI hackery (SDL2 is bad at reporting actual rendering sizes on macOS w/ high-DPI) */
             SDL_GL_GetDrawableSize(video.window, &actualScreenW, &actualScreenH);
-            SDL_GetDesktopDisplayMode(0, &dm);
 
             fXUpscale = ((float)(actualScreenW) / dm.w);
             fYUpscale = ((float)(actualScreenH) / dm.h);
@@ -115,11 +116,16 @@ void updateRenderSizeVars(void)
             if (fXUpscale != 0.0f) video.renderW = (int32_t)(video.renderW / fXUpscale);
             if (fYUpscale != 0.0f) video.renderH = (int32_t)(video.renderH / fYUpscale);
 #endif
+            video.renderX = (dm.w - video.renderW) / 2;
+            video.renderY = (dm.h - video.renderH) / 2;
         }
     }
     else
     {
         SDL_GetWindowSize(video.window, &video.renderW, &video.renderH);
+
+        video.renderX = 0;
+        video.renderY = 0;
     }
 }
 
@@ -988,7 +994,7 @@ int8_t setupRenderer(void)
     updateRenderSizeVars();
     updateMouseScaling();
 
-    SDL_ShowCursor(SDL_DISABLE);
+    SDL_ShowCursor(false);
     return (true);
 }
 

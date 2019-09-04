@@ -270,7 +270,6 @@ void rbConfigSbs2048(void);
 void rbConfigSbs4096(void);
 void rbConfigAudio16bit(void);
 void rbConfigAudio24bit(void);
-void rbConfigAudio32kHz(void);
 void rbConfigAudio44kHz(void);
 void rbConfigAudio48kHz(void);
 void rbConfigAudio96kHz(void);

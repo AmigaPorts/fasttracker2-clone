@@ -75,7 +75,7 @@ static void fixaMatris(rotate_t a, matrix_t *mat)
     mat->z.z = (cb * cc) >> 16;
 }
 
-static inline int32_t sqr(int32_t x)
+static int32_t sqr(int32_t x)
 {
     return (x * x);
 }
@@ -222,7 +222,8 @@ void aboutFrame(void)
 
 void showAboutScreen(void) /* called once when About screen is opened */
 {
-    char infoString[128], betaText[32];
+    char *infoString = "Clone by Olav \"8bitbubsy\" S\025rensen - https://16-bits.org";
+    char betaText[32];
     uint16_t x, y;
 
     if (editor.ui.extended)
@@ -237,7 +238,6 @@ void showAboutScreen(void) /* called once when About screen is opened */
 
     blit(91, 31, ft2Logo, FT2_LOGO_W, FT2_LOGO_H);
 
-    strcpy(infoString, "Clone by Olav \"8bitbubsy\" S\025rensen - https://16-bits.org");
     x = 5 + (SCREEN_W - textWidth(infoString)) / 2;
     y = 151;
     textOut(x, y, PAL_FORGRND, infoString);

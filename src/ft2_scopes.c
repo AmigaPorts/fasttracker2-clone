@@ -49,11 +49,30 @@ typedef struct scope_t
 } scope_t;
 
 static volatile uint8_t scopesUpdating, scopesDisplaying;
-static uint32_t oldScopeRate, oldScopeSFrq;
 static uint64_t timeNext64, timeNext64Frac;
 static scope_t scope[MAX_VOICES];
 static SDL_Thread *scopeThread;
 static volatile scopeState_t scopeNewState[MAX_VOICES][NUM_LATCH_BUFFERS];
+
+static const uint8_t scopeMuteBMPWidths[16] =
+{
+    162,111, 76, 56, 42, 35, 28, 24,
+     21, 21, 17, 17, 12, 12,  9,  9
+};
+
+static const uint8_t scopeMuteBMPHeights[16] =
+{
+    27, 27, 26, 25, 25, 25, 24, 24,
+    24, 24, 24, 24, 24, 24, 24, 24
+};
+
+static const uint8_t *scopeMuteBMPPointers[16] =
+{
+    scopeMuteBMP1, scopeMuteBMP2, scopeMuteBMP3, scopeMuteBMP4,
+    scopeMuteBMP5, scopeMuteBMP6, scopeMuteBMP7, scopeMuteBMP8,
+    scopeMuteBMP9, scopeMuteBMP9, scopeMuteBMP10,scopeMuteBMP10,
+    scopeMuteBMP11,scopeMuteBMP11,scopeMuteBMP12,scopeMuteBMP12
+};
 
 static const uint16_t scopeLenTab[16][32] =
 {
@@ -90,7 +109,7 @@ int32_t getSampleReadPos(uint8_t ch)
     if (sc->active && (pos >= 0) && (pos < sc->SLen))
     {
         if (sc->sample16bit)
-            pos *= 2;
+            pos <<= 1;
 
         /* do this check again here - check if scope is latching at the moment */
         if (sc->latchFlag)
@@ -182,26 +201,6 @@ static void drawScopeNumber(uint16_t scopeXOffs, uint16_t scopeYOffs, uint8_t ch
 
 static void redrawScope(uint8_t ch)
 {
-    const uint8_t scopeMuteBMPWidths[16] =
-    {
-        162,111, 76, 56, 42, 35, 28, 24,
-         21, 21, 17, 17, 12, 12,  9,  9
-    };
-
-    const uint8_t scopeMuteBMPHeights[16] =
-    {
-        27, 27, 26, 25, 25, 25, 24, 24,
-        24, 24, 24, 24, 24, 24, 24, 24
-    };
-
-    const uint8_t *scopeMuteBMPPointers[16] =
-    {
-        scopeMuteBMP1, scopeMuteBMP2, scopeMuteBMP3, scopeMuteBMP4,
-        scopeMuteBMP5, scopeMuteBMP6, scopeMuteBMP7, scopeMuteBMP8,
-        scopeMuteBMP9, scopeMuteBMP9, scopeMuteBMP10,scopeMuteBMP10,
-        scopeMuteBMP11,scopeMuteBMP11,scopeMuteBMP12,scopeMuteBMP12
-    };
-
     int8_t chansPerRow;
     uint8_t i, chanLookup;
     int16_t scopeLen, muteGfxLen, muteGfxX;
@@ -294,8 +293,7 @@ int8_t testScopesMouseDown(void)
     if (!editor.ui.scopesShown)
         return (false);
 
-    if ((mouse.y >= 95) && (mouse.y <= 169) &&
-        (mouse.x >=  3) && (mouse.x <= 288))
+    if ((mouse.y >= 95) && (mouse.y <= 169) && (mouse.x >= 3) && (mouse.x <= 288))
     {
         if ((mouse.y > 130) && (mouse.y < 134))
             return (true);
@@ -810,7 +808,6 @@ static void latchScope(uint8_t ch, int8_t *pek, int32_t len, int32_t repS, int32
 void handleScopesFromChQueue(chSyncData_t *chSyncData, uint8_t *scopeUpdateStatus)
 {
     uint8_t i, status;
-    uint32_t rate;
     channel_t *ch;
     sampleTyp *s;
     scope_t *sc;
@@ -828,55 +825,24 @@ void handleScopesFromChQueue(chSyncData_t *chSyncData, uint8_t *scopeUpdateStatu
         /* set scope frequency */
         if (status & IS_Period)
         {
-            const uint32_t scopeRateMul = 0xFFFFFFFF / VBLANK_HZ; /* for DIV->MUL trick */
+            /* mixer 16.16 delta (44.1/48/96kHz) -> scope 16.16 delta (60Hz) */
+            sc->SFrq = getVoiceRate(i) * audio.scopeFreqMul;
 
-            rate = getFrequenceValueScope(ch->finalPeriod);
-            if (rate == oldScopeRate)
-            {
-                sc->SFrq = oldScopeSFrq;
-            }
-            else
-            {
-                /* since "(0..534749 (rate) << 16) / VBLANK_HZ" would overflow in 32-bit calculation, we need
-                ** to do a 64-bit DIV (or MUL using a trick, slightly faster) */
-
-                if (rate == 0)
-                    sc->SFrq = 0;
-                else
-                    sc->SFrq = (uint32_t)(((uint64_t)(rate) * scopeRateMul) >> 16); /* fast code even on x86 (imul + shrd) */
-
-                oldScopeRate = rate;
-                oldScopeSFrq = sc->SFrq;
-            }
-
-            sc->drawSFrq = rate << 4; /* sample data read delta (when drawing the samples) */
+            sc->drawSFrq = sc->SFrq >> 6;
         }
 
         /* start scope sample */
-        if (status & IS_NyTon) 
+        if (status & IS_NyTon)
         {
             s = ch->smpPtr;
             if (s != NULL)
             {
-                if (ch->instrNr == (MAX_INST + 1))
-                {
-                    /* sample triggered from sample editor ("Wave, "Range", "Display") */
+                latchScope(i, s->pek, s->len, s->repS, s->repL, s->typ, ch->smpStartPos + editor.samplePlayOffset);
+                editor.samplePlayOffset = 0;
 
-                    latchScope(i, s->pek, s->len, s->repS, s->repL, s->typ, ch->smpStartPos + editor.samplePlayOffset);
-                    editor.samplePlayOffset = 0;
-
-                    editor.curSmpChannel = i; /* set curr. channel for getting sampling position line (sample editor) */
-                }
-                else
-                {
-                    /* sample triggered from song or keyboard */
-
-                    latchScope(i, s->pek, s->len, s->repS, s->repL, s->typ, ch->smpStartPos);
-
-                    /* set curr. channel for getting sampling position line (sample editor) */
-                    if ((editor.curInstr == ch->instrNr) && (editor.curSmp == ch->sampleNr))
-                        editor.curSmpChannel = i;
-                }
+                /* set curr. channel for getting sampling position line (sample editor) */
+                if ((ch->instrNr == (MAX_INST + 1)) || ((editor.curInstr == ch->instrNr) && (editor.curSmp == ch->sampleNr)))
+                    editor.curSmpChannel = i;
             }
         }
     }

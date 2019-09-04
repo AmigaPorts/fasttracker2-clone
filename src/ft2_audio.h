@@ -16,7 +16,7 @@ enum
 
 #define MAX_AUDIO_DEVICES 99
 
-#define MIN_AUDIO_FREQ 32000
+#define MIN_AUDIO_FREQ 44100
 #define MAX_AUDIO_FREQ 96000
 #define MAX_SAMPLES_PER_TICK (((MAX_AUDIO_FREQ * 5) / 2) / MIN_BPM)
 
@@ -28,7 +28,7 @@ struct audio_t
     int8_t freqTable, volumeRampingFlag, interpolationFlag, rescanAudioDevicesSupported;
     int32_t inputDeviceNum, outputDeviceNum, lastWorkingAudioFreq, lastWorkingAudioBits;
     int32_t quickVolSizeVal, *mixBufferL, *mixBufferR;
-    uint32_t freq;
+    uint32_t freq, scopeFreqMul;
     uint64_t tickTime64;
     SDL_AudioDeviceID dev;
 } audio;
@@ -82,6 +82,7 @@ int8_t chQueuePop(void);
 chSyncData_t *chQueuePeek(void);
 uint64_t getChQueueTimestamp(void);
 
+uint32_t getVoiceRate(uint8_t i);
 void setAudioAmp(int16_t ampFactor, int16_t master, uint8_t bitDepth32Flag);
 void setNewAudioFreq(uint32_t freq);
 void setBackOldAudioFreq(void);

@@ -28,6 +28,12 @@ static void (*sendAudSamplesFunc)(uint8_t *, int32_t, uint8_t); /* "send mixed s
 
 extern const uint32_t panningTab[257]; /* defined at the bottom of this file */
 
+uint32_t getVoiceRate(uint8_t i)
+{
+    assert(i < MAX_VOICES);
+    return (voice[i].SFrq);
+}
+
 void stopVoice(uint8_t i)
 {
     voice_t *v;
@@ -654,7 +660,7 @@ uint64_t getPattQueueTimestamp(void)
     if (!pattQueueReadSize())
         return (0);
 
-    assert(pattSync.readPos <= SYNC_QUEUE_LEN);;
+    assert(pattSync.readPos <= SYNC_QUEUE_LEN);
     return (pattSync.data[pattSync.readPos].timestamp);
 }
 
@@ -736,17 +742,8 @@ void unlockAudio(void)
     audio.locked = false;
 }
 
-void lockMixerCallback(void) /* lock audio + clear voices/scopes (for short operations) */
+static void resetSyncQueues(void)
 {
-    if (!audio.locked)
-        lockAudio();
-
-    stopVoices(); /* VERY important! prevents potential crashes */
-
-    /* scopes, mixer and replayer are guaranteed to not be active at this point */
-
-    /* reset audio/video sync queue (important, can contain deprecated pointers) */
-
     pattSync.writePos = 0;
     pattSync.readPos  = 0;
     memset(&pattSync.data[pattSync.readPos], 0, sizeof (pattSyncData_t));
@@ -754,6 +751,17 @@ void lockMixerCallback(void) /* lock audio + clear voices/scopes (for short oper
     chSync.writePos = 0;
     chSync.readPos  = 0;
     memset(&chSync.data[chSync.readPos], 0, sizeof (chSyncData_t));
+}
+
+void lockMixerCallback(void) /* lock audio + clear voices/scopes (for short operations) */
+{
+    if (!audio.locked)
+        lockAudio();
+
+    stopVoices(); /* VERY important! prevents potential crashes */
+    /* scopes, mixer and replayer are guaranteed to not be active at this point */
+
+    resetSyncQueues();
 }
 
 void unlockMixerCallback(void)
@@ -773,19 +781,10 @@ void pauseAudio(void) /* lock audio + clear voices/scopes + render silence (for 
 
         audioPaused = true;
 
-        stopVoices();
-
+        stopVoices(); /* VERY important! prevents potential crashes */
         /* scopes, mixer and replayer are guaranteed to not be active at this point */
 
-        /* reset audio/video sync queue (important, can contain deprecated pointers) */
-
-        pattSync.writePos = 0;
-        pattSync.readPos  = 0;
-        memset(&pattSync.data[pattSync.readPos], 0, sizeof (pattSyncData_t));
-
-        chSync.writePos = 0;
-        chSync.readPos  = 0;
-        memset(&chSync.data[chSync.readPos], 0, sizeof (chSyncData_t));
+        resetSyncQueues();
     }
 }
 
@@ -851,6 +850,7 @@ static void SDLCALL mixCallback(void *userdata, Uint8 *stream, int len)
                 c = &chSyncData.channels[i];
                 s = &stm[i];
 
+                c->rate             = voice[i].SFrq;
                 c->finalPeriod      = s->finalPeriod;
                 c->fineTune         = s->fineTune;
                 c->instrNr          = s->instrNr;
@@ -891,7 +891,6 @@ static void SDLCALL mixCallback(void *userdata, Uint8 *stream, int len)
 
 uint8_t setupAudioBuffers(void)
 {
-    /* allocate mixer buffer for left and right channel */
     audio.mixBufferL = (int32_t *)(malloc(MAX_SAMPLES_PER_TICK * sizeof (int32_t)));
     audio.mixBufferR = (int32_t *)(malloc(MAX_SAMPLES_PER_TICK * sizeof (int32_t)));
 
@@ -970,7 +969,15 @@ int8_t setupAudio(int8_t showErrorMsg)
 
     closeAudio();
 
-    config.audioFreq = CLAMP(config.audioFreq, MIN_AUDIO_FREQ, MAX_AUDIO_FREQ);
+    if ((config.audioFreq < MIN_AUDIO_FREQ) || (config.audioFreq > MAX_AUDIO_FREQ))
+    {
+        /* set default rate */
+#ifdef __APPLE__
+        config.audioFreq = 44100;
+#else
+        config.audioFreq = 48000;
+#endif
+    }
 
     /* get audio buffer size from config special flags */
 
@@ -980,9 +987,9 @@ int8_t setupAudio(int8_t showErrorMsg)
     else if (config.specialFlags & BUFFSIZE_4096) configAudioBufSize = 4096;
 
     /* set up audio device */
+    memset(&want, 0, sizeof (want));
 
     /* these three may change after opening a device, but our mixer is dealing with it */
-    memset(&want, 0, sizeof (want));
     want.freq     = config.audioFreq;
     want.format   = (config.specialFlags & BITDEPTH_24) ? AUDIO_F32 : AUDIO_S16;
     want.channels = 2;
@@ -1011,7 +1018,7 @@ int8_t setupAudio(int8_t showErrorMsg)
     }
 
     /* test if the received audio rate is compatible */
-    if ((have.freq != 32000) && (have.freq != 44100) && (have.freq != 48000) && (have.freq != 96000))
+    if ((have.freq != 44100) && (have.freq != 48000) && (have.freq != 96000))
     {
         if (showErrorMsg)
             showErrorMsgBox("Couldn't open audio device:\nThe program doesn't support an audio output rate of %dHz. Sorry!", have.freq);

@@ -21,9 +21,20 @@
 #include "ft2_mouse.h"
 #include "ft2_video.h"
 
-/* for pattern marking */
+/* for pattern marking w/ keyboard */
 static int8_t lastChMark;
 static int16_t lastRowMark;
+
+/* for pattern marking w/ mouse */
+static int32_t lastMarkX1 = -1, lastMarkX2 = -1, lastMarkY1 = -1, lastMarkY2 = -1;
+
+static const uint8_t ptnAntLine[8] = { 27, 25, 20, 19, 42, 40, 31, 30 };
+static const uint8_t ptnLineSub[8] = { 13, 12,  9,  9, 20, 19, 15, 14 };
+static const uint8_t iSwitchExtW[4] = { 40, 40, 40, 39 };
+static const uint8_t iSwitchExtY[8] = { 2, 2, 2, 2, 19, 19, 19, 19 };
+static const uint8_t iSwitchY[8] = { 2, 19, 36, 53, 73, 90, 107, 124 };
+static const uint16_t iSwitchExtX[4] = { 221, 262, 303, 344 };
+
 static int32_t lastMouseX, lastMouseY;
 
 /* defined at the bottom of this file */
@@ -495,10 +506,6 @@ void hidePatternEditor(void)
 
 static void updatePatternEditorGUI(void)
 {
-    const uint8_t iSwitchExtW[4] = { 40, 40, 40, 39 };
-    const uint16_t iSwitchExtX[4] = { 221, 262, 303, 344 };
-    const uint8_t iSwitchExtY[8] = { 2, 2, 2, 2, 19, 19, 19, 19 };
-    const uint8_t iSwitchY[8] = { 2, 19, 36, 53, 73, 90, 107, 124 };
     uint8_t i;
     pushButton_t *p;
     textBox_t *t;
@@ -741,6 +748,11 @@ void togglePatternEditorExtended(void)
 void clearPattMark(void)
 {
     memset(&pattMark, 0, sizeof (pattMark));
+
+    lastMarkX1 = -1;
+    lastMarkX2 = -1;
+    lastMarkY1 = -1;
+    lastMarkY2 = -1;
 }
 
 void checkMarkLimits(void)
@@ -786,8 +798,6 @@ static int8_t mouseXToCh(void) /* used to get channel num from mouse x (for patt
 
 static int16_t mouseYToRow(void) /* used to get row num from mouse y (for pattern marking) */
 {
-    const uint8_t ptnAntLine[8] = { 27, 25, 20, 19, 42, 40, 31, 30 };
-    const uint8_t ptnLineSub[8] = { 13, 12,  9,  9, 20, 19, 15, 14 };
     uint8_t charHeight, mode;
     int16_t row, patternLen, my, maxY, maxRow;
     const pattCoordsMouse_t *pattCoordsMouse;
@@ -895,7 +905,7 @@ void handlePatternDataMouseDown(int8_t mouseButtonHeld)
     {
         lastMouseX = mouse.x;
 
-        chTmp  = mouseXToCh();
+        chTmp = mouseXToCh();
         if (chTmp < lastChMark)
         {
             pattMark.markX1 = chTmp;
@@ -907,8 +917,14 @@ void handlePatternDataMouseDown(int8_t mouseButtonHeld)
             pattMark.markX1 = lastChMark;
         }
 
-        checkMarkLimits();
-        editor.ui.updatePatternEditor = true;
+        if ((lastMarkX1 != pattMark.markX1) || (lastMarkX2 != pattMark.markX2))
+        {
+            checkMarkLimits();
+            editor.ui.updatePatternEditor = true;
+
+            lastMarkX1 = pattMark.markX1;
+            lastMarkX2 = pattMark.markX2;
+        }
     }
 
     /* scroll down/up with mouse (if song is not playing) */
@@ -954,8 +970,14 @@ void handlePatternDataMouseDown(int8_t mouseButtonHeld)
             pattMark.markY1 = lastRowMark;
         }
 
-        checkMarkLimits();
-        editor.ui.updatePatternEditor = true;
+        if ((lastMarkY1 != pattMark.markY1) || (lastMarkY2 != pattMark.markY2))
+        {
+            checkMarkLimits();
+            editor.ui.updatePatternEditor = true;
+
+            lastMarkY1 = pattMark.markY1;
+            lastMarkY2 = pattMark.markY2;
+        }
     }
 }
 
@@ -1503,7 +1525,6 @@ void setChannelScrollPos(uint32_t pos)
         }
     }
 }
-
 
 void jumpToChannel(uint8_t channel) /* for ALT+q..i ALT+a..k */
 {

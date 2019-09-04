@@ -32,6 +32,32 @@ static int8_t lastTranspVal;
 static uint8_t lastInsMode, lastTranspMode;
 static uint32_t transpDelNotes; /* count of under-/overflowing notes for warning message */
 
+static const SDL_Keycode key2VolTab[] = 
+{
+    SDLK_0, SDLK_1, SDLK_2, SDLK_3, SDLK_4, SDLK_MINUS, SDLK_PLUS, SDLK_d,
+    SDLK_u, SDLK_s, SDLK_v, SDLK_p, SDLK_l, SDLK_r, SDLK_m
+};
+#define KEY2VOL_ENTRIES (signed)(sizeof (key2VolTab) / sizeof (SDL_Keycode))
+
+static const SDL_Keycode key2EfxTab[] = 
+{
+    SDLK_0, SDLK_1, SDLK_2, SDLK_3, SDLK_4, SDLK_5, SDLK_6, SDLK_7,
+    SDLK_8, SDLK_9, SDLK_a, SDLK_b, SDLK_c, SDLK_d, SDLK_e, SDLK_f,
+    SDLK_g, SDLK_h, SDLK_i, SDLK_j, SDLK_k, SDLK_l, SDLK_m, SDLK_n,
+    SDLK_o, SDLK_p, SDLK_q, SDLK_r, SDLK_s, SDLK_t, SDLK_u, SDLK_v,
+    SDLK_w, SDLK_x, SDLK_y, SDLK_z
+};
+#define KEY2EFX_ENTRIES (signed)(sizeof (key2EfxTab) / sizeof (SDL_Keycode))
+
+static const SDL_Keycode key2HexTab[] = 
+{
+    SDLK_0, SDLK_1, SDLK_2, SDLK_3, SDLK_4, SDLK_5, SDLK_6, SDLK_7,
+    SDLK_8, SDLK_9, SDLK_a, SDLK_b, SDLK_c, SDLK_d, SDLK_e, SDLK_f
+};
+#define KEY2HEX_ENTRIES (signed)(sizeof (key2HexTab) / sizeof (SDL_Keycode))
+
+static const int8_t tickArr[16] = { 16, 8, 0, 4, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1 };
+
 void recordNote(uint8_t note, int8_t vol);
 
 /* when the cursor is at the note field */
@@ -66,30 +92,6 @@ static uint8_t testEditKeys(SDL_Scancode scancode, SDL_Keycode keycode)
     uint8_t oldVal;
     uint16_t pattLen;
     tonTyp *ton;
-
-    const SDL_Keycode key2VolTab[] = 
-    {
-        SDLK_0, SDLK_1, SDLK_2, SDLK_3, SDLK_4, SDLK_MINUS, SDLK_PLUS, SDLK_d,
-        SDLK_u, SDLK_s, SDLK_v, SDLK_p, SDLK_l, SDLK_r, SDLK_m
-    };
-    #define KEY2VOL_ENTRIES (signed)(sizeof (key2VolTab) / sizeof (SDL_Keycode))
-
-    const SDL_Keycode key2EfxTab[] = 
-    {
-        SDLK_0, SDLK_1, SDLK_2, SDLK_3, SDLK_4, SDLK_5, SDLK_6, SDLK_7,
-        SDLK_8, SDLK_9, SDLK_a, SDLK_b, SDLK_c, SDLK_d, SDLK_e, SDLK_f,
-        SDLK_g, SDLK_h, SDLK_i, SDLK_j, SDLK_k, SDLK_l, SDLK_m, SDLK_n,
-        SDLK_o, SDLK_p, SDLK_q, SDLK_r, SDLK_s, SDLK_t, SDLK_u, SDLK_v,
-        SDLK_w, SDLK_x, SDLK_y, SDLK_z
-    };
-    #define KEY2EFX_ENTRIES (signed)(sizeof (key2EfxTab) / sizeof (SDL_Keycode))
-
-    const SDL_Keycode key2HexTab[] = 
-    {
-        SDLK_0, SDLK_1, SDLK_2, SDLK_3, SDLK_4, SDLK_5, SDLK_6, SDLK_7,
-        SDLK_8, SDLK_9, SDLK_a, SDLK_b, SDLK_c, SDLK_d, SDLK_e, SDLK_f
-    };
-    #define KEY2HEX_ENTRIES (signed)(sizeof (key2HexTab) / sizeof (SDL_Keycode))
 
     if (editor.cursor.object == CURSOR_NOTE)
     {
@@ -262,7 +264,6 @@ static uint8_t testEditKeys(SDL_Scancode scancode, SDL_Keycode keycode)
 /* directly ported from the original FT2 code */
 static void evaluateTimestamp(int16_t *songPos, int16_t *pattNr, int16_t *pattPos, int16_t *tick)
 {
-    const int8_t tickArr[16] = { 16, 8, 0, 4, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1 };
     int16_t nr, t, p, r, sp, row;
     uint16_t pattLen;
 

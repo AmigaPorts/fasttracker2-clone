@@ -35,8 +35,9 @@ extern const uint16_t amigaFinePeriod[12 * 8];
 extern const uint16_t amigaPeriod[12 * 8];
 
 static int8_t bxxOverflow;
-static int16_t *linearPeriods, *amigaPeriods, oldPeriod, oldScopePeriod;
-static uint32_t *logTabScope, *logTab, frequenceDivFactor, frequenceMulFactor, oldRate, oldScopeRate;
+static int16_t *linearPeriods, *amigaPeriods, oldPeriod;
+static uint32_t *logTab, oldRate;
+static uint32_t frequenceDivFactor, frequenceMulFactor;
 static tonTyp nilPatternLine;
 
 /* globally accessed */
@@ -354,8 +355,11 @@ void calcReplayRate(uint32_t rate)
     assert(rate > 0);
 
     /* for voice delta calculation */
-    frequenceDivFactor = (uint32_t)(round(65536.0 *  1712.0 / rate * 8363.0));
-    frequenceMulFactor = (uint32_t)(round(  256.0 * 65536.0 / rate * 8363.0));
+    frequenceDivFactor = (uint32_t)(round(65536.0 *  1712.0  / rate * 8363.0));
+    frequenceMulFactor = (uint32_t)(round(  256.0 * 65536.0  / rate * 8363.0));
+
+    /* 44100,48000,96000 / 60 = round number, so no need to use doubles here */
+    audio.scopeFreqMul = audio.freq / VBLANK_HZ;
 
     /* for volume ramping */
     audio.quickVolSizeVal = rate / 200;
@@ -395,43 +399,10 @@ uint32_t getFrequenceValue(uint16_t period)
     return (rate);
 }
 
-/* getFrequenceValue() for scopes */
-uint32_t getFrequenceValueScope(uint16_t period)
-{
-    uint8_t shift;
-    uint16_t index;
-    uint32_t rate;
-
-    if (period == 0)
-        return (0);
-
-    if (period == oldScopePeriod)
-        return (oldScopeRate); /* prevent this calculation if it would yield the same */
-
-    if (linearFrqTab)
-    {
-        index = (12 * 192 * 4) - period;
-        shift = (14 - (index / 768)) & 0x1F;
-
-        rate = logTabScope[index % 768];
-        if (shift > 0)
-            rate >>= shift;
-    }
-    else
-    {
-        rate = (1712 * 8363) / period;
-    }
-
-    oldScopePeriod = period;
-    oldScopeRate   = rate;
-
-    return (rate);
-}
-
 void resetOldRates(void)
 {
-    oldPeriod = oldScopePeriod = 0;
-    oldRate   = oldScopeRate   = 0;
+    oldPeriod = 0;
+    oldRate   = 0;
 }
 
 static void startTone(uint8_t ton, uint8_t effTyp, uint8_t eff, stmTyp *ch)
@@ -2688,12 +2659,6 @@ void closeReplayer(void)
         logTab = NULL;
     }
 
-    if (logTabScope != NULL)
-    {
-        free(logTabScope);
-        logTabScope = NULL;
-    }
-
     if (amigaPeriods != NULL)
     {
         free(amigaPeriods);
@@ -2726,9 +2691,6 @@ int8_t setupReplayer(void)
     if (logTab == NULL)
         logTab = (uint32_t *)(malloc(sizeof (int32_t) * 768));
 
-    if (logTabScope == NULL)
-        logTabScope = (uint32_t *)(malloc(sizeof (int32_t) * (4 * 12 * 16)));
-
     if ((linearPeriods == NULL) || (amigaPeriods == NULL) || (logTab == NULL))
     {
         showErrorMsgBox("Not enough memory!");
@@ -2739,12 +2701,7 @@ int8_t setupReplayer(void)
 
     /* log tables */
     for (i = 0; i < 768; ++i)
-    {
         logTab[i] = (uint32_t)(round(16777216.0 * exp((i / 768.0) * M_LN2)));
-
-        /* custom, not in real FT2 */
-        logTabScope[i] = (uint32_t)(round((256.0 * 8363.0) * exp((i / 768.0) * M_LN2)));
-    }
 
     /* linear table  */
     for (i = 0; i < ((12 * 10 * 16) + 16); ++i)

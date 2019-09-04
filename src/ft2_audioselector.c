@@ -14,7 +14,7 @@
 
 char *getAudioOutputDeviceFromConfig(void)
 {
-#define MAX_DEV_STR_LEN 1024
+#define MAX_DEV_STR_LEN 256
 
     const char *devStringTmp;
     char *devString;
@@ -37,7 +37,7 @@ char *getAudioOutputDeviceFromConfig(void)
 
         devStringLen = (uint32_t)(strlen(devStringTmp));
         if (devStringLen > 0)
-            strcpy(devString, devStringTmp);
+            strncpy(devString, devStringTmp, MAX_DEV_STR_LEN);
         devString[devStringLen + 1] = '\0'; /* UTF-8 needs double null termination */
     }
     else
@@ -62,7 +62,7 @@ char *getAudioOutputDeviceFromConfig(void)
 
 char *getAudioInputDeviceFromConfig(void)
 {
-#define MAX_DEV_STR_LEN 1024
+#define MAX_DEV_STR_LEN 256
 
     const char *devStringTmp;
     char *devString;
@@ -85,7 +85,7 @@ char *getAudioInputDeviceFromConfig(void)
 
         devStringLen = (uint32_t)(strlen(devStringTmp));
         if (devStringLen > 0)
-            strcpy(devString, devStringTmp);
+            strncpy(devString, devStringTmp, MAX_DEV_STR_LEN);
         devString[devStringLen + 1] = '\0'; /* UTF-8 needs double null termination */
     }
     else

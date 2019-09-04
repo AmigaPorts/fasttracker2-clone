@@ -551,50 +551,34 @@ void handleLastGUIObjectDown(void)
 
 void updateMouseScaling(void)
 {
-    int32_t x, y;
+    int32_t mx, my;
     float fScaleX, fScaleY;
     SDL_DisplayMode dm;
 
     fScaleX = video.renderW / (float)(SCREEN_W);
     fScaleY = video.renderH / (float)(SCREEN_H);
 
-    video.xScaleMul = (fScaleX == 0.0f) ? 65536 : ((uint32_t)(65536.0f / fScaleX));
-    video.yScaleMul = (fScaleY == 0.0f) ? 65536 : ((uint32_t)(65536.0f / fScaleY));
+    video.xScaleMul = (fScaleX == 0.0f) ? 65536 : (uint32_t)(65536.0f / fScaleX);
+    video.yScaleMul = (fScaleY == 0.0f) ? 65536 : (uint32_t)(65536.0f / fScaleY);
 
-#if SDL_PATCHLEVEL >= 4
-    /* put mouse cursor in center */
+    /* put mouse cursor in center (because mouse would be displaced after scale change) */
     if (SDL_GetWindowFlags(video.window) & SDL_WINDOW_SHOWN)
     {
         if (video.fullscreen)
         {
             SDL_GetDesktopDisplayMode(0, &dm);
 
-            x = dm.w / 2;
-            y = dm.h / 2;
-
-            if (video.renderW < dm.w)
-            {
-                x -= ((dm.w - video.renderW) / 2);
-                if (x < 0)
-                    x = 0;
-            }
-
-            if (video.renderH < dm.h)
-            {
-                y -= ((dm.h - video.renderH) / 2);
-                if (y < 0)
-                    y = 0;
-            }
+            mx = dm.w / 2;
+            my = dm.h / 2;
         }
         else
         {
-            x = video.renderW / 2;
-            y = video.renderH / 2;
+            mx = video.renderW / 2;
+            my = video.renderH / 2;
         }
 
-        SDL_WarpMouseInWindow(video.window, x, y);
+        SDL_WarpMouseInWindow(video.window, mx, my);
     }
-#endif
 }
 
 void readMouseXY(void)
@@ -605,19 +589,40 @@ void readMouseXY(void)
     SDL_PumpEvents(); /* gathers all pending input from devices into the event queue (less mouse lag) */
     SDL_GetMouseState(&mx, &my);
 
-#if SDL_PATCHLEVEL >= 4
-    /* in centered fullscreen mode, prevent mouse cursor from getting stuck outside */
+    /* in centered fullscreen mode, trap the mouse inside the framed image
+    ** and subtract the coords to match the OS mouse position (fixes touch from touchscreens) */
     if (video.fullscreen && !(config.windowFlags & FILTERING))
     {
-        if (mx >= video.renderW) SDL_WarpMouseGlobal(video.renderW - 1, my);
-        if (my >= video.renderH) SDL_WarpMouseGlobal(mx, video.renderH - 1);
+        if (mx < video.renderX)
+        {
+            mx = video.renderX;
+            SDL_WarpMouseInWindow(video.window, mx, my);
+        }
+        else if (mx >= (video.renderX + video.renderW))
+        {
+            mx = (video.renderX + video.renderW) - 1;
+            SDL_WarpMouseInWindow(video.window, mx, my);
+        }
+
+        if (my < video.renderY)
+        {
+            my = video.renderY;
+            SDL_WarpMouseInWindow(video.window, mx, my);
+        }
+        else if (my >= (video.renderY + video.renderH))
+        {
+            my = (video.renderY + video.renderH) - 1;
+            SDL_WarpMouseInWindow(video.window, mx, my);
+        }
+
+        mx -= video.renderX;
+        my -= video.renderY;
     }
-#endif
 
     if (mx < 0) mx = 0;
     if (my < 0) mx = 0;
 
-    /* apply video scaling factors to mouse coords */
+    /* multiply coords by video scaling factors */
     mx = (int32_t)(((uint32_t)(mx) * video.xScaleMul) >> 16);
     my = (int32_t)(((uint32_t)(my) * video.yScaleMul) >> 16);
 
