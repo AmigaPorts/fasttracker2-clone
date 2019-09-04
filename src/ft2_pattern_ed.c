@@ -1787,6 +1787,7 @@ void pbBPMUp(void)
         song.speed++;
         setSpeed(song.speed);
 
+        /* if song is playing, the update is handled in the audio/video sync queue */
         if (!songPlaying)
         {
             editor.speed = song.speed;
@@ -1811,10 +1812,11 @@ void pbBPMDown(void)
         song.speed--;
         setSpeed(song.speed);
 
+        /* if song is playing, the update is handled in the audio/video sync queue */
         if (!songPlaying)
         {
             editor.speed = song.speed;
-            drawSongBPM(song.speed);
+            drawSongBPM(editor.speed);
         }
     }
 
@@ -1834,10 +1836,11 @@ void pbSpeedUp(void)
     {
         song.tempo++;
 
+        /* if song is playing, the update is handled in the audio/video sync queue */
         if (!songPlaying)
         {
             editor.tempo = song.tempo;
-            drawSongSpeed(song.tempo);
+            drawSongSpeed(editor.tempo);
         }
     }
 
@@ -1857,10 +1860,11 @@ void pbSpeedDown(void)
     {
         song.tempo--;
 
+        /* if song is playing, the update is handled in the audio/video sync queue */
         if (!songPlaying)
         {
             editor.tempo = song.tempo;
-            drawSongSpeed(song.tempo);
+            drawSongSpeed(editor.tempo);
         }
     }
 
@@ -1868,18 +1872,24 @@ void pbSpeedDown(void)
         unlockAudio();
 }
 
-void pbEditSkipUp(void)
+void pbIncAdd(void)
 {
-    if (++editor.editSkip > 16)
-          editor.editSkip = 0;
-    drawEditSkip();
+    if (editor.ID_Add == 16)
+        editor.ID_Add = 0;
+    else
+        editor.ID_Add++;
+
+    drawIDAdd();
 }
 
-void pbEditSkipDown(void)
+void pbDecAdd(void)
 {
-    if (--editor.editSkip == 255)
-          editor.editSkip = 16;
-    drawEditSkip();
+    if (editor.ID_Add == 0)
+        editor.ID_Add = 16;
+    else
+        editor.ID_Add--;
+
+    drawIDAdd();
 }
 
 void pbAddChan(void)
@@ -2227,12 +2237,12 @@ void drawGlobalVol(int16_t globalVol)
     textOutFixed(87, 80, PAL_FORGRND, PAL_DESKTOP, str);
 }
 
-void drawEditSkip(void)
+void drawIDAdd(void)
 {
     char str[8];
 
-    MY_ASSERT(editor.editSkip <= 16);
-    sprintf(str, "%02d", editor.editSkip);
+    MY_ASSERT(editor.ID_Add <= 16);
+    sprintf(str, "%02d", editor.ID_Add);
     textOutFixed(152, 64, PAL_FORGRND, PAL_DESKTOP, str);
 }
 

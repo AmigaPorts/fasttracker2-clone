@@ -41,7 +41,7 @@ static tonTyp nilPatternLine;
 
 /* globally accessed */
 
-int8_t linearFrqTab = 0, playMode = 0,  songPlaying = false,  audioPaused = false, musicPaused = false;
+int8_t linearFrqTab = 0, playMode = 0, songPlaying = false,  audioPaused = false, musicPaused = false;
 volatile int8_t replayerBusy = false;
 int16_t *note2Period = NULL, pattLens[MAX_PATTERNS];
 stmTyp stm[MAX_VOICES];
@@ -71,7 +71,6 @@ void resetChannels(void)
         ch->oldPan   = 128;
         ch->outPan   = 128;
         ch->finalPan = 128;
-        ch->smpPtr   = NULL;
     }
 
     if (audioWasntLocked)
@@ -370,7 +369,7 @@ uint32_t getFrequenceValue(uint16_t period)
     uint32_t rate;
 
     if (period == 0)
-        return (0);
+        return (0); /* no need to waste cycles on 64-bit stuff if we know the result */
 
     if (linearFrqTab)
     {
@@ -2120,16 +2119,15 @@ static void getNextPos(void)
     {
         song.pattPos++;
 
-        if (song.pattDelTime)
+        if (song.pattDelTime > 0)
         {
             song.pattDelTime2 = song.pattDelTime;
             song.pattDelTime  = 0;
         }
 
-        if (song.pattDelTime2)
+        if (song.pattDelTime2 > 0)
         {
-            song.pattDelTime2--;
-            if (song.pattDelTime2)
+            if (--song.pattDelTime2 > 0)
                 song.pattPos--;
         }
 
@@ -2150,14 +2148,14 @@ static void getNextPos(void)
                 if (bxxOverflow)
                 {
                     song.songPos = 0;
-                    bxxOverflow = false;
+                    bxxOverflow  = false;
                 }
                 else
                 {
                     if (++song.songPos >= song.len)
                     {
                         editor.wavReachedEndFlag = true;
-                        song.songPos  = song.repS;
+                        song.songPos = song.repS;
                     }
                 }
 
@@ -2286,12 +2284,10 @@ void setPos(int16_t songPos, int16_t pattPos)
             song.songPos = song.len - 1;
 
         song.pattNr = song.songTab[songPos];
-
         MY_ASSERT(song.pattNr < MAX_PATTERNS)
-
         song.pattLen = pattLens[song.pattNr];
 
-        checkMarkLimits(); /* non-FT2 added safety */
+        checkMarkLimits(); /* non-FT2 safety */
     }
 
     if (pattPos > -1)
@@ -2313,7 +2309,7 @@ void setPos(int16_t songPos, int16_t pattPos)
         if (songPos > -1)
         {
             editor.editPattern = (uint8_t)(song.pattNr);
-            editor.songPos     = song.songPos;
+            editor.songPos = song.songPos;
             editor.updatePosSections = true;
         }
     }
@@ -2322,26 +2318,6 @@ void setPos(int16_t songPos, int16_t pattPos)
 
     if (audioWasntLocked)
         unlockAudio();
-}
-
-void freeMusic(void)
-{
-    clearAllInstr();
-    freeAllPatterns();
-
-    memset(&song, 0, sizeof (song));
-
-    song.len     = 1;
-    song.tempo   = 6;
-    song.speed   = 125;
-    song.timer   = 1;
-    song.antChn  = 8;
-    editor.timer = 1;
-
-    setSpeed(song.speed);
-    setFrqTab(true);
-
-    resetMusic();
 }
 
 void delta2Samp(int8_t *p, int32_t len, uint8_t typ)
@@ -2787,10 +2763,8 @@ void closeReplayer(void)
 
 int8_t setupReplayer(void)
 {
-    uint8_t j;
-    uint16_t i;
+    uint16_t i, j, k;
     int16_t noteVal;
-    uint16_t noteIndex;
 
     /* allocate memory for pointers */
 
@@ -2815,44 +2789,40 @@ int8_t setupReplayer(void)
         return (false);
     }
 
-    /* generate tables */
+    /* generate tables, bit-exact to original FT2 */
 
-    /* generate log tables */
+    /* log tables */
     for (i = 0; i < 768; ++i)
     {
-        logTabScope[i] = (uint32_t)(round((256.0 * 8363.0) * exp((i / 768.0) * M_LN2)));
         logTab[i] = (uint32_t)(round(16777216.0 * exp((i / 768.0) * M_LN2)));
+
+        /* custom, not in real FT2 */
+        logTabScope[i] = (uint32_t)(round((256.0 * 8363.0) * exp((i / 768.0) * M_LN2)));
     }
 
-    /* generate linear table (value-exact to FT2's table) */
+    /* linear table  */
     for (i = 0; i < ((12 * 10 * 16) + 16); ++i)
         linearPeriods[i] = (((12 * 10 * 16) + 16) * 4) - (i * 4);
 
-    /* generate amiga period table (value-exact to FT2's table, except for last 17 entries) */
-    noteIndex = 0;
+    /* amiga period table
+    ** This has a LUT read overflow in real FT2 making the last 17 values trash. We patch those later. */
+    k = 0;
     for (i = 0; i < 10; ++i)
     {
-        for (j = 0; j < ((i == 9) ? (96 + 8) : 96); ++j)
+        for (j = 0; j < 96; ++j)
         {
-            noteVal = ((amigaFinePeriod[j % 96] * 64) + (-1 + (1 << i))) >> (i + 1);
-            /* NON-FT2: j % 96. added for safety. we're patching the values later anyways. */
+            noteVal = ((amigaFinePeriod[j] * 64) + (-1 + (1 << i))) >> (i + 1);
 
-            amigaPeriods[noteIndex++] = noteVal;
-            amigaPeriods[noteIndex++] = noteVal;
+            amigaPeriods[k++] = noteVal;
+            amigaPeriods[k++] = noteVal; /* copy for interpolation applied later */
         }
     }
 
-    /* interpolate between points (end-result is exact to FT2's table, except for last 17 entries) */
+    /* interpolate between points */
     for (i = 0; i < ((12 * 10 * 8) + 7); ++i)
         amigaPeriods[(i * 2) + 1] = (amigaPeriods[i * 2] + amigaPeriods[(i * 2) + 2]) / 2;
 
-    /*
-    ** the amiga linear period table has its 17 last entries generated wrongly.
-    ** the content seem to be garbage because of an 'out of boundaries' read from AmigaFinePeriods.
-    ** these 17 values were taken from a memdump of FT2 in DOSBox.
-    ** they might change depending on what you ran before FT2, but let's not make it too complicated.
-    */
-
+    /* the following 17 values are confirmed to be the correct table LUT overflow values in real FT2 */
     amigaPeriods[1919] = 22; amigaPeriods[1920] = 16; amigaPeriods[1921] =  8; amigaPeriods[1922] =  0;
     amigaPeriods[1923] = 16; amigaPeriods[1924] = 32; amigaPeriods[1925] = 24; amigaPeriods[1926] = 16;
     amigaPeriods[1927] =  8; amigaPeriods[1928] =  0; amigaPeriods[1929] = 16; amigaPeriods[1930] = 32;
@@ -2865,94 +2835,42 @@ int8_t setupReplayer(void)
     clearAllInstr();
     resetChannels();
 
-    song.name[0]     = '\0';
-    song.name[20]    = '\0';
-    song.len         = 1;
-    song.antChn      = 8;
-    editor.speed     = song.speed   = 125;
-    editor.tempo     = song.tempo   = 6;
-    editor.globalVol = song.globVol = 64;
+    song.len    = 1;
+    song.antChn = 8;
+
+    editor.speed      = song.speed   = 125;
+    editor.tempo      = song.tempo   = 6;
+    editor.globalVol  = song.globVol = 64;
+    song.initialTempo = song.tempo;
 
     setFrqTab(true);
     setSpeed(song.speed);
     setPos(0, 0);
 
-    editor.tmpPattern = 65535; /* update kludge */
-
+    editor.tmpPattern = 65535; /* pattern editor update/redraw kludge */
     return (true);
 }
 
-void playSong(void)
-{
-    lockMixerCallback();
-    setPos(editor.songPos, 0);
-    playMode = PLAYMODE_SONG;
-    songPlaying = true;
-    song.globVol = 64;
-    song.musicTime = 0;
-    unlockMixerCallback();
-
-    editor.updatePosSections   = true;
-    editor.updatePatternEditor = true;
-}
-
-void playPatternFromRow(uint16_t row)
+void startPlaying(int8_t mode, int16_t row)
 {
     lockMixerCallback();
 
-    song.pattNr  = song.songTab[editor.songPos];
-    song.pattLen = pattLens[editor.editPattern];
+    MY_ASSERT((mode != PLAYMODE_IDLE) && (mode != PLAYMODE_EDIT))
 
-    if (row >= song.pattLen)
-        row  = song.pattLen - 1;
+    if ((mode == PLAYMODE_PATT) || (mode == PLAYMODE_RECPATT))
+        setPos(-1, row);
+    else
+        setPos(editor.songPos, row);
 
-    song.pattPos = row;
-    playMode = PLAYMODE_PATT;
+    playMode = mode;
     songPlaying = true;
     song.globVol = 64;
     song.musicTime = 0;
-    unlockMixerCallback();
 
-    editor.updatePosSections   = true;
-    editor.updatePatternEditor = true;
-}
+    /* non-FT2 fix: If song speed was 0, set it back to initial speed on play */
+    if (song.tempo == 0)
+        song.tempo = song.initialTempo;
 
-void playPattern(void)
-{
-    lockMixerCallback();
-    setPos(-1, 0);
-    playMode = PLAYMODE_PATT;
-    songPlaying = true;
-    song.globVol = 64;
-    song.musicTime = 0;
-    unlockMixerCallback();
-
-    editor.updatePosSections   = true;
-    editor.updatePatternEditor = true;
-}
-
-void recordSong(void)
-{
-    lockMixerCallback();
-    setPos(editor.songPos, 0);
-    playMode = PLAYMODE_RECSONG;
-    songPlaying = true;
-    song.globVol = 64;
-    song.musicTime = 0;
-    unlockMixerCallback();
-
-    editor.updatePosSections   = true;
-    editor.updatePatternEditor = true;
-}
-
-void recordPattern(void)
-{
-    lockMixerCallback();
-    setPos(-1, 0);
-    playMode = PLAYMODE_RECPATT;
-    songPlaying = true;
-    song.globVol = 64;
-    song.musicTime = 0;
     unlockMixerCallback();
 
     editor.updatePosSections   = true;
@@ -2973,8 +2891,7 @@ void stopPlaying(void)
         lockMixerCallback();
         unlockMixerCallback();
 
-        /* prevent getFrequenceValue() from calculating the rates forever,
-        ** it's a waste (it does 64-bit stuff) */
+        /* prevent getFrequenceValue() from calculating the rates forever */
         for (i = 0; i < MAX_VOICES; ++i)
             stm[i].outPeriod = 0;
     }
@@ -2984,7 +2901,7 @@ void stopPlaying(void)
             playTone(i, 0, 97, -1, 0, 0);
     }
 
-    /* if song was playing, set local pattPos to replayer's pattPos */
+    /* if song was playing, update local pattPos (fixes certain glitches) */
     if (songWasPlaying)
         editor.pattPos = song.pattPos;
 
@@ -2996,12 +2913,14 @@ void stopPlaying(void)
     editor.updatePosSections   = true;
     editor.updatePatternEditor = true;
 
+    /* certain non-FT2 fixes */
     song.timer = editor.timer = 1;
     song.globVol = editor.globalVol = 64;
     editor.drawGlobVolFlag = true;
 }
 
-void playTone(uint8_t chan, uint8_t inst, uint8_t note, int8_t vol, uint16_t midiVibDepth, uint16_t midiPitch)
+/* from keyboard/smp. ed. */
+void playTone(uint8_t stmm, uint8_t inst, uint8_t ton, int8_t vol, uint16_t midiVibDepth, uint16_t midiPitch)
 {
     sampleTyp *s;
     stmTyp *ch;
@@ -3009,45 +2928,42 @@ void playTone(uint8_t chan, uint8_t inst, uint8_t note, int8_t vol, uint16_t mid
 
     editor.samplePlayOffset = 0;
 
-    if ((chan >= MAX_VOICES) || (inst > MAX_INST))
-        return;
+    MY_ASSERT((stmm < MAX_VOICES) && (inst < MAX_INST) && (ton <= 97))
+    ch = &stm[stmm];
 
-    ch = &stm[chan];
-
-    if (note != 97)
+    if (ton != 97)
     {
-        if ((note < 1) || (note > 96))
+        if ((ton < 1) || (ton > 96))
             return;
 
         ins = &instr[inst];
-        s   = &ins->samp[ins->ta[note - 1] & 0x0F];
+        s   = &ins->samp[ins->ta[ton - 1] & 0x0F];
 
         if ((s->pek == NULL) || (s->len < 1))
             return; /* prevent passing volume update flags to the mixer if we were to jam an empty sample */
 
-        if (((note + s->relTon) <= 0) || ((note + s->relTon) >= (12 * 10)))
-            return; /* FT2 doesn't do this, but don't try to jam overflown notes */
+        if (((ton + s->relTon) <= 0) || ((ton + s->relTon) >= (12 * 10)))
+            return; /* FT2 doesn't do this: don't try to play overflown notes */
     }
 
     lockAudio();
 
     if (inst != 0)
     {
-        if (note != 97)
+        if (ton != 97)
         {
             ch->tonTyp  = (inst << 8) | (ch->tonTyp & 0x00FF);
             ch->instrNr = inst;
         }
     }
 
-    ch->tonTyp = (ch->tonTyp & 0xFF00) | note;
-
+    ch->tonTyp = (ch->tonTyp & 0xFF00) | ton;
     ch->effTyp = 0;
     ch->eff    = 0;
 
-    startTone(note, 0, 0, ch);
+    startTone(ton, 0, 0, ch);
 
-    if (note != 97)
+    if (ton != 97)
     {
         retrigVolume(ch);
         retrigEnvelopeVibrato(ch);
@@ -3068,17 +2984,19 @@ void playTone(uint8_t chan, uint8_t inst, uint8_t note, int8_t vol, uint16_t mid
     unlockAudio();
 }
 
-void playSample(uint8_t stmm, uint8_t instNr, uint8_t smpNr, uint8_t ton, uint16_t midiVibDepth, uint16_t midiPitch)
+/* smp. ed. */
+void playSample(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t midiVibDepth, uint16_t midiPitch)
 {
     uint8_t vol;
     int16_t oldCurInstr;
     stmTyp *ch;
 
+    MY_ASSERT((stmm < MAX_VOICES) && (inst < MAX_INST) && (smpNr < MAX_SMP_PER_INST) && (ton <= 97))
     ch = &stm[stmm];
 
     pauseMusic();
-    memcpy(&instr[MAX_INST + 1].samp[0], &instr[instNr].samp[smpNr], sizeof (sampleTyp));
-    vol = instr[instNr].samp[smpNr].vol;
+    memcpy(&instr[MAX_INST + 1].samp[0], &instr[inst].samp[smpNr], sizeof (sampleTyp));
+    vol = instr[inst].samp[smpNr].vol;
     editor.samplePlayOffset = 0;
     resumeMusic();
 
@@ -3121,34 +3039,37 @@ void playSample(uint8_t stmm, uint8_t instNr, uint8_t smpNr, uint8_t ton, uint16
     resumeMusic();
 }
 
-void playRange(uint8_t stmm, uint8_t instNr, uint8_t smpNr, uint8_t ton, uint16_t midiVibDepth, uint16_t midiPitch, int32_t rx1, int32_t rx2)
+/* smp. ed. */
+void playRange(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t midiVibDepth, uint16_t midiPitch, int32_t offs, int32_t len)
 {
     uint8_t vol;
     int16_t oldCurInstr;
     stmTyp *ch;
     sampleTyp *s;
 
+    MY_ASSERT((stmm < MAX_VOICES) && (inst < MAX_INST) && (smpNr < MAX_SMP_PER_INST) && (ton <= 97))
+
     pauseMusic();
 
     ch = &stm[stmm];
     s  = &instr[MAX_INST + 1].samp[0];
 
-    memcpy(s, &instr[instNr].samp[smpNr], sizeof (sampleTyp));
+    memcpy(s, &instr[inst].samp[smpNr], sizeof (sampleTyp));
 
-    vol = instr[instNr].samp[smpNr].vol;
+    vol = instr[inst].samp[smpNr].vol;
 
     if (s->typ & 16)
     {
-        rx1 &= 0xFFFFFFFE;
-        rx2 &= 0xFFFFFFFE;
+        offs &= 0xFFFFFFFE;
+        len  &= 0xFFFFFFFE;
     }
 
-    s->len  = rx2;
+    s->len  = offs + len;
     s->repS = 0;
     s->repL = 0;
     s->typ &= 16; /* only keep 8-bit/16-bit flag (disable loop) */
 
-    editor.samplePlayOffset = rx1;
+    editor.samplePlayOffset = offs;
     if (s->typ & 16)
         editor.samplePlayOffset /= 2;
 
@@ -3186,8 +3107,8 @@ void playRange(uint8_t stmm, uint8_t instNr, uint8_t smpNr, uint8_t ton, uint16_
     while (ch->status & IS_NyTon); /* wait for mixer to trigger voice */
 
     pauseMusic();
-    ch->tonTyp   = (oldCurInstr << 8) | ton;
-    ch->instrNr  = oldCurInstr;
+    ch->tonTyp  = (oldCurInstr << 8) | ton;
+    ch->instrNr = oldCurInstr;
     resumeMusic();
 
     editor.curInstr = (uint8_t)(oldCurInstr);
@@ -3330,6 +3251,26 @@ void incCurSmp(void)
         updateTextBoxPointers();
         updateNewSample();
     }
+}
+
+void pbPlaySong(void)
+{
+    startPlaying(PLAYMODE_SONG, 0);
+}
+
+void pbPlayPtn(void)
+{
+    startPlaying(PLAYMODE_PATT, 0);
+}
+
+void pbRecSng(void)
+{
+    startPlaying(PLAYMODE_RECSONG, 0);
+}
+
+void pbRecPtn(void)
+{
+    startPlaying(PLAYMODE_RECPATT, 0);
 }
 
 void setSyncedReplayerVars(void)

@@ -253,7 +253,7 @@ static uint8_t testEditKeys(SDL_Scancode scancode, SDL_Keycode keycode)
 
     pattLen = pattLens[editor.editPattern];
     if ((playMode == PLAYMODE_EDIT) && (pattLen >= 1))
-        setPos(-1, (editor.pattPos + editor.editSkip) % pattLen);
+        setPos(-1, (editor.pattPos + editor.ID_Add) % pattLen);
 
     if (i == 0) /* if we inserted a zero, check if pattern is empty, for killing */
         killPatternIfUnused(editor.editPattern);
@@ -462,7 +462,7 @@ void recordNote(uint8_t note, int8_t vol)
                 {
                     /* increase row (only in edit mode) */
                     if (pattLen >= 1)
-                        setPos(-1, (editor.pattPos + editor.editSkip) % pattLen);
+                        setPos(-1, (editor.pattPos + editor.ID_Add) % pattLen);
                 }
                 else
                 {
@@ -527,7 +527,7 @@ void recordNote(uint8_t note, int8_t vol)
                 {
                     /* increase row (only in edit mode) */
                     if (pattLen >= 1)
-                        setPos(-1, (editor.pattPos + editor.editSkip) % pattLen);
+                        setPos(-1, (editor.pattPos + editor.ID_Add) % pattLen);
                 }
                 else
                 {
@@ -600,7 +600,7 @@ int8_t handleEditKeys(SDL_Keycode keycode, SDL_Scancode scancode)
         /* increase row (only in edit mode) */
         pattLen = pattLens[editor.editPattern];
         if ((playMode == PLAYMODE_EDIT) && (pattLen >= 1))
-            setPos(-1, (editor.pattPos + editor.editSkip) % pattLen);
+            setPos(-1, (editor.pattPos + editor.ID_Add) % pattLen);
 
         editor.updatePatternEditor = true;
         setSongModifiedFlag();
@@ -672,7 +672,7 @@ void writeFromMacroSlot(uint8_t slot)
     }
 
     if ((playMode == PLAYMODE_EDIT) && (pattLen >= 1))
-        setPos(-1, (editor.pattPos + editor.editSkip) % pattLen);
+        setPos(-1, (editor.pattPos + editor.ID_Add) % pattLen);
 
     killPatternIfUnused(editor.editPattern);
 

@@ -75,6 +75,7 @@ typedef struct scrollBar_t /* DO NOT TOUCH!!! */
 } scrollBar_t;
 
 void drawScrollBar(uint16_t scrollBarID);
+void drawScrollBar2(uint16_t scrollBarID);
 void showScrollBar(uint16_t scrollBarID);
 void hideScrollBar(uint16_t scrollBarID);
 void scrollBarScrollUp(uint16_t scrollBarID, uint32_t amount);

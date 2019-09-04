@@ -979,7 +979,7 @@ void showTopLeftMainScreen(uint8_t restoreScreens)
         drawSongSpeed(song.tempo);
         drawEditPattern(editor.editPattern);
         drawPatternLength(editor.editPattern);
-        drawEditSkip();
+        drawIDAdd();
 
         /* status bar */
         drawFramework(0, 77, 291, 15, FRAMEWORK_TYPE1);

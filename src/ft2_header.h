@@ -13,7 +13,7 @@
 #endif
 #include "ft2_replayer.h"
 
-#define BETA_VERSION 127
+#define BETA_VERSION 129
 
 /* do NOT change these! It will only mess things up... */
 #define VBLANK_HZ 60
@@ -150,14 +150,14 @@ struct editor_t
     uint8_t autoPlayOnDrop, trimThreadWasDone;
     uint8_t currPanEnvPoint, currVolEnvPoint, patternMode, currPaletteEdit, vsync60HzPresent;
     uint8_t copyMaskEnable, copyMask[5], pasteMask[5], transpMask[5], updateWindowTitle;
-    uint8_t samplerNote, instrBankSwapped, instrBankOffset, sampleBankOffset, channelMute[MAX_VOICES];
+    uint8_t smpEd_NoteNr, instrBankSwapped, instrBankOffset, sampleBankOffset, channelMute[MAX_VOICES];
     uint8_t srcInstr, curInstr, srcSmp, curSmp, currHelpScreen, currentConfigScreen, textCursorBlinkCounter, diskOpReadOnOpen;
     uint8_t updatePosSections, updatePatternEditor, keyOnTab[MAX_VOICES], diskOpReadDir, diskOpReadDone;
-    uint8_t activeVoices, updateSongName, editSkip, curOctave;
-    uint8_t sampleSaveMode, moduleSaveMode, samplingAudioFlag, NI_Play;
+    uint8_t activeVoices, updateSongName, ID_Add, curOctave;
+    uint8_t sampleSaveMode, moduleSaveMode, samplingAudioFlag, NI_Play, ptnJumpPos[4];
     uint8_t drawReplayerPianoFlag, drawPianoFlag, drawBPMFlag, drawSpeedFlag, drawGlobVolFlag, drawPosEdFlag, drawPattNumLenFlag;
     int16_t globalVol, songPos, pattPos;
-    uint16_t tmpPattern, editPattern, speed, tempo, timer, f9Pos, f10Pos, f11Pos, f12Pos, ptnCursorY;
+    uint16_t tmpPattern, editPattern, speed, tempo, timer, ptnCursorY;
     int32_t samplePlayOffset, keyOffNr, keyOffTime[MAX_VOICES];
     uint32_t framesPassed, *currPaletteEntry, wavRendererTime;
     double dPerfFreq, dPerfFreqMulMicro;

@@ -229,7 +229,7 @@ typedef struct songTyp_t
     uint8_t antChn, pattDelTime, pattDelTime2, pBreakFlag;
     uint8_t pBreakPos, posJumpFlag, songTab[MAX_ORDERS], isModified;
     int16_t songPos, pattNr, pattPos, pattLen;
-    uint16_t len, repS, speed, tempo, globVol, timer, ver;
+    uint16_t len, repS, speed, tempo, globVol, timer, ver, initialTempo;
     char name[20 + 1], instrName[1 + MAX_INST][22 + 1];
 
     uint32_t musicTime;
@@ -267,13 +267,8 @@ void freeAllPatterns(void);
 void updateChanNums(void);
 int8_t setupReplayer(void);
 void closeReplayer(void);
-void freeMusic(void);
 void resetMusic(void);
-void playSong(void);
-void playPatternFromRow(uint16_t row);
-void playPattern(void);
-void recordSong(void);
-void recordPattern(void);
+void startPlaying(int8_t mode, int16_t row);
 void stopPlaying(void);
 void stopVoices(void);
 void setPos(int16_t songPos, int16_t pattPos);
@@ -281,9 +276,9 @@ void pauseMusic(void); /* stops reading pattern data */
 void resumeMusic(void); /* starts reading pattern data */
 void setSongModifiedFlag(void);
 void removeSongModifiedFlag(void);
-void playTone(uint8_t chan, uint8_t inst, uint8_t note, int8_t vol, uint16_t midiVibDepth, uint16_t midiPitch);
-void playSample(uint8_t stmm, uint8_t instNr, uint8_t smpNr, uint8_t ton, uint16_t midiVibDepth, uint16_t midiPitch);
-void playRange(uint8_t stmm, uint8_t instNr, uint8_t smpNr, uint8_t ton, uint16_t midiVibDepth, uint16_t midiPitch, int32_t rx1, int32_t rx2);
+void playTone(uint8_t stmm, uint8_t inst, uint8_t ton, int8_t vol, uint16_t midiVibDepth, uint16_t midiPitch);
+void playSample(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t midiVibDepth, uint16_t midiPitch);
+void playRange(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t midiVibDepth, uint16_t midiPitch, int32_t offs, int32_t len);
 void keyOff(stmTyp *ch);
 void conv8BitSample(int8_t *p, int32_t len, int8_t stereo);
 void conv16BitSample(int8_t *p, int32_t len, int8_t stereo);
@@ -305,6 +300,10 @@ void decCurIns(void);
 void incCurIns(void);
 void decCurSmp(void);
 void incCurSmp(void);
+void pbPlaySong(void);
+void pbPlayPtn(void);
+void pbRecSng(void);
+void pbRecPtn(void);
 
 /* ft2_replayer.c */
 extern volatile int8_t replayerBusy;

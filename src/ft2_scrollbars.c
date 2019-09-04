@@ -114,7 +114,7 @@ void drawScrollBar(uint16_t scrollBarID)
     thumbW = scrollBar->thumbW;
     thumbH = scrollBar->thumbH;
 
-    /* clear scrollbar background */
+    /* clear scrollbar background (lazy, but sometimes even faster than filling bg gaps) */
     clearRect(scrollBar->x, scrollBar->y, scrollBar->w, scrollBar->h);
 
     /* draw thumb */

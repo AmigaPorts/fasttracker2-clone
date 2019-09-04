@@ -227,6 +227,7 @@ static void initializeVars(void)
     memset(&pattMark, 0, sizeof (pattMark));
     memset(&pattSync, 0, sizeof (pattSync));
     memset(&chSync,   0, sizeof (chSync));
+    memset(&song,     0, sizeof(song));
 
     /* now set data that must be initialized to non-zero values... */
 
@@ -244,15 +245,16 @@ static void initializeVars(void)
 
     mouse.lastUsedObjectID = OBJECT_ID_NONE;
 
-    editor.editSkip    = 1;
-    editor.srcInstr    = 1;
-    editor.curInstr    = 1;
-    editor.curOctave   = 4;
-    editor.samplerNote = 48 + 1; /* middle-C */
+    editor.ID_Add       = 1;
+    editor.srcInstr     = 1;
+    editor.curInstr     = 1;
+    editor.curOctave    = 4;
+    editor.smpEd_NoteNr = 48 + 1; /* middle-C */
 
-    editor.f10Pos = 0x10;
-    editor.f11Pos = 0x20;
-    editor.f12Pos = 0x30;
+  //editor.ptnJumpPos[0] = 0x00;
+    editor.ptnJumpPos[1] = 0x10;
+    editor.ptnJumpPos[2] = 0x20;
+    editor.ptnJumpPos[3] = 0x30;
 
     editor.copyMaskEnable = true;
     memset(editor.copyMask,  1, sizeof (editor.copyMask));
@@ -360,14 +362,20 @@ static void osxSetDirToProgramDirFromArgs(char **argv)
 static void setupPerfFreq(void)
 {
     uint64_t perfFreq64;
+    double dVblankTimeLen, dVblankTimeLenFrac;
 
     perfFreq64 = SDL_GetPerformanceFrequency();
     MY_ASSERT(perfFreq64 != 0)
     editor.dPerfFreq = (double)(perfFreq64);
 
     editor.dPerfFreqMulMicro = 1.0 / (editor.dPerfFreq / 1000000.0);
+    dVblankTimeLen = editor.dPerfFreq / VBLANK_HZ;
 
-    video.vblankTimeLen = (uint32_t)(round(editor.dPerfFreq / VBLANK_HZ));
+    video.vblankTimeLen = (uint32_t)(dVblankTimeLen);
+    dVblankTimeLenFrac  = dVblankTimeLen - video.vblankTimeLen;
+
+    /* fractional part of dVblankTimeLen scaled to 0..2^32 (max = 2^32-1, so fits in uint32_t) */
+    video.vblankTimeLenFrac = (uint32_t)((double)(1ULL << 32) * dVblankTimeLenFrac);
 }
 
 #ifdef _WIN32

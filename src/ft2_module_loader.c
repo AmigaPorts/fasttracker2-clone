@@ -608,7 +608,7 @@ int8_t loadMusicMOD(FILE *f, uint32_t fileLength)
 
     fclose(f);
 
-    songTmp.tempo = 6;
+    songTmp.initialTempo = songTmp.tempo = 6;
 
     moduleLoaded = true;
     return (true);
@@ -618,8 +618,9 @@ int8_t loadMusicMOD(FILE *f, uint32_t fileLength)
 static uint16_t stmTempoToBPM(uint8_t tempo) 
 {
     const uint8_t st2TempoFactor[16] = { 140, 50, 25, 15, 10, 7, 6, 4, 3, 3, 2, 2, 2, 2, 1, 1 };
+    uint16_t bpm;
     static const uint32_t st2MixingRate = 23863; /* highest possible setting in ST2 */
-    int32_t samplesPerTick, bpm;
+    int32_t samplesPerTick;
 
     /* this underflows at tempo 06...0F, and the resulting tick lengths depend on the mixing rate */
     samplesPerTick = st2MixingRate / (49 - ((st2TempoFactor[tempo >> 4] * (tempo & 0x0F)) / 16));
@@ -628,8 +629,8 @@ static uint16_t stmTempoToBPM(uint8_t tempo)
     if (samplesPerTick <= 0)
         samplesPerTick += 65536;
 
-    bpm = (int32_t)(round(st2MixingRate / (samplesPerTick / 2.5)));
-    return ((uint16_t)(CLAMP(bpm, 32, 255)));
+    bpm = (uint16_t)(round(st2MixingRate / (samplesPerTick / 2.5)));
+    return (CLAMP(bpm, 32, 255));
 }
 
 int8_t loadMusicSTM(FILE *f, uint32_t fileLength)
@@ -690,7 +691,7 @@ int8_t loadMusicSTM(FILE *f, uint32_t fileLength)
     if (tempo == 0)
         tempo = 96;
 
-    songTmp.tempo = CLAMP(h_STM.tempo >> 4, 1, 31);
+    songTmp.initialTempo = songTmp.tempo = CLAMP(h_STM.tempo >> 4, 1, 31);
     songTmp.speed = stmTempoToBPM(tempo);
 
     if (h_STM.verMinor > 10)
@@ -1050,8 +1051,13 @@ int8_t loadMusicS3M(FILE *f, uint32_t dataLength)
 
     songTmp.len -= k;
 
-    songTmp.speed = h_S3M.defTempo;
-    songTmp.tempo = h_S3M.defSpeed;
+    songTmp.speed = CLAMP(h_S3M.defTempo, 32, 255);
+
+    songTmp.tempo = CLAMP(h_S3M.defSpeed, 1, 31);
+    if (songTmp.tempo == 0)
+        songTmp.tempo = 6;
+
+    songTmp.initialTempo = songTmp.tempo;
 
     /* trim off spaces at end of name */
     for (i = 19; i >= 0; --i)
@@ -1797,6 +1803,8 @@ static int32_t SDLCALL loadMusicThread(void *ptr)
     if (songTmp.tempo > 31)
         songTmp.tempo = 31;
 
+    songTmp.initialTempo = songTmp.tempo;
+
     if (songTmp.globVol > 64)
         songTmp.globVol = 64;
 
@@ -2107,7 +2115,7 @@ static int8_t loadInstrSample(FILE *f, uint16_t i)
     {
         s = &instrTmp[i].samp[j];
 
-        /* if a sample has both forward loop and bidi loop set, make it bidi loop only */
+        /* if a sample has both forward loop and pingpong loop set, make it pingpong loop only (FT2 behavior) */
         if ((s->typ & 3) == 3)
             s->typ &= 0xFE;
 
@@ -2620,11 +2628,8 @@ void loadDroppedFile(char *fullPathUTF8, uint8_t songModifiedCheck)
 static void handleOldPlayMode(void)
 {
     playMode = oldPlayMode;
-
-         if (oldPlayMode == PLAYMODE_SONG)    playSong();
-    else if (oldPlayMode == PLAYMODE_PATT)    playPattern();
-    else if (oldPlayMode == PLAYMODE_RECSONG) recordSong();
-    else if (oldPlayMode == PLAYMODE_RECPATT) recordPattern();
+    if ((oldPlayMode != PLAYMODE_IDLE) && (oldPlayMode != PLAYMODE_EDIT))
+        startPlaying(oldPlayMode, 0);
 
     songPlaying = (playMode >= PLAYMODE_SONG);
 }
@@ -2658,7 +2663,7 @@ void handleLoadMusicEvents(void)
             {
                 setupLoadedModule();
                 if (editor.autoPlayOnDrop)
-                    playSong();
+                    startPlaying(PLAYMODE_SONG, 0);
                 else
                     handleOldPlayMode();
             }
@@ -2668,7 +2673,7 @@ void handleLoadMusicEvents(void)
             case EVENT_LOADMUSIC_ARGV:
             {
                 setupLoadedModule();
-                playSong();
+                startPlaying(PLAYMODE_SONG, 0);
             }
             break;
 

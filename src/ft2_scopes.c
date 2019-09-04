@@ -51,7 +51,7 @@ typedef struct scope_t
 } scope_t;
 
 static volatile uint8_t scopesUpdating, scopesDisplaying;
-static uint64_t timeNext64;
+static uint64_t timeNext64, timeNext64Frac;
 static scope_t scope[MAX_VOICES];
 static SDL_Thread *scopeThread;
 static volatile scopeState_t scopeNewState[MAX_VOICES][NUM_LATCH_BUFFERS];
@@ -371,16 +371,18 @@ int8_t testScopesMouseDown(void)
 
 void setScopeRate(uint8_t ch, uint32_t rate)
 {
-    const uint32_t scopeRateMul = 0xFFFFFFFF / VBLANK_HZ; /* div->mul trick */
+    const uint32_t scopeRateMul = (uint32_t)((1ULL << 32) / VBLANK_HZ); /* for DIV->MUL trick */
     scope_t *s;
 
     s = &scope[ch];
 
-    /* since rate (0..534749) << 16 would overflow in a 32-bit variable, we need
-    ** to do a 64-bit MUL */
+    /* since "(rate:0..534749 << 16) / VBLANK_HZ" would overflow in 32-bit calculation, we need
+    ** to do a 64-bit DIV (or MUL using a trick, slightly faster) */
 
-    /* this converts to fast logic on most 32-bit CPUs */
-    s->SFrq = (uint32_t)(((uint64_t)(rate) * scopeRateMul) >> 16);
+    if (rate == 0)
+        s->SFrq = 0; /* no need to waste cycles on 64-bit stuff if we know the result */
+    else
+        s->SFrq = (uint32_t)(((uint64_t)(rate) * scopeRateMul) >> 16); /* fast code even on x86 (imul + shrd) */
 
     s->drawSFrq = rate << 4; /* sample data read delta (when drawing the samples) */
 }
@@ -498,23 +500,22 @@ static void updateScopes(void)
         }
 
         /* scope position update */
-
         if (!sc->active)
             continue;
 
         sc->SPosDec += sc->SFrq;
-        if (sc->SPosDec > 65535)
+        if (sc->SPosDec >= 65536)
         {
             readPos = sc->SPos + (int32_t)((sc->SPosDec >> 16) ^ sc->posXOR);
             sc->SPosDec &= 0xFFFF;
 
             /* handle loop wrapping or sample end */
 
-            if (sc->posXOR == 0xFFFFFFFF) /* backwards (definitely bidi loop) */
+            if (sc->posXOR == 0xFFFFFFFF) /* sampling backwards (definitely pingpong loop) */
             {
                 if (readPos < sc->SRepS)
                 {
-                    sc->posXOR = 0; /* forwards */
+                    sc->posXOR = 0; /* change direction to forwards */
 
                     if (sc->SRepL < 2)
                         readPos = sc->SRepS;
@@ -541,7 +542,7 @@ static void updateScopes(void)
 
                 if (sc->loopType == LOOP_PINGPONG)
                 {
-                    sc->posXOR = 0xFFFFFFFF; /* backwards */
+                    sc->posXOR = 0xFFFFFFFF; /* change direction to backwards */
                     readPos = (sc->SLen - 1) - loopOverflow;
                 }
                 else /* forward loop */
@@ -626,7 +627,7 @@ static inline int8_t getScaledScopeSample16(scope_t *sc, int32_t drawPos)
 
 #define SCOPE_UPDATE_POS \
     scopeDrawFrac += sc->drawSFrq; \
-    if (scopeDrawFrac > 65535) \
+    if (scopeDrawFrac >= 65536) \
     { \
         scopeDrawPos  += (int32_t)((scopeDrawFrac >> 16) ^ sc->drawPosXOR); \
         scopeDrawFrac &= 0xFFFF; \
@@ -636,15 +637,15 @@ static inline int8_t getScaledScopeSample16(scope_t *sc, int32_t drawPos)
             if (scopeDrawPos >= sc->SLen) \
                 sc->active = false; \
         } \
-        else if (sc->drawPosXOR == 0xFFFFFFFF) /* backwards (definitely bidi loop) */ \
+        else if (sc->drawPosXOR == 0xFFFFFFFF) /* sampling backwards (definitely pingpong loop) */ \
         { \
             if (scopeDrawPos < sc->SRepS) \
             { \
-                sc->drawPosXOR = 0; /* forwards */ \
+                sc->drawPosXOR = 0; /* change direction to forwards */ \
                 \
                 if (sc->SRepL < 2) \
                     scopeDrawPos = sc->SRepS; \
-                else  \
+                else \
                     scopeDrawPos = sc->SRepS + ((sc->SRepS - scopeDrawPos - 1) % sc->SRepL); \
                 \
                 MY_ASSERT((scopeDrawPos >= sc->SRepS) && (scopeDrawPos < sc->SLen)) \
@@ -659,7 +660,7 @@ static inline int8_t getScaledScopeSample16(scope_t *sc, int32_t drawPos)
             \
             if (sc->loopType == LOOP_PINGPONG) \
             { \
-                sc->drawPosXOR = 0xFFFFFFFF; /* backwards */ \
+                sc->drawPosXOR = 0xFFFFFFFF; /* change direction to backwards */ \
                 scopeDrawPos = (sc->SLen - 1) - loopOverflow; \
             } \
             else /* forward loop */ \
@@ -904,7 +905,8 @@ static int32_t SDLCALL scopeThreadFunc(void *ptr)
     SDL_SetThreadPriority(SDL_THREAD_PRIORITY_HIGH);
 
     /* set next frame time */
-    timeNext64 = SDL_GetPerformanceCounter() + video.vblankTimeLen;
+    timeNext64     = SDL_GetPerformanceCounter() + video.vblankTimeLen;
+    timeNext64Frac = video.vblankTimeLenFrac;
 
     while (editor.programRunning)
     {
@@ -929,6 +931,13 @@ static int32_t SDLCALL scopeThreadFunc(void *ptr)
 
         /* update next tick time */
         timeNext64 += video.vblankTimeLen;
+
+        timeNext64Frac += video.vblankTimeLenFrac;
+        if (timeNext64Frac >= (1ULL << 32))
+        {
+            timeNext64++;
+            timeNext64Frac &= 0xFFFFFFFF;
+        }
     }
 
     (void)(ptr); /* make compiler happy */

@@ -43,7 +43,7 @@ extern const pal16 palTable[12][13];
 
 static uint8_t songIsModified;
 static uint32_t paletteTemp[PAL_NUM];
-static uint64_t timeNext64;
+static uint64_t timeNext64, timeNext64Frac;
 static sprite_t sprites[SPRITE_NUM];
 
 static void drawReplayerData(void);
@@ -700,12 +700,13 @@ static void usleep(uint32_t usec)
 
 void setupWaitVBL(void)
 {
-    /* set next frame time */
-    timeNext64 = SDL_GetPerformanceCounter() + video.vblankTimeLen;
-
 #ifdef _WIN32
     NtDelayExecution = (NTSTATUS (__stdcall *)(BOOL, PLARGE_INTEGER))(GetProcAddress(GetModuleHandle("ntdll.dll"), "NtDelayExecution"));
 #endif
+
+    /* set next frame time */
+    timeNext64     = SDL_GetPerformanceCounter() + video.vblankTimeLen;
+    timeNext64Frac = video.vblankTimeLenFrac;
 }
 
 void waitVBL(void)
@@ -733,7 +734,15 @@ void waitVBL(void)
     }
 
     /* update next frame time */
+
     timeNext64 += video.vblankTimeLen;
+
+    timeNext64Frac += video.vblankTimeLenFrac;
+    if (timeNext64Frac >= (1ULL << 32))
+    {
+        timeNext64++;
+        timeNext64Frac &= 0xFFFFFFFF;
+    }
 }
 
 void closeVideo(void)

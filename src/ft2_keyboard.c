@@ -288,22 +288,26 @@ void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
         {
             if (keyb.leftShiftPressed)
             {
-                if (editor.editSkip == 0)
-                    editor.editSkip = 16;
+                /* decrease edit skip */
+                if (editor.ID_Add == 0)
+                    editor.ID_Add = 16;
                 else
-                    editor.editSkip--;
+                    editor.ID_Add--;
             }
             else
             {
-                if (++editor.editSkip > 16)
-                      editor.editSkip = 0;
+                /* increase edit skip */
+                if (editor.ID_Add == 16)
+                    editor.ID_Add = 0;
+                else
+                    editor.ID_Add++;
             }
 
             if (!editor.ui.nibblesShown     && !editor.ui.configScreenShown &&
                 !editor.ui.aboutScreenShown && !editor.ui.diskOpShown       &&
                 !editor.ui.helpScreenShown  && !editor.ui.extended)
             {
-                drawEditSkip();
+                drawIDAdd();
             }
         }
         return;
@@ -340,7 +344,7 @@ void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 
                 pattLen = pattLens[editor.editPattern];
                 if ((playMode == PLAYMODE_EDIT) && (pattLen >= 1))
-                    setPos(-1, (editor.pattPos + editor.editSkip) % pattLen);
+                    setPos(-1, (editor.pattPos + editor.ID_Add) % pattLen);
 
                 editor.updatePatternEditor = true;
                 setSongModifiedFlag();
@@ -350,16 +354,19 @@ void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 
         /* EDIT/PLAY KEYS */
 
-        case SDLK_RSHIFT: recordPattern(); break;
+        /* record song */
+        case SDLK_RSHIFT: startPlaying(PLAYMODE_RECSONG, 0); break;
 
+        /* play song */
 #ifdef __APPLE__
         case SDLK_RGUI: /* fall-through for Apple keyboards */
 #endif
         case SDLK_RCTRL:
-            playSong();
+            startPlaying(PLAYMODE_SONG, 0);
         break;
 
-        case SDLK_RALT: playPattern(); break;
+        /* play pattern */
+        case SDLK_RALT: startPlaying(PLAYMODE_PATT, 0); break;
 
         case SDLK_SPACE:
         {
@@ -394,66 +401,46 @@ void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 
         case SDLK_F1:
         {
-            if (keyb.leftShiftPressed)
-                trackTranspAllInsDn();
-            else if (keyb.leftCtrlPressed)
-                pattTranspAllInsDn();
-            else if (keyb.leftAltPressed)
-                blockTranspAllInsDn();
-            else
-                editor.curOctave = 0;
+                 if (keyb.leftShiftPressed) trackTranspAllInsDn();
+            else if (keyb.leftCtrlPressed)  pattTranspAllInsDn();
+            else if (keyb.leftAltPressed)   blockTranspAllInsDn();
+            else                            editor.curOctave = 0;
         }
         break;
 
         case SDLK_F2:
         {
-            if (keyb.leftShiftPressed)
-                trackTranspAllInsUp();
-            else if (keyb.leftCtrlPressed)
-                pattTranspAllInsUp();
-            else if (keyb.leftAltPressed)
-                blockTranspAllInsUp();
-            else
-                editor.curOctave = 1;
+                 if (keyb.leftShiftPressed) trackTranspAllInsUp();
+            else if (keyb.leftCtrlPressed)  pattTranspAllInsUp();
+            else if (keyb.leftAltPressed)   blockTranspAllInsUp();
+            else                            editor.curOctave = 1;
         }
         break;
 
         case SDLK_F3:
         {
-            if (keyb.leftShiftPressed)
-                cutTrack();
-            else if (keyb.leftCtrlPressed)
-                cutPattern();
-            else if (keyb.leftAltPressed)
-                cutBlock();
-            else
-                editor.curOctave = 2;
+                 if (keyb.leftShiftPressed) cutTrack();
+            else if (keyb.leftCtrlPressed)  cutPattern();
+            else if (keyb.leftAltPressed)   cutBlock();
+            else                            editor.curOctave = 2;
         }
         break;
 
         case SDLK_F4:
         {
-            if (keyb.leftShiftPressed)
-                copyTrack();
-            else if (keyb.leftCtrlPressed)
-                copyPattern();
-            else if (keyb.leftAltPressed)
-                copyBlock();
-            else
-                editor.curOctave = 3;
+                 if (keyb.leftShiftPressed) copyTrack();
+            else if (keyb.leftCtrlPressed)  copyPattern();
+            else if (keyb.leftAltPressed)   copyBlock();
+            else                            editor.curOctave = 3;
         }
         break;
 
         case SDLK_F5:
         {
-            if (keyb.leftShiftPressed)
-                pasteTrack();
-            else if (keyb.leftCtrlPressed)
-                pastePattern();
-            else if (keyb.leftAltPressed)
-                pasteBlock();
-            else
-                editor.curOctave = 4;
+                 if (keyb.leftShiftPressed) pasteTrack();
+            else if (keyb.leftCtrlPressed)  pastePattern();
+            else if (keyb.leftAltPressed)   pasteBlock();
+            else                            editor.curOctave = 4;
         }
         break;
 
@@ -461,34 +448,93 @@ void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 
         case SDLK_F7:
         {
-            if (keyb.leftShiftPressed)
-                trackTranspCurInsDn();
-            else if (keyb.leftCtrlPressed)
-                pattTranspCurInsDn();
-            else if (keyb.leftAltPressed)
-                blockTranspCurInsDn();
-            else
-                editor.curOctave = 6;
+                 if (keyb.leftShiftPressed) trackTranspCurInsDn();
+            else if (keyb.leftCtrlPressed)  pattTranspCurInsDn();
+            else if (keyb.leftAltPressed)   blockTranspCurInsDn();
+            else                            editor.curOctave = 6;
         }
         break;
 
         case SDLK_F8:
         {
-            if (keyb.leftShiftPressed)
-                trackTranspCurInsUp();
-            else if (keyb.leftCtrlPressed)
-                pattTranspCurInsUp();
-            else if (keyb.leftAltPressed)
-                blockTranspCurInsUp();
-            else
-                editor.curOctave = 6;
+                 if (keyb.leftShiftPressed) trackTranspCurInsUp();
+            else if (keyb.leftCtrlPressed)  pattTranspCurInsUp();
+            else if (keyb.leftAltPressed)   blockTranspCurInsUp();
+            else                            editor.curOctave = 6;
         }
         break;
 
-        case SDLK_F9:  setPos(-1, editor.f9Pos);  break;
-        case SDLK_F10: setPos(-1, editor.f10Pos); break;
-        case SDLK_F11: setPos(-1, editor.f11Pos); break;
-        case SDLK_F12: setPos(-1, editor.f12Pos); break;
+        case SDLK_F9:
+        {
+            lockAudio();
+
+            song.pattPos = editor.ptnJumpPos[0];
+            if (song.pattPos >= song.pattLen)
+                song.pattPos  = song.pattLen - 1;
+
+            if (!songPlaying)
+            {
+                editor.pattPos = (uint8_t)(song.pattPos);
+                editor.updatePatternEditor = true;
+            }
+
+            unlockAudio();
+        }
+        break;
+
+        case SDLK_F10:
+        {
+            lockAudio();
+
+            song.pattPos = editor.ptnJumpPos[1];
+            if (song.pattPos >= song.pattLen)
+                song.pattPos  = song.pattLen - 1;
+
+            if (!songPlaying)
+            {
+                editor.pattPos = (uint8_t)(song.pattPos);
+                editor.updatePatternEditor = true;
+            }
+
+            unlockAudio();
+        }
+        break;
+
+        case SDLK_F11:
+        {
+            lockAudio();
+
+            song.pattPos = editor.ptnJumpPos[2];
+            if (song.pattPos >= song.pattLen)
+                song.pattPos  = song.pattLen - 1;
+
+            if (!songPlaying)
+            {
+                editor.pattPos = (uint8_t)(song.pattPos);
+                editor.updatePatternEditor = true;
+            }
+
+            unlockAudio();
+        }
+        break;
+
+        case SDLK_F12:
+        {
+            lockAudio();
+
+            song.pattPos = editor.ptnJumpPos[3];
+            if (song.pattPos >= song.pattLen)
+                song.pattPos  = song.pattLen - 1;
+
+            if (!songPlaying)
+            {
+                editor.pattPos = (uint8_t)(song.pattPos);
+                editor.updatePatternEditor = true;
+            }
+
+            unlockAudio();
+        }
+        break;
 
         /* PATTERN EDITOR POSITION KEYS */
 
@@ -503,12 +549,9 @@ void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 
         case SDLK_BACKSPACE:
         {
-            if (editor.ui.diskOpShown)
-                diskOpGoParent();
-            else if (keyb.leftShiftPressed)
-                deletePatternLine();
-            else
-                deletePatternNote();
+                 if (editor.ui.diskOpShown) diskOpGoParent();
+            else if (keyb.leftShiftPressed) deletePatternLine();
+            else                            deletePatternNote();
         }
         break;
 
@@ -653,12 +696,12 @@ uint8_t checkModifiedKeys(SDL_Keycode keycode)
         {
             if (keyb.leftCtrlPressed)
             {
-                playPatternFromRow(editor.f9Pos);
+                startPlaying(PLAYMODE_PATT, editor.ptnJumpPos[0]);
                 return (true);
             }
             else if (keyb.leftShiftPressed)
             {
-                editor.f9Pos = editor.pattPos;
+                editor.ptnJumpPos[0] = (uint8_t)(editor.pattPos);
                 return (true);
             }
         }
@@ -668,12 +711,12 @@ uint8_t checkModifiedKeys(SDL_Keycode keycode)
         {
             if (keyb.leftCtrlPressed)
             {
-                playPatternFromRow(editor.f10Pos);
+                startPlaying(PLAYMODE_PATT, editor.ptnJumpPos[1]);
                 return (true);
             }
             else if (keyb.leftShiftPressed)
             {
-                editor.f10Pos = editor.pattPos;
+                editor.ptnJumpPos[1] = (uint8_t)(editor.pattPos);
                 return (true);
             }
         }
@@ -683,12 +726,12 @@ uint8_t checkModifiedKeys(SDL_Keycode keycode)
         {
             if (keyb.leftCtrlPressed)
             {
-                playPatternFromRow(editor.f11Pos);
+                startPlaying(PLAYMODE_PATT, editor.ptnJumpPos[2]);
                 return (true);
             }
             else if (keyb.leftShiftPressed)
             {
-                editor.f11Pos = editor.pattPos;
+                editor.ptnJumpPos[2] = (uint8_t)(editor.pattPos);
                 return (true);
             }
         }
@@ -698,12 +741,12 @@ uint8_t checkModifiedKeys(SDL_Keycode keycode)
         {
             if (keyb.leftCtrlPressed)
             {
-                playPatternFromRow(editor.f12Pos);
+                startPlaying(PLAYMODE_PATT, editor.ptnJumpPos[3]);
                 return (true);
             }
             else if (keyb.leftShiftPressed)
             {
-                editor.f12Pos = editor.pattPos;
+                editor.ptnJumpPos[3] = (uint8_t)(editor.pattPos);
                 return (true);
             }
         }

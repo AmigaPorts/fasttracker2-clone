@@ -3403,7 +3403,7 @@ static int32_t SDLCALL loadInstrThread(void *ptr)
 
             s->relTon = CLAMP(s->relTon, -48, 71);
 
-            /* if a sample has both forward loop and bidi loop set, make it bidi loop only */
+            /* if a sample has both forward loop and pingpong loop set, make it pingpong loop only (FT2 behavior) */
             if ((s->typ & 3) == 3)
                 s->typ = 2;
 
@@ -3517,7 +3517,7 @@ static int32_t SDLCALL loadInstrThread(void *ptr)
                 if (ih_PATWave.mode & 4) /* loop enabled? */
                 {
                     if (ih_PATWave.mode & 8)
-                        s->typ |= 2; /* bidi loop */
+                        s->typ |= 2; /* pingpong loop */
                     else
                         s->typ |= 1; /* forward loop */
                 }

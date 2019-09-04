@@ -115,7 +115,7 @@ void fixSample(sampleTyp *s)
     }
     else
     {
-        /* bidi loop */
+        /* pingpong loop */
 
         if (s->typ & 16)
         {
@@ -277,6 +277,22 @@ static int32_t smpPos2Scr(int32_t pos) /* sample pos -> screen x pos (result can
     /* rounding is needed here */
     dPos = pos * dPos2ScrMul;
     double2int32_round(pos, dPos);
+    pos -= scrPosScaled;
+
+    return (pos);
+}
+
+/* this one is for the sampling line */
+static int32_t smpPos2ScrNoRound(int32_t pos) /* sample pos -> screen x pos (result can and will overflow) */
+{
+    MY_ASSERT(currSmp != NULL)
+    if (smpEd_ViewSize <= 0)
+        return (0);
+
+    if (pos > currSmp->len)
+        pos = currSmp->len;
+
+    pos  = (int32_t)(pos * dPos2ScrMul);
     pos -= scrPosScaled;
 
     return (pos);
@@ -1041,7 +1057,7 @@ void updateSampleEditor(void)
 
     /* draw sample play note */
 
-    note = (editor.samplerNote - 1) % 12;
+    note = (editor.smpEd_NoteNr - 1) % 12;
     if (config.ptnAcc == 0)
     {
         noteChar1 = sharpNote1Char[note];
@@ -1053,7 +1069,7 @@ void updateSampleEditor(void)
         noteChar2 = flatNote2Char[note];
     }
 
-    octaChar = '0' + ((editor.samplerNote - 1) / 12);
+    octaChar = '0' + ((editor.smpEd_NoteNr - 1) / 12);
 
     charOutBg(7,  369, PAL_FORGRND, PAL_BCKGRND, noteChar1);
     charOutBg(15, 369, PAL_FORGRND, PAL_BCKGRND, noteChar2);
@@ -1070,9 +1086,9 @@ void sampPlayNoteUp(void)
     if (editor.curInstr == 0)
         return;
 
-    if (editor.samplerNote < 96)
+    if (editor.smpEd_NoteNr < 96)
     {
-        editor.samplerNote++;
+        editor.smpEd_NoteNr++;
         updateSampleEditor();
     }
 }
@@ -1082,9 +1098,9 @@ void sampPlayNoteDown(void)
     if (editor.curInstr == 0)
         return;
 
-    if (editor.samplerNote > 1)
+    if (editor.smpEd_NoteNr > 1)
     {
-        editor.samplerNote--;
+        editor.smpEd_NoteNr--;
         updateSampleEditor();
     }
 }
@@ -1155,19 +1171,19 @@ void scrollSampleData(int32_t pos)
 void sampPlayWave(void)
 {
     if ((editor.curInstr > 0) && (currSmp->pek != NULL))
-        playSample(editor.cursor.ch, editor.curInstr, editor.curSmp, editor.samplerNote, 0, 0);
-}
-
-void sampPlayRange(void)
-{
-    if ((editor.curInstr > 0) && (currSmp->pek != NULL) && (smpEd_Rx2 >= 2))
-        playRange(editor.cursor.ch, editor.curInstr, editor.curSmp, editor.samplerNote, 0, 0, smpEd_Rx1, smpEd_Rx2);
+        playSample(editor.cursor.ch, editor.curInstr, editor.curSmp, editor.smpEd_NoteNr, 0, 0);
 }
 
 void sampPlayDisplay(void)
 {
     if ((editor.curInstr > 0) && (currSmp->pek != NULL) && (smpEd_ViewSize >= 2))
-        playRange(editor.cursor.ch, editor.curInstr, editor.curSmp, editor.samplerNote, 0, 0, smpEd_ScrPos, smpEd_ScrPos + smpEd_ViewSize);
+        playRange(editor.cursor.ch, editor.curInstr, editor.curSmp, editor.smpEd_NoteNr, 0, 0, smpEd_ScrPos, smpEd_ViewSize);
+}
+
+void sampPlayRange(void)
+{
+    if ((editor.curInstr > 0) && (currSmp->pek != NULL) && (smpEd_Rx2 >= 2))
+        playRange(editor.cursor.ch, editor.curInstr, editor.curSmp, editor.smpEd_NoteNr, 0, 0, smpEd_Rx1, smpEd_Rx2 - smpEd_Rx1);
 }
 
 void showRange(void)
@@ -1807,7 +1823,7 @@ void sampXFade(void)
 
     if ((t & 3) >= 2)
     {
-        /* bidi loop */
+        /* pingpong loop */
 
         y1 = currSmp->repS;
         if (x1 <= y1)
@@ -2534,7 +2550,7 @@ static void writeSamplePosLine(void)
 
         /* convert sample position to screen position */
         if (scrPos != -1)
-            scrPos = smpPos2Scr(scrPos);
+            scrPos = smpPos2ScrNoRound(scrPos);
 
         if (scrPos != smpEd_OldSmpPosLine)
         {
