@@ -81,14 +81,17 @@ void drawFramework(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint8_t type)
 void blit(uint16_t xPos, uint16_t yPos, const uint8_t *srcPtr, uint16_t w, uint16_t h);
 void blitFast(uint16_t xPos, uint16_t yPos, const uint8_t *srcPtr, uint16_t w, uint16_t h); /* no colorkey */
 void hexOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint32_t val, uint8_t numDigits);
+void hexOutBg(uint16_t xPos, uint16_t yPos, uint8_t fgPalette, uint8_t bgPalette, uint32_t val, uint8_t numDigits);
 void hexOutShadow(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint8_t shadowPaletteIndex, uint32_t val, uint8_t numDigits);
 void charOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr);
+void charOutBg(uint16_t xPos, uint16_t yPos, uint8_t fgPalette, uint8_t bgPalette, char chr);
 void charOutShadow(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint8_t shadowPaletteIndex, char chr);
 void charOutClipX(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr, uint16_t clipX);
 void bigCharOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr);
 void charOutShadow(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shadowPaletteIndex, char chr);
 void charOutOutlined(uint16_t x, uint16_t y, uint8_t paletteIndex, char chr);
 void textOut(uint16_t x, uint16_t y, uint8_t paletteIndex, char *textPtr);
+void textOutFixed(uint16_t x, uint16_t y, uint8_t fgPaltete, uint8_t bgPalette, char *textPtr);
 void bigTextOut(uint16_t x, uint16_t y, uint8_t paletteIndex, char *textPtr);
 void bigTextOutShadow(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shadowPaletteIndex, char *textPtr);
 void textOutClipX(uint16_t x, uint16_t y, uint8_t paletteIndex, char *textPtr, uint16_t clipX);
@@ -96,6 +99,7 @@ void textOutShadow(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shadowP
 uint8_t charWidth(char ch);
 uint8_t bigCharWidth(char ch);
 uint16_t textWidth(char *textPtr);
+uint16_t textNWidth(char *textPtr, int32_t length);
 uint16_t textBigWidth(char *textPtr);
 void drawGUIOnRunTime(void);
 void showTopLeftMainScreen(uint8_t restoreScreens);

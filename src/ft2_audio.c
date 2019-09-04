@@ -153,7 +153,7 @@ void setSpeed(uint16_t bpm)
         /* calculate tick time length for audio/video sync timestamp */
         if (speedVal > 0)
         {
-            dTickTimeLen = editor.dPerfFreq / (audio.freq / (double)(speedVal));
+            dTickTimeLen = ((double)(speedVal) / audio.freq) * editor.dPerfFreq; 
             double2int32_round(tickTimeLen, dTickTimeLen);
         }
     }

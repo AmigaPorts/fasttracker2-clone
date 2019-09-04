@@ -337,7 +337,7 @@ static void drawRowNum(uint16_t yPos, uint16_t row, uint8_t middleRowFlag)
     }
     else
     {
-        row %= (99 + 1);
+        row %= 100;
         rowNumOut(yPos, pal, (uint8_t)(row / 10), row % 10);
     }
 }
@@ -781,8 +781,7 @@ void writePattern(int16_t currRow, int16_t pattern)
 
     writeCursor();
 
-    /* do we have a pattern mark? */
-    if (pattMark.markY1 != pattMark.markY2)
+    if (pattMark.markY1 != pattMark.markY2) /* do we have a pattern mark? */
         writePatternBlockMark(currRow, rowHeight, pattCoord);
 
     /* channel numbers must be drawn in the very end */
@@ -794,40 +793,26 @@ void writePattern(int16_t currRow, int16_t pattern)
 
 void pattTwoHexOut(uint32_t xPos, uint32_t yPos, uint8_t paletteIndex, uint8_t val)
 {
-    const uint8_t *srcPtr;
+    const uint8_t *ch1Ptr, *ch2Ptr;
     uint8_t x, y;
-    uint32_t *dstPtr, pixVal;
+    uint32_t *dstPtr, pixVal, offset;
 
     pixVal = video.palette[paletteIndex];
+    offset = config.ptnFont * (FONT4_WIDTH * FONT4_CHAR_H);
+    ch1Ptr = &font4Data[((val   >> 4) * FONT4_CHAR_W) + offset];
+    ch2Ptr = &font4Data[((val & 0x0F) * FONT4_CHAR_W) + offset];
     dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 
-    /* render first hex glyph */
-    srcPtr = &font4Data[((val >> 4) * FONT4_CHAR_W) + (config.ptnFont * (FONT4_WIDTH * FONT4_CHAR_H))];
     for (y = 0; y < FONT4_CHAR_H; ++y)
     {
         for (x = 0; x < FONT4_CHAR_W; ++x)
         {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
+            if (ch1Ptr[x]) dstPtr[x] = pixVal;
+            if (ch2Ptr[x]) dstPtr[FONT4_CHAR_W + x] = pixVal;
         }
 
-        srcPtr += FONT4_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-
-    dstPtr -= ((SCREEN_W * FONT4_CHAR_H) - FONT4_CHAR_W); /* xPos += FONT4_CHAR_W */
-
-    /* render second hex glyph */
-    srcPtr = &font4Data[((val & 0x0F) * FONT4_CHAR_W) + (config.ptnFont * (FONT4_WIDTH * FONT4_CHAR_H))];
-    for (y = 0; y < FONT4_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT4_CHAR_W; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
-
-        srcPtr += FONT4_WIDTH;
+        ch1Ptr += FONT4_WIDTH;
+        ch2Ptr += FONT4_WIDTH;
         dstPtr += SCREEN_W;
     }
 }
@@ -841,9 +826,8 @@ static void rowNumOut(uint32_t yPos, uint8_t paletteIndex, uint8_t rowChar1, uin
     offset = config.ptnFont * (FONT4_WIDTH * FONT4_CHAR_H);
     ch1Ptr = &font4Data[(rowChar1 * FONT4_CHAR_W) + offset];
     ch2Ptr = &font4Data[(rowChar2 * FONT4_CHAR_W) + offset];
-
-    /* render first row digit */
     dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + 8];
+
     for (y = 0; y < FONT4_CHAR_H; ++y)
     {
         for (x = 0; x < FONT4_CHAR_W; ++x)
@@ -853,25 +837,15 @@ static void rowNumOut(uint32_t yPos, uint8_t paletteIndex, uint8_t rowChar1, uin
                 dstPtr[x]       = pixVal; /* left side  */
                 dstPtr[600 + x] = pixVal; /* right side */
             }
-        }
 
-        ch1Ptr += FONT4_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-
-    /* render second row digit */
-    dstPtr -= ((FONT4_CHAR_H * SCREEN_W) - FONT4_CHAR_W); /* xPos += FONT4_CHAR_W */
-    for (y = 0; y < FONT4_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT4_CHAR_W; ++x)
-        {
             if (ch2Ptr[x])
             {
-                dstPtr[x]       = pixVal; /* left side  */
-                dstPtr[600 + x] = pixVal; /* right side */
+                dstPtr[       FONT4_CHAR_W  + x] = pixVal; /* left side  */
+                dstPtr[(600 + FONT4_CHAR_W) + x] = pixVal; /* right side */
             }
         }
 
+        ch1Ptr += FONT4_WIDTH;
         ch2Ptr += FONT4_WIDTH;
         dstPtr += SCREEN_W;
     }
@@ -953,40 +927,12 @@ static void drawEmptyNoteSmall(uint16_t xPos, uint16_t yPos, uint8_t paletteInde
     uint32_t x, y, *dstPtr, pixVal;
 
     pixVal = video.palette[paletteIndex];
+    srcPtr = &font7Data[18 * FONT7_CHAR_W];
     dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 
-    srcPtr = &font7Data[18 * FONT7_CHAR_W];
     for (y = 0; y < FONT7_CHAR_H; ++y)
     {
-        for (x = 0; x < FONT7_CHAR_W; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
-
-        srcPtr += FONT7_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-    dstPtr -= ((SCREEN_W * FONT7_CHAR_H) - FONT7_CHAR_W);
-
-    srcPtr = &font7Data[19 * FONT7_CHAR_W];
-    for (y = 0; y < FONT7_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT7_CHAR_W; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
-
-        srcPtr += FONT7_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-    dstPtr -= ((SCREEN_W * FONT7_CHAR_H) - FONT7_CHAR_W);
-
-    srcPtr = &font7Data[20 * FONT7_CHAR_W];
-    for (y = 0; y < FONT7_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT7_CHAR_W; ++x)
+        for (x = 0; x < (FONT7_CHAR_W * 3); ++x)
         {
             if (srcPtr[x])
                 dstPtr[x] = pixVal;
@@ -1003,26 +949,12 @@ static void drawKeyOffSmall(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex)
     uint32_t x, y, *dstPtr, pixVal;
 
     pixVal = video.palette[paletteIndex];
+    srcPtr = &font7Data[21 * FONT7_CHAR_W];
     dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + (xPos + 2)];
 
-    srcPtr = &font7Data[21 * FONT7_CHAR_W];
     for (y = 0; y < FONT7_CHAR_H; ++y)
     {
-        for (x = 0; x < FONT7_CHAR_W; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
-
-        srcPtr += FONT7_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-    dstPtr -= ((SCREEN_W * FONT7_CHAR_H) - FONT7_CHAR_W);
-
-    srcPtr = &font7Data[22 * FONT7_CHAR_W];
-    for (y = 0; y < FONT7_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT7_CHAR_W; ++x)
+        for (x = 0; x < (FONT7_CHAR_W * 2); ++x)
         {
             if (srcPtr[x])
                 dstPtr[x] = pixVal;
@@ -1039,15 +971,11 @@ static void drawNoteSmall(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, in
     const uint8_t sharpNote2Char[12] = { 16*6, 15*6, 16*6, 15*6, 16*6, 16*6, 15*6, 16*6, 15*6, 16*6, 15*6, 16*6 };
     const uint8_t flatNote1Char[12]  = {  8*6,  9*6,  9*6, 10*6, 10*6, 11*6, 12*6, 12*6, 13*6, 13*6, 14*6, 14*6 };
     const uint8_t flatNote2Char[12]  = { 16*6, 17*6, 16*6, 17*6, 16*6, 16*6, 17*6, 16*6, 17*6, 16*6, 17*6, 16*6 };
-    const uint8_t *srcPtr;
+    const uint8_t *ch1Ptr, *ch2Ptr, *ch3Ptr;
     uint8_t note;
     uint32_t x, y, *dstPtr, pixVal, char1, char2, char3;
 
-    pixVal     = video.palette[paletteIndex];
-    dstPtr     = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
-
-    if (ton > 97)
-        ton = 97;
+    MY_ASSERT((ton >= 0) && (ton <= 97))
 
     note = --ton % 12;
     if (config.ptnAcc == 0)
@@ -1063,44 +991,24 @@ static void drawNoteSmall(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, in
 
     char3 = (ton / 12) * FONT7_CHAR_W;
 
-    srcPtr = &font7Data[char1];
+    pixVal = video.palette[paletteIndex];
+    ch1Ptr = &font7Data[char1];
+    ch2Ptr = &font7Data[char2];
+    ch3Ptr = &font7Data[char3];
+    dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
+
     for (y = 0; y < FONT7_CHAR_H; ++y)
     {
         for (x = 0; x < FONT7_CHAR_W; ++x)
         {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
+            if (ch1Ptr[x]) dstPtr[ (FONT7_CHAR_W * 0)      + x] = pixVal;
+            if (ch2Ptr[x]) dstPtr[ (FONT7_CHAR_W * 1)      + x] = pixVal;
+            if (ch3Ptr[x]) dstPtr[((FONT7_CHAR_W * 2) - 2) + x] = pixVal;
         }
 
-        srcPtr += FONT7_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-    dstPtr -= ((SCREEN_W * FONT7_CHAR_H) - FONT7_CHAR_W);
-
-    srcPtr = &font7Data[char2];
-    for (y = 0; y < FONT7_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT7_CHAR_W; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
-
-        srcPtr += FONT7_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-    dstPtr -= (((SCREEN_W * FONT7_CHAR_H) - FONT7_CHAR_W) + 2); /* kludge */
-
-    srcPtr = &font7Data[char3];
-    for (y = 0; y < FONT7_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT7_CHAR_W; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
-
-        srcPtr += FONT7_WIDTH;
+        ch1Ptr += FONT7_WIDTH;
+        ch2Ptr += FONT7_WIDTH;
+        ch3Ptr += FONT7_WIDTH;
         dstPtr += SCREEN_W;
     }
 }
@@ -1108,44 +1016,15 @@ static void drawNoteSmall(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, in
 static void drawEmptyNoteMedium(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex)
 {
     const uint8_t *srcPtr;
-    uint32_t x, y, *dstPtr, pixVal, fontOffset;
+    uint32_t x, y, *dstPtr, pixVal;
 
-    pixVal     = video.palette[paletteIndex];
-    dstPtr     = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
-    fontOffset = config.ptnFont * (FONT4_WIDTH * FONT4_CHAR_H); /* offset to selected font style */
+    pixVal = video.palette[paletteIndex];
+    dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
+    srcPtr = &font4Data[(43 * FONT4_CHAR_W) + (config.ptnFont * (FONT4_WIDTH * FONT4_CHAR_H))];
 
-    srcPtr = &font4Data[(43 * FONT4_CHAR_W) + fontOffset];
     for (y = 0; y < FONT4_CHAR_H; ++y)
     {
-        for (x = 0; x < FONT4_CHAR_W; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
-
-        srcPtr += FONT4_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-    dstPtr -= ((SCREEN_W * FONT4_CHAR_H) - FONT4_CHAR_W);
-
-    srcPtr = &font4Data[(44 * FONT4_CHAR_W) + fontOffset];
-    for (y = 0; y < FONT4_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT4_CHAR_W; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
-
-        srcPtr += FONT4_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-    dstPtr -= ((SCREEN_W * FONT4_CHAR_H) - FONT4_CHAR_W);
-
-    srcPtr = &font4Data[(45 * FONT4_CHAR_W) + fontOffset];
-    for (y = 0; y < FONT4_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT4_CHAR_W; ++x)
+        for (x = 0; x < (FONT4_CHAR_W * 3); ++x)
         {
             if (srcPtr[x])
                 dstPtr[x] = pixVal;
@@ -1159,44 +1038,15 @@ static void drawEmptyNoteMedium(uint16_t xPos, uint16_t yPos, uint8_t paletteInd
 static void drawKeyOffMedium(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex)
 {
     const uint8_t *srcPtr;
-    uint32_t x, y, *dstPtr, pixVal, fontOffset;
+    uint32_t x, y, *dstPtr, pixVal;
 
-    pixVal     = video.palette[paletteIndex];
-    dstPtr     = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
-    fontOffset = config.ptnFont * (FONT4_WIDTH * FONT4_CHAR_H); /* offset to selected font style */
+    pixVal = video.palette[paletteIndex];
+    srcPtr = &font4Data[(40 * FONT4_CHAR_W) + (config.ptnFont * (FONT4_WIDTH * FONT4_CHAR_H))];
+    dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 
-    srcPtr = &font4Data[(40 * FONT4_CHAR_W) + fontOffset];
     for (y = 0; y < FONT4_CHAR_H; ++y)
     {
-        for (x = 0; x < FONT4_CHAR_W; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
-
-        srcPtr += FONT4_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-    dstPtr -= ((SCREEN_W * FONT4_CHAR_H) - FONT4_CHAR_W);
-
-    srcPtr = &font4Data[(41 * FONT4_CHAR_W) + fontOffset];
-    for (y = 0; y < FONT4_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT4_CHAR_W; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
-
-        srcPtr += FONT4_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-    dstPtr -= ((SCREEN_W * FONT4_CHAR_H) - FONT4_CHAR_W);
-
-    srcPtr = &font4Data[(42 * FONT4_CHAR_W) + fontOffset];
-    for (y = 0; y < FONT4_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT4_CHAR_W; ++x)
+        for (x = 0; x < (FONT4_CHAR_W * 3); ++x)
         {
             if (srcPtr[x])
                 dstPtr[x] = pixVal;
@@ -1213,16 +1063,11 @@ static void drawNoteMedium(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, i
     const uint16_t sharpNote2Char[12] = { 36*8, 37*8, 36*8, 37*8, 36*8, 36*8, 37*8, 36*8, 37*8, 36*8, 37*8, 36*8 };
     const uint8_t flatNote1Char[12]   = { 12*8, 13*8, 13*8, 14*8, 14*8, 15*8, 16*8, 16*8, 10*8, 10*8, 11*8, 11*8 };
     const uint16_t flatNote2Char[12]  = { 36*8, 38*8, 36*8, 38*8, 36*8, 36*8, 38*8, 36*8, 38*8, 36*8, 38*8, 36*8 };
-    const uint8_t *srcPtr;
+    const uint8_t *ch1Ptr, *ch2Ptr, *ch3Ptr;
     uint8_t note;
     uint32_t x, y, *dstPtr, pixVal, fontOffset, char1, char2, char3;
 
-    pixVal     = video.palette[paletteIndex];
-    dstPtr     = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
-    fontOffset = config.ptnFont * (FONT4_WIDTH * FONT4_CHAR_H); /* offset to selected font style */
-
-    if (ton > 97)
-        ton = 97;
+    MY_ASSERT((ton >= 0) && (ton <= 97))
 
     note = --ton % 12;
     if (config.ptnAcc == 0)
@@ -1238,44 +1083,25 @@ static void drawNoteMedium(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, i
 
     char3 = (ton / 12) * FONT4_CHAR_W;
 
-    srcPtr = &font4Data[char1 + fontOffset];
+    pixVal     = video.palette[paletteIndex];
+    fontOffset = config.ptnFont * (FONT4_WIDTH * FONT4_CHAR_H);
+    ch1Ptr     = &font4Data[char1 + fontOffset];
+    ch2Ptr     = &font4Data[char2 + fontOffset];
+    ch3Ptr     = &font4Data[char3 + fontOffset];
+    dstPtr     = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
+
     for (y = 0; y < FONT4_CHAR_H; ++y)
     {
         for (x = 0; x < FONT4_CHAR_W; ++x)
         {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
+            if (ch1Ptr[x]) dstPtr[(FONT4_CHAR_W * 0) + x] = pixVal;
+            if (ch2Ptr[x]) dstPtr[(FONT4_CHAR_W * 1) + x] = pixVal;
+            if (ch3Ptr[x]) dstPtr[(FONT4_CHAR_W * 2) + x] = pixVal;
         }
 
-        srcPtr += FONT4_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-    dstPtr -= ((SCREEN_W * FONT4_CHAR_H) - FONT4_CHAR_W);
-
-    srcPtr = &font4Data[char2 + fontOffset];
-    for (y = 0; y < FONT4_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT4_CHAR_W; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
-
-        srcPtr += FONT4_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-    dstPtr -= ((SCREEN_W * FONT4_CHAR_H) - FONT4_CHAR_W);
-
-    srcPtr = &font4Data[char3 + fontOffset];
-    for (y = 0; y < FONT4_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT4_CHAR_W; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
-
-        srcPtr += FONT4_WIDTH;
+        ch1Ptr += FONT4_WIDTH;
+        ch2Ptr += FONT4_WIDTH;
+        ch3Ptr += FONT4_WIDTH;
         dstPtr += SCREEN_W;
     }
 }
@@ -1283,86 +1109,15 @@ static void drawNoteMedium(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, i
 static void drawEmptyNoteBig(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex)
 {
     const uint8_t *srcPtr;
-    uint32_t x, y, *dstPtr, pixVal, fontOffset;
+    uint32_t x, y, *dstPtr, pixVal;
 
-    pixVal     = video.palette[paletteIndex];
-    dstPtr     = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
-    fontOffset = config.ptnFont * (FONT4_WIDTH * FONT4_CHAR_H); /* offset to selected font style */
+    pixVal = video.palette[paletteIndex];
+    srcPtr = &font4Data[(67 * FONT4_CHAR_W) + (config.ptnFont * (FONT4_WIDTH * FONT4_CHAR_H))];
+    dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 
-    srcPtr = &font4Data[(67 * FONT4_CHAR_W) + fontOffset];
     for (y = 0; y < FONT4_CHAR_H; ++y)
     {
-        for (x = 0; x < FONT4_CHAR_W; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
-
-        srcPtr += FONT4_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-    dstPtr -= ((SCREEN_W * FONT4_CHAR_H) - FONT4_CHAR_W);
-
-    srcPtr = &font4Data[(68 * FONT4_CHAR_W) + fontOffset];
-    for (y = 0; y < FONT4_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT4_CHAR_W; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
-
-        srcPtr += FONT4_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-    dstPtr -= ((SCREEN_W * FONT4_CHAR_H) - FONT4_CHAR_W);
-
-    srcPtr = &font4Data[(69 * FONT4_CHAR_W) + fontOffset];
-    for (y = 0; y < FONT4_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT4_CHAR_W; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
-
-        srcPtr += FONT4_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-    dstPtr -= ((SCREEN_W * FONT4_CHAR_H) - FONT4_CHAR_W);
-
-    srcPtr = &font4Data[(70 * FONT4_CHAR_W) + fontOffset];
-    for (y = 0; y < FONT4_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT4_CHAR_W; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
-
-        srcPtr += FONT4_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-    dstPtr -= ((SCREEN_W * FONT4_CHAR_H) - FONT4_CHAR_W);
-
-    srcPtr = &font4Data[(71 * FONT4_CHAR_W) + fontOffset];
-    for (y = 0; y < FONT4_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT4_CHAR_W; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
-
-        srcPtr += FONT4_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-    dstPtr -= ((SCREEN_W * FONT4_CHAR_H) - FONT4_CHAR_W);
-
-    srcPtr = &font4Data[(72 * FONT4_CHAR_W) + fontOffset];
-    for (y = 0; y < FONT4_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT4_CHAR_W; ++x)
+        for (x = 0; x < (FONT4_CHAR_W * 6); ++x)
         {
             if (srcPtr[x])
                 dstPtr[x] = pixVal;
@@ -1376,86 +1131,15 @@ static void drawEmptyNoteBig(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex)
 static void drawKeyOffBig(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex)
 {
     const uint8_t *srcPtr;
-    uint32_t x, y, *dstPtr, pixVal, fontOffset;
+    uint32_t x, y, *dstPtr, pixVal;
 
-    pixVal     = video.palette[paletteIndex];
-    dstPtr     = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
-    fontOffset = config.ptnFont * (FONT4_WIDTH * FONT4_CHAR_H); /* offset to selected font style */
+    pixVal = video.palette[paletteIndex];
+    srcPtr = &font4Data[(61 * FONT4_CHAR_W) + (config.ptnFont * (FONT4_WIDTH * FONT4_CHAR_H))];
+    dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 
-    srcPtr = &font4Data[(61 * FONT4_CHAR_W) + fontOffset];
     for (y = 0; y < FONT4_CHAR_H; ++y)
     {
-        for (x = 0; x < FONT4_CHAR_W; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
-
-        srcPtr += FONT4_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-    dstPtr -= ((SCREEN_W * FONT4_CHAR_H) - FONT4_CHAR_W);
-
-    srcPtr = &font4Data[(62 * FONT4_CHAR_W) + fontOffset];
-    for (y = 0; y < FONT4_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT4_CHAR_W; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
-
-        srcPtr += FONT4_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-    dstPtr -= ((SCREEN_W * FONT4_CHAR_H) - FONT4_CHAR_W);
-
-    srcPtr = &font4Data[(63 * FONT4_CHAR_W) + fontOffset];
-    for (y = 0; y < FONT4_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT4_CHAR_W; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
-
-        srcPtr += FONT4_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-    dstPtr -= ((SCREEN_W * FONT4_CHAR_H) - FONT4_CHAR_W);
-
-    srcPtr = &font4Data[(64 * FONT4_CHAR_W) + fontOffset];
-    for (y = 0; y < FONT4_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT4_CHAR_W; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
-
-        srcPtr += FONT4_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-    dstPtr -= ((SCREEN_W * FONT4_CHAR_H) - FONT4_CHAR_W);
-
-    srcPtr = &font4Data[(65 * FONT4_CHAR_W) + fontOffset];
-    for (y = 0; y < FONT4_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT4_CHAR_W; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
-
-        srcPtr += FONT4_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-    dstPtr -= ((SCREEN_W * FONT4_CHAR_H) - FONT4_CHAR_W);
-
-    srcPtr = &font4Data[(66 * FONT4_CHAR_W) + fontOffset];
-    for (y = 0; y < FONT4_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT4_CHAR_W; ++x)
+        for (x = 0; x < (FONT4_CHAR_W * 6); ++x)
         {
             if (srcPtr[x])
                 dstPtr[x] = pixVal;
@@ -1472,16 +1156,11 @@ static void drawNoteBig(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, int1
     const uint16_t sharpNote2Char[12] = { 36*16, 37*16, 36*16, 37*16, 36*16, 36*16, 37*16, 36*16, 37*16, 36*16, 37*16, 36*16 };
     const uint16_t flatNote1Char[12]  = { 12*16, 13*16, 13*16, 14*16, 14*16, 15*16, 16*16, 16*16, 10*16, 10*16, 11*16, 11*16 };
     const uint16_t flatNote2Char[12]  = { 36*16, 38*16, 36*16, 38*16, 36*16, 36*16, 38*16, 36*16, 38*16, 36*16, 38*16, 36*16 };
-    const uint8_t *srcPtr;
+    const uint8_t *ch1Ptr, *ch2Ptr, *ch3Ptr;
     uint8_t note;
-    uint32_t x, y, *dstPtr, pixVal, fontOffset, char1, char2, char3; /* offset to selected font style */
+    uint32_t x, y, *dstPtr, pixVal, fontOffset, char1, char2, char3;
 
-    pixVal     = video.palette[paletteIndex];
-    dstPtr     = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
-    fontOffset = config.ptnFont * (FONT5_WIDTH * FONT5_CHAR_H);
-
-    if (ton > 97)
-        ton = 97;
+    MY_ASSERT((ton >= 0) && (ton <= 97))
 
     note = --ton % 12;
     if (config.ptnAcc == 0)
@@ -1497,44 +1176,25 @@ static void drawNoteBig(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, int1
 
     char3 = (ton / 12) * FONT5_CHAR_W;
 
-    srcPtr = &font5Data[char1 + fontOffset];
+    pixVal     = video.palette[paletteIndex];
+    fontOffset = config.ptnFont * (FONT5_WIDTH * FONT5_CHAR_H);
+    ch1Ptr     = &font5Data[char1 + fontOffset];
+    ch2Ptr     = &font5Data[char2 + fontOffset];
+    ch3Ptr     = &font5Data[char3 + fontOffset];
+    dstPtr     = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
+
     for (y = 0; y < FONT5_CHAR_H; ++y)
     {
         for (x = 0; x < FONT5_CHAR_W; ++x)
         {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
+            if (ch1Ptr[x]) dstPtr[(FONT5_CHAR_W * 0) + x] = pixVal;
+            if (ch2Ptr[x]) dstPtr[(FONT5_CHAR_W * 1) + x] = pixVal;
+            if (ch3Ptr[x]) dstPtr[(FONT5_CHAR_W * 2) + x] = pixVal;
         }
 
-        srcPtr += FONT5_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-    dstPtr -= ((SCREEN_W * FONT5_CHAR_H) - FONT5_CHAR_W);
-
-    srcPtr = &font5Data[char2 + fontOffset];
-    for (y = 0; y < FONT5_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT5_CHAR_W; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
-
-        srcPtr += FONT5_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-    dstPtr -= ((SCREEN_W * FONT5_CHAR_H) - FONT5_CHAR_W);
-
-    srcPtr = &font5Data[char3 + fontOffset];
-    for (y = 0; y < FONT5_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT5_CHAR_W; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
-
-        srcPtr += FONT5_WIDTH;
+        ch1Ptr += FONT5_WIDTH;
+        ch2Ptr += FONT5_WIDTH;
+        ch3Ptr += FONT5_WIDTH;
         dstPtr += SCREEN_W;
     }
 }

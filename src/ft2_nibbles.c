@@ -127,7 +127,7 @@ static int16_t nibblesGetBuffer(int16_t nr)
     if (n->antal > 0)
     {
         dataOut = n->data[0];
-        memmove(&n->data[0], &n->data[1], 7); /* memmove() must be used because of overlapping. Don't use memcpy()! */
+        memmove(&n->data[0], &n->data[1], 7); /* memmove() must be used instead of memcpy() because of overlapping */
         n->antal--;
 
         return (dataOut);
@@ -371,25 +371,21 @@ static uint8_t nibblesInvalid(int16_t x, int16_t y, int16_t d)
 
 static void drawScoresLives(void)
 {
+    char str[8];
+
     /* player 1 */
-    fillRect(89, 27, 55, 8, PAL_DESKTOP);
-    hexOut(89, 27, PAL_FORGRND, NI_P1Score, 8);
+    hexOutBg(89, 27, PAL_FORGRND, PAL_DESKTOP, NI_P1Score, 8);
 
     MY_ASSERT(NI_P1Lives < 100)
-
-    fillRect(131, 39, 13, 8, PAL_DESKTOP);
-    charOut(131 + (0 * 7), 39, PAL_FORGRND, '0' + ((uint8_t)(NI_P1Lives) / 10));
-    charOut(131 + (1 * 7), 39, PAL_FORGRND, '0' + ((uint8_t)(NI_P1Lives) % 10));
+    sprintf(str, "%02d", NI_P1Lives);
+    textOutFixed(131, 39, PAL_FORGRND, PAL_DESKTOP, str);
 
     /* player 2 */
-    fillRect(89, 75, 55, 8, PAL_DESKTOP);
-    hexOut(89, 75, PAL_FORGRND, NI_P2Score, 8);
+    hexOutBg(89, 75, PAL_FORGRND, PAL_DESKTOP, NI_P2Score, 8);
 
     MY_ASSERT(NI_P2Lives < 100)
-
-    fillRect(131, 87, 13, 8, PAL_DESKTOP);
-    charOut(131 + (0 * 7), 87, PAL_FORGRND, '0' + ((uint8_t)(NI_P2Lives) / 10));
-    charOut(131 + (1 * 7), 87, PAL_FORGRND, '0' + ((uint8_t)(NI_P2Lives) % 10));
+    sprintf(str, "%02d", NI_P2Lives);
+    textOutFixed(131, 87, PAL_FORGRND, PAL_DESKTOP, str);
 }
 
 static void nibblesDecLives(int16_t l1, int16_t l2)
@@ -537,8 +533,7 @@ void moveNibblePlayers(void)
     if (editor.ui.systemRequestShown)
         return;
 
-    NI_CurTick60Hz--;
-    if (NI_CurTick60Hz != 0)
+    if (--NI_CurTick60Hz != 0)
         return;
 
     if (nibblesBufferFull(0))
@@ -565,7 +560,7 @@ void moveNibblePlayers(void)
         }
     }
 
-    /* memmove() must be used because of overlapping. Don't use memcpy()! */
+    /* memmove() must be used instead of memcpy() because of overlapping */
     memmove(&NI_P1[1], &NI_P1[0], 255 * sizeof (nibbleCrd));
     if (config.NI_AntPlayers == 1)
         memmove(&NI_P2[1], &NI_P2[0], 255 * sizeof (nibbleCrd));
@@ -606,19 +601,23 @@ void moveNibblePlayers(void)
         if (nibblesInvalid(NI_P1[0].x, NI_P1[0].y, NI_P1Dir) &&
             nibblesInvalid(NI_P2[0].x, NI_P2[0].y, NI_P2Dir))
         {
-            nibblesDecLives(1, 1); goto NoMove;
+            nibblesDecLives(1, 1);
+            goto NoMove;
         }
         else if (nibblesInvalid(NI_P1[0].x, NI_P1[0].y, NI_P1Dir))
         {
-            nibblesDecLives(1, 0); goto NoMove;
+            nibblesDecLives(1, 0);
+            goto NoMove;
         }
         else if (nibblesInvalid(NI_P2[0].x, NI_P2[0].y, NI_P2Dir))
         {
-            nibblesDecLives(0, 1); goto NoMove;
+            nibblesDecLives(0, 1);
+            goto NoMove;
         }
         else if ((NI_P1[0].x == NI_P2[0].x) && (NI_P1[0].y == NI_P2[0].y))
         {
-            nibblesDecLives(1, 1); goto NoMove;
+            nibblesDecLives(1, 1);
+            goto NoMove;
         }
     }
     else

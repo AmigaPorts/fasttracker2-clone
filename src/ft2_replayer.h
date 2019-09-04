@@ -232,9 +232,10 @@ typedef struct songTyp_t
     uint16_t len, repS, speed, tempo, globVol, timer, ver;
     char name[20 + 1], instrName[1 + MAX_INST][22 + 1];
 
+    uint32_t musicTime;
+
     /* used for audio/video sync queue */
-    int16_t curReplayerPattPos, curReplayerSongPos, curReplayerPattNr;
-    uint16_t curReplayerTimer;
+    int16_t curReplayerTimer, curReplayerPattPos, curReplayerSongPos, curReplayerPattNr;
 } songTyp;
 
 typedef struct tonTyp_t
@@ -298,8 +299,6 @@ int16_t getRealUsedSamples(int16_t nr);
 int8_t instrIsEmpty(int16_t nr);
 void setStdEnvelope(uint16_t nr, uint16_t i, uint8_t typ);
 void setSyncedReplayerVars(void);
-void startPlaybackTimer(void);
-void stopPlaybackTimer(void);
 void decSongPos(void);
 void incSongPos(void);
 void decCurIns(void);

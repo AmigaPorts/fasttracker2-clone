@@ -194,10 +194,7 @@ static void drawCurrentPaletteColor(void)
         palIndex = getCurrentPaletteEntry();
 
         textOutShadow(516, 3, PAL_FORGRND, PAL_DSKTOP2, "Palette:");
-
-        fillRect(573, 3, 41, 8, PAL_DESKTOP);
-        hexOut(573, 3, PAL_FORGRND, video.palette[palIndex], 6);
-
+        hexOutBg(573, 3, PAL_FORGRND, PAL_DESKTOP, video.palette[palIndex], 6);
         clearRect(616, 2, 12, 10);
         fillRect(617, 3, 10, 8, palIndex);
     }
@@ -205,9 +202,8 @@ static void drawCurrentPaletteColor(void)
 
 static void drawContrastText(void)
 {
+    char str[10];
     int32_t percent;
-
-    fillRect(599, 59, 20, 8, PAL_DESKTOP);
 
     if (config.cfg_StdPalNr == PAL_USER_DEFINED)
     {
@@ -216,13 +212,8 @@ static void drawContrastText(void)
         else
             percent = editor.buttonContrast;
 
-        if (percent >= 100)
-            charOut(599, 59, PAL_FORGRND, '0' + (percent / 100) % 10);
-
-        if (percent >= 10)
-            charOut(606, 59, PAL_FORGRND, '0' + ((percent / 10) % 10));
-
-        charOut(613, 59, PAL_FORGRND, '0' + (percent % 10));
+        sprintf(str, "%3d", percent);
+        textOutFixed(599, 59, PAL_FORGRND, PAL_DESKTOP, str);
     }
 }
 
@@ -297,36 +288,10 @@ static void showPaletteEditor(void)
 
 static void configDrawAmp(void)
 {
-    uint8_t amp;
+    char str[8];
 
-    amp = (uint8_t)(config.boostLevel);
-
-    fillRect(607, 120, 13, 8, PAL_DESKTOP);
-
-    charOut(607, 120, PAL_FORGRND, '0' + (amp / 10));
-    charOut(614, 120, PAL_FORGRND, '0' + (amp % 10));
-}
-
-static void configDrawMasterVol(void)
-{
-    int32_t percent, decimal;
-    float fPercent;
-
-    fillRect(590, 148, 30, 8, PAL_DESKTOP);
-
-    fPercent = (config.masterVol * 100.0f) / 256.0f;
-
-    percent = (int32_t)(fPercent);
-    decimal = (int32_t)(((fPercent - floorf(fPercent)) * 10.0f));
-
-    if (percent >= 100)
-        charOut(590, 148, PAL_FORGRND, '0' + (percent / 100) % 10);  /* 100th */
-    if (percent >= 10)
-        charOut(597, 148, PAL_FORGRND, '0' + ((percent / 10) % 10)); /* 10th */
-
-    charOut(604, 148, PAL_FORGRND, '0' + (percent % 10));  /* 1st */
-    charOut(611, 148, PAL_FORGRND, '.');                   /* decimal point */
-    charOut(614, 148, PAL_FORGRND, '0' + (char)(decimal)); /* decimal */
+    sprintf(str, "%02d", config.boostLevel);
+    textOutFixed(607, 120, PAL_FORGRND, PAL_DESKTOP, str);
 }
 
 static void setDefaultConfigSettings(void)
@@ -898,18 +863,18 @@ static void updatePaletteSelection(void)
 
 static void drawQuantValue(void)
 {
-    fillRect(354, 123, 13, 8, PAL_DESKTOP);
+    char str[8];
 
-    charOut(354 + (0 * 7), 123, PAL_FORGRND, '0' + (char)(config.recQuantRes / 10));
-    charOut(354 + (1 * 7), 123, PAL_FORGRND, '0' + (char)(config.recQuantRes % 10));
+    sprintf(str, "%02d", config.recQuantRes);
+    textOutFixed(354, 123, PAL_FORGRND, PAL_DESKTOP, str);
 }
 
 static void drawMIDIChanValue(void)
 {
-    fillRect(578, 109, 13, 8, PAL_DESKTOP);
+    char str[8];
 
-    charOut(578 + (0 * 7), 109, PAL_FORGRND, '0' + (uint8_t)(config.recMIDIChn / 10));
-    charOut(578 + (1 * 7), 109, PAL_FORGRND, '0' + (uint8_t)(config.recMIDIChn % 10));
+    sprintf(str, "%02d", config.recMIDIChn);
+    textOutFixed(578, 109, PAL_FORGRND, PAL_DESKTOP, str);
 }
 
 static void drawMIDITransp(void)
@@ -939,15 +904,10 @@ static void drawMIDITransp(void)
 
 static void drawMIDISens(void)
 {
-    uint8_t val;
+    char str[8];
 
-    fillRect(525, 160, 20, 8, PAL_DESKTOP);
-
-    val = (uint8_t)(config.recMIDIVolSens);
-
-    charOut(525 + (0 * 7), 160, PAL_FORGRND, '0' + ((val / 100) % 10));
-    charOut(525 + (1 * 7), 160, PAL_FORGRND, '0' + ((val / 10)  % 10));
-    charOut(525 + (2 * 7), 160, PAL_FORGRND, '0' + ( val        % 10));
+    sprintf(str, "%03d", config.recMIDIVolSens);
+    textOutFixed(525, 160, PAL_FORGRND, PAL_DESKTOP, str);
 }
 
 static void setConfigRadioButtonStates(void)
@@ -1332,14 +1292,12 @@ void showConfigScreen(void)
 
             textOutShadow(509, 120, PAL_FORGRND, PAL_DSKTOP2, "Amplification:");
             charOutShadow(621, 120, PAL_FORGRND, PAL_DSKTOP2, 'X');
-            textOutShadow(509, 148, PAL_FORGRND, PAL_DSKTOP2, "Master vol.:");
-            charOutShadow(621, 148, PAL_FORGRND, PAL_DSKTOP2, '%');
+            textOutShadow(509, 148, PAL_FORGRND, PAL_DSKTOP2, "Master volume:");
 
             setConfigIORadioButtonStates();
             setConfigIOCheckButtonStates();
 
             configDrawAmp();
-            configDrawMasterVol();
 
             setScrollBarPos(SB_AMP_SCROLL,       config.boostLevel - 1, false);
             setScrollBarPos(SB_MASTERVOL_SCROLL, config.masterVol,      false);
@@ -1542,7 +1500,9 @@ void showConfigScreen(void)
             showPushButton(PB_CONFIG_MIDI_INPUT_DOWN);
             showPushButton(PB_CONFIG_MIDI_INPUT_UP);
 
+            rescanMidiInputDevices();
             drawMidiInputList();
+
             showScrollBar(SB_MIDI_INPUT_SCROLL);
         }
         break;
@@ -2928,7 +2888,6 @@ void sbMasterVol(int32_t pos)
 {
     config.masterVol = (int16_t)(pos);
     setAudioAmp(config.boostLevel, config.masterVol, config.specialFlags & BITDEPTH_24);
-    configDrawMasterVol();
 }
 
 void configMasterVolDown(void)

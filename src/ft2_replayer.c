@@ -38,7 +38,6 @@ static int8_t bxxOverflow;
 static int16_t *linearPeriods, *amigaPeriods;
 static uint32_t *logTabScope, *logTab, frequenceDivFactor, frequenceMulFactor;
 static tonTyp nilPatternLine;
-static SDL_TimerID playbackTimeTimer;
 
 /* globally accessed */
 
@@ -2204,6 +2203,9 @@ void mainPlayer(void) /* periodically called from audio callback */
     }
     else
     {
+        if (song.speed > 0)
+            song.musicTime += (65536 / song.speed);
+
         readNewNote = false;
         if (--song.timer == 0)
         {
@@ -2211,6 +2213,7 @@ void mainPlayer(void) /* periodically called from audio callback */
             readNewNote = true;
         }
 
+        /* for visuals */
         song.curReplayerTimer   = song.timer;
         song.curReplayerPattPos = song.pattPos;
         song.curReplayerPattNr  = song.pattNr;
@@ -2736,12 +2739,6 @@ void conv16BitSample(int8_t *p, int32_t len, int8_t stereo)
 
 void closeReplayer(void)
 {
-    if (playbackTimeTimer != 0)
-    {
-        SDL_RemoveTimer(playbackTimeTimer);
-        playbackTimeTimer = 0;
-    }
-
     clearAllInstr();
     freeAllPatterns();
 
@@ -2892,13 +2889,11 @@ void playSong(void)
     playMode = PLAYMODE_SONG;
     songPlaying = true;
     song.globVol = 64;
+    song.musicTime = 0;
     unlockMixerCallback();
 
     editor.updatePosSections   = true;
     editor.updatePatternEditor = true;
-
-    if (!editor.wavIsRendering)
-        startPlaybackTimer();
 }
 
 void playPatternFromRow(uint16_t row)
@@ -2915,13 +2910,11 @@ void playPatternFromRow(uint16_t row)
     playMode = PLAYMODE_PATT;
     songPlaying = true;
     song.globVol = 64;
+    song.musicTime = 0;
     unlockMixerCallback();
 
     editor.updatePosSections   = true;
     editor.updatePatternEditor = true;
-
-    if (!editor.wavIsRendering)
-        startPlaybackTimer();
 }
 
 void playPattern(void)
@@ -2931,13 +2924,11 @@ void playPattern(void)
     playMode = PLAYMODE_PATT;
     songPlaying = true;
     song.globVol = 64;
+    song.musicTime = 0;
     unlockMixerCallback();
 
     editor.updatePosSections   = true;
     editor.updatePatternEditor = true;
-
-    if (!editor.wavIsRendering)
-        startPlaybackTimer();
 }
 
 void recordSong(void)
@@ -2947,13 +2938,11 @@ void recordSong(void)
     playMode = PLAYMODE_RECSONG;
     songPlaying = true;
     song.globVol = 64;
+    song.musicTime = 0;
     unlockMixerCallback();
 
     editor.updatePosSections   = true;
     editor.updatePatternEditor = true;
-
-    if (!editor.wavIsRendering)
-        startPlaybackTimer();
 }
 
 void recordPattern(void)
@@ -2963,20 +2952,16 @@ void recordPattern(void)
     playMode = PLAYMODE_RECPATT;
     songPlaying = true;
     song.globVol = 64;
+    song.musicTime = 0;
     unlockMixerCallback();
 
     editor.updatePosSections   = true;
     editor.updatePatternEditor = true;
-
-    if (!editor.wavIsRendering)
-        startPlaybackTimer();
 }
 
 void stopPlaying(void)
 {
     uint8_t i, songWasPlaying;
-
-    stopPlaybackTimer();
 
     songWasPlaying = songPlaying;
     playMode = PLAYMODE_IDLE;
@@ -3448,36 +3433,6 @@ void setSyncedReplayerVars(void)
         }
     }
 }
-
-/* functions related to song playback timer */
-
-static uint32_t SDLCALL playbackTimerCallback(uint32_t interval, void *param)
-{
-    editor.playbackSeconds++;
-    editor.updatePlaybackTime = true;
-
-    (void)(param); /* make compiler happy */
-    return (interval);
-}
-
-void stopPlaybackTimer(void)
-{
-    if (playbackTimeTimer != 0)
-    {
-        SDL_RemoveTimer(playbackTimeTimer);
-        playbackTimeTimer = 0;
-    }
-}
-
-void startPlaybackTimer(void)
-{
-    editor.playbackSeconds = 0;
-    editor.updatePlaybackTime = true;
-
-    stopPlaybackTimer();
-    playbackTimeTimer = SDL_AddTimer(1000, playbackTimerCallback, NULL);
-}
-
 
 /* TABLES */
 

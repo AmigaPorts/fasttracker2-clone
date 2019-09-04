@@ -664,7 +664,7 @@ void initializeScrollBars(void)
     setScrollBarEnd(SB_SAMPLE_LIST, 16);
 
     /* help screen */
-    setScrollBarPageLength(SB_HELP_SCROLL, HELP_WINDOW_LINES);
+    setScrollBarPageLength(SB_HELP_SCROLL, 15);
     setScrollBarEnd(SB_HELP_SCROLL, 1);
 
     /* config screen */

@@ -413,8 +413,6 @@ void drawMidiInputList(void)
     uint16_t y;
     int32_t i, deviceEntry;
 
-    rescanMidiInputDevices();
-
     clearRect(114, 4, 365, 164);
 
     if (!midi.initThreadDone || (midiDev == NULL) || (midi.numInputDevices == 0))

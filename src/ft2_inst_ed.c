@@ -175,48 +175,38 @@ void xchgInstr(void) /* dstInstr <-> srcInstr */
 
 static void drawMIDICh(void)
 {
-    uint8_t chan;
+    char str[8];
     instrTyp *ins;
 
     ins = &instr[editor.curInstr];
-
     MY_ASSERT(ins->midiChannel <= 15)
 
-    chan = ins->midiChannel + 1;
-
-    fillRect(156, 132, 13, 8, PAL_DESKTOP);
-
-    charOut(156 + (0 * 7), 132, PAL_FORGRND, '0' + (int8_t)(chan / 10));
-    charOut(156 + (1 * 7), 132, PAL_FORGRND, '0' + (chan % 10));
+    sprintf(str, "%02d", ins->midiChannel + 1);
+    textOutFixed(156, 132, PAL_FORGRND, PAL_DESKTOP, str);
 }
 
 static void drawMIDIPrg(void)
 {
+    char str[8];
     instrTyp *ins;
 
     ins = &instr[editor.curInstr];
-
     MY_ASSERT(ins->midiProgram <= 127)
 
-    fillRect(149, 146, 20, 8, PAL_DESKTOP);
-
-    charOut(149 + (0 * 7), 146, PAL_FORGRND, '0' + (int8_t)(ins->midiProgram / 100));
-    charOut(149 + (1 * 7), 146, PAL_FORGRND, '0' + ((ins->midiProgram / 10) % 10));
-    charOut(149 + (2 * 7), 146, PAL_FORGRND, '0' + (ins->midiProgram % 10));
+    sprintf(str, "%03d", ins->midiProgram);
+    textOutFixed(149, 146, PAL_FORGRND, PAL_DESKTOP, str);
 }
 
 static void drawMIDIBend(void)
 {
+    char str[8];
     instrTyp *ins;
 
     ins = &instr[editor.curInstr];
-
     MY_ASSERT(ins->midiBend <= 36)
 
-    fillRect(156, 160, 13, 8, PAL_DESKTOP);
-
-    charOut(156 + (0 * 7), 160, PAL_FORGRND, '0' + (int8_t)(ins->midiBend / 10));
-    charOut(156 + (1 * 7), 160, PAL_FORGRND, '0' + (ins->midiBend % 10));
+    sprintf(str, "%02d", ins->midiBend );
+    textOutFixed(156, 160, PAL_FORGRND, PAL_DESKTOP, str);
 }
 
 void midiChDown(void)
@@ -387,62 +377,60 @@ void updateNewInstrument(void)
 
 static void drawVolEnvSus(void)
 {
-    fillRect(382, 206, 13, 8, PAL_DESKTOP);
+    char str[8];
 
-    charOut(382 + (0 * 7), 206, PAL_FORGRND, '0' + (instr[editor.curInstr].envVSust / 10));
-    charOut(382 + (1 * 7), 206, PAL_FORGRND, '0' + (instr[editor.curInstr].envVSust % 10));
+    sprintf(str, "%02d", instr[editor.curInstr].envVSust);
+    textOutFixed(382, 206, PAL_FORGRND, PAL_DESKTOP, str);
 }
 
 static void drawVolEnvRepS(void)
 {
-    fillRect(382, 234, 13, 8, PAL_DESKTOP);
+    char str[8];
 
-    charOut(382 + (0 * 7), 234, PAL_FORGRND, '0' + (instr[editor.curInstr].envVRepS / 10));
-    charOut(382 + (1 * 7), 234, PAL_FORGRND, '0' + (instr[editor.curInstr].envVRepS % 10));
+    sprintf(str, "%02d", instr[editor.curInstr].envVRepS);
+    textOutFixed(382, 234, PAL_FORGRND, PAL_DESKTOP, str);
 }
 
 static void drawVolEnvRepE(void)
 {
-    fillRect(382, 247, 13, 8, PAL_DESKTOP);
+    char str[8];
 
-    charOut(382 + (0 * 7), 247, PAL_FORGRND, '0' + (instr[editor.curInstr].envVRepE / 10));
-    charOut(382 + (1 * 7), 247, PAL_FORGRND, '0' + (instr[editor.curInstr].envVRepE % 10));
+    sprintf(str, "%02d", instr[editor.curInstr].envVRepE);
+    textOutFixed(382, 247, PAL_FORGRND, PAL_DESKTOP, str);
 }
 
 static void drawPanEnvSus(void)
 {
-    fillRect(382, 294, 13, 8, PAL_DESKTOP);
+    char str[8];
 
-    charOut(382 + (0 * 7), 294, PAL_FORGRND, '0' + (instr[editor.curInstr].envPSust / 10));
-    charOut(382 + (1 * 7), 294, PAL_FORGRND, '0' + (instr[editor.curInstr].envPSust % 10));
+    sprintf(str, "%02d", instr[editor.curInstr].envPSust);
+    textOutFixed(382, 294, PAL_FORGRND, PAL_DESKTOP, str);
 }
 
 static void drawPanEnvRepS(void)
 {
-    fillRect(382, 321, 13, 8, PAL_DESKTOP);
+    char str[8];
 
-    charOut(382 + (0 * 7), 321, PAL_FORGRND, '0' + (instr[editor.curInstr].envPRepS / 10));
-    charOut(382 + (1 * 7), 321, PAL_FORGRND, '0' + (instr[editor.curInstr].envPRepS % 10));
+    sprintf(str, "%02d", instr[editor.curInstr].envPRepS);
+    textOutFixed(382, 321, PAL_FORGRND, PAL_DESKTOP, str);
 }
 
 static void drawPanEnvRepE(void)
 {
-    fillRect(382, 335, 13, 8, PAL_DESKTOP);
+    char str[8];
 
-    charOut(382 + (0 * 7), 335, PAL_FORGRND, '0' + (instr[editor.curInstr].envPRepE / 10));
-    charOut(382 + (1 * 7), 335, PAL_FORGRND, '0' + (instr[editor.curInstr].envPRepE % 10));
+    sprintf(str, "%02d", instr[editor.curInstr].envPRepE);
+    textOutFixed(382, 335, PAL_FORGRND, PAL_DESKTOP, str);
 }
 
 static void drawVolume(void)
 {
-    fillRect(505, 178, 13, 8, PAL_DESKTOP);
-    hexOut(505, 178, PAL_FORGRND, instr[editor.curInstr].samp[editor.curSmp].vol, 2);
+    hexOutBg(505, 178, PAL_FORGRND, PAL_DESKTOP, instr[editor.curInstr].samp[editor.curSmp].vol, 2);
 }
 
 static void drawPanning(void)
 {
-    fillRect(505, 192, 13, 8, PAL_DESKTOP);
-    hexOut(505, 192, PAL_FORGRND, instr[editor.curInstr].samp[editor.curSmp].pan, 2);
+    hexOutBg(505, 192, PAL_FORGRND, PAL_DESKTOP, instr[editor.curInstr].samp[editor.curSmp].pan, 2);
 }
 
 static void drawFineTune(void)
@@ -484,26 +472,22 @@ static void drawFineTune(void)
 
 static void drawFadeout(void)
 {
-    fillRect(498, 222, 20, 8, PAL_DESKTOP);
-    hexOut(498, 222, PAL_FORGRND, instr[editor.curInstr].fadeOut, 3);
+    hexOutBg(498, 222, PAL_FORGRND, PAL_DESKTOP, instr[editor.curInstr].fadeOut, 3);
 }
 
 static void drawVibSpeed(void)
 {
-    fillRect(505, 236, 13, 8, PAL_DESKTOP);
-    hexOut(505, 236, PAL_FORGRND, instr[editor.curInstr].vibRate, 2);
+    hexOutBg(505, 236, PAL_FORGRND, PAL_DESKTOP, instr[editor.curInstr].vibRate, 2);
 }
 
 static void drawVibDepth(void)
 {
-    fillRect(512, 250, 6, 8, PAL_DESKTOP);
-    hexOut(512, 250, PAL_FORGRND, instr[editor.curInstr].vibDepth, 1);
+    hexOutBg(512, 250, PAL_FORGRND, PAL_DESKTOP, instr[editor.curInstr].vibDepth, 1);
 }
 
 static void drawVibSweep(void)
 {
-    fillRect(505, 264, 13, 8, PAL_DESKTOP);
-    hexOut(505, 264, PAL_FORGRND, instr[editor.curInstr].vibSweep, 2);
+    hexOutBg(505, 264, PAL_FORGRND, PAL_DESKTOP, instr[editor.curInstr].vibSweep, 2);
 }
 
 static void drawRelTone(void)
@@ -516,14 +500,11 @@ static void drawRelTone(void)
     int8_t note2, note;
     instrTyp *ins;
 
-    clearRect(598, 299, 22, 8);
-
     ins = &instr[editor.curInstr];
 
-    if (editor.curInstr == 0)
-        note2 = 48;
-    else
-        note2 = 48 + ins->samp[editor.curSmp].relTon;
+    note2 = 48;
+    if (editor.curInstr > 0)
+        note2 += ins->samp[editor.curSmp].relTon;
 
     note = note2 % 12;
     if (config.ptnAcc == 0)
@@ -539,9 +520,9 @@ static void drawRelTone(void)
 
     octaChar = '0' + (note2 / 12);
 
-    charOut(598, 299, PAL_FORGRND, noteChar1);
-    charOut(606, 299, PAL_FORGRND, noteChar2);
-    charOut(614, 299, PAL_FORGRND, octaChar);
+    charOutBg(598, 299, PAL_FORGRND, PAL_BCKGRND, noteChar1);
+    charOutBg(606, 299, PAL_FORGRND, PAL_BCKGRND, noteChar2);
+    charOutBg(614, 299, PAL_FORGRND, PAL_BCKGRND, octaChar);
 }
 
 static void setStdVolEnvelope(instrTyp *ins, uint8_t num)
@@ -1734,22 +1715,22 @@ void cbPEnvLoop(void)
     setSongModifiedFlag();
 }
 
-static void smallHexOutBg(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint8_t bgPaletteIndex, uint8_t val)
+static void smallHexOutBg(uint16_t xPos, uint16_t yPos, uint8_t fgPalette, uint8_t bgPalette, uint8_t val)
 {
     const uint8_t *srcPtr;
-    uint32_t x, y, *dstPtr, pixVal, bgPixVal;
+    uint32_t x, y, *dstPtr, fg, bg;
 
     MY_ASSERT(val <= 0xF)
 
-    dstPtr   = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
-    srcPtr   = &smallHexBitmap[val * 5];
-    pixVal   = video.palette[paletteIndex];
-    bgPixVal = video.palette[bgPaletteIndex];
+    fg     = video.palette[fgPalette];
+    bg     = video.palette[bgPalette];
+    dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
+    srcPtr = &smallHexBitmap[val * 5];
 
     for (y = 0; y < 7; ++y)
     {
         for (x = 0; x < 5; ++x)
-            dstPtr[x] = srcPtr[x] ? pixVal : bgPixVal;
+            dstPtr[x] = srcPtr[x] ? fg : bg;
 
         dstPtr += SCREEN_W;
         srcPtr += 80;
@@ -2176,7 +2157,7 @@ static void envelopePixel(int32_t nr, int16_t x, int16_t y, uint8_t col)
 
 static void envelopeDot(int32_t nr, int16_t x, int16_t y)
 {
-    uint32_t pixVal;
+    uint32_t *dstPtr, pixVal;
 
     if (nr == 0)
         y += 189;
@@ -2184,21 +2165,20 @@ static void envelopeDot(int32_t nr, int16_t x, int16_t y)
         y += 276;
 
     pixVal = video.palette[PAL_BLCKTXT];
+    dstPtr = &video.frameBuffer[(y * SCREEN_W) + x];
 
-    video.frameBuffer[((y + 0) * SCREEN_W) + (x + 0)] = pixVal;
-    video.frameBuffer[((y + 0) * SCREEN_W) + (x + 1)] = pixVal;
-    video.frameBuffer[((y + 0) * SCREEN_W) + (x + 2)] = pixVal;
-    video.frameBuffer[((y + 1) * SCREEN_W) + (x + 0)] = pixVal;
-    video.frameBuffer[((y + 1) * SCREEN_W) + (x + 1)] = pixVal;
-    video.frameBuffer[((y + 1) * SCREEN_W) + (x + 2)] = pixVal;
-    video.frameBuffer[((y + 2) * SCREEN_W) + (x + 0)] = pixVal;
-    video.frameBuffer[((y + 2) * SCREEN_W) + (x + 1)] = pixVal;
-    video.frameBuffer[((y + 2) * SCREEN_W) + (x + 2)] = pixVal;
+    for (y = 0; y < 3; ++y)
+    {
+        *dstPtr++ = pixVal;
+        *dstPtr++ = pixVal;
+        *dstPtr++ = pixVal;
+
+        dstPtr += (SCREEN_W - 3);
+    }
 }
 
 static void envelopeVertLine(int32_t nr, int16_t x, int16_t y, uint8_t col)
 {
-    int32_t i;
     uint32_t *dstPtr, pixVal1, pixVal2;
 
     if (nr == 0)
@@ -2210,7 +2190,7 @@ static void envelopeVertLine(int32_t nr, int16_t x, int16_t y, uint8_t col)
     pixVal2 = video.palette[PAL_BLCKTXT];
 
     dstPtr = &video.frameBuffer[(y * SCREEN_W) + x];
-    for (i = 0; i < 33; ++i)
+    for (y = 0; y < 33; ++y)
     {
         if (*dstPtr != pixVal2)
             *dstPtr  = pixVal1;
@@ -2234,10 +2214,10 @@ static void writeEnvelope(int32_t nr)
         clearRect(5, 276, 331, 67);
 
     /* draw dotted x/y lines */
-    for (i = 0; i <= 32;  ++i) envelopePixel(nr, 5, 1 + i * 2,   PAL_PATTEXT);
-    for (i = 0; i <= 8;   ++i) envelopePixel(nr, 4, 1 + i * 8,   PAL_PATTEXT);
-    for (i = 0; i <= 162; ++i) envelopePixel(nr, 8 + i *  2, 65, PAL_PATTEXT);
-    for (i = 0; i <= 6;   ++i) envelopePixel(nr, 8 + i * 50, 66, PAL_PATTEXT);
+    for (i = 0; i <= 32;  ++i) envelopePixel(nr, 5,          1 + i * 2, PAL_PATTEXT);
+    for (i = 0; i <= 8;   ++i) envelopePixel(nr, 4,          1 + i * 8, PAL_PATTEXT);
+    for (i = 0; i <= 162; ++i) envelopePixel(nr, 8 + i *  2, 65,        PAL_PATTEXT);
+    for (i = 0; i <= 6;   ++i) envelopePixel(nr, 8 + i * 50, 66,        PAL_PATTEXT);
 
     /* draw center line on pan envelope */
     if (nr == 1)
@@ -2298,10 +2278,8 @@ static void writeEnvelope(int32_t nr)
     /* draw envelope */
     for (i = 0; i < nd; ++i)
     {
-        x = curEnvP[i][0];
-        y = curEnvP[i][1];
-        x = CLAMP(x, 0, 340);
-        y = CLAMP(y, 0, 64);
+        x = curEnvP[i][0]; x = CLAMP(x, 0, 340);
+        y = curEnvP[i][1]; y = CLAMP(y, 0,  64);
 
         envelopeDot(nr, 7 + x, 64 - y);
 
@@ -2483,23 +2461,23 @@ void updateInstEditor(void)
 
     if (editor.curInstr == 0)
     {
-        setScrollBarPos(SB_INST_VOL, 0, true);
-        setScrollBarPos(SB_INST_PAN, 128, true);
-        setScrollBarPos(SB_INST_FTUNE, 128, true);
-        setScrollBarPos(SB_INST_FADEOUT, 0, true);
-        setScrollBarPos(SB_INST_VIBSPEED, 0, true);
-        setScrollBarPos(SB_INST_VIBDEPTH, 0, true);
-        setScrollBarPos(SB_INST_VIBSWEEP, 0, true);
+        setScrollBarPos(SB_INST_VOL,      0,   true);
+        setScrollBarPos(SB_INST_PAN,      128, true);
+        setScrollBarPos(SB_INST_FTUNE,    128, true);
+        setScrollBarPos(SB_INST_FADEOUT,  0,   true);
+        setScrollBarPos(SB_INST_VIBSPEED, 0,   true);
+        setScrollBarPos(SB_INST_VIBDEPTH, 0,   true);
+        setScrollBarPos(SB_INST_VIBSWEEP, 0,   true);
     }
     else
     {
-        setScrollBarPos(SB_INST_VOL, smp->vol, true);
-        setScrollBarPos(SB_INST_PAN, smp->pan, true);
-        setScrollBarPos(SB_INST_FTUNE, 128 + smp->fine, true);
-        setScrollBarPos(SB_INST_FADEOUT, ins->fadeOut, true);
-        setScrollBarPos(SB_INST_VIBSPEED, ins->vibRate, true);
-        setScrollBarPos(SB_INST_VIBDEPTH, ins->vibDepth, true);
-        setScrollBarPos(SB_INST_VIBSWEEP, ins->vibSweep, true);
+        setScrollBarPos(SB_INST_VOL,      smp->vol,        true);
+        setScrollBarPos(SB_INST_PAN,      smp->pan,        true);
+        setScrollBarPos(SB_INST_FTUNE,    128 + smp->fine, true);
+        setScrollBarPos(SB_INST_FADEOUT,  ins->fadeOut,    true);
+        setScrollBarPos(SB_INST_VIBSPEED, ins->vibRate,    true);
+        setScrollBarPos(SB_INST_VIBDEPTH, ins->vibDepth,   true);
+        setScrollBarPos(SB_INST_VIBSWEEP, ins->vibSweep,   true);
     }
 
     /* set radio buttons */
@@ -2657,11 +2635,12 @@ void showInstEditor(void)
     showCheckBox(CB_INST_PENV);
     showCheckBox(CB_INST_PENV_SUS);
     showCheckBox( CB_INST_PENV_LOOP);
-
-    blitFast(455, 279, &instVibWaveforms[(12 * 10) * 0], 12, 10);
-    blitFast(485, 279, &instVibWaveforms[(12 * 10) * 1], 12, 10);
-    blitFast(515, 279, &instVibWaveforms[(12 * 10) * 2], 12, 10);
-    blitFast(545, 279, &instVibWaveforms[(12 * 10) * 3], 12, 10);
+    
+    /* draw auto-vibrato waveforms */
+    blitFast(455, 279, &vibWaveformBitmap[(12 * 10) * 0], 12, 10);
+    blitFast(485, 279, &vibWaveformBitmap[(12 * 10) * 1], 12, 10);
+    blitFast(515, 279, &vibWaveformBitmap[(12 * 10) * 2], 12, 10);
+    blitFast(545, 279, &vibWaveformBitmap[(12 * 10) * 3], 12, 10);
 
     showRadioButtonGroup(RB_GROUP_INST_WAVEFORM);
 
@@ -2901,30 +2880,27 @@ void drawInstEditorExt(void)
 {
     instrTyp *ins;
 
+    ins = &instr[editor.curInstr];
+
     drawFramework(0,  92, 291, 17, FRAMEWORK_TYPE1);
     drawFramework(0, 109, 291, 19, FRAMEWORK_TYPE1);
     drawFramework(0, 128, 291, 45, FRAMEWORK_TYPE1);
 
-    textOutShadow(  4,  96, PAL_FORGRND, PAL_DSKTOP2, "Instrument Editor Extension:");
-    textOutShadow( 20, 114, PAL_FORGRND, PAL_DSKTOP2, "Instrument MIDI enable");
+    textOutShadow(4,   96,  PAL_FORGRND, PAL_DSKTOP2, "Instrument Editor Extension:");
+    textOutShadow(20,  114, PAL_FORGRND, PAL_DSKTOP2, "Instrument MIDI enable");
     textOutShadow(189, 114, PAL_FORGRND, PAL_DSKTOP2, "Mute computer");
-
-    textOutShadow(4, 133, PAL_FORGRND, PAL_DSKTOP2, "MIDI transmit channel");
-    textOutShadow(4, 147, PAL_FORGRND, PAL_DSKTOP2, "MIDI program");
-    textOutShadow(4, 160, PAL_FORGRND, PAL_DSKTOP2, "Bender range (halftones)");
-
-    ins = &instr[editor.curInstr];
+    textOutShadow(4,   133, PAL_FORGRND, PAL_DSKTOP2, "MIDI transmit channel");
+    textOutShadow(4,   147, PAL_FORGRND, PAL_DSKTOP2, "MIDI program");
+    textOutShadow(4,   160, PAL_FORGRND, PAL_DSKTOP2, "Bender range (halftones)");
 
     checkBoxes[CB_INST_EXT_MIDI].checked = ins->midiOn ? true : false;
     checkBoxes[CB_INST_EXT_MUTE].checked = ins->mute   ? true : false;
-
     showCheckBox(CB_INST_EXT_MIDI);
     showCheckBox(CB_INST_EXT_MUTE);
 
     setScrollBarPos(SB_INST_EXT_MIDI_CH,   ins->midiChannel, false);
     setScrollBarPos(SB_INST_EXT_MIDI_PRG,  ins->midiProgram, false);
     setScrollBarPos(SB_INST_EXT_MIDI_BEND, ins->midiBend,    false);
-
     showScrollBar(SB_INST_EXT_MIDI_CH);
     showScrollBar(SB_INST_EXT_MIDI_PRG);
     showScrollBar(SB_INST_EXT_MIDI_BEND);

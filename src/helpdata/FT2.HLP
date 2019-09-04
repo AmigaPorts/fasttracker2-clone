@@ -43,7 +43,6 @@
 >- XP  @T110Extended pattern.
 >- XT  @T110Extended track.
 
-
 END
 ;***************************************************************************
 ;***************************************************************************
@@ -368,7 +367,6 @@ Syntax: X(1 or 2) + Speed
 
 This command works as fine portamento up/down, but the speed
 will be divided by four.
->
 
 END
 ;***************************************************************************
@@ -510,7 +508,7 @@ Alt+A @T160Range all.
 >Alt/Ctrl+C @T160Copy.
 >Alt/Ctrl+V @T160Paste.
 >Alt+R @T160Crop.
-
+>Mouse wheel @T160Zoom in/out.
 
 END
 ;***************************************************************************
@@ -854,42 +852,42 @@ END
 >@X020
 >@C001Q: Can I make fullscreen mode stretch out the whole screen?
 >@C002A: If it doesn't already, enable the "Pixel filter" box in the config screen.
->@T170It won't look pretty, but for some people it's much better than nothing.
+>@X035It won't look pretty, but for some people it's much better than nothing.
 >@X020
 >@C001Q: I can't use ALT+F4 and ALT+F5!
->@C002A: @C001Windows:@C002 If you have GeForce Experience installed, you need to change
->@T170the keybindings in its settings page.
->@C001macOS/OS X:@C002 Change ALT+F4/ALT+F5 keys in the OS to something else.
->Also for GNU/Linux.
+>@C002A: Windows: If you have GeForce Experience installed, you need to change
+>@X035the keybindings in its settings page.
+macOS/OS X: Change ALT+F4/ALT+F5 keys in the OS to something else. Also for GNU/Linux.
 >@X020
 >@C001Q: Will you implement MIDI out functionality?
->@C002A: No, sorry. This is very difficult to implement correctly when having higher
->@T170audio buffer sizes (buffered replayer ticks)...
+>@C002A: No, sorry. This is very difficult to implement correctly when having
+>@X035higher audio buffer sizes (buffered replayer ticks)...
 >@X020
 >@C001Q: Where is the configuration file stored?
->@C002A: @C001Windows:@C002 \Users\USER\AppData\Roaming\FT2 clone\FT2.CFG
->@T170@C001OS X:@C002 /Users/USER/Library/Application Support/FT2 clone/FT2.CFG
->@T170@C001GNU/Linux:@C002 /home/USER/.config/FT2 clone/FT2.CFG
+>@C002A: Windows: \Users\USER\AppData\Roaming\FT2 clone\FT2.CFG
+>@X035OS X: /Users/USER/Library/Application Support/FT2 clone/FT2.CFG
+GNU/Linux: /home/USER/.config/FT2 clone/FT2.CFG
 >
->It will be stored in the program directory if the path couldn't be used.
->If you put the configuration file in the program directory, it will read that
->one and not attempt to create config dirs for the OS user. (portable mode)
+It will be stored in the program directory if the path couldn't be used.
+If you put the configuration file in the program directory, it will read that
+one and not attempt to create config dirs for the OS user. (portable mode)
 >@X020
 >@C001Q: The mouse cursor is delayed in its movement!
->@C002A: Enable "Vsync off" in Config -> Miscellaneous. This however, introduces
->@T170more instability in the framerate (graphics rendering *and* input).
+>@C002A: Enable "Vsync off" in Config -> Miscellaneous. This however,
+>@X035introduces more instability in the framerate (graphics rendering *and* input).
 >@X020
 >@C001Q: Can the clone read FT2.CFG from real FT2, and vice versa?
 >@C002A: Yes, it should work just fine. Put it in the directory shown above.
->
+>@X020
 >@C001Q: Smp. Ed.: While zooming in, I sometimes can't mark the last sample point!
 >@C002A: This is normal. This is a limitation in the nature of scaling.
->
+>@X020
 >@C001Q: I found a bug! What do I do?
 >@C002A: First make sure that it's a bug and not just a copied behavior from FT2.
->@T170Try what you did in the real FT2 and see if it happens there as well.
->If it's indeed a bug, send a mail (address is in the About screen) and try
->to explain how it happened. Try to persistantly be able to reproduce it.
+>@X035Try what you did in the real FT2 and see if it happens there as well.
+If it's indeed a bug, send a mail (address is in the About screen) and try
+to explain how it happened. Try to persistantly be able to reproduce it.
+
 END
 ;***************************************************************************
 ;***************************************************************************
@@ -897,36 +895,37 @@ END
 >@X010
 >@C001Sample editor:
 >@C002
->- When a forward-looped sample is zoomed out in the sample editor, you could
->@X021see unwanted sample data at the loop-end point. This is because of a
->kludge for linear interpolation to work faster in the audio mixer, and the
->original FT2 has the same problem. I have made it so that if you zoom in to
->see the individual sample points, it will look like normal.
->This was not a problem in the earlier FT2 clone versions because they
->worked differently for linear interpolation than the newer ones.
+>- When a forward-looped sample is zoomed out in the sample editor, you
+>@X021could see unwanted sample data at the loop-end point. This is because of a
+kludge for linear interpolation to work faster in the audio mixer, and the
+original FT2 has the same problem. I have made it so that if you zoom in to
+see the individual sample points, it will look like normal.
+This was not a problem in the earlier FT2 clone versions because they
+worked differently for linear interpolation than the newer ones.
 >@X010
 >@C001Mouse / keyboard:
 >@C002
->- When you hold down a key (f.ex. playing a sample), the mouse movement can
->@X021be choppy. This is related to the input queue being spammed with
->"key down" events, delaying the mouse position events.
->I only poll input once per frame (60Hz), so the frequency is a tad low. It has
->to be like this for several reasons, though...
+>- When you hold down a key (f.ex. playing a sample), the mouse movement
+>@X021can be choppy. This is related to the input queue being spammed with
+"key down" events, delaying the mouse position events.
+I only poll input once per frame (60Hz), so the frequency is a tad low. It has
+to be like this for several reasons, though...
 >@X010
->- @C001macOS / OS X:@C002 Holding down a mouse button won't trap the mouse cursor
+>- macOS / OS X: Holding down a mouse button won't trap the mouse cursor
 >@X021inside the window. This is related to a kludge that simply doesn't work very
->well in macOS. If I left it in, the mouse movement would freeze for some time
->after a mouse button was held down.
+well in macOS. If I left it in, the mouse movement would freeze for some time
+after a mouse button was held down.
 >@X010
 >@C001Video:
 >@C002
 >- The scopes sometimes stutter even if Vsync is enabled. This is because
 >@X021they have to be ran on a separate timer to get less out of sync in certain
->scenarios, and that timer is very sensitive to what your OS is busy with at
->the time. It's very unfortunate that this had to be done, as they would've
->looked fantastic otherwise.
+scenarios, and that timer is very sensitive to what your OS is busy with at
+the time. It's very unfortunate that this had to be done, as they would've
+looked fantastic otherwise.
 >@X010
 >- Not a bug, but for the best possible experience, use a 59Hz/60Hz refresh
 >@X021rate for your monitor. The Vsync routine requires that. I can understand
->how this is very inconvenient if you have a high Hz monitor, and I'm sorry.
+how this is very inconvenient if you have a high Hz monitor, and I'm sorry.
+
 END

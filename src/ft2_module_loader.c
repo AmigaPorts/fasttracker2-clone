@@ -732,9 +732,15 @@ int8_t loadMusicSTM(FILE *f, uint32_t fileLength)
                 ton = &pattTmp[i][(j * MAX_VOICES) + k];
 
                 if (pattBuff[a] < 96)
-                    ton->ton = 12 * (pattBuff[a] >> 4) + 25 + (pattBuff[a] & 0x0F);
+                {
+                    ton->ton = (12 * (pattBuff[a] >> 4)) + (25 + (pattBuff[a] & 0x0F));
+                    if (ton->ton > 97)
+                        ton->ton = 0;
+                }
                 else
+                {
                     ton->ton = 0;
+                }
 
                 ton->instr = pattBuff[a + 1] >> 3;
                 typ = (pattBuff[a + 1] & 7) + ((pattBuff[a + 2] & 0xF0) >> 1);
@@ -1169,6 +1175,8 @@ int8_t loadMusicS3M(FILE *f, uint32_t dataLength)
                         else if (ton.ton == 255) ton.ton = 0;
                         else                     ton.ton = 1 + (ton.ton & 15) + (ton.ton >> 4) * 12;
 
+                        if (ton.ton > 97)
+                            ton.ton = 0;
                     }
 
                     /* volume */
@@ -2079,7 +2087,7 @@ static void checkSampleRepeat(sampleTyp *s)
     if (s->repS > s->len) s->repS = s->len;
     if ((s->repS + s->repL) > s->len) s->repL = s->len - s->repS;
 
-    if (s->repL == 0) s->typ &= 0xFC; /* non-FT2 fix: force loop off if looplen is 0 */
+    if (s->repL == 0) s->typ &= ~3; /* non-FT2 fix: force loop off if looplen is 0 */
 }
 
 static int8_t loadInstrSample(FILE *f, uint16_t i)
@@ -2193,6 +2201,10 @@ void unpackPatt(uint8_t *dst, uint16_t inn, uint16_t len, uint8_t antChn)
                 *dst++ = *src++;
                 *dst++ = *src++;
             }
+
+            /* if note is overflowing (>97), remove it */
+            if (*(dst - 5) > 97)
+                *(dst - 5) = 0;
 
             /* Non-FT2 security fix: if effect is above 35 (Z), clear effect and parameter */
             if (*(dst - 2) > 35)
@@ -2481,7 +2493,7 @@ static void setupLoadedModule(void)
     updateChanNums();
     resetWavRenderer();
     clearPattMark();
-    stopPlaybackTimer();
+    song.musicTime = 0;
     resetTrimSizes();
 
     diskOpSetFilename(DISKOP_ITEM_MODULE, editor.tmpFilenameU);

@@ -379,9 +379,14 @@ void mouseWheelHandler(uint8_t directionUp)
         /* bottom screens */
 
         if (editor.ui.sampleEditorShown)
-            directionUp ? mouseZoomSampleDataIn() : mouseZoomSampleDataOut();
+        {
+            if ((mouse.y >= 174) && (mouse.y <= 328))
+                directionUp ? mouseZoomSampleDataIn() : mouseZoomSampleDataOut();
+        }
         else if (editor.ui.patternEditorShown)
+        {
             directionUp ? mouseWheelDecRow() : mouseWheelIncRow();
+        }
     }
 }
 
@@ -459,15 +464,6 @@ void mouseButtonUpHandler(uint8_t mouseButton)
     if ( mouse.leftButtonPressed && !mouse.rightButtonPressed) return;
     if (!mouse.leftButtonPressed &&  mouse.rightButtonPressed) return;
 
-    /* mouse 0,0 = open exit dialog */
-    if ((mouse.x == 0) && (mouse.y == 0)) 
-    {
-        if (quitBox(false) == 1)
-            editor.ui.throwExit = true;
-
-        return;
-    }
-
     if (editor.ui.sampleEditorShown)
         testSmpEdMouseUp();
 
@@ -536,6 +532,15 @@ void mouseButtonDownHandler(uint8_t mouseButton)
 
     mouse.leftButtonReleased  = false;
     mouse.rightButtonReleased = false;
+
+    /* mouse 0,0 = open exit dialog */
+    if ((mouse.x == 0) && (mouse.y == 0)) 
+    {
+        if (quitBox(false) == 1)
+            editor.ui.throwExit = true;
+
+        return;
+    }
 
     /* don't do mouse down testing here if we already are using an object */
     if (mouse.lastUsedObjectType != OBJECT_NONE)

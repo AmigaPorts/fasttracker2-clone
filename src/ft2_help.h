@@ -5,7 +5,6 @@
 
 #define HELP_LINE_HEIGHT 11
 #define HELP_WINDOW_HEIGHT 164
-#define HELP_WINDOW_LINES 15
 #define HELP_TEXT_BUFFER_W 472
 
 void helpScrollUp(void);
@@ -16,7 +15,8 @@ void showHelpScreen(void);
 void hideHelpScreen(void);
 void exitHelpScreen(void);
 
-void freeHelpTextBuffer(void);
+void initFTHelp(void);
+void windUpFTHelp(void);
 
 /* RADIO BUTTONS */
 

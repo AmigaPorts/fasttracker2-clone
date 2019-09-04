@@ -236,6 +236,7 @@ int8_t setupDiskOp(void)
        )
     {
         /* allocated memory is free'd lateron */
+        showErrorMsgBox("Not enough memory!");
         return (false);
     }
 

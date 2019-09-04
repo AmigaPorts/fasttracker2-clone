@@ -22,8 +22,6 @@
 
    Yes, this is a HUGE mess, and I hope you don't need to modify it.
    If it's not broken, don't try to fix it!
-
-   NOTE: all MY_ASSERT() macros do absolutely nothing in release mode!
 */
 
 /* ----------------------------------------------------------------------- */

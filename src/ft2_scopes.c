@@ -4,7 +4,10 @@
 #endif
 
 #include <stdint.h>
-#ifndef _WIN32
+#ifdef _WIN32
+#define WIN32_MEAN_AND_LEAN
+#include <windows.h>
+#else
 #include <unistd.h> /* usleep() */
 #endif
 #include "ft2_header.h"
@@ -52,6 +55,10 @@ static uint64_t timeNext64;
 static scope_t scope[MAX_VOICES];
 static SDL_Thread *scopeThread;
 static volatile scopeState_t scopeNewState[MAX_VOICES][NUM_LATCH_BUFFERS];
+
+#ifdef _WIN32
+static NTSTATUS (__stdcall *NtDelayExecution)(BOOL Alertable, PLARGE_INTEGER DelayInterval);
+#endif
 
 static const uint16_t scopeLenTab[16][32] =
 {
@@ -866,6 +873,26 @@ void handleScopesFromChQueue(chSyncData_t *chSyncData, uint8_t *scopeUpdateStatu
     }
 }
 
+#ifdef _WIN32 /* usleep() implementation for Windows */
+static void usleep(uint32_t usec)
+{
+    LARGE_INTEGER lpDueTime;
+
+    if (NtDelayExecution == NULL)
+    {
+        Sleep((uint32_t)((usec / 1000.0) + 0.5));
+    }
+    else
+    {
+        /* this prevents a 64-bit MUL (will not overflow with typical values anyway) */
+        lpDueTime.HighPart = 0xFFFFFFFF;
+        lpDueTime.LowPart  = (DWORD)(-10 * (int32_t)(usec));
+
+        NtDelayExecution(false, &lpDueTime);
+    }
+}
+#endif
+
 static int32_t SDLCALL scopeThreadFunc(void *ptr)
 {
     int32_t time32;
@@ -891,23 +918,13 @@ static int32_t SDLCALL scopeThreadFunc(void *ptr)
             MY_ASSERT((timeNext64 - time64) <= 0xFFFFFFFFULL)
             diff32 = (uint32_t)(timeNext64 - time64);
 
-#ifdef _WIN32
-            /* convert to milliseconds */
-            dTime = diff32 * editor.dPerfFreqMulMilli;
-            double2int32_round(time32, dTime);
-
-            /* delay until we have reached next tick */
-            if (time32 > 0)
-                SDL_Delay(time32);
-#else
-            /* convert to microseconds */
+            /* convert and round to microseconds */
             dTime = diff32 * editor.dPerfFreqMulMicro;
             double2int32_round(time32, dTime);
 
             /* delay until we have reached next tick */
             if (time32 > 0)
                 usleep(time32);
-#endif
         }
 
         /* update next tick time */
@@ -921,9 +938,16 @@ static int32_t SDLCALL scopeThreadFunc(void *ptr)
 
 uint8_t initScopes(void)
 {
+#ifdef _WIN32
+    NtDelayExecution = (NTSTATUS (__stdcall *)(BOOL, PLARGE_INTEGER))(GetProcAddress(GetModuleHandle("ntdll.dll"), "NtDelayExecution"));
+#endif
+
     scopeThread = SDL_CreateThread(scopeThreadFunc, "FT2 Clone Visuals Thread", NULL);
     if (scopeThread == NULL)
+    {
+        showErrorMsgBox("Couldn't create scope thread!");
         return (false);
+    }
 
     /* don't let thread wait for this thread, let it clean up on its own when done */
     SDL_DetachThread(scopeThread);

@@ -179,7 +179,7 @@ static void pbDoResampling(void)
     }
 
     if (currSmp->repL == 0)
-        currSmp->typ &= 0xFC; /* disable loop */
+        currSmp->typ &= ~3; /* disable loop */
 
     fixSample(currSmp);
     resumeAudio();
@@ -838,7 +838,7 @@ static void pbMix(void)
     dstSmp->relTon = dstRelTone;
 
     if (dstSmp->repL == 0)
-        dstSmp->typ &= 0xFC; /* disable loop */
+        dstSmp->typ &= ~3; /* disable loop */
 
     fixSample(srcSmp);
     fixSample(dstSmp);

@@ -13,7 +13,7 @@
 #endif
 #include "ft2_replayer.h"
 
-#define BETA_VERSION 121
+#define BETA_VERSION 127
 
 /* do NOT change these! It will only mess things up... */
 #define VBLANK_HZ 60
@@ -69,18 +69,10 @@
 #define CLAMP(x, low, high) (((x) > (high)) ? (high) : (((x) < (low)) ? (low) : (x)))
 
 /* fast 32-bit -> 8-bit clamp */
-#define CLAMP8(i) \
-{ \
-    if ((int8_t)(i) != i) \
-        i = 0x7F ^ (i >> 31); \
-}
+#define CLAMP8(i) if ((int8_t)(i) != i) i = 0x7F ^ (i >> 31)
 
 /* fast 32-bit -> 16-bit clamp */
-#define CLAMP16(i) \
-{ \
-    if ((int16_t)(i) != i) \
-        i = 0x7FFF ^ (i >> 31); \
-}
+#define CLAMP16(i) if ((int16_t)(i) != i) i = 0x7FFF ^ (i >> 31)
 
 #define SWAP16(value) \
 ( \
@@ -160,15 +152,15 @@ struct editor_t
     uint8_t copyMaskEnable, copyMask[5], pasteMask[5], transpMask[5], updateWindowTitle;
     uint8_t samplerNote, instrBankSwapped, instrBankOffset, sampleBankOffset, channelMute[MAX_VOICES];
     uint8_t srcInstr, curInstr, srcSmp, curSmp, currHelpScreen, currentConfigScreen, textCursorBlinkCounter, diskOpReadOnOpen;
-    uint8_t updatePlaybackTime, updatePosSections, updatePatternEditor, keyOnTab[MAX_VOICES], diskOpReadDir, diskOpReadDone;
+    uint8_t updatePosSections, updatePatternEditor, keyOnTab[MAX_VOICES], diskOpReadDir, diskOpReadDone;
     uint8_t activeVoices, updateSongName, editSkip, curOctave;
     uint8_t sampleSaveMode, moduleSaveMode, samplingAudioFlag, NI_Play;
     uint8_t drawReplayerPianoFlag, drawPianoFlag, drawBPMFlag, drawSpeedFlag, drawGlobVolFlag, drawPosEdFlag, drawPattNumLenFlag;
     int16_t globalVol, songPos, pattPos;
     uint16_t tmpPattern, editPattern, speed, tempo, timer, f9Pos, f10Pos, f11Pos, f12Pos, ptnCursorY;
     int32_t samplePlayOffset, keyOffNr, keyOffTime[MAX_VOICES];
-    uint32_t playbackSeconds, framesPassed, *currPaletteEntry, wavRendererTime;
-    double dPerfFreq, dPerfFreqMulMilli, dPerfFreqMulMicro;
+    uint32_t framesPassed, *currPaletteEntry, wavRendererTime;
+    double dPerfFreq, dPerfFreqMulMicro;
 
     tonTyp *blkCopyBuff, *ptnCopyBuff, *trackCopyBuff, clearNote;
 } editor;

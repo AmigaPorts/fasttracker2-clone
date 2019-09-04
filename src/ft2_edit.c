@@ -266,7 +266,7 @@ static uint8_t testEditKeys(SDL_Scancode scancode, SDL_Keycode keycode)
 /* directly ported from the original FT2 code */
 static void evaluateTimestamp(int16_t *songPos, int16_t *pattNr, int16_t *pattPos, int16_t *tick)
 {
-    const int8_t tickArr[16 + 1] = { 1, 16, 8, 0, 4, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1 };
+    const int8_t tickArr[16] = { 16, 8, 0, 4, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1 };
     int16_t nr, t, p, r, sp, row;
     uint16_t pattLen;
 
@@ -283,15 +283,15 @@ static void evaluateTimestamp(int16_t *songPos, int16_t *pattNr, int16_t *pattPo
 
     pattLen = pattLens[nr];
 
-    if (config.recQuant)
+    if (config.recQuant > 0)
     {
-        if (config.recQuantRes == 16)
+        if (config.recQuantRes >= 16)
         {
             t += ((editor.tempo / 2) + 1);
         }
         else
         {
-            r = tickArr[config.recQuantRes];
+            r = tickArr[config.recQuantRes - 1];
 
             p = row & (r - 1);
             if (p < (r / 2))

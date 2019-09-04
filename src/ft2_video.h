@@ -15,12 +15,6 @@
 
 enum
 {
-    DO_NOT_UPDATE_SHADES  = 0,
-    UPDATE_SHADES         = 1
-};
-
-enum
-{
     SPRITE_LEFT_LOOP_PIN  = 0,
     SPRITE_RIGHT_LOOP_PIN = 1,
     SPRITE_TEXT_CURSOR    = 2,
@@ -31,7 +25,7 @@ enum
 
 struct video_t
 {
-    uint8_t customContrasts[2];
+    uint8_t customContrasts[2]; /* for palette */
     uint8_t upscaleFactor, fullscreen;
     uint32_t *frameBuffer, palette[PAL_NUM], vblankTimeLen;
     float fXScale, fYScale, fXScaleMul, fYScaleMul;
@@ -60,7 +54,7 @@ void setPalettePreset(int16_t palettePreset);
 void updatePaletteContrast(void);
 void handleScopesFromChQueue(chSyncData_t *chSyncData, uint8_t *scopeUpdateStatus);
 
-int8_t setupWindow(int argc, char *argv[]);
+int8_t setupWindow(void);
 int8_t setupRenderer(void);
 void closeVideo(void);
 void setLeftLoopPinState(int8_t clicked);

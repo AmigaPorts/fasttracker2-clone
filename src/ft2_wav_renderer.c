@@ -42,22 +42,15 @@ static SDL_Thread *thread;
 
 static void updateWavRenderer(void)
 {
-    uint8_t amp;
-    uint32_t freq;
+    char str[10];
 
     fillRect(209, 116, 41, 51, PAL_DESKTOP);
 
-    freq = WDFrequency;
-    charOut(209 + (5 * 7), 116, PAL_FORGRND, '0' + (freq % 10)); freq /= 10;
-    charOut(209 + (4 * 7), 116, PAL_FORGRND, '0' + (freq % 10)); freq /= 10;
-    charOut(209 + (3 * 7), 116, PAL_FORGRND, '0' + (freq % 10)); freq /= 10;
-    charOut(209 + (2 * 7), 116, PAL_FORGRND, '0' + (freq % 10)); freq /= 10;
-    charOut(209 + (1 * 7), 116, PAL_FORGRND, '0' + (freq % 10)); freq /= 10;
-    charOut(209 + (0 * 7), 116, PAL_FORGRND, '0' + (freq % 10));
+    sprintf(str, "%06d", WDFrequency);
+    textOut(209, 116, PAL_FORGRND, str);
 
-    amp = (uint8_t)(WDAmp);
-    charOut(237 + (0 * 7), 130, PAL_FORGRND, '0' + (amp / 10));
-    charOut(237 + (1 * 7), 130, PAL_FORGRND, '0' + (amp % 10));
+    sprintf(str, "%02d", WDAmp);
+    textOut(237, 130, PAL_FORGRND, str);
 
     hexOut(237, 144, PAL_FORGRND, WDStartPos, 2);
     hexOut(237, 158, PAL_FORGRND, WDStopPos,  2);
@@ -96,16 +89,13 @@ void drawWavRenderer(void)
 
     /* bitdepth radiobuttons */
 
+    radioButtons[RB_WAV_RENDER_BITDEPTH16].state = RADIOBUTTON_UNCHECKED;
+    radioButtons[RB_WAV_RENDER_BITDEPTH32].state = RADIOBUTTON_UNCHECKED;
+
     if (WDBitDepth == 16)
-    {
         radioButtons[RB_WAV_RENDER_BITDEPTH16].state = RADIOBUTTON_CHECKED;
-        radioButtons[RB_WAV_RENDER_BITDEPTH32].state = RADIOBUTTON_UNCHECKED;
-    }
     else
-    {
-        radioButtons[RB_WAV_RENDER_BITDEPTH16].state = RADIOBUTTON_UNCHECKED;
         radioButtons[RB_WAV_RENDER_BITDEPTH32].state = RADIOBUTTON_CHECKED;
-    }
 
     showRadioButtonGroup(RB_GROUP_WAV_RENDER_BITDEPTH);
 
@@ -174,7 +164,6 @@ static uint8_t dump_Init(uint32_t frq, int16_t amp, int16_t songPos)
 
     editor.wavIsRendering = true;
 
-    stopPlaybackTimer();
     setPos(songPos, 0);
     playMode = PLAYMODE_SONG;
     songPlaying = true;
@@ -196,8 +185,7 @@ static uint8_t dump_Init(uint32_t frq, int16_t amp, int16_t songPos)
     song.globVol = 64;
     setSpeed(song.speed);
 
-    editor.playbackSeconds = 0;
-    editor.updatePlaybackTime = true;
+    song.musicTime = 0;
 
     return (true);
 }
@@ -288,13 +276,8 @@ uint32_t dump_RenderTick(uint8_t *buffer) /* returns bytes mixed */
     return (mixReplayerTickToBuffer(buffer, WDBitDepth));
 }
 
-static void updateVisuals(uint32_t sampleCounter)
+static void updateVisuals(void)
 {
-    double dSecondsElapsed;
-
-    dSecondsElapsed = (sampleCounter / 2.0) / WDFrequency;
-    double2int32_round(editor.playbackSeconds, dSecondsElapsed);
-
     editor.editPattern = (uint8_t)(song.pattNr);
     editor.pattPos     = song.pattPos; 
     editor.songPos     = song.songPos;
@@ -308,7 +291,6 @@ static void updateVisuals(uint32_t sampleCounter)
     editor.drawBPMFlag           = true;
     editor.drawSpeedFlag         = true;
     editor.drawGlobVolFlag       = true;
-    editor.updatePlaybackTime    = true;
     editor.updatePatternEditor   = true;
 }
 
@@ -339,9 +321,8 @@ static int32_t SDLCALL renderWavThread(void *ptr)
         loopCounter    = 0;
         samplesInChunk = 0;
 
-        ptr8 = wavRenderBuffer;
-
         /* render several ticks at once to prevent frequent disk I/O (speeds up the process) */
+        ptr8 = wavRenderBuffer;
         for (i = 0; i < TICKS_PER_RENDER_CHUNK; ++i)
         {
             if (!editor.wavIsRendering || dump_EndOfTune(WDStopPos))
@@ -364,12 +345,11 @@ static int32_t SDLCALL renderWavThread(void *ptr)
             if (++loopCounter > 32)
             {
                 loopCounter = 0;
-                updateVisuals(sampleCounter);
+                updateVisuals();
             }
         }
         
         /* write buffer to disk */
-
         if (samplesInChunk > 0)
         {
             if (WDBitDepth == 16)
@@ -379,7 +359,7 @@ static int32_t SDLCALL renderWavThread(void *ptr)
         }
     }
 
-    updateVisuals(sampleCounter);
+    updateVisuals();
     dump_Close(f, sampleCounter);
 
     resumeAudio();
@@ -458,22 +438,14 @@ void pbWavFreqUp(void)
 {
     if (WDFrequency < MAX_WAV_AUDIO_FREQ)
     {
-        if (WDFrequency == 8000)
-            WDFrequency = 11025;
-        else if (WDFrequency == 11025)
-            WDFrequency = 16000;
-        else if (WDFrequency == 16000)
-            WDFrequency = 22050;
-        else if (WDFrequency == 22050)
-            WDFrequency = 32000;
-        else if (WDFrequency == 32000)
-            WDFrequency = 44100;
-        else if (WDFrequency == 44100)
-            WDFrequency = 48000;
-        else if (WDFrequency == 48000)
-            WDFrequency = 96000;
-        else if (WDFrequency == 96000)
-            WDFrequency = 192000;
+             if (WDFrequency == 8000)  WDFrequency = 11025;
+        else if (WDFrequency == 11025) WDFrequency = 16000;
+        else if (WDFrequency == 16000) WDFrequency = 22050;
+        else if (WDFrequency == 22050) WDFrequency = 32000;
+        else if (WDFrequency == 32000) WDFrequency = 44100;
+        else if (WDFrequency == 44100) WDFrequency = 48000;
+        else if (WDFrequency == 48000) WDFrequency = 96000;
+        else if (WDFrequency == 96000) WDFrequency = 192000;
 
         updateWavRenderer();
     }
@@ -483,22 +455,14 @@ void pbWavFreqDown(void)
 {
     if (WDFrequency > MIN_WAV_AUDIO_FREQ)
     {
-        if (WDFrequency == 192000)
-            WDFrequency = 96000;
-        else if (WDFrequency == 96000)
-            WDFrequency = 48000;
-        else if (WDFrequency == 48000)
-            WDFrequency = 44100;
-        else if (WDFrequency == 44100)
-            WDFrequency = 32000;
-        else if (WDFrequency == 32000)
-            WDFrequency = 22050;
-        else if (WDFrequency == 22050)
-            WDFrequency = 16000;
-        else if (WDFrequency == 16000)
-            WDFrequency = 11025;
-        else if (WDFrequency == 11025)
-            WDFrequency = 8000;
+             if (WDFrequency == 192000) WDFrequency = 96000;
+        else if (WDFrequency == 96000)  WDFrequency = 48000;
+        else if (WDFrequency == 48000)  WDFrequency = 44100;
+        else if (WDFrequency == 44100)  WDFrequency = 32000;
+        else if (WDFrequency == 32000)  WDFrequency = 22050;
+        else if (WDFrequency == 22050)  WDFrequency = 16000;
+        else if (WDFrequency == 16000)  WDFrequency = 11025;
+        else if (WDFrequency == 11025)  WDFrequency = 8000;
 
         updateWavRenderer();
     }
@@ -527,7 +491,6 @@ void pbWavSongStartUp(void)
     if (WDStartPos < (song.len - 1))
     {
         WDStartPos++;
-
         WDStopPos = (uint8_t)(MIN(MAX(WDStartPos, WDStopPos), song.len - 1));
         updateWavRenderer();
     }
@@ -547,7 +510,6 @@ void pbWavSongEndUp(void)
     if (WDStopPos < 255)
     {
         WDStopPos++;
-
         WDStopPos = (uint8_t)(MIN(MAX(WDStartPos, WDStopPos), song.len - 1));
         updateWavRenderer();
     }
@@ -558,7 +520,6 @@ void pbWavSongEndDown(void)
     if (WDStopPos > 0)
     {
         WDStopPos--;
-
         WDStopPos = (uint8_t)(MIN(MAX(WDStartPos, WDStopPos), song.len - 1));
         updateWavRenderer();
     }

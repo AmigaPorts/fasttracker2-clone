@@ -123,9 +123,8 @@ void updatePatternWidth(void)
 
 void updateAdvEdit(void)
 {
-    fillRect(92, 113, 13, 21, PAL_DESKTOP);
-    hexOut(92, 113, PAL_FORGRND, editor.srcInstr, 2);
-    hexOut(92, 126, PAL_FORGRND, editor.curInstr, 2);
+    hexOutBg(92, 113, PAL_FORGRND, PAL_DESKTOP, editor.srcInstr, 2);
+    hexOutBg(92, 126, PAL_FORGRND, PAL_DESKTOP, editor.curInstr, 2);
 }
 
 void setAdvEditCheckBoxes(void)
@@ -683,8 +682,6 @@ void patternEditorExtended(void)
     textOutShadow(116, 19, PAL_FORGRND, PAL_DSKTOP2, "Repst.");
     textOutShadow(222, 40, PAL_FORGRND, PAL_DSKTOP2, "Ptn.");
     textOutShadow(305, 40, PAL_FORGRND, PAL_DSKTOP2, "Ln.");
-
-    clearRect(386, 3, 243, 47);
 
     editor.ui.instrSwitcherShown = true;
     showInstrumentSwitcher();
@@ -1248,7 +1245,21 @@ int8_t loadTrack(UNICHAR *filenameU)
 
     lockMixerCallback();
     for (i = 0; i < pattLen; ++i)
-        pattPtr[(i * MAX_VOICES) + editor.cursor.ch] = loadBuff[i];
+    {
+        pattPtr  = &patt[nr][(i * MAX_VOICES) + editor.cursor.ch];
+        *pattPtr = loadBuff[i];
+
+        /* Non-FT2 security fix: remove overflown (illegal) stuff */
+        if (pattPtr->ton > 97)
+            pattPtr->ton = 0;
+
+        if (pattPtr->effTyp > 35)
+        {
+            pattPtr->eff    = 0;
+            pattPtr->effTyp = 0;
+        }
+    }
+
     unlockMixerCallback();
 
     fclose(f);
@@ -1315,7 +1326,7 @@ int8_t saveTrack(UNICHAR *filenameU)
 int8_t loadPattern(UNICHAR *filenameU)
 {
     FILE *f;
-    uint16_t nr, pattLen;
+    uint16_t i, j, nr, pattLen;
     tonTyp *pattPtr;
     patternHeaderType th;
 
@@ -1369,6 +1380,23 @@ int8_t loadPattern(UNICHAR *filenameU)
         okBox(0, "System message", "General I/O error during loading! Is the file in use?");
 
         return (false);
+    }
+
+    /* Non-FT2 security fix: remove overflown (illegal) stuff */
+    for (i = 0; i < pattLen; ++i)
+    {
+        for (j = 0; j < MAX_VOICES; ++j)
+        {
+            pattPtr = &patt[nr][(i * MAX_VOICES) + j];
+            if (pattPtr->ton > 97)
+                pattPtr->ton = 0;
+
+            if (pattPtr->effTyp > 35)
+            {
+                pattPtr->eff    = 0;
+                pattPtr->effTyp = 0;
+            }
+        }
     }
 
     unlockMixerCallback();
@@ -2108,8 +2136,7 @@ void drawSongLength(void)
         y = 53;
     }
 
-    fillRect(x, y, 13, 8, PAL_DESKTOP);
-    hexOut(x, y, PAL_FORGRND, (uint8_t)(song.len), 2);
+    hexOutBg(x, y, PAL_FORGRND, PAL_DESKTOP, (uint8_t)(song.len), 2);
 }
 
 void drawSongRepS(void)
@@ -2127,31 +2154,29 @@ void drawSongRepS(void)
         y = 65;
     }
 
-    fillRect(x, y, 13, 8, PAL_DESKTOP);
-    hexOut(x, y, PAL_FORGRND, (uint8_t)(song.repS), 2);
+    hexOutBg(x, y, PAL_FORGRND, PAL_DESKTOP, (uint8_t)(song.repS), 2);
 }
 
-void drawSongBPM(uint16_t speed)
+void drawSongBPM(uint16_t val)
 {
+    char str[8];
+
     if (editor.ui.extended)
         return;
 
-    fillRect(145, 36, 20, 8, PAL_DESKTOP);
-
-    charOut(145 + (0 * 7), 36, PAL_FORGRND, '0' + (int8_t)(speed  / 100));
-    charOut(145 + (1 * 7), 36, PAL_FORGRND, '0' + ((speed / 10) % 10));
-    charOut(145 + (2 * 7), 36, PAL_FORGRND, '0' + (speed  % 10));
+    sprintf(str, "%03d", val);
+    textOutFixed(145, 36, PAL_FORGRND, PAL_DESKTOP, str);
 }
 
-void drawSongSpeed(uint16_t tempo)
+void drawSongSpeed(uint16_t val)
 {
+    char str[8];
+
     if (editor.ui.extended)
         return;
 
-    fillRect(152, 50, 13, 8, PAL_DESKTOP);
-
-    charOut(152 + (0 * 7), 50, PAL_FORGRND, '0' + (int8_t)(tempo / 10));
-    charOut(152 + (1 * 7), 50, PAL_FORGRND, '0' + (tempo % 10));
+    sprintf(str, "%02d", val);
+    textOutFixed(152, 50, PAL_FORGRND, PAL_DESKTOP, str);
 }
 
 void drawEditPattern(uint16_t editPattern)
@@ -2169,8 +2194,7 @@ void drawEditPattern(uint16_t editPattern)
         y = 36;
     }
 
-    fillRect(x, y, 13, 8, PAL_DESKTOP);
-    hexOut(x, y, PAL_FORGRND, editPattern, 2);
+    hexOutBg(x, y, PAL_FORGRND, PAL_DESKTOP, editPattern, 2);
 }
 
 void drawPatternLength(uint16_t editPattern)
@@ -2188,60 +2212,64 @@ void drawPatternLength(uint16_t editPattern)
         y = 50;
     }
 
-    fillRect(x, y, 20, 8, PAL_DESKTOP);
-    hexOut(x, y, PAL_FORGRND, pattLens[editPattern], 3);
+    hexOutBg(x, y, PAL_FORGRND, PAL_DESKTOP, pattLens[editPattern], 3);
 }
 
 void drawGlobalVol(int16_t globalVol)
 {
+    char str[8];
+
     if (editor.ui.extended)
         return;
 
     MY_ASSERT((globalVol >= 0) && (globalVol <= 64))
-
-    fillRect(87, 80, 13, 8, PAL_DESKTOP);
-
-    charOut(87 + (0 * 7), 80, PAL_FORGRND, '0' + (int8_t)(globalVol / 10));
-    charOut(87 + (1 * 7), 80, PAL_FORGRND, '0' + (globalVol % 10));
+    sprintf(str, "%02d", globalVol);
+    textOutFixed(87, 80, PAL_FORGRND, PAL_DESKTOP, str);
 }
 
 void drawEditSkip(void)
 {
+    char str[8];
+
     MY_ASSERT(editor.editSkip <= 16);
-
-    fillRect(152, 64, 13, 8, PAL_DESKTOP);
-
-    charOut(152 + (0 * 7), 64, PAL_FORGRND, '0' + (editor.editSkip / 10));
-    charOut(152 + (1 * 7), 64, PAL_FORGRND, '0' + (editor.editSkip % 10));
+    sprintf(str, "%02d", editor.editSkip);
+    textOutFixed(152, 64, PAL_FORGRND, PAL_DESKTOP, str);
 }
 
 void drawPlaybackTime(void)
 {
-    uint8_t time;
+    char str[2 + 1];
+    uint32_t a, MI_TimeH, MI_TimeM, MI_TimeS;
+
+    a = ((song.musicTime / 256) * 5) / 512;
+    MI_TimeH = a / 3600;
+    a -= (MI_TimeH * 3600);
+    MI_TimeM = a / 60;
+    MI_TimeS = a - (MI_TimeM * 60);
 
     /* hours */
-    time = (editor.playbackSeconds / 3600) % 100;
-    fillRect(235, 80, 13, 8, PAL_DESKTOP);
-    charOut(235 + (0 * 7), 80, PAL_FORGRND, '0' + (time / 10));
-    charOut(235 + (1 * 7), 80, PAL_FORGRND, '0' + (time % 10));
+    str[0] = '0' + (char)(MI_TimeH / 10);
+    str[1] = '0' + (char)(MI_TimeH % 10);
+    str[2] = '\0';
+    textOutFixed(235, 80, PAL_FORGRND, PAL_DESKTOP, str);
 
     /* minutes */
-    time = (editor.playbackSeconds / 60) % 60;
-    fillRect(255, 80, 13, 8, PAL_DESKTOP);
-    charOut(255 + (0 * 7), 80, PAL_FORGRND, '0' + (time / 10));
-    charOut(255 + (1 * 7), 80, PAL_FORGRND, '0' + (time % 10));
+    str[0] = '0' + (char)(MI_TimeM / 10);
+    str[1] = '0' + (char)(MI_TimeM % 10);
+    str[2] = '\0';
+    textOutFixed(255, 80, PAL_FORGRND, PAL_DESKTOP, str);
 
     /* seconds */
-    time = editor.playbackSeconds % 60;
-    fillRect(275, 80, 13, 8, PAL_DESKTOP);
-    charOut(275 + (0 * 7), 80, PAL_FORGRND, '0' + (time / 10));
-    charOut(275 + (1 * 7), 80, PAL_FORGRND, '0' + (time % 10));
+    str[0] = '0' + (char)(MI_TimeS / 10);
+    str[1] = '0' + (char)(MI_TimeS % 10);
+    str[2] = '\0';
+    textOutFixed(275, 80, PAL_FORGRND, PAL_DESKTOP, str);
 }
 
 void drawSongName(void)
 {
-    drawFramework(421, 155, 166,  18, FRAMEWORK_TYPE1);
-    drawFramework(423, 157, 162,  14, FRAMEWORK_TYPE2);
+    drawFramework(421, 155, 166, 18, FRAMEWORK_TYPE1);
+    drawFramework(423, 157, 162, 14, FRAMEWORK_TYPE2);
     drawTextBox(TB_SONG_NAME);
 }
 
@@ -2286,50 +2314,57 @@ void updateInstrumentSwitcher(void)
     int8_t i;
     int16_t y;
 
-    if (editor.ui.extended)
+    if (editor.ui.extended) /* extended pattern editor */
     {
         /* INSTRUMENTS */
 
         clearRect(388, 5, 116, 43); /* left box */
         clearRect(511, 5, 116, 43); /* right box */
 
+        /* draw source instrument selection */
         if ((editor.srcInstr >= editor.instrBankOffset) && (editor.srcInstr <= (editor.instrBankOffset + 8)))
         {
             y = 5 + ((editor.srcInstr - editor.instrBankOffset - 1) * 11);
-            if ((y >= 5) && (y <= 47))
-                fillRect(388, y, 15, 10, PAL_BUTTONS);
-            else if ((y >= 48) && (y <= 82))
-                fillRect(511, y - 44, 15, 10, PAL_BUTTONS);
+            if ((y >= 5) && (y <= 82))
+            {
+                if (y <= 47)
+                    fillRect(388, y, 15, 10, PAL_BUTTONS); /* left box */
+                else
+                    fillRect(511, y - 44, 15, 10, PAL_BUTTONS); /* right box */
+            }
         }
 
+        /* draw destination instrument selection */
         if ((editor.curInstr >= editor.instrBankOffset) && (editor.curInstr <= (editor.instrBankOffset + 8)))
         {
             y = 5 + ((editor.curInstr - editor.instrBankOffset - 1) * 11);
-            if ((y >= 5) && (y <= 47))
-                fillRect(406, y, 98, 10, PAL_BUTTONS);
-            else if ((y >= 48) && (y <= 82))
-                fillRect(529, y - 44, 98, 10, PAL_BUTTONS);
+            y = 5 + ((editor.curInstr - editor.instrBankOffset - 1) * 11);
+            if ((y >= 5) && (y <= 82))
+            {
+                if (y <= 47)
+                    fillRect(406, y, 98, 10, PAL_BUTTONS); /* left box */
+                else
+                    fillRect(529, y - 44, 98, 10, PAL_BUTTONS); /* right box */
+            }
         }
 
+        /* draw numbers and texts */
         for (i = 0; i < 4; ++i)
         {
             hexOut(388, 5 + (i * 11), PAL_FORGRND, 1 + editor.instrBankOffset + i, 2);
-            drawTextBox(TB_INST1 + i);
-        }
-
-        for (i = 0; i < 4; ++i)
-        {
             hexOut(511, 5 + (i * 11), PAL_FORGRND, 5 + editor.instrBankOffset + i, 2);
+            drawTextBox(TB_INST1 + i);
             drawTextBox(TB_INST5 + i);
         }
     }
-    else
+    else /* normal pattern editor */
     {
         /* INSTRUMENTS */
 
-        clearRect(421,  3,  21, 91); /* src instrument */
-        clearRect(445,  3, 142, 91); /* main instrument */
+        clearRect(424, 5,  15, 87); /* src instrument */
+        clearRect(446, 5, 139, 87); /* main instrument */
 
+        /* draw source instrument selection */
         if ((editor.srcInstr >= editor.instrBankOffset) && (editor.srcInstr <= (editor.instrBankOffset + 8)))
         {
             y = 5 + ((editor.srcInstr - editor.instrBankOffset - 1) * 11);
@@ -2337,6 +2372,7 @@ void updateInstrumentSwitcher(void)
                 fillRect(424, y, 15, 10, PAL_BUTTONS);
         }
 
+        /* draw destination instrument selection */
         if ((editor.curInstr >= editor.instrBankOffset) && (editor.curInstr <= (editor.instrBankOffset + 8)))
         {
             y = 5 + ((editor.curInstr - editor.instrBankOffset - 1) * 11);
@@ -2344,6 +2380,7 @@ void updateInstrumentSwitcher(void)
                 fillRect(446, y, 139, 10, PAL_BUTTONS);
         }
 
+        /* draw numbers and texts */
         for (i = 0; i < 8; ++i)
         {
             hexOut(424, 5 + (i * 11), PAL_FORGRND, 1 + editor.instrBankOffset + i, 2);
@@ -2352,9 +2389,10 @@ void updateInstrumentSwitcher(void)
 
         /* SAMPLES */
 
-        clearRect(421, 97,  21, 58); /* src sample */
-        clearRect(445, 97, 118, 58); /* main sample */
+        clearRect(424, 99,  15, 54); /* src sample */
+        clearRect(446, 99, 115, 54); /* main sample */
 
+        /* draw source sample selection */
         if ((editor.srcSmp >= editor.sampleBankOffset) && (editor.srcSmp <= (editor.sampleBankOffset + 4)))
         {
             y = 99 + ((editor.srcSmp - editor.sampleBankOffset) * 11);
@@ -2362,6 +2400,7 @@ void updateInstrumentSwitcher(void)
                 fillRect(424, y, 15, 10, PAL_BUTTONS);
         }
 
+        /* draw destination sample selection */
         if ((editor.curSmp >= editor.sampleBankOffset) && (editor.curSmp <= (editor.sampleBankOffset + 4)))
         {
             y = 99 + ((editor.curSmp - editor.sampleBankOffset) * 11);
@@ -2369,6 +2408,7 @@ void updateInstrumentSwitcher(void)
                 fillRect(446, y, 115, 10, PAL_BUTTONS);
         }
 
+        /* draw numbers and texts */
         for (i = 0; i < 5; ++i)
         {
             hexOut(424, 99 + (i * 11), PAL_FORGRND, editor.sampleBankOffset + i, 2);
@@ -2397,6 +2437,9 @@ void showInstrumentSwitcher(void)
         drawFramework(506,  3,   3,  47, FRAMEWORK_TYPE1);
         drawFramework(386, 50, 246,   3, FRAMEWORK_TYPE1);
         drawFramework(629,  3,   3,  47, FRAMEWORK_TYPE1);
+
+        clearRect(386, 3, 120, 47);
+        clearRect(509, 3, 120, 47);
     }
     else
     {
@@ -2408,6 +2451,11 @@ void showInstrumentSwitcher(void)
         drawFramework(587,   0,  45,  71, FRAMEWORK_TYPE1);
         drawFramework(587,  71,  45,  71, FRAMEWORK_TYPE1);
         drawFramework(587, 142,  45,  31, FRAMEWORK_TYPE1);
+
+        fillRect(421,  3,  21, 91, PAL_BCKGRND);
+        fillRect(445,  3, 142, 91, PAL_BCKGRND);
+        fillRect(421, 97,  21, 58, PAL_BCKGRND);
+        fillRect(445, 97, 118, 58, PAL_BCKGRND);
 
         showPushButton(PB_SAMPLE_LIST_UP);
         showPushButton(PB_SAMPLE_LIST_DOWN);
@@ -2652,11 +2700,8 @@ static void zapSong(void)
     editor.globalVol   = song.globVol;
     editor.timer       = 1;
 
-    editor.playbackSeconds = 0;
-    editor.updatePlaybackTime = true;
-
     if (songPlaying)
-        startPlaybackTimer();
+        song.musicTime = 0;
 
     setFrqTab(true);
 

@@ -34,7 +34,7 @@ extern const uint8_t nibblesStages[53000];
 
 
 /* ft2_gfx_instr.c */
-extern const uint8_t instVibWaveforms[480];
+extern const uint8_t vibWaveformBitmap[480];
 extern const uint8_t whitePianoKeysBitmap[3036];
 extern const uint8_t blackPianoKeysBitmap[378];
 

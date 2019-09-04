@@ -64,8 +64,8 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
-    <LibraryPath>sdl\vs\lib;$(VCInstallDir)lib;$(LibraryPath)</LibraryPath>
-    <IncludePath>sdl\vs\include;$(VCInstallDir)include;$(IncludePath)</IncludePath>
+    <LibraryPath>sdl\lib;$(VCInstallDir)lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>sdl\include;$(VCInstallDir)include;$(IncludePath)</IncludePath>
     <OutDir>..\..\release\win32\</OutDir>
     <LinkIncremental>false</LinkIncremental>
     <TargetName>ft2-win32</TargetName>
@@ -75,18 +75,18 @@
     <LinkIncremental>false</LinkIncremental>
     <TargetName>ft2-win64</TargetName>
     <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
-    <LibraryPath>sdl\vs\lib64;$(VCInstallDir)lib;$(LibraryPath)</LibraryPath>
-    <IncludePath>sdl\vs\include;$(VCInstallDir)include;$(IncludePath)</IncludePath>
+    <LibraryPath>sdl\lib64;$(VCInstallDir)lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>sdl\include;$(VCInstallDir)include;$(IncludePath)</IncludePath>
     <OutDir>..\..\release\win64\</OutDir>
     <IntDir>$(Configuration)\</IntDir>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
-    <LibraryPath>sdl\vs\lib;$(VCInstallDir)lib;$(LibraryPath)</LibraryPath>
-    <IncludePath>sdl\vs\include;$(VCInstallDir)include;$(IncludePath)</IncludePath>
+    <LibraryPath>sdl\lib;$(VCInstallDir)lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>sdl\include;$(VCInstallDir)include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
-    <LibraryPath>sdl\vs\lib64;$(VCInstallDir)lib;$(LibraryPath)</LibraryPath>
-    <IncludePath>sdl\vs\include;$(VCInstallDir)include;$(IncludePath)</IncludePath>
+    <LibraryPath>sdl\lib64;$(VCInstallDir)lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>sdl\include;$(VCInstallDir)include;$(IncludePath)</IncludePath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">
     <ClCompile>

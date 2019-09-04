@@ -81,25 +81,17 @@ int8_t setupGUI(void)
 
     /* all memory will be NULL-tested and free'd if we return false somewhere in this function */
 
-    editor.blkCopyBuff = (tonTyp *)(calloc(MAX_PATT_LEN * MAX_VOICES, sizeof (tonTyp)));
-    if (editor.blkCopyBuff == NULL)
-        return (false);
+    editor.blkCopyBuff       =  (tonTyp *)(calloc(MAX_PATT_LEN * MAX_VOICES, sizeof (tonTyp)));
+    editor.ptnCopyBuff       =  (tonTyp *)(calloc(MAX_PATT_LEN * MAX_VOICES, sizeof (tonTyp)));
+    editor.trackCopyBuff     =  (tonTyp *)(calloc(MAX_PATT_LEN,              sizeof (tonTyp)));
+    editor.tmpFilenameU      = (UNICHAR *)(calloc(PATH_MAX + 1,              sizeof (UNICHAR)));
+    editor.tmpInstrFilenameU = (UNICHAR *)(calloc(PATH_MAX + 1,              sizeof (UNICHAR)));
 
-    editor.ptnCopyBuff = (tonTyp *)(calloc(MAX_PATT_LEN * MAX_VOICES, sizeof (tonTyp)));
-    if (editor.ptnCopyBuff == NULL)
-        return (false);
-
-    editor.trackCopyBuff = (tonTyp *)(calloc(MAX_PATT_LEN, sizeof (tonTyp)));
-    if (editor.trackCopyBuff == NULL)
-        return (false);
-
-    editor.tmpFilenameU = (UNICHAR *)(calloc(PATH_MAX + 1, sizeof (UNICHAR)));
-    if (editor.tmpFilenameU == NULL)
-        return (false);
-
-    editor.tmpInstrFilenameU = (UNICHAR *)(calloc(PATH_MAX + 1, sizeof (UNICHAR)));
-    if (editor.tmpInstrFilenameU == NULL)
-        return (false);
+    if ((editor.blkCopyBuff  == NULL) || (editor.ptnCopyBuff       == NULL) || (editor.trackCopyBuff == NULL) ||
+        (editor.tmpFilenameU == NULL) || (editor.tmpInstrFilenameU == NULL))
+    {
+        goto oom;
+    }
 
     /* set uninitialized GUI struct entries */
 
@@ -117,7 +109,7 @@ int8_t setupGUI(void)
 
         t->renderBuf = (uint8_t *)(malloc(t->renderBufW * t->renderBufH * sizeof (int8_t)));
         if (t->renderBuf == NULL)
-            return (false);
+            goto oom;
     }
 
     for (i = 0; i < NUM_PUSHBUTTONS; ++i)
@@ -127,15 +119,9 @@ int8_t setupGUI(void)
         p->state = 0;
         p->visible = false;
 
-        if (i == PB_LOGO)
+        if ((i == PB_LOGO) || (i == PB_BADGE))
         {
             p->bitmapFlag = true;
-            /* bitmap pointers were already set from config load routines */
-        }
-        else if (i == PB_BADGE)
-        {
-            p->bitmapFlag = true;
-            /* --- */
         }
         else
         {
@@ -187,8 +173,13 @@ int8_t setupGUI(void)
     updateSampleEditorSample();
     updatePatternWidth();
     updateMouseScaling();
+    initFTHelp();
 
     return (true);
+
+oom:
+    showErrorMsgBox("Not enough memory!");
+    return (false);
 }
 
 /* TEXT ROUTINES */
@@ -227,6 +218,31 @@ uint16_t textWidth(char *textPtr)
     textWidth = 0;
     while (*textPtr != '\0')
         textWidth += charWidth(*textPtr++);
+
+    /* there will be a pixel spacer at the end of the last char/glyph, remove it */
+    if (textWidth > 0)
+        textWidth--;
+
+    return (textWidth);
+}
+
+uint16_t textNWidth(char *textPtr, int32_t length)
+{
+    char ch;
+    uint16_t textWidth;
+    int32_t i;
+
+    MY_ASSERT(textPtr != NULL)
+
+    textWidth = 0;
+    for (i = 0; i < length; ++i)
+    {
+        ch = textPtr[i];
+        if (ch == '\0')
+            break;
+
+        textWidth += charWidth(ch);
+    }
 
     /* there will be a pixel spacer at the end of the last char/glyph, remove it */
     if (textWidth > 0)
@@ -276,6 +292,34 @@ void charOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr)
             if (srcPtr[x])
                 dstPtr[x] = pixVal;
         }
+
+        srcPtr += FONT1_WIDTH;
+        dstPtr += SCREEN_W;
+    }
+}
+
+void charOutBg(uint16_t xPos, uint16_t yPos, uint8_t fgPalette, uint8_t bgPalette, char chr)
+{
+    const uint8_t *srcPtr;
+    uint8_t c, x, y;
+    uint32_t *dstPtr, fg, bg;
+
+    MY_ASSERT((xPos < SCREEN_W) && (yPos < SCREEN_H))
+
+    c = (uint8_t)(chr);
+    if ((c == ' ') || (c >= FONT_CHARS))
+        return;
+
+    fg = video.palette[fgPalette];
+    bg = video.palette[bgPalette];
+
+    srcPtr = &font1Data[c * FONT1_CHAR_W];
+    dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
+
+    for (y = 0; y < FONT1_CHAR_H; ++y)
+    {
+        for (x = 0; x < 7; ++x)
+            dstPtr[x] = srcPtr[x] ? fg : bg;
 
         srcPtr += FONT1_WIDTH;
         dstPtr += SCREEN_W;
@@ -441,6 +485,26 @@ void textOut(uint16_t x, uint16_t y, uint8_t paletteIndex, char *textPtr)
     }
 }
 
+/* fixed width */
+void textOutFixed(uint16_t x, uint16_t y, uint8_t fgPaltete, uint8_t bgPalette, char *textPtr)
+{
+    uint8_t c;
+    uint16_t currX;
+
+    MY_ASSERT(textPtr != NULL)
+
+    currX = x;
+    while (true)
+    {
+        c = (uint8_t)(*textPtr++);
+        if (c == '\0')
+            break;
+
+        charOutBg(currX, y, fgPaltete, bgPalette, c);
+        currX += 7;
+    }
+}
+
 void textOutShadow(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shadowPaletteIndex, char *textPtr)
 {
     uint8_t c;
@@ -546,6 +610,40 @@ void hexOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint32_t val, ui
                 if (srcPtr[x])
                     dstPtr[x] = pixVal;
             }
+
+            srcPtr += FONT6_WIDTH;
+            dstPtr += SCREEN_W;
+        }
+
+        /* xpos += FONT6_CHAR_W */
+        dstPtr -= ((SCREEN_W * FONT6_CHAR_H) - FONT6_CHAR_W);
+    }
+}
+
+void hexOutBg(uint16_t xPos, uint16_t yPos, uint8_t fgPalette, uint8_t bgPalette, uint32_t val, uint8_t numDigits)
+{
+    const uint8_t *srcPtr;
+    int8_t i;
+    uint8_t x, y, nybble;
+    uint32_t *dstPtr, fg, bg;
+
+    MY_ASSERT((xPos < SCREEN_W) && (yPos < SCREEN_H))
+
+    fg = video.palette[fgPalette];
+    bg = video.palette[bgPalette];
+    dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
+
+    for (i = (numDigits - 1); i >= 0; --i)
+    {
+        /* extract current nybble and set pointer to glyph */
+        nybble = (val >> (i * 4)) & 15;
+        srcPtr = &font6Data[nybble * FONT6_CHAR_W];
+
+        /* render glyph */
+        for (y = 0; y < FONT6_CHAR_H; ++y)
+        {
+            for (x = 0; x < FONT6_CHAR_W; ++x)
+                dstPtr[x] = srcPtr[x] ? fg : bg;
 
             srcPtr += FONT6_WIDTH;
             dstPtr += SCREEN_W;

@@ -160,6 +160,13 @@ static int8_t instanceAlreadyOpen(void)
 
 int8_t handleSingleInstancing(int32_t argc, char **argv)
 {
+    SDL_SysWMinfo wmInfo;
+
+    SDL_VERSION(&wmInfo.version);
+    if (!SDL_GetWindowWMInfo(video.window, &wmInfo))
+        return (false);
+
+    video.hWnd = wmInfo.info.win.window;
     if (instanceAlreadyOpen())
     {
         if ((argc >= 2) && (argv[1][0] != '\0'))
@@ -202,6 +209,7 @@ int8_t handleSingleInstancing(int32_t argc, char **argv)
         }
     }
 
+    SDL_EventState(SDL_SYSWMEVENT, SDL_ENABLE);
     return (false);
 }
 

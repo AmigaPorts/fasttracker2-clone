@@ -35,7 +35,6 @@ static SDL_Thread *initMidiThread;
 
 static void setupPerfFreq(void);
 static void initializeVars(void);
-static void earlyCleanUpAndExit(void); /* never call this inside the main loop! */
 static void cleanUpAndExit(void); /* never call this inside the main loop! */
 #ifdef __APPLE__
 static void osxSetDirToProgramDirFromArgs(char **argv);
@@ -112,8 +111,6 @@ int main(int argc, char *argv[])
         return (1);
     }
 
-    SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
-
     /* this is mostly needed for situations without vsync */
     SDL_SetThreadPriority(SDL_THREAD_PRIORITY_HIGH);
 
@@ -122,13 +119,24 @@ int main(int argc, char *argv[])
 #endif
 
     loadConfigOrSetDefaults();
-    if (!setupWindow(argc, argv))
+    if (!setupWindow() || !setupRenderer())
     {
-        earlyCleanUpAndExit();
+        cleanUpAndExit();
         return (1);
     }
 
-    if (!setupRenderer() || !setupDiskOp() || !setupAudioBuffers())
+#ifdef _WIN32
+    timeBeginPeriod(1);
+
+    /* allow only one instance, and send arguments to it (what song to play) */
+    if (handleSingleInstancing(argc, argv))
+    {
+        cleanUpAndExit();
+        return (0); /* close current instance, the main instance got a message now */
+    }
+#endif
+
+    if (!setupDiskOp() || !setupAudioBuffers())
     {
         cleanUpAndExit();
         return (1);
@@ -136,6 +144,8 @@ int main(int argc, char *argv[])
 
     audio.currOutputDevice = getAudioOutputDeviceFromConfig();
     audio.currInputDevice  = getAudioInputDeviceFromConfig();
+
+    setupPerfFreq();
 
     if (!setupAudio(CONFIG_HIDE_ERRORS))
     {
@@ -157,15 +167,7 @@ int main(int argc, char *argv[])
         }
     }
 
-    if (!setupReplayer() || !setupGUI())
-    {
-        cleanUpAndExit();
-        return (1);
-    }
-
-    setupPerfFreq();
-
-    if (!initScopes()) /* must be called at this point */
+    if (!setupReplayer() || !setupGUI() || !initScopes())
     {
         cleanUpAndExit();
         return (1);
@@ -184,12 +186,15 @@ int main(int argc, char *argv[])
         enterFullscreen();
     }
 
+    SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
+
     //benchmarkAudioChannelMixer(); /* for development testing */
 
     /* set up MIDI input (in a thread because it can take quite a while on f.ex. macOS) */
     initMidiThread = SDL_CreateThread(initMidiFunc, "FT2 Clone MIDI Initialization Thread", NULL);
     if (initMidiThread == NULL)
     {
+        showErrorMsgBox("Couldn't create MIDI initialization thread!");
         cleanUpAndExit();
         return (1);
     }
@@ -232,9 +237,6 @@ static void initializeVars(void)
 
     /* set non-zero values */
 
-    mouse.x = SCREEN_W / 2;
-    mouse.y = SCREEN_H / 2;
-
     editor.moduleSaveMode = MOD_SAVE_MODE_XM;
     editor.sampleSaveMode = SMP_SAVE_MODE_WAV;
 
@@ -267,8 +269,32 @@ void quitProgram(void) /* called from sys. req. */
     editor.ui.throwExit = true;
 }
 
-static void earlyCleanUpAndExit(void)
+static void cleanUpAndExit(void) /* never call this inside the main loop! */
 {
+    if (midi.closeMidiOnExit)
+    {
+        closeMidiInDevice();
+        freeMidiIn();
+    }
+
+    closeAudio();
+    freeAudioBuffers();
+    closeReplayer();
+    closeVideo();
+    freeSprites();
+    freeDiskOp();
+    clearCopyBuffer();
+    freeAudioDeviceSelectorBuffers();
+    freeMidiInputDeviceList();
+    windUpFTHelp();
+    freeTextBoxes();
+
+    if (midi.inputDeviceName != NULL)
+    {
+        free(midi.inputDeviceName);
+        midi.inputDeviceName = NULL;
+    }
+
     if (editor.audioDevConfigFileLocation != NULL)
     {
         free(editor.audioDevConfigFileLocation);
@@ -288,39 +314,11 @@ static void earlyCleanUpAndExit(void)
     }
 
 #ifdef _WIN32
+    timeEndPeriod(1);
     closeSingleInstancing();
 #endif
 
     SDL_Quit();
-}
-
-static void cleanUpAndExit(void) /* never call this inside the main loop! */
-{
-    if (midi.closeMidiOnExit)
-    {
-        closeMidiInDevice();
-        freeMidiIn();
-    }
-
-    closeAudio();
-    freeAudioBuffers();
-    closeReplayer();
-    closeVideo();
-    freeSprites();
-    freeDiskOp();
-    clearCopyBuffer();
-    freeAudioDeviceSelectorBuffers();
-    freeMidiInputDeviceList();
-    freeHelpTextBuffer();
-    freeTextBoxes();
-
-    if (midi.inputDeviceName != NULL)
-    {
-        free(midi.inputDeviceName);
-        midi.inputDeviceName = NULL;
-    }
-
-    earlyCleanUpAndExit();
 }
 
 #ifdef __APPLE__
@@ -364,12 +362,9 @@ static void setupPerfFreq(void)
     uint64_t perfFreq64;
 
     perfFreq64 = SDL_GetPerformanceFrequency();
-    if (perfFreq64 == 0)
-        perfFreq64 = 1;
-
+    MY_ASSERT(perfFreq64 != 0)
     editor.dPerfFreq = (double)(perfFreq64);
 
-    editor.dPerfFreqMulMilli = 1.0 / (editor.dPerfFreq / 1000.0);
     editor.dPerfFreqMulMicro = 1.0 / (editor.dPerfFreq / 1000000.0);
 
     video.vblankTimeLen = (uint32_t)(round(editor.dPerfFreq / VBLANK_HZ));
