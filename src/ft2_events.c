@@ -30,9 +30,6 @@
 #include "ft2_sysreqs.h"
 #include "ft2_keyboard.h"
 
-#ifdef __APPLE__
-static uint8_t commandQ_Kludge;
-#endif
 static uint8_t backupMadeAfterCrash;
 
 #ifdef _WIN32
@@ -44,6 +41,25 @@ static HWND hWnd;
 static HANDLE oneInstHandle, hMapFile;
 static LPCTSTR sharedMemBuf;
 #endif
+
+void handleInput(void);
+
+void readInput(void)
+{
+    readMouseXY();
+    readKeyModifiers();
+    setSyncedReplayerVars();
+    handleInput();
+}
+
+void handleThreadEvents(void)
+{
+    if (okBoxData.active)
+    {
+        okBoxData.returnData = okBox(okBoxData.typ, okBoxData.headline, okBoxData.text);
+        okBoxData.active = false;
+    }
+}
 
 void handleEvents(void)
 {
@@ -108,8 +124,8 @@ void handleEvents(void)
     handleLoadMusicEvents();
 
     if (editor.samplingAudioFlag) handleSamplingUpdates();
-    if (editor.ui.setMouseBusy)   setMouseBusyShape();
-    if (editor.ui.setMouseIdle)   setMouseIdleShape();
+    if (editor.ui.setMouseBusy)   mouseAnimOn();
+    if (editor.ui.setMouseIdle)   mouseAnimOff();
 
     if (editor.updateWindowTitle)
     {
@@ -210,7 +226,7 @@ static void handleSysMsg(SDL_Event inputEvent)
                     UnmapViewOfFile(sharedMemBuf);
                     sharedMemBuf = NULL;
 
-                    SDL_RestoreWindow(video.window);
+                    //SDL_RestoreWindow(video.window);
                 }
 
                 CloseHandle(hMapFile);
@@ -346,10 +362,9 @@ void handleInput(void)
     uint8_t vibDepth;
     SDL_Event inputEvent;
 
-     if (!editor.busy)
+    if (!editor.busy)
         handleLastGUIObjectDown(); /* this should be handled before main input poll (on next frame) */
 
-    SDL_PumpEvents();
     while (SDL_PollEvent(&inputEvent))
     {
         if (editor.busy)
@@ -375,31 +390,27 @@ void handleInput(void)
         handleSysMsg(inputEvent);
 #endif
         /* text input when editing texts */
-        if (editor.ui.editTextFlag && (inputEvent.type == SDL_TEXTINPUT))
+        if (inputEvent.type == SDL_TEXTINPUT)
         {
-            if (keyb.ignoreTextEditKey)
+            if (editor.ui.editTextFlag)
             {
-                keyb.ignoreTextEditKey = false;
-                continue;
+                if (keyb.ignoreTextEditKey)
+                {
+                    keyb.ignoreTextEditKey = false;
+                    continue;
+                }
+
+                inputText = utf8ToCp437(inputEvent.text.text, false);
+                if (inputText != NULL)
+                {
+                    if (inputText[0] != '\0')
+                        handleTextEditInputChar(inputText[0]);
+
+                    free(inputText);
+                }
             }
-
-            inputText = utf8ToCp437(inputEvent.text.text, false);
-            if (inputText == NULL)
-                continue; /* continue SDL event loop */
-
-            if (inputText[0] == '\0')
-            {
-                free(inputText);
-                continue;
-            }
-
-            handleTextEditInputChar(inputText[0]);
-            free(inputText);
-
-            continue;
         }
-
-        if (inputEvent.type == SDL_MOUSEWHEEL)
+        else if (inputEvent.type == SDL_MOUSEWHEEL)
         {
                  if (inputEvent.wheel.y > 0) mouseWheelHandler(MOUSE_WHEEL_UP);
             else if (inputEvent.wheel.y < 0) mouseWheelHandler(MOUSE_WHEEL_DOWN);
@@ -409,29 +420,14 @@ void handleInput(void)
             editor.autoPlayOnDrop = false;
             loadDroppedFile(inputEvent.drop.file, true);
             SDL_free(inputEvent.drop.file);
-            SDL_RaiseWindow(video.window); /* set window focus */
         }
         else if (inputEvent.type == SDL_QUIT)
         {
+            if (editor.ui.systemRequestShown)
+                continue;
+
             if (editor.ui.editTextFlag)
                 exitTextEditing();
-
-            /* hack for making Command-Q ask if you want to quit */
-#ifdef __APPLE__
-            if (commandQ_Kludge)
-            {
-                commandQ_Kludge = false;
-
-                if (!editor.ui.systemRequestShown)
-                {
-                    if (!song.isModified)
-                        sysReqQueue(SR_EXIT);
-                    else
-                        sysReqQueue(SR_EXIT_SONG_MODIFIED);
-                }
-            }
-            else
-#endif
 
             if (!song.isModified)
             {
@@ -439,15 +435,15 @@ void handleInput(void)
             }
             else
             {
-                if (!editor.ui.systemRequestShown)
-                    sysReqQueue(SR_EXIT_SONG_MODIFIED);
-
                 if (!video.fullscreen)
                 {
                     /* de-minimize window and set focus so that the user sees the message box */
                     SDL_RestoreWindow(video.window);
                     SDL_RaiseWindow(video.window);
                 }
+
+                if (quitBox(true) == 1)
+                    editor.ui.throwExit = true;
             }
         }
         else if (inputEvent.type == SDL_KEYUP)
@@ -456,12 +452,6 @@ void handleInput(void)
         }
         else if (inputEvent.type == SDL_KEYDOWN)
         {
-            /* hack for making Command-Q ask if you want to quit */
-#ifdef __APPLE__
-            if ((inputEvent.key.keysym.sym == SDLK_q) && (inputEvent.key.keysym.mod & (KMOD_LGUI | KMOD_RGUI)))
-                commandQ_Kludge = true;
-            else
-#endif
             keyDownHandler(inputEvent.key.keysym.scancode, inputEvent.key.keysym.sym, inputEvent.key.repeat);
         }
         else if (inputEvent.type == SDL_MOUSEBUTTONUP)

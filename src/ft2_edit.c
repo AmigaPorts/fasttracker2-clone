@@ -20,7 +20,7 @@ enum
     KEYTYPE_ALPHA = 1
 };
 
-static float fVolScaleFK1 = 1.0f, fVolScaleFK2 = 1.0f;
+static double dVolScaleFK1 = 1.0, dVolScaleFK2 = 1.0;
 
 /* for block cut/copy/paste */
 static int8_t blockCopied;
@@ -29,7 +29,7 @@ static uint16_t ptnBufLen, trkBufLen;
 
 /* for transposing - these are set and tested accordingly */
 static int8_t lastTranspVal;
-static uint8_t lastInsMode, lastTranspMode, ignoreTranspWarnFlag;
+static uint8_t lastInsMode, lastTranspMode;
 static uint32_t transpDelNotes; /* count of under-/overflowing notes for warning message */
 
 void recordNote(uint8_t note, int8_t vol);
@@ -749,7 +749,7 @@ void insertPatternLine(void)
     }
     else
     {
-        sysReqQueue(SR_OOM_ERROR);
+        okBox(0, "System message", "Not enough memory!");
     }
 }
 
@@ -967,49 +967,60 @@ static void countOverflowingNotes(uint8_t currInsOnly, uint8_t transpMode, int8_
     }
 }
 
-static void calcTranspDelNotes(void)
+void doTranspose(void)
 {
-    countOverflowingNotes(lastInsMode, lastTranspMode, lastTranspVal);
-    if (transpDelNotes > 0)
-    {
-        sprintf(editor.ui.transpDelNotesText, "%d note(s) will be erased! Proceed?", transpDelNotes);
-
-        sysReqQueue(SR_TRANSP_DELETE_WARN);
-        ignoreTranspWarnFlag = true;
-    }
-}
-
-void doTranspose(void) /* called from GUI buttons */
-{
+    char text[48];
     uint8_t ton;
     uint16_t p, pattLen, ch, row;
     tonTyp *pattPtr;
 
-    if (!ignoreTranspWarnFlag)
+    countOverflowingNotes(lastInsMode, lastTranspMode, lastTranspVal);
+    if (transpDelNotes > 0)
     {
-        calcTranspDelNotes();
-        if (transpDelNotes > 0)
-            return; /* we'll be back after pressing YES on the sys req, now with ignoreTranspWarnFlag set to true */
+        sprintf(text, "%d note(s) will be erased! Proceed?", transpDelNotes);
+        if (okBox(2, "System request", text) != 1)
+            return;
     }
 
-    hideSystemRequest();
-
     /* lastTranspVal is never <-12 or >12, so unsigned testing for >96 is safe */
-
-    if (ignoreTranspWarnFlag || (transpDelNotes == 0)) /* yes, this is correct (looks weird) */
+    switch (lastTranspMode)
     {
-        switch (lastTranspMode)
+        case TRANSP_TRACK:
         {
-            case TRANSP_TRACK:
+            pattPtr = patt[editor.editPattern];
+            if (pattPtr == NULL)
+                return;
+
+            pattPtr += editor.cursor.ch;
+
+            pattLen = pattLens[editor.editPattern];
+            for (row = 0; row < pattLen; ++row)
             {
-                pattPtr = patt[editor.editPattern];
-                if (pattPtr == NULL)
-                    return;
+                ton = pattPtr->ton;
+                if (((ton >= 1) && (ton <= 96)) && (!lastInsMode || (pattPtr->instr == editor.curInstr)))
+                {
+                    ton += lastTranspVal;
+                    if (ton > 96)
+                        ton = 0; /* also handles underflow */
 
-                pattPtr += editor.cursor.ch;
+                    pattPtr->ton = ton;
+                }
 
-                pattLen = pattLens[editor.editPattern];
-                for (row = 0; row < pattLen; ++row)
+                pattPtr += MAX_VOICES;
+            }
+        }
+        break;
+
+        case TRANSP_PATT:
+        {
+            pattPtr = patt[editor.editPattern];
+            if (pattPtr == NULL)
+                return;
+
+            pattLen = pattLens[editor.editPattern];
+            for (row = 0; row < pattLen; ++row)
+            {
+                for (ch = 0; ch < song.antChn; ++ch)
                 {
                     ton = pattPtr->ton;
                     if (((ton >= 1) && (ton <= 96)) && (!lastInsMode || (pattPtr->instr == editor.curInstr)))
@@ -1021,18 +1032,23 @@ void doTranspose(void) /* called from GUI buttons */
                         pattPtr->ton = ton;
                     }
 
-                    pattPtr += MAX_VOICES;
+                    pattPtr++;
                 }
+
+                pattPtr += (MAX_VOICES - song.antChn);
             }
-            break;
+        }
+        break;
 
-            case TRANSP_PATT:
+        case TRANSP_SONG:
+        {
+            for (p = 0; p < MAX_PATTERNS; ++p)
             {
-                pattPtr = patt[editor.editPattern];
+                pattPtr = patt[p];
                 if (pattPtr == NULL)
-                    return;
+                    continue;
 
-                pattLen = pattLens[editor.editPattern];
+                pattLen  = pattLens[p];
                 for (row = 0; row < pattLen; ++row)
                 {
                     for (ch = 0; ch < song.antChn; ++ch)
@@ -1053,80 +1069,48 @@ void doTranspose(void) /* called from GUI buttons */
                     pattPtr += (MAX_VOICES - song.antChn);
                 }
             }
-            break;
-
-            case TRANSP_SONG:
-            {
-                for (p = 0; p < MAX_PATTERNS; ++p)
-                {
-                    pattPtr = patt[p];
-                    if (pattPtr == NULL)
-                        continue;
-
-                    pattLen  = pattLens[p];
-                    for (row = 0; row < pattLen; ++row)
-                    {
-                        for (ch = 0; ch < song.antChn; ++ch)
-                        {
-                            ton = pattPtr->ton;
-                            if (((ton >= 1) && (ton <= 96)) && (!lastInsMode || (pattPtr->instr == editor.curInstr)))
-                            {
-                                ton += lastTranspVal;
-                                if (ton > 96)
-                                    ton = 0; /* also handles underflow */
-
-                                pattPtr->ton = ton;
-                            }
-
-                            pattPtr++;
-                        }
-
-                        pattPtr += (MAX_VOICES - song.antChn);
-                    }
-                }
-            }
-            break;
-
-            case TRANSP_BLOCK:
-            {
-                if (pattMark.markY1 == pattMark.markY2)
-                    return; /* no pattern marking */
-
-                pattPtr = patt[editor.editPattern];
-                if (pattPtr == NULL)
-                    return;
-
-                pattPtr += ((pattMark.markY1 * MAX_VOICES) + pattMark.markX1);
-
-                pattLen = pattLens[editor.editPattern];
-                for (row = pattMark.markY1; row < pattMark.markY2; ++row)
-                {
-                    for (ch = pattMark.markX1; ch <= pattMark.markX2; ++ch)
-                    {
-                        ton = pattPtr->ton;
-                        if (((ton >= 1) && (ton <= 96)) && (!lastInsMode || (pattPtr->instr == editor.curInstr)))
-                        {
-                            ton += lastTranspVal;
-                            if (ton > 96)
-                                ton = 0; /* also handles underflow */
-
-                            pattPtr->ton = ton;
-                        }
-
-                        pattPtr++;
-                    }
-
-                    pattPtr += (MAX_VOICES - ((pattMark.markX2 + 1) - pattMark.markX1));
-                }
-            }
-            break;
-
-            default: break;
         }
+        break;
 
-        editor.updatePatternEditor = true;
-        setSongModifiedFlag();
+        case TRANSP_BLOCK:
+        {
+            if (pattMark.markY1 == pattMark.markY2)
+                return; /* no pattern marking */
+
+            pattPtr = patt[editor.editPattern];
+            if (pattPtr == NULL)
+                return;
+
+            pattPtr += ((pattMark.markY1 * MAX_VOICES) + pattMark.markX1);
+
+            pattLen = pattLens[editor.editPattern];
+            for (row = pattMark.markY1; row < pattMark.markY2; ++row)
+            {
+                for (ch = pattMark.markX1; ch <= pattMark.markX2; ++ch)
+                {
+                    ton = pattPtr->ton;
+                    if (((ton >= 1) && (ton <= 96)) && (!lastInsMode || (pattPtr->instr == editor.curInstr)))
+                    {
+                        ton += lastTranspVal;
+                        if (ton > 96)
+                            ton = 0; /* also handles underflow */
+
+                        pattPtr->ton = ton;
+                    }
+
+                    pattPtr++;
+                }
+
+                pattPtr += (MAX_VOICES - ((pattMark.markX2 + 1) - pattMark.markX1));
+            }
+        }
+        break;
+
+        default: break;
     }
+
+    editor.updatePatternEditor = true;
+    setSongModifiedFlag();
 }
 
 void trackTranspCurInsUp(void)
@@ -1134,8 +1118,6 @@ void trackTranspCurInsUp(void)
     lastTranspMode = TRANSP_TRACK;
     lastTranspVal  = 1;
     lastInsMode    = TRANSP_CUR_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1144,8 +1126,6 @@ void trackTranspCurInsDn(void)
     lastTranspMode = TRANSP_TRACK;
     lastTranspVal  = -1;
     lastInsMode    = TRANSP_CUR_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1154,8 +1134,6 @@ void trackTranspCurIns12Up(void)
     lastTranspMode = TRANSP_TRACK;
     lastTranspVal  = 12;
     lastInsMode    = TRANSP_CUR_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1164,8 +1142,6 @@ void trackTranspCurIns12Dn(void)
     lastTranspMode = TRANSP_TRACK;
     lastTranspVal  = -12;
     lastInsMode    = TRANSP_CUR_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1174,8 +1150,6 @@ void trackTranspAllInsUp(void)
     lastTranspMode = TRANSP_TRACK;
     lastTranspVal  = 1;
     lastInsMode    = TRANSP_ALL_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1184,8 +1158,6 @@ void trackTranspAllInsDn(void)
     lastTranspMode = TRANSP_TRACK;
     lastTranspVal  = -1;
     lastInsMode    = TRANSP_ALL_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1194,8 +1166,6 @@ void trackTranspAllIns12Up(void)
     lastTranspMode = TRANSP_TRACK;
     lastTranspVal  = 12;
     lastInsMode    = TRANSP_ALL_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1204,8 +1174,6 @@ void trackTranspAllIns12Dn(void)
     lastTranspMode = TRANSP_TRACK;
     lastTranspVal  = -12;
     lastInsMode    = TRANSP_ALL_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1214,8 +1182,6 @@ void pattTranspCurInsUp(void)
     lastTranspMode = TRANSP_PATT;
     lastTranspVal  = 1;
     lastInsMode    = TRANSP_CUR_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1224,8 +1190,6 @@ void pattTranspCurInsDn(void)
     lastTranspMode = TRANSP_PATT;
     lastTranspVal  = -1;
     lastInsMode    = TRANSP_CUR_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1234,8 +1198,6 @@ void pattTranspCurIns12Up(void)
     lastTranspMode = TRANSP_PATT;
     lastTranspVal  = 12;
     lastInsMode    = TRANSP_CUR_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1244,8 +1206,6 @@ void pattTranspCurIns12Dn(void)
     lastTranspMode = TRANSP_PATT;
     lastTranspVal  = -12;
     lastInsMode    = TRANSP_CUR_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1254,8 +1214,6 @@ void pattTranspAllInsUp(void)
     lastTranspMode = TRANSP_PATT;
     lastTranspVal  = 1;
     lastInsMode    = TRANSP_ALL_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1264,8 +1222,6 @@ void pattTranspAllInsDn(void)
     lastTranspMode = TRANSP_PATT;
     lastTranspVal  = -1;
     lastInsMode    = TRANSP_ALL_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1274,8 +1230,6 @@ void pattTranspAllIns12Up(void)
     lastTranspMode = TRANSP_PATT;
     lastTranspVal  = 12;
     lastInsMode    = TRANSP_ALL_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1284,8 +1238,6 @@ void pattTranspAllIns12Dn(void)
     lastTranspMode = TRANSP_PATT;
     lastTranspVal  = -12;
     lastInsMode    = TRANSP_ALL_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1294,8 +1246,6 @@ void songTranspCurInsUp(void)
     lastTranspMode = TRANSP_SONG;
     lastTranspVal  = 1;
     lastInsMode    = TRANSP_CUR_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1304,8 +1254,6 @@ void songTranspCurInsDn(void)
     lastTranspMode = TRANSP_SONG;
     lastTranspVal  = -1;
     lastInsMode    = TRANSP_CUR_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1314,8 +1262,6 @@ void songTranspCurIns12Up(void)
     lastTranspMode = TRANSP_SONG;
     lastTranspVal  = 12;
     lastInsMode    = TRANSP_CUR_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1324,8 +1270,6 @@ void songTranspCurIns12Dn(void)
     lastTranspMode = TRANSP_SONG;
     lastTranspVal  = -12;
     lastInsMode    = TRANSP_CUR_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1334,8 +1278,6 @@ void songTranspAllInsUp(void)
     lastTranspMode = TRANSP_SONG;
     lastTranspVal  = 1;
     lastInsMode    = TRANSP_ALL_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1344,8 +1286,6 @@ void songTranspAllInsDn(void)
     lastTranspMode = TRANSP_SONG;
     lastTranspVal  = -1;
     lastInsMode    = TRANSP_ALL_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1354,8 +1294,6 @@ void songTranspAllIns12Up(void)
     lastTranspMode = TRANSP_SONG;
     lastTranspVal  = 12;
     lastInsMode    = TRANSP_ALL_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1364,8 +1302,6 @@ void songTranspAllIns12Dn(void)
     lastTranspMode = TRANSP_SONG;
     lastTranspVal  = -12;
     lastInsMode    = TRANSP_ALL_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1374,8 +1310,6 @@ void blockTranspCurInsUp(void)
     lastTranspMode = TRANSP_BLOCK;
     lastTranspVal  = 1;
     lastInsMode    = TRANSP_CUR_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1384,8 +1318,6 @@ void blockTranspCurInsDn(void)
     lastTranspMode = TRANSP_BLOCK;
     lastTranspVal  = -1;
     lastInsMode    = TRANSP_CUR_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1394,8 +1326,6 @@ void blockTranspCurIns12Up(void)
     lastTranspMode = TRANSP_BLOCK;
     lastTranspVal  = 12;
     lastInsMode    = TRANSP_CUR_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1404,8 +1334,6 @@ void blockTranspCurIns12Dn(void)
     lastTranspMode = TRANSP_BLOCK;
     lastTranspVal  = -12;
     lastInsMode    = TRANSP_CUR_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1414,8 +1342,6 @@ void blockTranspAllInsUp(void)
     lastTranspMode = TRANSP_BLOCK;
     lastTranspVal  = 1;
     lastInsMode    = TRANSP_ALL_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1424,8 +1350,6 @@ void blockTranspAllInsDn(void)
     lastTranspMode = TRANSP_BLOCK;
     lastTranspVal  = -1;
     lastInsMode    = TRANSP_ALL_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1434,8 +1358,6 @@ void blockTranspAllIns12Up(void)
     lastTranspMode = TRANSP_BLOCK;
     lastTranspVal  = 12;
     lastInsMode    = TRANSP_ALL_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1444,8 +1366,6 @@ void blockTranspAllIns12Dn(void)
     lastTranspMode = TRANSP_BLOCK;
     lastTranspVal  = -12;
     lastInsMode    = TRANSP_ALL_INST;
-
-    ignoreTranspWarnFlag = false;
     doTranspose();
 }
 
@@ -1535,13 +1455,7 @@ void pasteTrack(void)
     uint16_t i, pattLen;
     tonTyp *pattPtr;
 
-    if (trkBufLen == 0)
-    {
-        sysReqQueue(SR_EMPTY_PASTE_ERROR);
-        return;
-    }
-
-    if (!allocatePattern(editor.editPattern))
+    if ((trkBufLen == 0) || !allocatePattern(editor.editPattern))
         return;
 
     pattPtr = patt[editor.editPattern];
@@ -1618,13 +1532,19 @@ void copyPattern(void)
     editor.updatePatternEditor = true;
 }
 
-void pastePatternNoLenCheck(void)
+void pastePattern(void)
 {
     uint16_t i, x, pattLen;
     tonTyp *pattPtr;
+    
+    if (ptnBufLen == 0)
+        return;
 
-    if (editor.ui.systemRequestShown)
-        hideSystemRequest();
+    if (pattLens[editor.editPattern] != ptnBufLen)
+    {
+        if (okBox(1, "System request", "Change pattern length to copybuffer's length?") == 1)
+            setPatternLen(editor.editPattern, ptnBufLen);
+    }
 
     if (!allocatePattern(editor.editPattern))
         return;
@@ -1646,43 +1566,13 @@ void pastePatternNoLenCheck(void)
     setSongModifiedFlag();
 }
 
-void setNewLenAndPastePattern(void) /* called from system request */
-{
-    hideSystemRequest();
-
-    pauseMusic();
-    setPatternLen(editor.editPattern, ptnBufLen);
-
-    pastePatternNoLenCheck(); /* music is resumed here */
-}
-
-void pastePattern(void)
-{
-    if (ptnBufLen == 0)
-    {
-        sysReqQueue(SR_EMPTY_PASTE_ERROR);
-        return;
-    }
-
-    if (pattLens[editor.editPattern] != ptnBufLen)
-    {
-        sysReqQueue(SR_PASTEPATT_LEN);
-        return;
-    }
-
-    pastePatternNoLenCheck();
-}
-
 void cutBlock(void)
 {
     uint16_t x, y;
     tonTyp *pattPtr;
 
     if ((pattMark.markY1 == pattMark.markY2) || (pattMark.markY1 > pattMark.markY2))
-    {
-        sysReqQueue(SR_NO_PATT_MARK);
         return;
-    }
 
     pattPtr = patt[editor.editPattern];
     if (pattPtr == NULL)
@@ -1726,10 +1616,7 @@ void copyBlock(void)
     tonTyp *pattPtr;
 
     if ((pattMark.markY1 == pattMark.markY2) || (pattMark.markY1 > pattMark.markY2))
-    {
-        sysReqQueue(SR_NO_PATT_MARK);
         return;
-    }
 
     pattPtr = patt[editor.editPattern];
     if (pattPtr == NULL)
@@ -1756,13 +1643,7 @@ void pasteBlock(void)
     uint16_t xpos, ypos, j, k, x, y, pattLen;
     tonTyp *pattPtr;
 
-    if (!blockCopied)
-    {
-        sysReqQueue(SR_EMPTY_PASTE_ERROR);
-        return;
-    }
-
-    if (!allocatePattern(editor.editPattern))
+    if (!blockCopied || !allocatePattern(editor.editPattern))
         return;
 
     pattLen = pattLens[editor.editPattern];
@@ -1830,14 +1711,8 @@ static void remapInstrXY(uint16_t nr, uint16_t x1, uint16_t y1, uint16_t x2, uin
 
 void remapBlock(void)
 {
-    if (editor.srcInstr == editor.curInstr)
+    if ((editor.srcInstr == editor.curInstr) || (pattMark.markY1 == pattMark.markY2) || (pattMark.markY1 > pattMark.markY2))
         return;
-
-    if ((pattMark.markY1 == pattMark.markY2) || (pattMark.markY1 > pattMark.markY2))
-    {
-        sysReqQueue(SR_NO_PATT_MARK);
-        return;
-    }
 
     pauseMusic();
     remapInstrXY(editor.editPattern,
@@ -1950,7 +1825,7 @@ static void setNoteVolume(tonTyp *note, int8_t newVol)
         note->vol = 0x10 + newVol; /* volume column */
 }
 
-static void scaleNote(uint16_t ptn, int8_t ch, int16_t row, float fScale)
+static void scaleNote(uint16_t ptn, int8_t ch, int16_t row, double dScale)
 {
     int8_t vol;
     uint16_t pattLen;
@@ -1968,146 +1843,129 @@ static void scaleNote(uint16_t ptn, int8_t ch, int16_t row, float fScale)
     vol = getNoteVolume(note);
     if (vol >= 0)
     {
-        vol = (int8_t)(MIN(MAX(0, (int32_t)(roundf(vol * fScale))), 64));
+        vol = (int8_t)(MIN(MAX(0, (int32_t)(round(vol * dScale))), 64));
         setNoteVolume(note, vol);
     }
 }
 
-static void scaleFadeVolumeTrack(void)
+static uint8_t askForScaleFade(char *msg)
+{
+    char *val1, *val2, volstr[32 + 1];
+    uint8_t err;
+
+    sprintf(volstr, "%0.2f,%0.2f", dVolScaleFK1, dVolScaleFK2);
+    if (inputBox(2, msg, volstr, sizeof (volstr) - 1) != 1)
+        return (false);
+
+    err = false;
+
+    val1 = volstr;
+    if (strlen(val1) < 3)
+        err = true;
+
+    val2 = strchr(volstr, ',');
+    if ((val2 == NULL) || (strlen(val2) < 3))
+        err = true;
+
+    if (err)
+    {
+        okBox(0, "System message", "Invalid constant expressions.");
+        return (false);
+    }
+
+    dVolScaleFK1 = atof(val1);
+    dVolScaleFK2 = atof(val2 + 1);
+
+    return (true);
+}
+
+void scaleFadeVolumeTrack(void)
 {
     uint16_t row, pattLen;
-    float fIPy, fVol;
+    double dIPy, dVol;
+
+    if (!askForScaleFade("Volume scale-fade track (start-, end scale)"))
+        return;
 
     if (patt[editor.editPattern] == NULL)
         return;
 
     pattLen = pattLens[editor.editPattern];
 
-    fIPy = 0.0f;
+    dIPy = 0.0;
     if (pattLen > 0)
-        fIPy = (fVolScaleFK2 - fVolScaleFK1) / pattLen;
+        dIPy = (dVolScaleFK2 - dVolScaleFK1) / pattLen;
 
-    fVol = fVolScaleFK1;
+    dVol = dVolScaleFK1;
 
     pauseMusic();
     for (row = 0; row < pattLen; ++row)
     {
-        scaleNote(editor.editPattern, editor.cursor.ch, row, fVol);
-        fVol += fIPy;
+        scaleNote(editor.editPattern, editor.cursor.ch, row, dVol);
+        dVol += dIPy;
     }
     resumeMusic();
 }
 
-static void scaleFadeVolumePattern(void)
+void scaleFadeVolumePattern(void)
 {
     uint8_t ch;
     uint16_t row, pattLen;
-    float fIPy, fVol;
+    double dIPy, dVol;
+
+    if (!askForScaleFade("Volume scale-fade pattern (start-, end scale)"))
+        return;
 
     if (patt[editor.editPattern] == NULL)
         return;
 
     pattLen = pattLens[editor.editPattern];
 
-    fIPy = 0.0f;
+    dIPy = 0.0;
     if (pattLen > 0)
-        fIPy = (fVolScaleFK2 - fVolScaleFK1) / pattLen;
+        dIPy = (dVolScaleFK2 - dVolScaleFK1) / pattLen;
 
-    fVol = fVolScaleFK1;
+    dVol = dVolScaleFK1;
 
     pauseMusic();
     for (row = 0; row < pattLen; ++row)
     {
         for (ch = 0; ch < song.antChn; ++ch)
-            scaleNote(editor.editPattern, ch, row, fVol);
+            scaleNote(editor.editPattern, ch, row, dVol);
 
-        fVol += fIPy;
+        dVol += dIPy;
     }
     resumeMusic();
 }
 
-static void scaleFadeVolumeBlock(void)
+void scaleFadeVolumeBlock(void)
 {
     uint16_t ch, dy, row;
-    float fIPy, fVol;
+    double dIPy, dVol;
 
-    if (patt[editor.editPattern] == NULL)
+    if (!askForScaleFade("Volume scale-fade block (start-, end scale)"))
         return;
 
-    if ((pattMark.markY1 == pattMark.markY2) || (pattMark.markY1 > pattMark.markY2))
+    if ((patt[editor.editPattern] == NULL) || (pattMark.markY1 == pattMark.markY2) || (pattMark.markY1 > pattMark.markY2))
         return;
 
     dy = pattMark.markY2 - pattMark.markY1;
 
-    fIPy = 0.0f;
+    dIPy = 0.0;
     if (dy > 0)
-        fIPy = (fVolScaleFK2 - fVolScaleFK1) / dy;
+        dIPy = (dVolScaleFK2 - dVolScaleFK1) / dy;
 
-    fVol = fVolScaleFK1;
+    dVol = dVolScaleFK1;
 
     pauseMusic();
     for (row = pattMark.markY1; row < pattMark.markY2; ++row)
     {
         for (ch = pattMark.markX1; ch <= pattMark.markX2; ++ch)
-            scaleNote(editor.editPattern, (uint8_t)(ch), row, fVol);
+            scaleNote(editor.editPattern, (uint8_t)(ch), row, dVol);
 
-        fVol += fIPy;
+        dVol += dIPy;
     }
     resumeMusic();
-}
-
-void cancelScaleFadeVolume(void)
-{
-    hideSystemRequest();
-    editor.scaleFadeVolumeMode = -1;
-}
-
-void handleScaleFadeVolume(void) /* called from sys. req */
-{
-    char *val1, *val2;
-    int8_t mode;
-
-    hideSystemRequest();
-
-    val1 = &editor.scaleFadeVolText[0];
-    if (strlen(val1) < 3)
-    {
-        sysReqQueue(SR_SCALE_FADE_VOL_ERROR);
-        return;
-    }
-
-    val2 = strchr(editor.scaleFadeVolText, ',');
-    if ((val2 == NULL) || (strlen(val2) < 1))
-    {
-        sysReqQueue(SR_SCALE_FADE_VOL_ERROR);
-        return;
-    }
-    val2++;
-
-    fVolScaleFK1 = (float)(atof(val1));
-    fVolScaleFK2 = (float)(atof(val2));
-
-    mode = editor.scaleFadeVolumeMode;
-    editor.scaleFadeVolumeMode = -1;
-
-    switch (mode)
-    {
-        default: break;
-        case 0: scaleFadeVolumeTrack();   break;
-        case 1: scaleFadeVolumePattern(); break;
-        case 2: scaleFadeVolumeBlock();   break;
-    }
-}
-
-void scaleFadeVolume(int8_t mode)
-{
-    editor.scaleFadeVolumeMode = CLAMP(mode, 0, 2);
-
-    memset(editor.scaleFadeVolText, 0, sizeof (editor.scaleFadeVolText));
-    sprintf(editor.scaleFadeVolText, "%0.2f,%0.2f", fVolScaleFK1, fVolScaleFK2);
-    setupTextBoxForSysReq(TB_SCALE_FADE_VOL, editor.scaleFadeVolText, sizeof (editor.scaleFadeVolText), true);
-
-    sysReqQueue(SR_SCALE_FADE_VOL);
 }
 
 void toggleCopyMaskEnable(void) { editor.copyMaskEnable ^= 1; }

@@ -5,6 +5,15 @@
 
 enum /* PUSHBUTTONS */
 {
+    PB_RES_1, /* reserved */
+    PB_RES_2, /* reserved */
+    PB_RES_3, /* reserved */
+    PB_RES_4, /* reserved */
+    PB_RES_5, /* reserved */
+    PB_RES_6, /* reserved */
+    PB_RES_7, /* reserved */
+    PB_RES_8, /* reserved */
+
     /* POSITION EDITOR */
     PB_POSED_POS_UP,
     PB_POSED_POS_DOWN,
@@ -321,87 +330,6 @@ enum /* PUSHBUTTONS */
     PB_WAV_END_UP,
     PB_WAV_END_DOWN,
 
-    /* SYSTEM REQUEST */
-    PB_SYSREQ_KILL_ALL,
-    PB_SYSREQ_KILL_SONG,
-    PB_SYSREQ_KILL_INSTR,
-    PB_SYSREQ_KILL_CANCEL,
-    PB_SYSREQ_TRANSP_DEL_YES,
-    PB_SYSREQ_CONFIG_RESET_YES,
-    PB_SYSREQ_EXIT_YES,
-    PB_SYSREQ_EXIT_NO,
-    PB_SYSREQ_EXIT_OK,
-    PB_SYSREQ_EXIT_CANCEL,
-    PB_SYSREQ_EXIT_SAD,
-    PB_SYSREQ_EXIT_RULES,
-    PB_SYSREQ_MIDDLE_OK_DUMMY,
-    PB_SYSREQ_SHRINK_PATT_YES,
-    PB_SYSREQ_PASTEPATT_LEN_YES,
-    PB_SYSREQ_PASTEPATT_LEN_NO,
-
-    PB_SYSREQ_NIB_RESTART_YES,
-    PB_SYSREQ_NIB_EXIT_YES,
-    PB_SYSREQ_NIB_GAME_OVER_OK,
-    PB_SYSREQ_NIB_LEVEL_FINISHED_OK,
-    PB_SYSREQ_NIB_PLAYER1_NAME_OK,
-    PB_SYSREQ_NIB_PLAYER2_NAME_OK,
-    PB_SYSREQ_NIB_PLAYER_DIED_OK,
-
-    PB_SYSREQ_SAMP_CLEAR_OK,
-    PB_SYSREQ_SAMP_8BIT_CONV_YES,
-    PB_SYSREQ_SAMP_8BIT_CONV_NO,
-    PB_SYSREQ_SAMP_16BIT_CONV_YES,
-    PB_SYSREQ_SAMP_16BIT_CONV_NO,
-    PB_SYSREQ_SAMP_MIN_OK,
-
-    PB_SYSREQ_SAMP_READ_LEFT,
-    PB_SYSREQ_SAMP_READ_RIGHT,
-    PB_SYSREQ_SAMP_CONVERT,
-    PB_SYSREQ_SAMP_ABORT,
-
-    PB_SYSREQ_SAMPVOL_APPLY,
-    PB_SYSREQ_SAMPVOL_GETMAX,
-    PB_SYSREQ_SAMPVOL_EXIT,
-    PB_SYSREQ_SAMPVOL_START_DOWN,
-    PB_SYSREQ_SAMPVOL_START_UP,
-    PB_SYSREQ_SAMPVOL_END_DOWN,
-    PB_SYSREQ_SAMPVOL_END_UP,
-
-    PB_SYSREQ_RESAMPLE_APPLY,
-    PB_SYSREQ_RESAMPLE_EXIT,
-    PB_SYSREQ_RESAMPLE_UP,
-    PB_SYSREQ_RESAMPLE_DOWN,
-
-    PB_SYSREQ_MIX_SAMPLE_APPLY,
-    PB_SYSREQ_MIX_SAMPLE_EXIT,
-    PB_SYSREQ_MIX_BALANCE_DOWN,
-    PB_SYSREQ_MIX_BALANCE_UP,
-
-    PB_SYSREQ_ECHO_APPLY,
-    PB_SYSREQ_ECHO_EXIT,
-    PB_SYSREQ_ECHO_NECHO_DOWN,
-    PB_SYSREQ_ECHO_NECHO_UP,
-    PB_SYSREQ_ECHO_DIST_DOWN,
-    PB_SYSREQ_ECHO_DIST_UP,
-    PB_SYSREQ_ECHO_FADEOUT_DOWN,
-    PB_SYSREQ_ECHO_FADEOUT_UP,
-    PB_SYSREQ_SAVE_RANGE_YES,
-
-    PB_SYSREQ_DISKOP_DEL_YES,
-    PB_SYSREQ_DISKOP_RENAME_OK,
-    PB_SYSREQ_DISKOP_MAKEDIR_OK,
-    PB_SYSREQ_DISKOP_SETPATH_OK,
-    PB_SYSREQ_DISKOP_OVERWRITE_YES,
-    PB_SYSREQ_WAV_OVERWRITE_YES,
-    PB_SYSREQ_DISKOP_LOADMOD_YES,
-    PB_SYSREQ_DISKOP_LOADMOD_NO,
-    PB_SYSREQ_DROP_LOADMOD_YES,
-    PB_SYSREQ_INSTR_CLEAR_OK,
-    PB_SCALE_FADE_VOL_OK,
-    PB_SCALE_FADE_VOL_CANCEL,
-    PB_SYSREQ_TRIM_YES,
-    PB_SYSREQ_AUDIO_REC_YES,
-
     NUM_PUSHBUTTONS
 };
 
@@ -433,14 +361,14 @@ enum
 typedef struct pushButton_t /* DO NOT TOUCH!!! */
 {
     uint16_t x, y, w, h;
-    uint8_t visible, state, delayFrames;
+    uint8_t preDelayFlag, delayFrames;
     char *caption, *caption2;
     void (*callbackFuncOnDown)(void);
     void (*callbackFuncOnUp)(void);
-    uint8_t bitmapFlag;
+
+    uint8_t state, bitmapFlag, visible;
     const uint8_t *bitmapUnpressed;
     const uint8_t *bitmapPressed;
-    uint8_t preDelayFlag;
 } pushButton_t;
 
 void drawPushButton(uint16_t pushButtonID);
@@ -448,6 +376,6 @@ void showPushButton(uint16_t pushButtonID);
 void hidePushButton(uint16_t pushButtonID);
 void handlePushButtonsWhileMouseDown(void);
 int8_t testPushButtonMouseDown(void);
-void testPushButtonMouseRelease(void);
+int16_t testPushButtonMouseRelease(uint8_t runCallback);
 
 #endif

@@ -97,50 +97,46 @@ static int8_t setSubjectAttributes(char *subjectName)
 
 static void helpCharOut(uint8_t *buffer, uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr, uint8_t fontType)
 {
-    uint8_t *dstPtr, x, y, fontW, fontH;
+    uint8_t *dstPtr, c, x, y;
     const uint8_t *srcPtr;
-    uint32_t srcPitch;
 
     MY_ASSERT(xPos < HELP_TEXT_BUFFER_W)
 
-    if ((chr == '\0') || (chr == ' '))
+    c = (uint8_t)(chr);
+    if ((c == ' ') || (c >= FONT_CHARS))
         return;
 
-    chr = relocateChars(chr, fontType);
-    switch (fontType)
-    {
-        case FONT_TYPE1: /* normal font */
-        {
-            fontW    = FONT1_CHAR_W;
-            fontH    = FONT1_CHAR_H;
-            srcPitch = FONT1_WIDTH;
-            srcPtr   = &font1Data[chr * FONT1_CHAR_W];
-        }
-        break;
-
-        case FONT_TYPE2: /* big font */
-        {
-            fontW    = FONT2_CHAR_W;
-            fontH    = FONT2_CHAR_H;
-            srcPitch = FONT2_WIDTH;
-            srcPtr   = &font2Data[chr * FONT2_CHAR_W];
-        }
-        break;
-
-        default: return;
-    }
-
     dstPtr = &buffer[(yPos * HELP_TEXT_BUFFER_W) + xPos];
-    for (y = 0; y < fontH; ++y)
-    {
-        for (x = 0; x < fontW; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = paletteIndex;
-        }
 
-        srcPtr += srcPitch;
-        dstPtr += HELP_TEXT_BUFFER_W;
+    if (fontType == FONT_TYPE1) /* normal font */
+    {
+        srcPtr = &font1Data[c * FONT1_CHAR_W];
+        for (y = 0; y < FONT1_CHAR_H; ++y)
+        {
+            for (x = 0; x < FONT1_CHAR_W; ++x)
+            {
+                if (srcPtr[x])
+                    dstPtr[x] = paletteIndex;
+            }
+
+            srcPtr += FONT1_WIDTH;
+            dstPtr += HELP_TEXT_BUFFER_W;
+        }
+    }
+    else if (fontType == FONT_TYPE2) /* big font */
+    {
+        srcPtr = &font2Data[c * FONT2_CHAR_W];
+        for (y = 0; y < FONT2_CHAR_H; ++y)
+        {
+            for (x = 0; x < FONT2_CHAR_W; ++x)
+            {
+                if (srcPtr[x])
+                    dstPtr[x] = paletteIndex;
+            }
+
+            srcPtr += FONT2_WIDTH;
+            dstPtr += HELP_TEXT_BUFFER_W;
+        }
     }
 }
 
@@ -295,14 +291,18 @@ static int8_t renderHelpSubjectToBuffer(char *subjectName)
                 }
 
                 helpCharOut(helpTextBuffer, x, currTextYPos, currTextPalette, linePtr[i], currTextFont);
-                x += getCharWidth(linePtr[i], currTextFont);
+
+                if (currTextFont == FONT_TYPE1)
+                    x += charWidth(linePtr[i]);
+                else
+                    x += bigCharWidth(linePtr[i]);
             }
         }
 
-        if (currTextFont == FONT_TYPE2)
-            currTextYPos += (FONT2_CHAR_H + 2);
-        else
+        if (currTextFont == FONT_TYPE1)
             currTextYPos += (FONT1_CHAR_H + 1);
+        else
+            currTextYPos += (FONT2_CHAR_H + 2);
 
         lineStartPtr += lineLen;
     }
@@ -344,7 +344,7 @@ static void renderHelpText(void)
     if (!setSubjectAttributes(subjectNameBuffer))
     {
         clearRect(135, 5, HELP_TEXT_BUFFER_W, HELP_WINDOW_HEIGHT);
-        sysReqQueue(SR_HELP_SUBJECT_NOT_FOUND);
+        okBox(0, "System message", "Error: Help section not found in help text data!");
         return;
     }
 
@@ -354,14 +354,14 @@ static void renderHelpText(void)
     if (helpTextBuffer == NULL)
     {
         clearRect(134, 5, HELP_TEXT_BUFFER_W, HELP_WINDOW_HEIGHT);
-        sysReqQueue(SR_OOM_ERROR);
+        okBox(0, "System message", "Not enough memory!");
         return;
     }
 
     if (!renderHelpSubjectToBuffer(subjectNameBuffer))
     {
         clearRect(134, 5, HELP_TEXT_BUFFER_W, HELP_WINDOW_HEIGHT);
-        sysReqQueue(SR_HELP_RENDER_ERROR);
+        okBox(0, "System message", "Error: Couldn't render help text! Parsing error?");
         return;
     }
 

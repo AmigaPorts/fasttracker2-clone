@@ -131,7 +131,7 @@ void copyInstr(void) /* dstInstr = srcInstr */
             p = (int8_t *)(malloc(srcSmp->len + 2));
             if (p == NULL)
             {
-                sysReqQueue(SR_OOM_ERROR);
+                okBox(0, "System message", "Not enough memory!");
                 break;
             }
 
@@ -186,8 +186,8 @@ static void drawMIDICh(void)
 
     fillRect(156, 132, 13, 8, PAL_DESKTOP);
 
-    charOutFast(156 + (0 * 7), 132, PAL_FORGRND, '0' + (int8_t)(chan / 10));
-    charOutFast(156 + (1 * 7), 132, PAL_FORGRND, '0' + (chan % 10));
+    charOut(156 + (0 * 7), 132, PAL_FORGRND, '0' + (int8_t)(chan / 10));
+    charOut(156 + (1 * 7), 132, PAL_FORGRND, '0' + (chan % 10));
 }
 
 static void drawMIDIPrg(void)
@@ -200,9 +200,9 @@ static void drawMIDIPrg(void)
 
     fillRect(149, 146, 20, 8, PAL_DESKTOP);
 
-    charOutFast(149 + (0 * 7), 146, PAL_FORGRND, '0' + (int8_t)(ins->midiProgram / 100));
-    charOutFast(149 + (1 * 7), 146, PAL_FORGRND, '0' + ((ins->midiProgram / 10) % 10));
-    charOutFast(149 + (2 * 7), 146, PAL_FORGRND, '0' + (ins->midiProgram % 10));
+    charOut(149 + (0 * 7), 146, PAL_FORGRND, '0' + (int8_t)(ins->midiProgram / 100));
+    charOut(149 + (1 * 7), 146, PAL_FORGRND, '0' + ((ins->midiProgram / 10) % 10));
+    charOut(149 + (2 * 7), 146, PAL_FORGRND, '0' + (ins->midiProgram % 10));
 }
 
 static void drawMIDIBend(void)
@@ -215,8 +215,8 @@ static void drawMIDIBend(void)
 
     fillRect(156, 160, 13, 8, PAL_DESKTOP);
 
-    charOutFast(156 + (0 * 7), 160, PAL_FORGRND, '0' + (int8_t)(ins->midiBend / 10));
-    charOutFast(156 + (1 * 7), 160, PAL_FORGRND, '0' + (ins->midiBend % 10));
+    charOut(156 + (0 * 7), 160, PAL_FORGRND, '0' + (int8_t)(ins->midiBend / 10));
+    charOut(156 + (1 * 7), 160, PAL_FORGRND, '0' + (ins->midiBend % 10));
 }
 
 void midiChDown(void)
@@ -389,48 +389,48 @@ static void drawVolEnvSus(void)
 {
     fillRect(382, 206, 13, 8, PAL_DESKTOP);
 
-    charOutFast(382 + (0 * 7), 206, PAL_FORGRND, '0' + (instr[editor.curInstr].envVSust / 10));
-    charOutFast(382 + (1 * 7), 206, PAL_FORGRND, '0' + (instr[editor.curInstr].envVSust % 10));
+    charOut(382 + (0 * 7), 206, PAL_FORGRND, '0' + (instr[editor.curInstr].envVSust / 10));
+    charOut(382 + (1 * 7), 206, PAL_FORGRND, '0' + (instr[editor.curInstr].envVSust % 10));
 }
 
 static void drawVolEnvRepS(void)
 {
     fillRect(382, 234, 13, 8, PAL_DESKTOP);
 
-    charOutFast(382 + (0 * 7), 234, PAL_FORGRND, '0' + (instr[editor.curInstr].envVRepS / 10));
-    charOutFast(382 + (1 * 7), 234, PAL_FORGRND, '0' + (instr[editor.curInstr].envVRepS % 10));
+    charOut(382 + (0 * 7), 234, PAL_FORGRND, '0' + (instr[editor.curInstr].envVRepS / 10));
+    charOut(382 + (1 * 7), 234, PAL_FORGRND, '0' + (instr[editor.curInstr].envVRepS % 10));
 }
 
 static void drawVolEnvRepE(void)
 {
     fillRect(382, 247, 13, 8, PAL_DESKTOP);
 
-    charOutFast(382 + (0 * 7), 247, PAL_FORGRND, '0' + (instr[editor.curInstr].envVRepE / 10));
-    charOutFast(382 + (1 * 7), 247, PAL_FORGRND, '0' + (instr[editor.curInstr].envVRepE % 10));
+    charOut(382 + (0 * 7), 247, PAL_FORGRND, '0' + (instr[editor.curInstr].envVRepE / 10));
+    charOut(382 + (1 * 7), 247, PAL_FORGRND, '0' + (instr[editor.curInstr].envVRepE % 10));
 }
 
 static void drawPanEnvSus(void)
 {
     fillRect(382, 294, 13, 8, PAL_DESKTOP);
 
-    charOutFast(382 + (0 * 7), 294, PAL_FORGRND, '0' + (instr[editor.curInstr].envPSust / 10));
-    charOutFast(382 + (1 * 7), 294, PAL_FORGRND, '0' + (instr[editor.curInstr].envPSust % 10));
+    charOut(382 + (0 * 7), 294, PAL_FORGRND, '0' + (instr[editor.curInstr].envPSust / 10));
+    charOut(382 + (1 * 7), 294, PAL_FORGRND, '0' + (instr[editor.curInstr].envPSust % 10));
 }
 
 static void drawPanEnvRepS(void)
 {
     fillRect(382, 321, 13, 8, PAL_DESKTOP);
 
-    charOutFast(382 + (0 * 7), 321, PAL_FORGRND, '0' + (instr[editor.curInstr].envPRepS / 10));
-    charOutFast(382 + (1 * 7), 321, PAL_FORGRND, '0' + (instr[editor.curInstr].envPRepS % 10));
+    charOut(382 + (0 * 7), 321, PAL_FORGRND, '0' + (instr[editor.curInstr].envPRepS / 10));
+    charOut(382 + (1 * 7), 321, PAL_FORGRND, '0' + (instr[editor.curInstr].envPRepS % 10));
 }
 
 static void drawPanEnvRepE(void)
 {
     fillRect(382, 335, 13, 8, PAL_DESKTOP);
 
-    charOutFast(382 + (0 * 7), 335, PAL_FORGRND, '0' + (instr[editor.curInstr].envPRepE / 10));
-    charOutFast(382 + (1 * 7), 335, PAL_FORGRND, '0' + (instr[editor.curInstr].envPRepE % 10));
+    charOut(382 + (0 * 7), 335, PAL_FORGRND, '0' + (instr[editor.curInstr].envPRepE / 10));
+    charOut(382 + (1 * 7), 335, PAL_FORGRND, '0' + (instr[editor.curInstr].envPRepE % 10));
 }
 
 static void drawVolume(void)
@@ -455,7 +455,7 @@ static void drawFineTune(void)
     ftune = instr[editor.curInstr].samp[editor.curSmp].fine;
     if (ftune == 0)
     {
-        charOutFast(512, 205, PAL_FORGRND, '0');
+        charOut(512, 205, PAL_FORGRND, '0');
         return;
     }
 
@@ -464,21 +464,21 @@ static void drawFineTune(void)
     ftune = ABS(ftune);
     if (ftune >= 100)
     {
-        charOutFast(491, 205, PAL_FORGRND, sign);
-        charOutFast(498 + (0 * 7), 205, PAL_FORGRND, '0' + ((ftune / 100) % 10));
-        charOutFast(498 + (1 * 7), 205, PAL_FORGRND, '0' + ((ftune /  10) % 10));
-        charOutFast(498 + (2 * 7), 205, PAL_FORGRND, '0' + (ftune % 10));
+        charOut(491, 205, PAL_FORGRND, sign);
+        charOut(498 + (0 * 7), 205, PAL_FORGRND, '0' + ((ftune / 100) % 10));
+        charOut(498 + (1 * 7), 205, PAL_FORGRND, '0' + ((ftune /  10) % 10));
+        charOut(498 + (2 * 7), 205, PAL_FORGRND, '0' + (ftune % 10));
     }
     else if (ftune >= 10)
     {
-        charOutFast(498, 205, PAL_FORGRND, sign);
-        charOutFast(505 + (0 * 7), 205, PAL_FORGRND, '0' + ((ftune / 10) % 10));
-        charOutFast(505 + (1 * 7), 205, PAL_FORGRND, '0' + (ftune % 10));
+        charOut(498, 205, PAL_FORGRND, sign);
+        charOut(505 + (0 * 7), 205, PAL_FORGRND, '0' + ((ftune / 10) % 10));
+        charOut(505 + (1 * 7), 205, PAL_FORGRND, '0' + (ftune % 10));
     }
     else
     {
-        charOutFast(505, 205, PAL_FORGRND, sign);
-        charOutFast(512, 205, PAL_FORGRND, '0' + (ftune % 10));
+        charOut(505, 205, PAL_FORGRND, sign);
+        charOut(512, 205, PAL_FORGRND, '0' + (ftune % 10));
     }
 }
 
@@ -539,9 +539,9 @@ static void drawRelTone(void)
 
     octaChar = '0' + (note2 / 12);
 
-    charOutFast(598, 299, PAL_FORGRND, noteChar1);
-    charOutFast(606, 299, PAL_FORGRND, noteChar2);
-    charOutFast(614, 299, PAL_FORGRND, octaChar);
+    charOut(598, 299, PAL_FORGRND, noteChar1);
+    charOut(606, 299, PAL_FORGRND, noteChar2);
+    charOut(614, 299, PAL_FORGRND, octaChar);
 }
 
 static void setStdVolEnvelope(instrTyp *ins, uint8_t num)
@@ -1331,7 +1331,6 @@ void fadeoutDown(void)
         return;
 
     i = &instr[editor.curInstr];
-
     if (i->fadeOut > 0)
     {
         i->fadeOut--;
@@ -1349,7 +1348,6 @@ void fadeoutUp(void)
         return;
 
     i = &instr[editor.curInstr];
-
     if (i->fadeOut < 0xFFF)
     {
         i->fadeOut++;
@@ -1367,7 +1365,6 @@ void vibSpeedDown(void)
         return;
 
     i = &instr[editor.curInstr];
-
     if (i->vibRate > 0)
     {
         i->vibRate--;
@@ -1385,7 +1382,6 @@ void vibSpeedUp(void)
         return;
 
     i = &instr[editor.curInstr];
-
     if (i->vibRate < 0x3F)
     {
         i->vibRate++;
@@ -1403,7 +1399,6 @@ void vibDepthDown(void)
         return;
 
     i = &instr[editor.curInstr];
-
     if (i->vibDepth > 0)
     {
         i->vibDepth--;
@@ -1421,7 +1416,6 @@ void vibDepthUp(void)
         return;
 
     i = &instr[editor.curInstr];
-
     if (i->vibDepth < 0xF)
     {
         i->vibDepth++;
@@ -1439,7 +1433,6 @@ void vibSweepDown(void)
         return;
 
     i = &instr[editor.curInstr];
-
     if (i->vibSweep > 0)
     {
         i->vibSweep--;
@@ -1457,7 +1450,6 @@ void vibSweepUp(void)
         return;
 
     i = &instr[editor.curInstr];
-
     if (i->vibSweep < 0xFF)
     {
         i->vibSweep++;
@@ -1478,7 +1470,6 @@ void setVolumeScroll(int32_t pos)
     }
 
     s = &instr[editor.curInstr].samp[editor.curSmp];
-
     if ((uint8_t)(pos) != s->vol)
     {
         s->vol = (uint8_t)(pos);
@@ -1498,7 +1489,6 @@ void setPanningScroll(int32_t pos)
     }
 
     s = &instr[editor.curInstr].samp[editor.curSmp];
-
     if ((uint8_t)(pos) != s->pan)
     {
         s->pan = (uint8_t)(pos);
@@ -1518,7 +1508,6 @@ void setFinetuneScroll(int32_t pos)
     }
 
     s = &instr[editor.curInstr].samp[editor.curSmp];
-
     if ((int8_t)(pos - 128) != s->fine)
     {
         s->fine = (int8_t)(pos - 128);
@@ -1538,7 +1527,6 @@ void setFadeoutScroll(int32_t pos)
     }
 
     i = &instr[editor.curInstr];
-
     if ((uint16_t)(pos) != i->fadeOut)
     {
         i->fadeOut = (uint16_t)(pos);
@@ -1558,7 +1546,6 @@ void setVibSpeedScroll(int32_t pos)
     }
 
     i = &instr[editor.curInstr];
-
     if ((uint8_t)(pos) != i->vibRate)
     {
         i->vibRate = (uint8_t)(pos);
@@ -1578,7 +1565,6 @@ void setVibDepthScroll(int32_t pos)
     }
 
     i = &instr[editor.curInstr];
-
     if ((uint8_t)(pos) != i->vibDepth)
     {
         i->vibDepth = (uint8_t)(pos);
@@ -1598,7 +1584,6 @@ void setVibSweepScroll(int32_t pos)
     }
 
     i = &instr[editor.curInstr];
-
     if ((uint8_t)(pos) != i->vibSweep)
     {
         i->vibSweep = (uint8_t)(pos);
@@ -1749,6 +1734,28 @@ void cbPEnvLoop(void)
     setSongModifiedFlag();
 }
 
+static void smallHexOutBg(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint8_t bgPaletteIndex, uint8_t val)
+{
+    const uint8_t *srcPtr;
+    uint32_t x, y, *dstPtr, pixVal, bgPixVal;
+
+    MY_ASSERT(val <= 0xF)
+
+    dstPtr   = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
+    srcPtr   = &smallHexBitmap[val * 5];
+    pixVal   = video.palette[paletteIndex];
+    bgPixVal = video.palette[bgPaletteIndex];
+
+    for (y = 0; y < 7; ++y)
+    {
+        for (x = 0; x < 5; ++x)
+            dstPtr[x] = srcPtr[x] ? pixVal : bgPixVal;
+
+        dstPtr += SCREEN_W;
+        srcPtr += 80;
+    }
+}
+
 static void writePianoNumber(uint8_t note)
 {
     const uint8_t keyNumX[12] = { 11, 16, 22, 27, 33, 44, 49, 55, 60, 66, 71, 77 };
@@ -1760,22 +1767,19 @@ static void writePianoNumber(uint8_t note)
         number = instr[editor.curInstr].ta[note];
 
     key = note % 12;
-
-    x = keyNumX[key] + ((note / 12) * 77);
+    x   = keyNumX[key] + ((note / 12) * 77);
 
     if ((key == 1) || (key == 3) || (key == 6) || (key == 8) || (key == 10))
     {
         /* black key */
-
-        drawSmallHexBg(x, 361, PAL_FORGRND, PAL_BCKGRND, number);
+        smallHexOutBg(x, 361, PAL_FORGRND, PAL_BCKGRND, number);
     }
     else
     {
         /* white key */
+        smallHexOutBg(x, 385, PAL_BCKGRND, PAL_FORGRND, number);
 
-        drawSmallHexBg(x, 385, PAL_BCKGRND, PAL_FORGRND, number);
-
-        /* draw pixel next to C key (probably an FT2 bug, but let's do it in the clone anyways) */
+        /* draw pixel next to C key (WTF) */
         if (key == 0)
             video.frameBuffer[(392 * SCREEN_W) + (x + 7)] = video.palette[PAL_DESKTOP];
     }
@@ -1786,7 +1790,6 @@ static void drawBlackPianoKey(uint8_t note, uint8_t keyDown)
     uint16_t x;
 
     x = 8 + keyXPos[note % 12] + ((note / 12) * 77);
-
     blit(x, 351, &blackPianoKeysBitmap[keyDown * (7 * 27)], 7, 27);
 }
 
@@ -1807,7 +1810,6 @@ void redrawPiano(void)
     uint8_t i, key;
 
     memset(pianoKeyStatus, 0, sizeof (pianoKeyStatus));
-
     for (i = 0; i < 96; ++i)
     {
         key = i % 12;
@@ -2186,11 +2188,9 @@ static void envelopeDot(int32_t nr, int16_t x, int16_t y)
     video.frameBuffer[((y + 0) * SCREEN_W) + (x + 0)] = pixVal;
     video.frameBuffer[((y + 0) * SCREEN_W) + (x + 1)] = pixVal;
     video.frameBuffer[((y + 0) * SCREEN_W) + (x + 2)] = pixVal;
-
     video.frameBuffer[((y + 1) * SCREEN_W) + (x + 0)] = pixVal;
     video.frameBuffer[((y + 1) * SCREEN_W) + (x + 1)] = pixVal;
     video.frameBuffer[((y + 1) * SCREEN_W) + (x + 2)] = pixVal;
-
     video.frameBuffer[((y + 2) * SCREEN_W) + (x + 0)] = pixVal;
     video.frameBuffer[((y + 2) * SCREEN_W) + (x + 1)] = pixVal;
     video.frameBuffer[((y + 2) * SCREEN_W) + (x + 2)] = pixVal;
@@ -2692,10 +2692,10 @@ int8_t testInstrVolEnvMouseDown(uint8_t buttonDown)
     int32_t x, y, mx, my, minX, maxX;
     instrTyp *ins;
 
-    ins = &instr[editor.curInstr];
-
     if (!editor.ui.instEditorShown)
         return (false);
+
+    ins = &instr[editor.curInstr];
 
     ant = ins->envVPAnt;
     if (ant > 12)
@@ -2884,11 +2884,7 @@ void cbInstMidiEnable(void)
     instrTyp *ins;
 
     ins = &instr[editor.curInstr];
-    if (ins->midiOn)
-        ins->midiOn = false;
-    else
-        ins->midiOn = true;
-
+    ins->midiOn ^= 1;
     setSongModifiedFlag();
 }
 
@@ -2897,11 +2893,7 @@ void cbInstMuteComputer(void)
     instrTyp *ins;
 
     ins = &instr[editor.curInstr];
-    if (ins->mute)
-        ins->mute = false;
-    else
-        ins->mute = true;
-
+    ins->mute ^= 1;
     setSongModifiedFlag();
 }
 
@@ -2989,170 +2981,191 @@ void toggleInstEditorExt(void)
         showInstEditorExt();
 }
 
-int8_t testInstrSwitcherMouseDown(void)
+static uint8_t testInstrSwitcherNormal(void) /* Welcome to the Jungle */
 {
     uint8_t newEntry;
 
-    /* test instrument/sample selector */
-    if (!mouse.leftButtonPressed || !editor.ui.instrSwitcherShown)
+    if ((mouse.x < 424) || (mouse.x > 585))
         return (false);
 
-    if (editor.ui.extended)
+    if ((mouse.y >= 5) && (mouse.y <= 91))
     {
-        if ((mouse.y >= 5) && (mouse.y <= 47))
+        /* instruments */
+
+        if ((mouse.x >= 446) && (mouse.x <= 584))
         {
-            if (mouse.x >= 511)
+            /* destination instrument */
+
+            newEntry = (1 + editor.instrBankOffset) + (uint8_t)((mouse.y - 5) / 11);
+            if (editor.curInstr != newEntry)
             {
-                /* right columns */
+                editor.curInstr = newEntry;
 
-                if (mouse.x <= 525)
-                {
-                    /* source instrument */
-
-                    newEntry = (5 + editor.instrBankOffset) + (uint8_t)((mouse.y - 5) / 11);
-                    if (editor.srcInstr != newEntry)
-                    {
-                        editor.srcInstr = newEntry;
-
-                        updateInstrumentSwitcher();
-                        if (editor.ui.advEditShown)
-                            updateAdvEdit();
-                    }
-
-                    mouse.lastUsedObjectType = OBJECT_INSTRSWITCH;
-                    return (true);
-                }
-                else if ((mouse.x >= 529) && (mouse.x <= 626))
-                {
-                    /* destination instrument */
-
-                    newEntry = (5 + editor.instrBankOffset) + (uint8_t)((mouse.y - 5) / 11);
-                    if (editor.curInstr != newEntry)
-                    {
-                        editor.curInstr = newEntry;
-
-                        updateTextBoxPointers();
-                        updateNewInstrument();
-                    }
-
-                    mouse.lastUsedObjectType = OBJECT_INSTRSWITCH;
-                    return (true);
-                }
+                updateTextBoxPointers();
+                updateNewInstrument();
             }
-            else if (mouse.x >= 388)
+
+            mouse.lastUsedObjectType = OBJECT_INSTRSWITCH;
+            return (true);
+        }
+        else if ((mouse.x >= 424) && (mouse.x <= 438))
+        {
+            /* source isntrument */
+
+            newEntry = (1 + editor.instrBankOffset) + (uint8_t)((mouse.y - 5) / 11);
+            if (editor.srcInstr != newEntry)
             {
-                /* left columns */
+                editor.srcInstr = newEntry;
 
-                if (mouse.x <= 402)
-                {
-                    /* source instrument */
-
-                    newEntry = (1 + editor.instrBankOffset) + (uint8_t)((mouse.y - 5) / 11);
-                    if (editor.srcInstr != newEntry)
-                    {
-                        editor.srcInstr = newEntry;
-
-                        updateInstrumentSwitcher();
-                        if (editor.ui.advEditShown)
-                            updateAdvEdit();
-                    }
-
-                    mouse.lastUsedObjectType = OBJECT_INSTRSWITCH;
-                    return (true);
-                }
-                else if ((mouse.x >= 406) && (mouse.x <= 503))
-                {
-                    /* destination instrument */
-
-                    newEntry = (1 + editor.instrBankOffset) + (uint8_t)((mouse.y - 5) / 11);
-                    if (editor.curInstr != newEntry)
-                    {
-                        editor.curInstr = newEntry;
-
-                        updateTextBoxPointers();
-                        updateNewInstrument();
-                    }
-
-                    mouse.lastUsedObjectType = OBJECT_INSTRSWITCH;
-                    return (true);
-                }
+                updateInstrumentSwitcher();
+                if (editor.ui.advEditShown)
+                    updateAdvEdit();
             }
+
+            mouse.lastUsedObjectType = OBJECT_INSTRSWITCH;
+            return (true);
         }
     }
-    else
+    else if ((mouse.y >= 99) && (mouse.y <= 152))
     {
-        if ((mouse.x >= 424) && (mouse.x <= 585))
+        /* samples */
+
+        if ((mouse.x >= 446) && (mouse.x <= 560))
         {
-            if ((mouse.y >= 5) && (mouse.y <= 91))
+            /* destionation sample */
+
+            newEntry = editor.sampleBankOffset + (uint8_t)((mouse.y - 99) / 11);
+            if (editor.curSmp != newEntry)
             {
-                if ((mouse.x >= 446) && (mouse.x <= 584))
-                {
-                    newEntry = (1 + editor.instrBankOffset) + (uint8_t)((mouse.y - 5) / 11);
-                    if (editor.curInstr != newEntry)
-                    {
-                        editor.curInstr = newEntry;
+                editor.curSmp = newEntry;
 
-                        updateTextBoxPointers();
-                        updateNewInstrument();
-                    }
+                updateInstrumentSwitcher();
+                updateSampleEditorSample();
 
-                    mouse.lastUsedObjectType = OBJECT_INSTRSWITCH;
-                    return (true);
-                }
-                else if ((mouse.x >= 424) && (mouse.x <= 438))
-                {
-                    newEntry = (1 + editor.instrBankOffset) + (uint8_t)((mouse.y - 5) / 11);
-                    if (editor.srcInstr != newEntry)
-                    {
-                        editor.srcInstr = newEntry;
-
-                        updateInstrumentSwitcher();
-                        if (editor.ui.advEditShown)
-                            updateAdvEdit();
-                    }
-
-                    mouse.lastUsedObjectType = OBJECT_INSTRSWITCH;
-                    return (true);
-                }
+                if (editor.ui.sampleEditorShown)
+                    updateSampleEditor();
+                else if (editor.ui.instEditorShown)
+                    updateInstEditor();
             }
-            else if ((mouse.y >= 99) && (mouse.y <= 152))
+
+            mouse.lastUsedObjectType = OBJECT_INSTRSWITCH;
+            return (true);
+        }
+        else if ((mouse.x >= 423) && (mouse.x <= 438))
+        {
+            /* source sample */
+
+            newEntry = editor.sampleBankOffset + (uint8_t)((mouse.y - 99) / 11);
+            if (editor.srcSmp != newEntry)
             {
-                if ((mouse.x >= 446) && (mouse.x <= 560))
-                {
-                    newEntry = editor.sampleBankOffset + (uint8_t)((mouse.y - 99) / 11);
-                    if (editor.curSmp != newEntry)
-                    {
-                        editor.curSmp = newEntry;
-
-                        updateInstrumentSwitcher();
-                        updateSampleEditorSample();
-
-                        if (editor.ui.sampleEditorShown)
-                            updateSampleEditor();
-                        else if (editor.ui.instEditorShown)
-                            updateInstEditor();
-                    }
-
-                    mouse.lastUsedObjectType = OBJECT_INSTRSWITCH;
-                    return (true);
-                }
-                else if ((mouse.x >= 423) && (mouse.x <= 438))
-                {
-                    newEntry = editor.sampleBankOffset + (uint8_t)((mouse.y - 99) / 11);
-                    if (editor.srcSmp != newEntry)
-                    {
-                        editor.srcSmp = newEntry;
-                        updateInstrumentSwitcher();
-                    }
-
-                    mouse.lastUsedObjectType = OBJECT_INSTRSWITCH;
-                    return (true);
-                }
+                editor.srcSmp = newEntry;
+                updateInstrumentSwitcher();
             }
+
+            mouse.lastUsedObjectType = OBJECT_INSTRSWITCH;
+            return (true);
         }
     }
 
     return (false);
+}
+
+static uint8_t testInstrSwitcherExtended(void) /* Welcome to the Jungle 2 - The Happening */
+{
+    uint8_t newEntry;
+
+    if ((mouse.y < 5) || (mouse.y > 47))
+        return (false);
+
+    if (mouse.x >= 511)
+    {
+        /* right columns */
+
+        if (mouse.x <= 525)
+        {
+            /* source instrument */
+
+            newEntry = (5 + editor.instrBankOffset) + (uint8_t)((mouse.y - 5) / 11);
+            if (editor.srcInstr != newEntry)
+            {
+                editor.srcInstr = newEntry;
+
+                updateInstrumentSwitcher();
+                if (editor.ui.advEditShown)
+                    updateAdvEdit();
+            }
+
+            mouse.lastUsedObjectType = OBJECT_INSTRSWITCH;
+            return (true);
+        }
+        else if ((mouse.x >= 529) && (mouse.x <= 626))
+        {
+            /* destination instrument */
+
+            newEntry = (5 + editor.instrBankOffset) + (uint8_t)((mouse.y - 5) / 11);
+            if (editor.curInstr != newEntry)
+            {
+                editor.curInstr = newEntry;
+
+                updateTextBoxPointers();
+                updateNewInstrument();
+            }
+
+            mouse.lastUsedObjectType = OBJECT_INSTRSWITCH;
+            return (true);
+        }
+    }
+    else if (mouse.x >= 388)
+    {
+        /* left columns */
+
+        if (mouse.x <= 402)
+        {
+            /* source instrument */
+
+            newEntry = (1 + editor.instrBankOffset) + (uint8_t)((mouse.y - 5) / 11);
+            if (editor.srcInstr != newEntry)
+            {
+                editor.srcInstr = newEntry;
+
+                updateInstrumentSwitcher();
+                if (editor.ui.advEditShown)
+                    updateAdvEdit();
+            }
+
+            mouse.lastUsedObjectType = OBJECT_INSTRSWITCH;
+            return (true);
+        }
+        else if ((mouse.x >= 406) && (mouse.x <= 503))
+        {
+            /* destination instrument */
+
+            newEntry = (1 + editor.instrBankOffset) + (uint8_t)((mouse.y - 5) / 11);
+            if (editor.curInstr != newEntry)
+            {
+                editor.curInstr = newEntry;
+
+                updateTextBoxPointers();
+                updateNewInstrument();
+            }
+
+            mouse.lastUsedObjectType = OBJECT_INSTRSWITCH;
+            return (true);
+        }
+    }
+
+    return (false);
+}
+
+int8_t testInstrSwitcherMouseDown(void)
+{ 
+    if (!mouse.leftButtonPressed || !editor.ui.instrSwitcherShown)
+        return (false);
+
+    if (editor.ui.extended)
+        return (testInstrSwitcherExtended());
+    else
+        return (testInstrSwitcherNormal());
 }
 
 static int32_t SDLCALL saveInstrThread(void *ptr)
@@ -3171,30 +3184,21 @@ static int32_t SDLCALL saveInstrThread(void *ptr)
 #ifdef _DEBUG
         __debugbreak();
 #endif
-        setMouseBusy(false);
-        sysReqQueue(SR_SAVE_IO_ERROR);
-        return (false);
-    }
-
-    if (saveInstrNr == 0)
-    {
-        setMouseBusy(false);
+        okBoxThreadSafe(0, "System message", "General I/O error during saving! Is the file in use?");
         return (false);
     }
 
     n = getUsedSamples(saveInstrNr);
     if (n == 0)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_INSTR_HAS_NO_SMPS);
+        okBoxThreadSafe(0, "System message", "Instrument has no samples!");
         return (false);
     }
 
     f = UNICHAR_FOPEN(editor.tmpFilenameU, "wb");
     if (f == NULL)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_SAVE_IO_ERROR);
+        okBoxThreadSafe(0, "System message", "General I/O error during saving! Is the file in use?");
         return (false);
     }
 
@@ -3230,8 +3234,7 @@ static int32_t SDLCALL saveInstrThread(void *ptr)
             if (smpData == NULL)
             {
                 fclose(f);
-                setMouseBusy(false);
-                sysReqQueue(SR_OOM_ERROR);
+                okBoxThreadSafe(0, "System message", "Not enough memory!");
                 return (false);
             }
 
@@ -3260,15 +3263,17 @@ static int32_t SDLCALL saveInstrThread(void *ptr)
 
 void saveInstr(UNICHAR *filenameU, int16_t nr)
 {
+    if (nr == 0)
+        return;
+
     saveInstrNr = nr;
     UNICHAR_STRCPY(editor.tmpFilenameU, filenameU);
 
-    setMouseBusy(true);
+    mouseAnimOn();
     thread = SDL_CreateThread(saveInstrThread, "FT2 Clone Instrument Saving Thread", NULL);
     if (thread == NULL)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_THREAD_ERROR);
+        okBox(0, "System message", "Error creating instrument saving thread!");
         return;
     }
 
@@ -3307,23 +3312,14 @@ static int32_t SDLCALL loadInstrThread(void *ptr)
 #ifdef _DEBUG
         __debugbreak();
 #endif
-        setMouseBusy(false);
-        sysReqQueue(SR_LOAD_IO_ERROR);
-        return (false);
-    }
-
-    if (editor.curInstr == 0)
-    {
-        setMouseBusy(false);
-        sysReqQueue(SR_LOAD_INSTR0_ERROR);
+        okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
         return (false);
     }
 
     f = UNICHAR_FOPEN(editor.tmpInstrFilenameU, "rb");
     if (f == NULL)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
         return (false);
     }
 
@@ -3336,7 +3332,7 @@ static int32_t SDLCALL loadInstrThread(void *ptr)
 
         if ((ih.ver != 0x0101) && (ih.ver != 0x0102))
         {
-            sysReqQueue(SR_LOAD_WRONG_VERSION);
+            okBoxThreadSafe(0, "System message", "Incompatible format version!");
             goto loadDone;
         }
 
@@ -3349,7 +3345,7 @@ static int32_t SDLCALL loadInstrThread(void *ptr)
 
         if (ih.antSamp > 16)
         {
-            sysReqQueue(SR_LOAD_INCOMPAT_INSTR);
+            okBoxThreadSafe(0, "System message", "Incompatible instrument!");
             goto loadDone;
         }
 
@@ -3366,6 +3362,7 @@ static int32_t SDLCALL loadInstrThread(void *ptr)
         }
 
         memcpy(song.instrName[editor.curInstr], ih.name, 22);
+        song.instrName[editor.curInstr][22] = '\0';
 
         if (ih.antSamp > 0)
         {
@@ -3403,7 +3400,7 @@ static int32_t SDLCALL loadInstrThread(void *ptr)
             {
                 clearInstr(editor.curInstr);
                 resumeAudio();
-                sysReqQueue(SR_LOAD_IO_ERROR);
+                okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
                 goto loadDone;
             }
 
@@ -3441,7 +3438,7 @@ static int32_t SDLCALL loadInstrThread(void *ptr)
                 {
                     clearInstr(editor.curInstr);
                     resumeAudio();
-                    sysReqQueue(SR_OOM_ERROR);
+                    okBoxThreadSafe(0, "System message", "Not enough memory!");
                     goto loadDone;
                 }
 
@@ -3449,7 +3446,7 @@ static int32_t SDLCALL loadInstrThread(void *ptr)
                 {
                     clearInstr(editor.curInstr);
                     resumeAudio();
-                    sysReqQueue(SR_LOAD_IO_ERROR);
+                    okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
                     goto loadDone;
                 }
 
@@ -3480,13 +3477,13 @@ static int32_t SDLCALL loadInstrThread(void *ptr)
         rewind(f);
 
         fread(&ih_PAT, 1, sizeof (instrPATHeaderTyp), f);
-        if (!strcmp(ih_PAT.id, "GF1PATCH110") && (ih_PAT.id[11] == '\0') && !strcmp(&ih_PAT.id[12], "ID#000002") && (ih_PAT.id[21] == '\0'))
+        if (!memcmp(ih_PAT.id, "GF1PATCH110\0ID#000002\0", 22))
         {
             /* PAT - Gravis Ultrasound GF1 patch */
 
             if ((ih_PAT.layers > 1) || (ih_PAT.antSamp > 16))
             {
-                sysReqQueue(SR_LOAD_INCOMPAT_INSTR);
+                okBoxThreadSafe(0, "System message", "Incompatible instrument!");
                 goto loadDone;
             }
 
@@ -3504,7 +3501,7 @@ static int32_t SDLCALL loadInstrThread(void *ptr)
                     break;
             }
 
-            memset(song.instrName[editor.curInstr], 0, 22);
+            memset(song.instrName[editor.curInstr], 0, 22 + 1);
             memcpy(song.instrName[editor.curInstr], ih_PAT.instrName, 16);
 
             for (i = 0; i < ih_PAT.antSamp; ++i)
@@ -3516,7 +3513,7 @@ static int32_t SDLCALL loadInstrThread(void *ptr)
                 {
                     clearInstr(editor.curInstr);
                     resumeAudio();
-                    sysReqQueue(SR_LOAD_IO_ERROR);
+                    okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
                     goto loadDone;
                 }
 
@@ -3525,7 +3522,7 @@ static int32_t SDLCALL loadInstrThread(void *ptr)
                 {
                     clearInstr(editor.curInstr);
                     resumeAudio();
-                    sysReqQueue(SR_OOM_ERROR);
+                    okBoxThreadSafe(0, "System message", "Not enough memory!");
                     goto loadDone;
                 }
 
@@ -3587,7 +3584,7 @@ static int32_t SDLCALL loadInstrThread(void *ptr)
                 {
                     clearInstr(editor.curInstr);
                     resumeAudio();
-                    sysReqQueue(SR_LOAD_IO_ERROR);
+                    okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
                     goto loadDone;
                 }
 
@@ -3604,11 +3601,6 @@ static int32_t SDLCALL loadInstrThread(void *ptr)
 
             resumeAudio();
         }
-        else
-        {
-            /* load as sample into sample slot #0 (and clear instrument) */
-            return (loadSample(editor.tmpInstrFilenameU, 0, true));
-        }
     }
 
 loadDone:
@@ -3617,27 +3609,57 @@ loadDone:
     editor.ui.updateLoadedInstrument = true; /* setMouseBusy(false) is called in the input/video thread when done */
 
     if (stereoWarning)
-    {
-        setMouseBusy(false);
-        sysReqQueue(SR_INSTR_STEREO_SAMPLES);
-    }
+        okBoxThreadSafe(0, "System message", "The instrument contains stereo samples! They were mixed to mono.");
 
     return (true);
 }
 
+static uint8_t fileIsInstr(UNICHAR *filename)
+{
+    char header[22];
+    FILE *f;
+
+    f = UNICHAR_FOPEN(filename, "rb");
+    if (f == NULL)
+        return (false);
+
+    fread(header, 1, sizeof (header), f);
+    fclose(f);
+
+    if (!strncmp(header, "Extended Instrument: ", 21) || !memcmp(header, "GF1PATCH110\0ID#000002\0", 22))
+        return (true);
+
+    return (false);
+}
+
 void loadInstr(UNICHAR *filenameU)
 {
-    UNICHAR_STRCPY(editor.tmpInstrFilenameU, filenameU);
-
-    setMouseBusy(true);
-    thread = SDL_CreateThread(loadInstrThread, "FT2 Clone Instrument Loading Thread", NULL);
-    if (thread == NULL)
+    if (editor.curInstr == 0)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_THREAD_ERROR);
+        okBox(0, "System message", "The zero-instrument cannot hold intrument data.");
         return;
     }
 
-    /* don't let thread wait for this thread, let it clean up on its own when done */
-    SDL_DetachThread(thread);
+    UNICHAR_STRCPY(editor.tmpInstrFilenameU, filenameU);
+
+    if (fileIsInstr(filenameU))
+    {
+        /* load as instrument */
+
+        mouseAnimOn();
+        thread = SDL_CreateThread(loadInstrThread, "FT2 Clone Instrument Loading Thread", NULL);
+        if (thread == NULL)
+        {
+            okBox(0, "System message", "Error creating instrument loading thread!");
+            return;
+        }
+
+        /* don't let thread wait for this thread, let it clean up on its own when done */
+        SDL_DetachThread(thread);
+    }
+    else
+    {
+        /* load as sample into sample slot #0 (and clear instrument) */
+        loadSample(editor.tmpInstrFilenameU, 0, true);
+    }
 }

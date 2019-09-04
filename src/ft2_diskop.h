@@ -34,8 +34,6 @@ const UNICHAR *getDiskOpSmpPath(void);
 void changeFilenameExt(char *name, char *ext, int32_t nameMaxLen);
 void diskOpChangeFilenameExt(char *ext);
 
-void openFile2(void); /* called from sys req. */
-
 void freeDiskOp(void);
 int8_t setupDiskOp(void);
 void diskOpSetFilename(uint8_t type, UNICHAR *pathU);
@@ -91,10 +89,5 @@ void rbDiskOpSmpSaveIff(void);
 
 void trimEntryName(char *name, uint8_t isDir);
 int32_t fileExistsAnsi(char *str);
-
-void diskOpDelete(void);      /* called from sys req */
-void diskOpRenameAnsi(void);  /* called from sys req */
-void diskOpMakeDirAnsi(void); /* called from sys req */
-void diskOpSetPathAnsi(void); /* called from sys req */
 
 #endif

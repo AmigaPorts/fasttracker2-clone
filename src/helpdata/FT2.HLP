@@ -857,8 +857,9 @@ END
 >@T170It won't look pretty, but for some people it's much better than nothing.
 >@X020
 >@C001Q: I can't use ALT+F4 and ALT+F5!
->@C002A: Windows: Uninstall 'GeForce Experience' (it takes over ALT+F5)
->@T170macOS/OS X: Change ALT+F4/ALT+F5 keys in the OS to something else.
+>@C002A: @C001Windows:@C002 If you have GeForce Experience installed, you need to change
+>@T170the keybindings in its settings page.
+>@C001macOS/OS X:@C002 Change ALT+F4/ALT+F5 keys in the OS to something else.
 >Also for GNU/Linux.
 >@X020
 >@C001Q: Will you implement MIDI out functionality?
@@ -866,16 +867,16 @@ END
 >@T170audio buffer sizes (buffered replayer ticks)...
 >@X020
 >@C001Q: Where is the configuration file stored?
->@C002A: Windows: \Users\USER\AppData\Roaming\FT2 clone\FT2.CFG
->@T170OS X: /Users/USER/Library/Application Support/FT2 clone/FT2.CFG
->@T170GNU/Linux: /home/USER/.config/FT2 clone/FT2.CFG
+>@C002A: @C001Windows:@C002 \Users\USER\AppData\Roaming\FT2 clone\FT2.CFG
+>@T170@C001OS X:@C002 /Users/USER/Library/Application Support/FT2 clone/FT2.CFG
+>@T170@C001GNU/Linux:@C002 /home/USER/.config/FT2 clone/FT2.CFG
 >
 >It will be stored in the program directory if the path couldn't be used.
 >If you put the configuration file in the program directory, it will read that
 >one and not attempt to create config dirs for the OS user. (portable mode)
 >@X020
 >@C001Q: The mouse cursor is delayed in its movement!
->@C002A: Enable "Vsync off" in Config -> Miscellaneous. This, however, introduces
+>@C002A: Enable "Vsync off" in Config -> Miscellaneous. This however, introduces
 >@T170more instability in the framerate (graphics rendering *and* input).
 >@X020
 >@C001Q: Can the clone read FT2.CFG from real FT2, and vice versa?
@@ -898,9 +899,9 @@ END
 >@C002
 >- When a forward-looped sample is zoomed out in the sample editor, you could
 >@X021see unwanted sample data at the loop-end point. This is because of a
->kludge for linear interpolation to work faster in the audio mixer, and original
->FT2 has the same problem. I have made it so that if you zoom in to see the
->individual sample points, it will look like normal.
+>kludge for linear interpolation to work faster in the audio mixer, and the
+>original FT2 has the same problem. I have made it so that if you zoom in to
+>see the individual sample points, it will look like normal.
 >This was not a problem in the earlier FT2 clone versions because they
 >worked differently for linear interpolation than the newer ones.
 >@X010

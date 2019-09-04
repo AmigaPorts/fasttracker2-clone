@@ -44,8 +44,10 @@
 #define DISKOP_MAX_DRIVE_BUTTONS 8
 
 #ifdef _WIN32
+#define PARENT_DIR_STR L".."
 static HANDLE hFind;
 #else
+#define PARENT_DIR_STR ".."
 static DIR *hFind;
 #endif
 
@@ -60,15 +62,15 @@ enum
 typedef struct DirRec
 {
     UNICHAR *nameU;
-    uint8_t directoryFlag;
+    uint8_t isDir;
     int32_t filesize;
 } DirRec;
 
 static char FReq_SysReqText[196], *FReq_FileName, *FReq_NameTemp;
 static char *modTmpFName, *insTmpFName, *smpTmpFName, *patTmpFName, *trkTmpFName;
 static char *modTmpFNameUTF8; /* for window title */
-static uint8_t FReq_ShowAllFiles, FReq_Item, FReq_LastEntryType;
-static int32_t FReq_EntrySelected = -1, FReq_FileCount, FReq_DirPos, FReq_LastSelectedEntry = -1, lastMouseY;
+static uint8_t FReq_ShowAllFiles, FReq_Item;
+static int32_t FReq_EntrySelected = -1, FReq_FileCount, FReq_DirPos, lastMouseY;
 static UNICHAR *FReq_CurPathU, *FReq_ModCurPathU, *FReq_InsCurPathU, *FReq_SmpCurPathU, *FReq_PatCurPathU, *FReq_TrkCurPathU;
 static DirRec *FReq_Buffer;
 static SDL_Thread *thread;
@@ -357,8 +359,8 @@ static void setupDiskOpDrives(void) /* Windows only */
     {
         if ((drivesBitmask & (1 << i)) != 0)
         {
-            driveIndexes[numLogicalDrives] = i;
-            if (++numLogicalDrives == DISKOP_MAX_DRIVE_BUTTONS)
+            driveIndexes[numLogicalDrives++] = i;
+            if (numLogicalDrives == DISKOP_MAX_DRIVE_BUTTONS)
                 break;
         }
     }
@@ -377,17 +379,23 @@ static void setupDiskOpDrives(void) /* Windows only */
 
 static void openDrive(char *str) /* Windows only */
 {
+    if (mouse.mode == MOUSE_MODE_DELETE)
+    {
+        okBox(8, "System complaint", "Very funny.");
+        return;
+    }
+
     if ((str == NULL) || (*str == '\0'))
     {
 #ifdef _DEBUG
         __debugbreak();
 #endif
-        sysReqQueue(SR_OPEN_IO_ERROR);
+        okBox(0, "System message", "Couldn't open drive!");
         return;
     }
 
     if (chdir(str) != 0)
-        sysReqQueue(SR_SET_DRIVE_ERROR);
+        okBox(0, "System message", "Couldn't open drive! Please make sure there's a disk in it.");
     else
         editor.diskOpReadDir = true;
 }
@@ -497,12 +505,12 @@ static void openDirectory(UNICHAR *strU)
 #ifdef _DEBUG
         __debugbreak();
 #endif
-        sysReqQueue(SR_OPEN_IO_ERROR);
+        okBox(0, "System message", "Couldn't open directory! No permission or in use?");
         return;
     }
 
     if (UNICHAR_CHDIR(strU) != 0)
-        sysReqQueue(SR_OPEN_IO_ERROR);
+        okBox(0, "System message", "Couldn't open directory! No permission or in use?");
     else
         editor.diskOpReadDir = true;
 }
@@ -631,7 +639,7 @@ static void openFile(UNICHAR *filenameU, uint8_t songModifiedCheck)
     f = UNICHAR_FOPEN(filenameU, "rb");
     if (f == NULL)
     {
-        sysReqQueue(SR_OPEN_IO_ERROR);
+        okBox(0, "System message", "Couldn't open file/directory! No permission or in use?");
         return;
     }
     fclose(f);
@@ -644,9 +652,12 @@ static void openFile(UNICHAR *filenameU, uint8_t songModifiedCheck)
         {
             if (songModifiedCheck && song.isModified)
             {
-                UNICHAR_STRCPY(editor.tmpFilenameU, filenameU);
-                sysReqQueue(SR_DISKOP_LOADMOD_DISCARD);
-                return; /* will ask if user wants to overwrite, we'll come back here again if 'yes' */
+                /* remove file selection */
+                FReq_EntrySelected = -1;
+                diskOp_DrawDirectory();
+
+                if (okBox(2, "System request", "You have unsaved changes in your song. Load new song and lose all changes?") != 1)
+                    return;
             }
 
             editor.loadMusicEvent = EVENT_LOADMUSIC_DISKOP;
@@ -659,13 +670,6 @@ static void openFile(UNICHAR *filenameU, uint8_t songModifiedCheck)
         case DISKOP_ITEM_PATTERN: loadPattern(filenameU);                      break;
         case DISKOP_ITEM_TRACK:   loadTrack(filenameU);                        break;
     }
-}
-
-void openFile2(void) /* called from sys req. */
-{
-    hideSystemRequest();
-    if (editor.tmpFilenameU != NULL)
-        openFile(editor.tmpFilenameU, false);
 }
 
 static void removeFilenameExt(char *name)
@@ -723,7 +727,7 @@ void trimEntryName(char *name, uint8_t isDir)
     if (isDir)
     {
         /* directory */
-        while ((getTextWidth(name, FONT_TYPE1) > (160 - 8)) && (j >= 2))
+        while ((textWidth(name) > (160 - 8)) && (j >= 2))
         {
             name[j - 2] = '.';
             name[j - 1] = '.';
@@ -741,7 +745,7 @@ void trimEntryName(char *name, uint8_t isDir)
         sprintf(extBuffer, ".. %s", &name[extOffset]); /* "hellohellohel... .xm" */
 
         extLen = (int32_t)(strlen(extBuffer));
-        while ((getTextWidth(name, FONT_TYPE1) >= (FILESIZE_TEXT_X -  FILENAME_TEXT_X)) && (j >= (1 + extLen)))
+        while ((textWidth(name) >= (FILESIZE_TEXT_X -  FILENAME_TEXT_X)) && (j >= (1 + extLen)))
         {
             memcpy(&name[j - extLen], extBuffer, extLen + 1);
             j--;
@@ -750,7 +754,7 @@ void trimEntryName(char *name, uint8_t isDir)
     else
     {
         /* no extension */
-        while (getTextWidth(name, FONT_TYPE1) >= (FILESIZE_TEXT_X -  FILENAME_TEXT_X) && (j >= 2))
+        while (textWidth(name) >= (FILESIZE_TEXT_X -  FILENAME_TEXT_X) && (j >= 2))
         {
             name[j - 2] = '.';
             name[j - 1] = '.';
@@ -773,7 +777,6 @@ static void createOverwriteText(char *name)
     trimEntryName(nameTmp, false);
 
     sprintf(FReq_SysReqText, "Overwrite file \"%s\"?", nameTmp);
-    sysReqs[SR_DISKOP_OVERWRITE].text = FReq_SysReqText;
 }
 
 static void diskOpSave(uint8_t checkOverwrite)
@@ -782,21 +785,21 @@ static void diskOpSave(uint8_t checkOverwrite)
 
     if (FReq_FileName[0] == '\0')
     {
-        sysReqQueue(SR_EMPTY_FILENAME);
+        okBox(0, "System message", "Filename can't be empty!");
         return;
     }
 
     /* test if the very first character has a dot... */
     if (FReq_FileName[0] == '.')
     {
-        sysReqQueue(SR_ILLEGAL_FILENAME_DOT);
+        okBox(0, "System message", "The very first character in the filename can't be '.' (dot)!");
         return;
     }
 
     /* test for illegal file name */
     if ((FReq_FileName[0] == '\0') || (strpbrk(FReq_FileName, "\\/:*?\"<>|") != NULL))
     {
-        sysReqQueue(SR_ILLEGAL_FILENAME);
+        okBox(0, "System message", "The filename can't contain the following characters: \\ / : * ? \" < > |");
         return;
     }
 
@@ -823,14 +826,14 @@ static void diskOpSave(uint8_t checkOverwrite)
             if (checkOverwrite && fileExistsAnsi(FReq_FileName))
             {
                 createOverwriteText(FReq_FileName);
-                sysReqQueue(SR_DISKOP_OVERWRITE);
-                return;
+                if (okBox(2, "System request", FReq_SysReqText) != 1)
+                    return;
             }
 
             fileNameU = cp437ToUnichar(FReq_FileName);
             if (fileNameU == NULL)
             {
-                sysReqQueue(SR_SAVE_IO_ERROR);
+                okBox(0, "System message", "General I/O error during saving! Is the file in use?");
                 return;
             }
 
@@ -847,14 +850,14 @@ static void diskOpSave(uint8_t checkOverwrite)
             if (checkOverwrite && fileExistsAnsi(FReq_FileName))
             {
                 createOverwriteText(FReq_FileName);
-                sysReqQueue(SR_DISKOP_OVERWRITE);
-                return;
+                if (okBox(2, "System request", FReq_SysReqText) != 1)
+                    return;
             }
 
             fileNameU = cp437ToUnichar(FReq_FileName);
             if (fileNameU == NULL)
             {
-                sysReqQueue(SR_SAVE_IO_ERROR);
+                okBox(0, "System message", "General I/O error during saving! Is the file in use?");
                 return;
             }
 
@@ -876,14 +879,14 @@ static void diskOpSave(uint8_t checkOverwrite)
             if (checkOverwrite && fileExistsAnsi(FReq_FileName))
             {
                 createOverwriteText(FReq_FileName);
-                sysReqQueue(SR_DISKOP_OVERWRITE);
-                return;
+                if (okBox(2, "System request", FReq_SysReqText) != 1)
+                    return;
             }
 
             fileNameU = cp437ToUnichar(FReq_FileName);
             if (fileNameU == NULL)
             {
-                sysReqQueue(SR_SAVE_IO_ERROR);
+                okBox(0, "System message", "General I/O error during saving! Is the file in use?");
                 return;
             }
 
@@ -900,14 +903,14 @@ static void diskOpSave(uint8_t checkOverwrite)
             if (checkOverwrite && fileExistsAnsi(FReq_FileName))
             {
                 createOverwriteText(FReq_FileName);
-                sysReqQueue(SR_DISKOP_OVERWRITE);
-                return;
+                if (okBox(2, "System request", FReq_SysReqText) != 1)
+                    return;
             }
 
             fileNameU = cp437ToUnichar(FReq_FileName);
             if (fileNameU == NULL)
             {
-                sysReqQueue(SR_SAVE_IO_ERROR);
+                okBox(0, "System message", "General I/O error during saving! Is the file in use?");
                 return;
             }
 
@@ -923,14 +926,14 @@ static void diskOpSave(uint8_t checkOverwrite)
             if (checkOverwrite && fileExistsAnsi(FReq_FileName))
             {
                 createOverwriteText(FReq_FileName);
-                sysReqQueue(SR_DISKOP_OVERWRITE);
-                return;
+                if (okBox(2, "System request", FReq_SysReqText) != 1)
+                    return;
             }
 
             fileNameU = cp437ToUnichar(FReq_FileName);
             if (fileNameU == NULL)
             {
-                sysReqQueue(SR_SAVE_IO_ERROR);
+                okBox(0, "System message", "General I/O error during saving! Is the file in use?");
                 return;
             }
 
@@ -946,204 +949,129 @@ void pbDiskOpSave(void)
     diskOpSave(config.cfg_OverwriteWarning); /* check if about to overwrite */
 }
 
-void diskOpSave2(void) /* called from sys req */
-{
-    hideSystemRequest();
-    diskOpSave(false); /* don't check if about to overwrite */
-}
-
-void diskOpDelete(void) /* called from sys req */
-{
-    int32_t result;
-    DirRec *dirEntry;
-
-    hideSystemRequest();
-
-    if ((FReq_LastSelectedEntry == -1) || (FReq_LastSelectedEntry >= FReq_FileCount))
-        return;
-
-    dirEntry = &FReq_Buffer[FReq_LastSelectedEntry];
-    if (dirEntry->directoryFlag)
-        result = deleteDirRecursive(dirEntry->nameU);
-    else
-        result = (UNICHAR_REMOVE(dirEntry->nameU) == 0);
-
-    if (result)
-        editor.diskOpReadDir = true;
-    else
-        sysReqQueue(SR_FILE_DELETE_ERROR);
-
-    FReq_LastSelectedEntry = -1;
-}
-
-void diskOpRenameAnsi(void) /* called from sys req */
-{
-    int32_t result;
-    UNICHAR *oldName;
-
-    hideSystemRequest();
-
-    if ((FReq_LastSelectedEntry == -1) || (FReq_LastSelectedEntry >= FReq_FileCount))
-        return;
-
-    oldName = FReq_Buffer[FReq_LastSelectedEntry].nameU;
-
-    result = false;
-    if ((FReq_NameTemp != NULL) && (strlen(FReq_NameTemp) > 0))
-        result = renameAnsi(oldName, FReq_NameTemp);
-
-    if (result)
-    {
-        editor.diskOpReadDir = true;
-    }
-    else
-    {
-        if (FReq_LastEntryType == 0)
-            sysReqQueue(SR_FILE_RENAME_ERROR);
-        else
-            sysReqQueue(SR_DIR_RENAME_ERROR);
-    }
-
-    FReq_LastSelectedEntry = -1;
-}
-
-void diskOpMakeDirAnsi(void) /* called from sys req */
-{
-    int32_t result;
-
-    hideSystemRequest();
-
-    result = false;
-    if ((FReq_NameTemp != NULL) && (strlen(FReq_NameTemp) > 0))
-        result = makeDirAnsi(FReq_NameTemp);
-
-    if (result)
-        editor.diskOpReadDir = true;
-    else
-        sysReqQueue(SR_MAKE_DIR_ERROR);
-}
-
-void diskOpSetPathAnsi(void) /* called from sys req */
-{
-    int32_t result;
-
-    hideSystemRequest();
-
-    result = false;
-    if ((FReq_NameTemp != NULL) && (strlen(FReq_NameTemp) > 0))
-        result = (chdir(FReq_NameTemp) == 0);
-
-    if (result)
-        editor.diskOpReadDir = true;
-    else
-        sysReqQueue(SR_SET_PATH_ERROR);
-}
-
-static int8_t createDeleteText(DirRec *dirEntry)
-{
-    char *name;
-
-    name = unicharToCp437(dirEntry->nameU, true);
-    if (name == NULL)
-        return (false);
-
-    trimEntryName(name, dirEntry->directoryFlag);
-
-    if (dirEntry->directoryFlag)
-        sprintf(FReq_SysReqText, "Delete directory \"%s\"?", name);
-    else
-        sprintf(FReq_SysReqText, "Delete file \"%s\"?", name);
-
-    free(name);
-
-    sysReqs[SR_DISKOP_DELETE].text = FReq_SysReqText;
-    return (true);
-}
-
 static void fileListPressed(int32_t index)
 {
     char *nameTmp;
-    int32_t entryIndex;
+    int8_t mode;
+    int32_t result, entryIndex;
     DirRec *dirEntry;
 
     entryIndex = FReq_DirPos + index;
     if ((entryIndex >= FReq_FileCount) || (FReq_FileCount == 0))
-        return;
+        return; /* illegal entry */
+
+    mode = mouse.mode;
+
+    /* set normal mouse cursor */
+    if (mouse.mode != MOUSE_MODE_NORMAL)
+        setMouseMode(MOUSE_MODE_NORMAL);
+
+    /* remove file selection */
+    FReq_EntrySelected = -1;
+    diskOp_DrawDirectory();
 
     dirEntry = &FReq_Buffer[entryIndex];
-    switch (mouse.mode)
+    switch (mode)
     {
+        /* open file/folder */
         default:
         case MOUSE_MODE_NORMAL:
         {
-            if (dirEntry->directoryFlag)
+            if (dirEntry->isDir)
                 openDirectory(dirEntry->nameU);
             else
                 openFile(dirEntry->nameU, true);
         }
         break;
 
+        /* delete file/folder */
         case MOUSE_MODE_DELETE:
         {
-#ifdef _WIN32
-            if (!(dirEntry->directoryFlag && !UNICHAR_STRCMP(dirEntry->nameU, L".."))) /* don't do dir ".." */
-#else
-            if (!(dirEntry->directoryFlag && !UNICHAR_STRCMP(dirEntry->nameU,  ".."))) /* don't do dir ".." */
-#endif
+            if (!(dirEntry->isDir && !UNICHAR_STRCMP(dirEntry->nameU, PARENT_DIR_STR))) /* don't handle ".." dir */
             {
-                FReq_LastSelectedEntry = entryIndex;
-
-                if (createDeleteText(dirEntry))
-                    sysReqQueue(SR_DISKOP_DELETE);
-            }
-        }
-        break;
-
-        case MOUSE_MODE_RENAME:
-        {
-#ifdef _WIN32
-            if (!(dirEntry->directoryFlag && !UNICHAR_STRCMP(dirEntry->nameU, L".."))) /* don't do dir ".." */
-#else
-            if (!(dirEntry->directoryFlag && !UNICHAR_STRCMP(dirEntry->nameU,  ".."))) /* don't do dir ".." */
-#endif
-            {
-                FReq_LastSelectedEntry = entryIndex;
-                FReq_LastEntryType     = dirEntry->directoryFlag;
-
                 nameTmp = unicharToCp437(dirEntry->nameU, true);
                 if (nameTmp == NULL)
                     break;
 
-                strncpy(FReq_NameTemp, nameTmp, PATH_MAX);
+                trimEntryName(nameTmp, dirEntry->isDir);
+
+                if (dirEntry->isDir)
+                    sprintf(FReq_SysReqText, "Delete directory \"%s\"?", nameTmp);
+                else
+                    sprintf(FReq_SysReqText, "Delete file \"%s\"?", nameTmp);
+
                 free(nameTmp);
 
-                /* in case of UTF8 -> CP437 encode fail, there can be question marks. Remove them */
+                if (okBox(2, "System request", FReq_SysReqText) == 1)
+                {
+                    if (dirEntry->isDir)
+                    {
+                        result = deleteDirRecursive(dirEntry->nameU);
+                        if (!result)
+                            okBox(0, "System message", "Couldn't delete folder: Access denied!");
+                        else
+                            editor.diskOpReadDir = true;
+                    }
+                    else
+                    {
+                        result = (UNICHAR_REMOVE(dirEntry->nameU) == 0);
+                        if (!result)
+                            okBox(0, "System message", "Couldn't delete file: Access denied!");
+                        else
+                            editor.diskOpReadDir = true;
+                    }
+                }
+            }
+        }
+        break;
+
+        /* rename file/folder */
+        case MOUSE_MODE_RENAME:
+        {
+            if (!(dirEntry->isDir && !UNICHAR_STRCMP(dirEntry->nameU, PARENT_DIR_STR))) /* don't handle ".." dir */
+            {
+                nameTmp = unicharToCp437(dirEntry->nameU, true);
+                if (nameTmp == NULL)
+                    break;
+
+                strncpy(FReq_NameTemp, nameTmp, PATH_MAX - 1);
+                free(nameTmp);
+
+                /* in case of UTF8 -> CP437 encoding failure, there can be question marks. Remove them... */
                 removeQuestionMarksFromString(FReq_NameTemp);
 
-                setupTextBoxForSysReq(TB_DISKOP_RENAME_NAME, FReq_NameTemp, PATH_MAX, true);
+                if (inputBox(2, dirEntry->isDir ? "Enter new directoryname:" : "Enter new filename:", FReq_NameTemp, PATH_MAX - 1) == 1)
+                {
+                    if ((FReq_NameTemp == NULL) || (FReq_NameTemp[0] == '\0'))
+                    {
+                        okBox(0, "System message", "New name can't be empty!");
+                        break;
+                    }
 
-                if (dirEntry->directoryFlag)
-                    sysReqQueue(SR_DISKOP_RENAME_DIR);
-                else
-                    sysReqQueue(SR_DISKOP_RENAME_FILE);
+                    if (!renameAnsi(dirEntry->nameU, FReq_NameTemp))
+                    {
+                        if (dirEntry->isDir)
+                            okBox(0, "System message", "Couldn't rename directory: Access denied, or dir already exists!");
+                        else
+                            okBox(0, "System message", "Couldn't rename file: Access denied, or file already exists!");
+                    }
+                    else
+                    {
+                        editor.diskOpReadDir = true;
+                    }
+                }
             }
         }
         break;
     }
-
-    if (mouse.mode != MOUSE_MODE_NORMAL)
-        setMouseMode(MOUSE_MODE_NORMAL);
 }
 
 int8_t testDiskOpMouseDown(uint8_t mouseHeldDlown)
 {
     int32_t tmpEntry, max;
 
-    if (!editor.ui.diskOpShown)
+    if (!editor.ui.diskOpShown || (FReq_FileCount == 0))
         return (false);
-
-    if (FReq_FileCount == 0)
-        return (true);
 
     max = FReq_FileCount - FReq_DirPos;
     if (max > DISKOP_ENTRY_NUM) /* needed kludge when mouse-scrolling */
@@ -1154,8 +1082,7 @@ int8_t testDiskOpMouseDown(uint8_t mouseHeldDlown)
         FReq_EntrySelected = -1;
 
         if ((mouse.x >= 169) && (mouse.x <= 331) &&
-            (mouse.y >=   4) && (mouse.y <= 168)
-           )
+            (mouse.y >=   4) && (mouse.y <= 168))
         {
             tmpEntry = (mouse.y - 4) / (FONT1_CHAR_H + 1);
             if ((tmpEntry >= 0) && (tmpEntry < max))
@@ -1209,14 +1136,10 @@ int8_t testDiskOpMouseDown(uint8_t mouseHeldDlown)
 
 void testDiskOpMouseRelease(void)
 {
-    if (!editor.ui.diskOpShown)
-        return;
-
-    if (FReq_EntrySelected != -1)
+    if (editor.ui.diskOpShown && (FReq_EntrySelected != -1))
     {
         if ((mouse.x >= 169) && (mouse.x <= 329) &&
-            (mouse.y >=   4) && (mouse.y <= 168)
-           )
+            (mouse.y >=   4) && (mouse.y <= 168))
         {
             fileListPressed((mouse.y - 4) / (FONT1_CHAR_H + 1));
         }
@@ -1300,8 +1223,7 @@ static uint8_t handleEntrySkip(UNICHAR *nameU, uint8_t isDir)
                 {
                     if (_stricmp(".nst", extPtr) && _stricmp(".mod", extPtr) &&
                         _stricmp(".s3m", extPtr) && _stricmp(".stm", extPtr) &&
-                        _stricmp(".fst", extPtr) && _stricmp(".wav", extPtr)
-                       )
+                        _stricmp(".fst", extPtr) && _stricmp(".wav", extPtr))
                     {
                         free(name);
                         return (true); /* skip, none of the extensions above */
@@ -1319,7 +1241,7 @@ static uint8_t handleEntrySkip(UNICHAR *nameU, uint8_t isDir)
             {
                 if (extLen == 3)
                 {
-                    if (_stricmp(".xi", extPtr) && _stricmp(".pat", extPtr))
+                    if (_stricmp(".xi", extPtr))
                     {
                         free(name);
                         return (true); /* skip, none of the extensions above */
@@ -1330,8 +1252,7 @@ static uint8_t handleEntrySkip(UNICHAR *nameU, uint8_t isDir)
                     if (_stricmp(".iff", extPtr) && _stricmp(".raw", extPtr) &&
                         _stricmp(".wav", extPtr) && _stricmp(".snd", extPtr) &&
                         _stricmp(".smp", extPtr) && _stricmp(".sam", extPtr) &&
-                        _stricmp(".aif", extPtr)
-                       )
+                        _stricmp(".aif", extPtr) && _stricmp(".pat", extPtr))
                     {
                         free(name);
                         return (true); /* skip, none of the extensions above */
@@ -1360,8 +1281,7 @@ static uint8_t handleEntrySkip(UNICHAR *nameU, uint8_t isDir)
                     if (_stricmp(".iff", extPtr) && _stricmp(".raw", extPtr) &&
                         _stricmp(".wav", extPtr) && _stricmp(".snd", extPtr) &&
                         _stricmp(".smp", extPtr) && _stricmp(".sam", extPtr) &&
-                        _stricmp(".aif", extPtr)
-                       )
+                        _stricmp(".aif", extPtr))
                     {
                         free(name);
                         return (true); /* skip, none of the extensions above */
@@ -1422,7 +1342,7 @@ static uint8_t handleEntrySkip(UNICHAR *nameU, uint8_t isDir)
     }
 
     free(name);
-    return (false); /* 'Show All Files' mode is enabled, don't skip entry */
+    return (false); /* "Show All Files" mode is enabled, don't skip entry */
 }
 
 #ifndef _WIN32
@@ -1447,7 +1367,7 @@ static int8_t findFirst(DirRec *searchRec)
     struct stat st;
 #endif
 
-    searchRec->nameU = NULL; /* important */
+    searchRec->nameU = NULL; /* this one must be initialized */
 
 #ifdef _WIN32
     hFind = FindFirstFileW(L"*", &fData);
@@ -1463,7 +1383,7 @@ static int8_t findFirst(DirRec *searchRec)
         filesize = -1;
 
     searchRec->filesize = filesize;
-    searchRec->directoryFlag = (fData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? true : false;
+    searchRec->isDir = (fData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? true : false;
 #else
     hFind = opendir(".");
     if (hFind == NULL)
@@ -1478,24 +1398,24 @@ static int8_t findFirst(DirRec *searchRec)
         return (LFF_SKIP);
 
     searchRec->filesize = -1;
-    searchRec->directoryFlag = (fData->d_type == DT_DIR) ? true : false;
-    
+    searchRec->isDir = (fData->d_type == DT_DIR) ? true : false;
+
     if ((fData->d_type == DT_UNKNOWN) || (fData->d_type == DT_LNK))
-    {     
+    {
         if (stat(fData->d_name, &st) == 0)
         {
             searchRec->filesize = (int32_t)(st.st_size);
             if ((st.st_mode & S_IFMT) == S_IFDIR)
-                searchRec->directoryFlag = true;
+                searchRec->isDir = true;
         }
     }
-    else if (!searchRec->directoryFlag)
+    else if (!searchRec->isDir)
     {
         searchRec->filesize = (int32_t)(fsize(fData->d_name));
     }
 #endif
 
-    if (handleEntrySkip(searchRec->nameU, searchRec->directoryFlag))
+    if (handleEntrySkip(searchRec->nameU, searchRec->isDir))
     {
         /* skip file */
         free(searchRec->nameU);
@@ -1532,7 +1452,7 @@ static int8_t findNext(DirRec *searchRec)
         filesize = -1;
 
     searchRec->filesize = filesize;
-    searchRec->directoryFlag = (fData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? true : false;
+    searchRec->isDir = (fData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? true : false;
 #else
     if ((hFind == NULL) || ((fData = readdir(hFind)) == NULL))
         return (LFF_DONE);
@@ -1542,24 +1462,24 @@ static int8_t findNext(DirRec *searchRec)
         return (LFF_SKIP);
 
     searchRec->filesize = -1;
-    searchRec->directoryFlag = (fData->d_type == DT_DIR) ? true : false;
-    
+    searchRec->isDir = (fData->d_type == DT_DIR) ? true : false;
+
     if ((fData->d_type == DT_UNKNOWN) || (fData->d_type == DT_LNK))
-    {     
+    {
         if (stat(fData->d_name, &st) == 0)
         {
             searchRec->filesize = (int32_t)(st.st_size);
             if ((st.st_mode & S_IFMT) == S_IFDIR)
-                searchRec->directoryFlag = true;
+                searchRec->isDir = true;
         }
     }
-    else if (!searchRec->directoryFlag)
+    else if (!searchRec->isDir)
     {
         searchRec->filesize = (int32_t)(fsize(fData->d_name));
     }
 #endif
 
-    if (handleEntrySkip(searchRec->nameU, searchRec->directoryFlag))
+    if (handleEntrySkip(searchRec->nameU, searchRec->isDir))
     {
         /* skip file */
         free(searchRec->nameU);
@@ -1629,7 +1549,7 @@ static char *ach(int32_t rad) /* used for sortDirectory() */
         return (NULL);
     }
 
-    if (dirEntry->directoryFlag)
+    if (dirEntry->isDir)
     {
         /* directory */
 
@@ -1703,7 +1623,7 @@ static void sortDirectory(void)
                     if (p2 != NULL) free(p2);
 
                     freeDirRecBuffer();
-                    sysReqQueue(SR_OOM_ERROR);
+                    okBox(0, "System message", "Not enough memory!");
 
                     return;
                 }
@@ -1736,9 +1656,6 @@ static void printFormattedFilesize(uint16_t x, uint16_t y, uint32_t bufEntry)
     char sizeStrBuffer[16];
     uint16_t numDigits;
     int32_t filesize;
-
-    if (FReq_Buffer[bufEntry].directoryFlag)
-        return;
 
     filesize = FReq_Buffer[bufEntry].filesize;
     if (filesize & 0x80000000)
@@ -1795,15 +1712,12 @@ static void displayCurrPath(void)
     asciiPath = unicharToCp437(FReq_CurPathU, true);
     if (asciiPath == NULL)
     {
-#ifdef _DEBUG
-        __debugbreak();
-#endif
+        okBox(0, "System message", "Not enough memory!");
         return;
     }
 
     p = asciiPath;
-
-    if (getTextWidth(p, FONT_TYPE1) <= 162)
+    if (textWidth(p) <= 162)
     {
         /* path fits, print it all */
         textOut(4, 145, PAL_FORGRND, p);
@@ -1837,17 +1751,16 @@ static void displayCurrPath(void)
             j--;
 
             p = tmpPath;
-            while ((j >= 6) && (getTextWidth(p, FONT_TYPE1) >= 162))
+            while ((j >= 6) && (textWidth(p) >= 162))
             {
                 p[j - 2] = '.';
                 p[j - 1] = '.';
                 p[j - 0] = '\0';
-
                 j--;
             }
         }
 
-        textOutClipped(4, 145, PAL_FORGRND, tmpPath, 165);
+        textOutClipX(4, 145, PAL_FORGRND, tmpPath, 165);
     }
 
     free(asciiPath);
@@ -1860,14 +1773,12 @@ void diskOp_DrawDirectory(void)
     int32_t bufEntry;
 
     clearRect(FILENAME_TEXT_X - 1, 4, 162, 164);
-
     drawTextBox(TB_DISKOP_FILENAME);
 
     if (FReq_EntrySelected != -1)
         fillRect(FILENAME_TEXT_X - 1, 4 + (uint16_t)(((FONT1_CHAR_H + 1) * FReq_EntrySelected)), 162, FONT1_CHAR_H, PAL_PATTEXT);
 
     displayCurrPath();
-
 #ifdef _WIN32
     setupDiskOpDrives();
 #endif
@@ -1878,25 +1789,25 @@ void diskOp_DrawDirectory(void)
         {
             bufEntry = FReq_DirPos + i;
             if (bufEntry >= FReq_FileCount)
-                break; /* no more entries to print... */
+                break;
 
             if (FReq_Buffer[bufEntry].nameU == NULL)
                 continue;
-
-            y = 4 + (i * (FONT1_CHAR_H + 1));
 
             /* convert unichar name to codepage 437 */
             readName = unicharToCp437(FReq_Buffer[bufEntry].nameU, true);
             if (readName == NULL)
                 continue;
 
-            /* shrink entry name and add ".." if it doesn't fit on screen */
-            trimEntryName(readName, FReq_Buffer[bufEntry].directoryFlag);
+            y = 4 + (i * (FONT1_CHAR_H + 1));
 
-            if (FReq_Buffer[bufEntry].directoryFlag)
+            /* shrink entry name and add ".." if it doesn't fit on screen */
+            trimEntryName(readName, FReq_Buffer[bufEntry].isDir);
+
+            if (FReq_Buffer[bufEntry].isDir)
             {
                 /* directory */
-                charOutFast(FILENAME_TEXT_X, y, PAL_BLCKTXT, DIR_DELIMITER);
+                charOut(FILENAME_TEXT_X, y, PAL_BLCKTXT, DIR_DELIMITER);
                 textOut(FILENAME_TEXT_X + FONT1_CHAR_W, y, PAL_BLCKTXT, readName);
             }
             else
@@ -1907,7 +1818,8 @@ void diskOp_DrawDirectory(void)
 
             free(readName);
 
-            printFormattedFilesize(FILESIZE_TEXT_X, y, bufEntry);
+            if (!FReq_Buffer[bufEntry].isDir)
+                printFormattedFilesize(FILESIZE_TEXT_X, y, bufEntry);
         }
 
         setScrollBarPos(SB_DISKOP_LIST, FReq_DirPos, true);
@@ -1923,19 +1835,14 @@ static DirRec *bufferCreateEmptyDir(void) /* special case: creates a dir entry w
     if (dirEntry == NULL)
         return (NULL);
 
-#ifdef _WIN32
-    dirEntry->nameU = UNICHAR_STRDUP(L"..");
-#else
-    dirEntry->nameU = UNICHAR_STRDUP("..");
-#endif
-
+    dirEntry->nameU = UNICHAR_STRDUP(PARENT_DIR_STR);
     if (dirEntry->nameU == NULL)
     {
         free(dirEntry);
         return (NULL);
     }
 
-    dirEntry->directoryFlag = true;
+    dirEntry->isDir = true;
     dirEntry->filesize = 0;
 
     return (dirEntry);
@@ -1958,13 +1865,13 @@ static int32_t SDLCALL diskOp_ReadDirectoryThread(void *ptr)
         FReq_Buffer = (DirRec *)(malloc(sizeof (DirRec) * (FReq_FileCount + 1)));
         if (FReq_Buffer == NULL)
         {
-            sysReqQueue(SR_OOM_ERROR);
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
 
             FReq_Buffer = bufferCreateEmptyDir();
             if (FReq_Buffer != NULL)
                 FReq_FileCount = 1;
             else
-                sysReqQueue(SR_OOM_ERROR);
+                okBoxThreadSafe(0, "System message", "Not enough memory!");
 
             setMouseBusy(false);
             return (false);
@@ -1983,10 +1890,10 @@ static int32_t SDLCALL diskOp_ReadDirectoryThread(void *ptr)
             if ((lastFindFileFlag != LFF_DONE) && (lastFindFileFlag != LFF_SKIP))
             {
                 FReq_Buffer = (DirRec *)(realloc(FReq_Buffer, sizeof (DirRec) * (FReq_FileCount + 1)));
-                if (FReq_Buffer == NULL) /* out of memory */
+                if (FReq_Buffer == NULL)
                 {
                     freeDirRecBuffer();
-                    sysReqQueue(SR_OOM_ERROR);
+                    okBoxThreadSafe(0, "System message", "Not enough memory!");
                     break;
                 }
 
@@ -2010,7 +1917,7 @@ static int32_t SDLCALL diskOp_ReadDirectoryThread(void *ptr)
         if (FReq_Buffer != NULL)
             FReq_FileCount = 1;
         else
-            sysReqQueue(SR_OOM_ERROR);
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
     }
 
     UNICHAR_GETCWD(FReq_CurPathU, PATH_MAX);
@@ -2026,13 +1933,12 @@ void startDiskOpFillThread(void)
 {
      editor.diskOpReadDone = false;
 
-     setMouseBusy(true);
+     mouseAnimOn();
      thread = SDL_CreateThread(diskOp_ReadDirectoryThread, "FT2 Clone Disk Op. Fill Thread", NULL);
      if (thread == NULL)
      {
         editor.diskOpReadDone = true;
-        setMouseBusy(false);
-        sysReqQueue(SR_THREAD_ERROR);
+        okBox(0, "System message", "Couldn't create directory reading thread!");
         return;
      }
 
@@ -2361,9 +2267,20 @@ void pbDiskOpRename(void)
 
 void pbDiskOpMakeDir(void)
 {
-    memset(FReq_NameTemp, 0, PATH_MAX + 1);
-    setupTextBoxForSysReq(TB_DISKOP_MAKEDIR_NAME, FReq_NameTemp, PATH_MAX, false);
-    sysReqQueue(SR_DISKOP_MAKEDIR);
+    FReq_NameTemp[0] = '\0';
+    if (inputBox(1, "Enter directoryname:", FReq_NameTemp, PATH_MAX - 1) == 1)
+    {
+        if (FReq_NameTemp[0] == '\0')
+        {
+            okBox(0, "System message", "Name can't be empty!");
+            return;
+        }
+
+        if (makeDirAnsi(FReq_NameTemp))
+            editor.diskOpReadDir = true;
+        else
+            okBox(0, "System message", "Couldn't create directory: Access denied, or a dir with the same name already exists!");
+    }
 }
 
 void pbDiskOpRefresh(void)
@@ -2376,9 +2293,20 @@ void pbDiskOpRefresh(void)
 
 void pbDiskOpSetPath(void)
 {
-    memset(FReq_NameTemp, 0, PATH_MAX + 1);
-    setupTextBoxForSysReq(TB_DISKOP_SETPATH_NAME, FReq_NameTemp, PATH_MAX, false);
-    sysReqQueue(SR_DISKOP_SETPATH);
+    FReq_NameTemp[0] = '\0';
+    if (inputBox(1, "Enter new directory path:", FReq_NameTemp, PATH_MAX - 1) == 1)
+    {
+        if (FReq_NameTemp[0] == '\0')
+        {
+            okBox(0, "System message", "Name can't be empty!");
+            return;
+        }
+
+        if (chdir(FReq_NameTemp) == 0)
+            editor.diskOpReadDir = true;
+        else
+            okBox(0, "System message", "Couldn't set directory path!");
+    }
 }
 
 void pbDiskOpExit(void)

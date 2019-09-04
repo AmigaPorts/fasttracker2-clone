@@ -444,7 +444,7 @@ void drawMidiInputList(void)
                 tmpString = utf8ToCp437(midi.inputDeviceNames[deviceEntry], true);
                 if (tmpString != NULL)
                 {
-                    textOutClipped(114, y, PAL_FORGRND, tmpString, 479);
+                    textOutClipX(114, y, PAL_FORGRND, tmpString, 479);
                     free(tmpString);
                 }
             }

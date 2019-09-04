@@ -19,7 +19,7 @@
 ** - 8bitbubsy Solutions, Inc.
 */
 
-static char byteFormatBuffer[64], tmpInstrName[1 + MAX_INST][22], tmpInstName[MAX_INST][22];
+static char byteFormatBuffer[64], tmpInstrName[1 + MAX_INST][22 + 1], tmpInstName[MAX_INST][22 + 1];
 static uint8_t removePatt, removeInst, removeSamp, removeChans, removeSmpDataAfterLoop, convSmpsTo8Bit;
 static uint8_t instrUsed[MAX_INST], instrOrder[MAX_INST], pattUsed[MAX_PATTERNS], pattOrder[MAX_PATTERNS];
 static int16_t oldPattLens[MAX_PATTERNS], tmpPattLens[MAX_PATTERNS];
@@ -975,25 +975,6 @@ void trimThreadDone(void)
     setMouseBusy(false);
 }
 
-void trim(void)
-{
-    hideSystemRequest();
-    setMouseBusy(true);
-
-    lockMixerCallback();
-
-    trimThread = SDL_CreateThread(trimThreadFunc, "FT2 Trim Thread", NULL);
-    if (trimThread == NULL)
-    {
-        unlockMixerCallback();
-        setMouseBusy(false);
-        return;
-    }
-
-    /* don't let thread wait for this thread, let it clean up on its own when done */
-    SDL_DetachThread(trimThread);
-}
-
 static char *formatBytes(uint64_t bytes)
 {
     double dBytes;
@@ -1187,7 +1168,7 @@ void cbTrimSmpsTo8Bit(void)
 
 void pbTrimCalc(void)
 {
-    xmSize64     = calculateXMSize();
+    xmSize64 = calculateXMSize();
     spaceSaved64 = calculateTrimSize();
 
     xmAfterTrimSize64 = xmSize64 - spaceSaved64;
@@ -1198,10 +1179,27 @@ void pbTrimCalc(void)
         drawTrimScreen();
 }
 
-void pbTrimTrim(void)
+void pbTrimDoTrim(void)
 {
-    if (removePatt || removeInst || removeSamp || removeChans || removeSmpDataAfterLoop || convSmpsTo8Bit)
-        sysReqQueue(SR_TRIM);
+    if (!removePatt && !removeInst && !removeSamp && !removeChans && !removeSmpDataAfterLoop && !convSmpsTo8Bit)
+        return; /* nothing to trim... */
+
+    if (okBox(2, "System request", "Are you sure you want to trim the song? Making a backup of the song first is recommended.") != 1)
+        return;
+
+    mouseAnimOn();
+    lockMixerCallback();
+
+    trimThread = SDL_CreateThread(trimThreadFunc, "FT2 Trim Thread", NULL);
+    if (trimThread == NULL)
+    {
+        unlockMixerCallback();
+        mouseAnimOff();
+        return;
+    }
+
+    /* don't let thread wait for this thread, let it clean up on its own when done */
+    SDL_DetachThread(trimThread);
 }
 
 void resetTrimSizes(void)

@@ -2540,19 +2540,6 @@ void setStdEnvelope(uint16_t nr, uint16_t i, uint8_t typ)
     resumeMusic();
 }
 
-void clearCurInstr(void)
-{
-    hideSystemRequest();
-
-    if (editor.curInstr == 0)
-        return;
-
-    lockMixerCallback();
-    clearInstr(editor.curInstr);
-    updateNewInstrument();
-    unlockMixerCallback();
-}
-
 void clearInstr(uint8_t i)
 {
     MY_ASSERT(i < (1 + MAX_INST + 1))
@@ -2561,7 +2548,7 @@ void clearInstr(uint8_t i)
 
     /* clear instrument and instrument name */
     memset(&instr[i], 0, sizeof (instrTyp));
-    memset(song.instrName[i], 0, 22);
+    memset(song.instrName[i], 0, sizeof (song.instrName[i]));
 
     /* set default envelope and inst values */
     setStdEnvelope(i, 0, 3);
@@ -2827,7 +2814,7 @@ int8_t setupReplayer(void)
 
     if ((linearPeriods == NULL) || (amigaPeriods == NULL) || (logTab == NULL))
     {
-        showErrorMsgBox("Out of memory!");
+        showErrorMsgBox("Not enough memory!");
         return (false);
     }
 
@@ -2881,6 +2868,8 @@ int8_t setupReplayer(void)
     clearAllInstr();
     resetChannels();
 
+    song.name[0]     = '\0';
+    song.name[20]    = '\0';
     song.len         = 1;
     song.antChn      = 8;
     editor.speed     = song.speed   = 125;

@@ -15,6 +15,8 @@ enum
     EVENT_LOADMUSIC_DISKOP    = 3,
 };
 
+void handleThreadEvents(void);
+void readInput(void);
 void handleEvents(void);
 void handleInput(void);
 void setupCrashHandler(void);

@@ -111,9 +111,7 @@ songS3MHeaderTyp;
 #pragma pack(pop)
 #endif
 
-static char *tmpDragDropFilename = NULL;
 static volatile uint8_t musicIsLoading, loadedFormat, moduleLoaded, moduleFailedToLoad;
-static uint8_t over128InsWarning, pattLenOverflowWarning, stereoSamplesWarning;
 static uint8_t freqTabType, oldPlayMode, pattBuff[12288];
 static SDL_Thread *thread;
 
@@ -159,7 +157,7 @@ int8_t loadMusicMOD(FILE *f, uint32_t fileLength)
     if ((memcmp(wavID, "RIFF", 4) == 0) && (memcmp(&wavID[8], "WAVEfmt", 7) == 0))
     {
         fclose(f);
-        sysReqQueue(SR_LOAD_WAV_SONG_ERROR);
+        okBoxThreadSafe(0, "System message", "Can't load a WAV file as a module!");
         moduleFailedToLoad = true;
         return (false);
     }
@@ -167,7 +165,7 @@ int8_t loadMusicMOD(FILE *f, uint32_t fileLength)
     if ((fileLength < 1596) || (fileLength > 20842494)) /* minimum and maximum possible size for an FT2 .mod */
     {
         fclose(f);
-        sysReqQueue(SR_LOAD_MOD_ERROR);
+        okBoxThreadSafe(0, "System message", "Not a valid .MOD file!");
         moduleFailedToLoad = true;
         return (false);
     }
@@ -177,7 +175,7 @@ int8_t loadMusicMOD(FILE *f, uint32_t fileLength)
     if (fread(&h_MOD31, 1, sizeof (h_MOD31), f) != sizeof (h_MOD31))
     {
         fclose(f);
-        sysReqQueue(SR_LOAD_MOD_ERROR2);
+        okBoxThreadSafe(0, "System message", "Error loading module: Either not a module or a non-supported .mod!");
         moduleFailedToLoad = true;
         return (false);
     }
@@ -227,7 +225,7 @@ int8_t loadMusicMOD(FILE *f, uint32_t fileLength)
     if (j == -1)
     {
         fclose(f);
-        sysReqQueue(SR_LOAD_MOD_ERROR2);
+        okBoxThreadSafe(0, "System message", "Error loading module: Either not a module or a non-supported .mod!");
         moduleFailedToLoad = true;
         return (false);
     }
@@ -238,7 +236,7 @@ int8_t loadMusicMOD(FILE *f, uint32_t fileLength)
         if (fileLength < sizeof (h_MOD31))
         {
             fclose(f);
-            sysReqQueue(SR_LOAD_MOD_ERROR2);
+            okBoxThreadSafe(0, "System message", "Error loading module: Either not a module or a non-supported .mod!");
             moduleFailedToLoad = true;
             return (false);
         }
@@ -255,7 +253,7 @@ int8_t loadMusicMOD(FILE *f, uint32_t fileLength)
         if (fileLength < sizeof (h_MOD15))
         {
             fclose(f);
-            sysReqQueue(SR_LOAD_MOD_ERROR2);
+            okBoxThreadSafe(0, "System message", "Error loading module: Either not a module or a non-supported .mod!");
             moduleFailedToLoad = true;
             return (false);
         }
@@ -264,7 +262,7 @@ int8_t loadMusicMOD(FILE *f, uint32_t fileLength)
         if (fread(&h_MOD15, 1, sizeof (h_MOD15), f) != sizeof (h_MOD15))
         {
             fclose(f);
-            sysReqQueue(SR_LOAD_MOD_ERROR2);
+            okBoxThreadSafe(0, "System message", "Error loading module: Either not a module or a non-supported .mod!");
             moduleFailedToLoad = true;
             return (false);
         }
@@ -279,7 +277,7 @@ int8_t loadMusicMOD(FILE *f, uint32_t fileLength)
     if ((songTmp.antChn < 1) || (songTmp.antChn > 32) || (songTmp.len < 1))
     {
         fclose(f);
-        sysReqQueue(SR_LOAD_MOD_ERROR2);
+        okBoxThreadSafe(0, "System message", "Error loading module: Either not a module or a non-supported .mod!");
         moduleFailedToLoad = true;
         return (false);
     }
@@ -290,7 +288,7 @@ int8_t loadMusicMOD(FILE *f, uint32_t fileLength)
     if (songTmp.len > 128)
     {
         fclose(f);
-        sysReqQueue(SR_LOAD_MOD_ERROR2);
+        okBoxThreadSafe(0, "System message", "Error loading module: Either not a module or a non-supported .mod!");
         moduleFailedToLoad = true;
         return (false);
     }
@@ -298,7 +296,7 @@ int8_t loadMusicMOD(FILE *f, uint32_t fileLength)
     if (modIsUST && ((songTmp.repS == 0) || (songTmp.repS > 220)))
     {
         fclose(f);
-        sysReqQueue(SR_LOAD_MOD_ERROR2);
+        okBoxThreadSafe(0, "System message", "Error loading module: Either not a module or a non-supported .mod!");
         moduleFailedToLoad = true;
         return (false);
     }
@@ -327,6 +325,7 @@ int8_t loadMusicMOD(FILE *f, uint32_t fileLength)
         }
 
         memcpy(songTmp.instrName[1 + a], h_MOD31.instr[a].name, 22);
+        songTmp.instrName[1 + a][22] = '\0';
     }
 
     b = 0;
@@ -335,7 +334,7 @@ int8_t loadMusicMOD(FILE *f, uint32_t fileLength)
         if (songTmp.songTab[a] > 99)
         {
             fclose(f);
-            sysReqQueue(SR_LOAD_MOD_ERROR2);
+            okBoxThreadSafe(0, "System message", "Error loading module: Either not a module or a non-supported .mod!");
             moduleFailedToLoad = true;
             return (false);
         }
@@ -355,7 +354,7 @@ int8_t loadMusicMOD(FILE *f, uint32_t fileLength)
         {
             freeTmpModule();
             fclose(f);
-            sysReqQueue(SR_LOAD_MOD_OOM);
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
             moduleFailedToLoad = true;
             return (false);
         }
@@ -371,7 +370,7 @@ int8_t loadMusicMOD(FILE *f, uint32_t fileLength)
                 {
                     freeTmpModule();
                     fclose(f);
-                    sysReqQueue(SR_LOAD_IO_ERROR);
+                    okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
                     moduleFailedToLoad = true;
                     return (false);
                 }
@@ -485,7 +484,7 @@ int8_t loadMusicMOD(FILE *f, uint32_t fileLength)
             {
                 freeTmpModule();
                 fclose(f);
-                sysReqQueue(SR_LOAD_MOD_OOM);
+                okBoxThreadSafe(0, "System message", "Not enough memory!");
                 moduleFailedToLoad = true;
                 return (false);
             }
@@ -542,7 +541,7 @@ int8_t loadMusicMOD(FILE *f, uint32_t fileLength)
                 {
                     freeTmpModule();
                     fclose(f);
-                    sysReqQueue(SR_LOAD_IO_ERROR);
+                    okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
                     moduleFailedToLoad = true;
                     return (false);
                 }
@@ -559,7 +558,7 @@ int8_t loadMusicMOD(FILE *f, uint32_t fileLength)
                     {
                         freeTmpModule();
                         fclose(f);
-                        sysReqQueue(SR_LOAD_IO_ERROR);
+                        okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
                         moduleFailedToLoad = true;
                         return (false);
                     }
@@ -572,7 +571,7 @@ int8_t loadMusicMOD(FILE *f, uint32_t fileLength)
                     {
                         freeTmpModule();
                         fclose(f);
-                        sysReqQueue(SR_LOAD_IO_ERROR);
+                        okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
                         moduleFailedToLoad = true;
                         return (false);
                     }
@@ -659,7 +658,7 @@ int8_t loadMusicSTM(FILE *f, uint32_t fileLength)
     if ((h_STM.verMinor == 0) || (h_STM.typ != 2))
     {
         fclose(f);
-        sysReqQueue(SR_LOAD_MOD_ERROR);
+        okBoxThreadSafe(0, "System message", "Error loading module: Not a valid XM/S3M/STM/MOD file!");
         moduleFailedToLoad = true;
         return (false);
     }
@@ -709,7 +708,7 @@ int8_t loadMusicSTM(FILE *f, uint32_t fileLength)
         {
             freeTmpModule();
             fclose(f);
-            sysReqQueue(SR_LOAD_MOD_OOM);
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
             moduleFailedToLoad = true;
             return (false);
         }
@@ -720,7 +719,7 @@ int8_t loadMusicSTM(FILE *f, uint32_t fileLength)
         {
             freeTmpModule();
             fclose(f);
-            sysReqQueue(SR_LOAD_IO_ERROR);
+            okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
             moduleFailedToLoad = true;
             return (false);
         }
@@ -816,7 +815,7 @@ int8_t loadMusicSTM(FILE *f, uint32_t fileLength)
                 break;
         }
 
-        memset(&songTmp.instrName[1 + i], 0, 22);
+        memset(&songTmp.instrName[1 + i], 0, sizeof (songTmp.instrName[1 + i]));
         memcpy(&songTmp.instrName[1 + i], h_STM.instr[i].name, 12);
 
         if ((h_STM.instr[i].len != 0) && (h_STM.instr[i].reserved1 != 0))
@@ -828,7 +827,7 @@ int8_t loadMusicSTM(FILE *f, uint32_t fileLength)
             {
                 freeTmpModule();
                 fclose(f);
-                sysReqQueue(SR_LOAD_MOD_OOM);
+                okBoxThreadSafe(0, "System message", "Not enough memory!");
                 moduleFailedToLoad = true;
                 return (false);
             }
@@ -861,7 +860,7 @@ int8_t loadMusicSTM(FILE *f, uint32_t fileLength)
             {
                 freeTmpModule();
                 fclose(f);
-                sysReqQueue(SR_LOAD_IO_ERROR);
+                okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
                 moduleFailedToLoad = true;
                 return (false);
             }
@@ -982,7 +981,7 @@ static int8_t countS3MChannels(uint16_t antPtn)
 int8_t loadMusicS3M(FILE *f, uint32_t dataLength)
 {
     int8_t *tmpSmp;
-    uint8_t ha[2048];
+    uint8_t stereoWarn, ha[2048];
     uint8_t s3mLastDEff[32], s3mLastEEff[32], s3mLastFEff[32];
     uint8_t s3mLastSEff[32], s3mLastJEff[32], s3mLastGInstr[32], typ;
     uint8_t tmp8, check3xx, illegalUxx;
@@ -1010,7 +1009,7 @@ int8_t loadMusicS3M(FILE *f, uint32_t dataLength)
         (h_S3M.typ != 16) || (h_S3M.ver < 1) || (h_S3M.ver > 2))
     {
         fclose(f);
-        sysReqQueue(SR_LOAD_MOD_ERROR);
+        okBoxThreadSafe(0, "System message", "Not enough memory!");
         moduleFailedToLoad = true;
         return (false);
     }
@@ -1019,7 +1018,7 @@ int8_t loadMusicS3M(FILE *f, uint32_t dataLength)
     if (fread(songTmp.songTab, h_S3M.songTabLen, 1, f) != 1)
     {
         fclose(f);
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
         moduleFailedToLoad = true;
         return (false);
     }
@@ -1071,7 +1070,7 @@ int8_t loadMusicS3M(FILE *f, uint32_t dataLength)
     if (fread(ha, ai + ai, 1, f) != 1)
     {
         fclose(f);
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
         moduleFailedToLoad = true;
         return (false);
     }
@@ -1079,7 +1078,7 @@ int8_t loadMusicS3M(FILE *f, uint32_t dataLength)
     if (fread(ptnOfs, ap + ap, 1, f) != 1)
     {
         fclose(f);
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
         moduleFailedToLoad = true;
         return (false);
     }
@@ -1112,7 +1111,7 @@ int8_t loadMusicS3M(FILE *f, uint32_t dataLength)
         if (fread(&j, 2, 1, f) != 1)
         {
             fclose(f);
-            sysReqQueue(SR_LOAD_IO_ERROR);
+            okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
             moduleFailedToLoad = true;
             return (false);
         }
@@ -1124,7 +1123,7 @@ int8_t loadMusicS3M(FILE *f, uint32_t dataLength)
             {
                 freeTmpModule();
                 fclose(f);
-                sysReqQueue(SR_LOAD_MOD_OOM);
+                okBoxThreadSafe(0, "System message", "Not enough memory!");
                 moduleFailedToLoad = true;
                 return (false);
             }
@@ -1135,7 +1134,7 @@ int8_t loadMusicS3M(FILE *f, uint32_t dataLength)
             {
                 freeTmpModule();
                 fclose(f);
-                sysReqQueue(SR_LOAD_IO_ERROR);
+                okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
                 moduleFailedToLoad = true;
                 return (false);
             }
@@ -1417,6 +1416,8 @@ int8_t loadMusicS3M(FILE *f, uint32_t dataLength)
 
     /* *** SAMPLES *** */
 
+    stereoWarn = false;
+
     memcpy(ptnOfs, ha, 512);
     for (i = 0; i < ai; ++i)
     {
@@ -1428,7 +1429,7 @@ int8_t loadMusicS3M(FILE *f, uint32_t dataLength)
         {
             freeTmpModule();
             fclose(f);
-            sysReqQueue(SR_LOAD_MOD_OOM);
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
             moduleFailedToLoad = true;
             return (false);
         }
@@ -1443,12 +1444,13 @@ int8_t loadMusicS3M(FILE *f, uint32_t dataLength)
         }
 
         memcpy(songTmp.instrName[1 + i], h_S3MInstr.name, 22);
+        songTmp.instrName[1 + i][22] = '\0';
 
         if (h_S3MInstr.typ > 1)
         {
             freeTmpModule();
             fclose(f);
-            sysReqQueue(SR_LOAD_MOD_ERROR);
+            okBoxThreadSafe(0, "System message", "Error loading module: Not a valid XM/S3M/STM/MOD file!");
             moduleFailedToLoad = true;
             return (false);
         }
@@ -1458,7 +1460,7 @@ int8_t loadMusicS3M(FILE *f, uint32_t dataLength)
             {
                 freeTmpModule();
                 fclose(f);
-                sysReqQueue(SR_LOAD_MOD_ERROR);
+                okBoxThreadSafe(0, "System message", "Error loading module: Not a valid XM/S3M/STM/MOD file!");
                 moduleFailedToLoad = true;
                 return (false);
             }
@@ -1468,7 +1470,7 @@ int8_t loadMusicS3M(FILE *f, uint32_t dataLength)
 
                 if ((h_S3MInstr.flags & 2) != 0) /* stereo */
                 {
-                    stereoSamplesWarning = true;
+                    stereoWarn = true;
                     len *= 2;
                 }
 
@@ -1480,7 +1482,7 @@ int8_t loadMusicS3M(FILE *f, uint32_t dataLength)
                 {
                     freeTmpModule();
                     fclose(f);
-                    sysReqQueue(SR_LOAD_MOD_OOM);
+                    okBoxThreadSafe(0, "System message", "Not enough memory!");
                     moduleFailedToLoad = true;
                     return (false);
                 }
@@ -1525,7 +1527,7 @@ int8_t loadMusicS3M(FILE *f, uint32_t dataLength)
                     free(tmpSmp);
                     freeTmpModule();
                     fclose(f);
-                    sysReqQueue(SR_LOAD_MOD_OOM);
+                    okBoxThreadSafe(0, "System message", "Not enough memory!");
                     moduleFailedToLoad = true;
                     return (false);
                 }
@@ -1542,7 +1544,7 @@ int8_t loadMusicS3M(FILE *f, uint32_t dataLength)
                             free(tmpSmp);
                             freeTmpModule();
                             fclose(f);
-                            sysReqQueue(SR_LOAD_MOD_OOM);
+                            okBoxThreadSafe(0, "System message", "Not enough memory!");
                             moduleFailedToLoad = true;
                             return (false);
                         }
@@ -1563,7 +1565,7 @@ int8_t loadMusicS3M(FILE *f, uint32_t dataLength)
                             free(tmpSmp);
                             freeTmpModule();
                             fclose(f);
-                            sysReqQueue(SR_LOAD_MOD_OOM);
+                            okBoxThreadSafe(0, "System message", "Not enough memory!");
                             moduleFailedToLoad = true;
                             return (false);
                         }
@@ -1578,6 +1580,9 @@ int8_t loadMusicS3M(FILE *f, uint32_t dataLength)
             }
         }
     }
+
+    if (stereoWarn)
+        okBoxThreadSafe(0, "System message", "Stereo samples were found and will be converted to mono.");
 
     /* non-FT2: fix overflown 9xx and illegal 3xx slides */
 
@@ -1653,13 +1658,16 @@ int8_t loadMusicS3M(FILE *f, uint32_t dataLength)
 
     songTmp.antChn = countS3MChannels(ap);
 
+    if (!(config.dontShowAgainFlags & DONT_SHOW_S3M_LOAD_WARNING_FLAG))
+        okBoxThreadSafe(6, "System message", "Warning: S3M channel panning is not compatible with FT2!");
+
     moduleLoaded = true;
     return (true);
 }
 
 static int32_t SDLCALL loadMusicThread(void *ptr)
 {
-    char *txtPtr;
+    char tmpText[128];
     int16_t k;
     uint16_t i;
     uint32_t filelength;
@@ -1668,18 +1676,14 @@ static int32_t SDLCALL loadMusicThread(void *ptr)
 
     (void)(ptr);
 
-    freqTabType            = 0;
-    over128InsWarning      = false;
-    pattLenOverflowWarning = false;
-    stereoSamplesWarning   = false;
+    freqTabType = 0;
 
     if (editor.tmpFilenameU == NULL)
     {
 #ifdef _DEBUG
         __debugbreak();
 #endif
-        setMouseBusy(false);
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
         moduleFailedToLoad = true;
         return (false);
     }
@@ -1687,7 +1691,7 @@ static int32_t SDLCALL loadMusicThread(void *ptr)
     f = UNICHAR_FOPEN(editor.tmpFilenameU, "rb");
     if (f == NULL)
     {
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
         moduleFailedToLoad = true;
         return (false);
     }
@@ -1715,13 +1719,10 @@ static int32_t SDLCALL loadMusicThread(void *ptr)
     {
         fclose(f);
 
-        /* edit version in message box text */
-        txtPtr = &sysReqs[SR_UNSUPPORTED_XM_VER].text[51]; /* 51 = offset to version in string */
-        txtPtr[0] = '0' + ((h.ver >> 8) & 0x0F);
-        txtPtr[2] = '0' + ((h.ver >> 4) & 0x0F);
-        txtPtr[3] = '0' + ( h.ver       & 0x0F);
+        sprintf(tmpText, "Error loading .xm: Unsupported XM version (v%1d.%1d%1d)",
+            '0' + (((h.ver >> 8) & 0x0F) % 10), '0' + (((h.ver >> 4) & 0x0F)) % 10, '0' + ((h.ver & 0x0F)) % 10);
 
-        sysReqQueue(SR_UNSUPPORTED_XM_VER);
+        okBoxThreadSafe(0, "System message", tmpText);
 
         moduleFailedToLoad = true;
         return (false);
@@ -1730,7 +1731,7 @@ static int32_t SDLCALL loadMusicThread(void *ptr)
     if (h.len > MAX_ORDERS)
     {
         fclose(f);
-        sysReqQueue(SR_LOAD_MOD_ERROR);
+        okBoxThreadSafe(0, "System message", "Error loading .xm: The song has more than 256 orders!");
         moduleFailedToLoad = true;
         return (false);
     }
@@ -1738,7 +1739,7 @@ static int32_t SDLCALL loadMusicThread(void *ptr)
     if (h.antPtn > MAX_PATTERNS)
     {
         fclose(f);
-        sysReqQueue(SR_UNSUPPORTED_PATTS);
+        okBoxThreadSafe(0, "System message", "Error loading .xm: The song has more than 256 patterns!");
         moduleFailedToLoad = true;
         return (false);
     }
@@ -1746,19 +1747,19 @@ static int32_t SDLCALL loadMusicThread(void *ptr)
     if ((h.antChn == 0) || (h.antChn > MAX_VOICES))
     {
         fclose(f);
-        sysReqQueue(SR_UNSUPPORTED_CHS);
+        okBoxThreadSafe(0, "System message", "Error loading .xm: Incompatible amount of channels!");
         moduleFailedToLoad = true;
         return (false);
     }
 
     if (h.antInstrs > MAX_INST)
-        over128InsWarning = true;
+        okBoxThreadSafe(0, "System message", "The module has over 128 instruments! Only 128 of them are getting loaded.");
 
     fseek(f, 60 + h.headerSize, SEEK_SET);
     if ((filelength != 336) && feof(f)) /* 336 in length at this point = empty XM */
     {
         fclose(f);
-        sysReqQueue(SR_LOAD_MOD_ERROR);
+        okBoxThreadSafe(0, "System message", "Error loading module: Not a valid XM/S3M/STM/MOD file!");
         moduleFailedToLoad = true;
         return (false);
     }
@@ -1810,7 +1811,7 @@ static int32_t SDLCALL loadMusicThread(void *ptr)
             {
                 freeTmpModule();
                 fclose(f);
-                sysReqQueue(SR_LOAD_MOD_ERROR);
+                okBoxThreadSafe(0, "System message", "Error loading module: Not a valid XM/S3M/STM/MOD file!");
                 moduleFailedToLoad = true;
                 return (false);
             }
@@ -1820,7 +1821,7 @@ static int32_t SDLCALL loadMusicThread(void *ptr)
         {
             freeTmpModule();
             fclose(f);
-            sysReqQueue(SR_LOAD_MOD_ERROR);
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
             moduleFailedToLoad = true;
             return (false);
         }
@@ -1831,7 +1832,7 @@ static int32_t SDLCALL loadMusicThread(void *ptr)
             {
                 freeTmpModule();
                 fclose(f);
-                sysReqQueue(SR_OOM_ERROR);
+                okBoxThreadSafe(0, "System message", "Not enough memory!");
                 moduleFailedToLoad = true;
                 return (false);
             }
@@ -1845,7 +1846,7 @@ static int32_t SDLCALL loadMusicThread(void *ptr)
         {
             freeTmpModule();
             fclose(f);
-            sysReqQueue(SR_LOAD_MOD_ERROR);
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
             moduleFailedToLoad = true;
             return (false);
         }
@@ -1856,7 +1857,7 @@ static int32_t SDLCALL loadMusicThread(void *ptr)
             {
                 freeTmpModule();
                 fclose(f);
-                sysReqQueue(SR_LOAD_MOD_ERROR);
+                okBoxThreadSafe(0, "System message", "Error loading module: Not a valid XM/S3M/STM/MOD file!");
                 moduleFailedToLoad = true;
                 return (false);
             }
@@ -1865,7 +1866,7 @@ static int32_t SDLCALL loadMusicThread(void *ptr)
             {
                 freeTmpModule();
                 fclose(f);
-                sysReqQueue(SR_OOM_ERROR);
+                okBoxThreadSafe(0, "System message", "Not enough memory!");
                 moduleFailedToLoad = true;
                 return (false);
             }
@@ -1885,7 +1886,7 @@ void loadMusic(UNICHAR *filenameU)
     if (musicIsLoading)
         return;
 
-    setMouseBusy(true);
+    mouseAnimOn();
 
     musicIsLoading     = true;
     moduleLoaded       = false;
@@ -1908,8 +1909,7 @@ void loadMusic(UNICHAR *filenameU)
     if (thread == NULL)
     {
         editor.loadMusicEvent = EVENT_NONE;
-        setMouseBusy(false);
-        sysReqQueue(SR_THREAD_ERROR);
+        okBox(0, "System message", "Error creating module loading thread!");
         musicIsLoading = false;
         return;
     }
@@ -2002,6 +2002,7 @@ static int8_t loadInstrHeader(FILE *f, uint16_t i)
         }
 
         memcpy(songTmp.instrName[i], ih.name, 22);
+        songTmp.instrName[i][22] = '\0';
     }
 
     if (ih.antSamp > 0)
@@ -2078,17 +2079,20 @@ static void checkSampleRepeat(sampleTyp *s)
     if (s->repS > s->len) s->repS = s->len;
     if ((s->repS + s->repL) > s->len) s->repL = s->len - s->repS;
 
-    if (s->repL == 0) s->typ &= ~3; /* non-FT2 fix: force loop off if looplen is 0 */
+    if (s->repL == 0) s->typ &= 0xFC; /* non-FT2 fix: force loop off if looplen is 0 */
 }
 
 static int8_t loadInstrSample(FILE *f, uint16_t i)
 {
+    uint8_t stereoWarn;
     uint16_t j, k;
     int32_t l;
     sampleTyp *s;
 
     if (i >= (1 + MAX_INST))
         return (true); /* yes, let's just pretend they got loaded */
+
+    stereoWarn = false;
 
     k = instrTmp[i].antSamp;
     for (j = 0; j < k; ++j)
@@ -2131,7 +2135,7 @@ static int8_t loadInstrSample(FILE *f, uint16_t i)
 
                 s->pek = (int8_t *)(realloc(s->pek, s->len + 2));
 
-                stereoSamplesWarning = true;
+                stereoWarn = true;
             }
         }
 
@@ -2146,6 +2150,9 @@ static int8_t loadInstrSample(FILE *f, uint16_t i)
         checkSampleRepeat(s);
         fixSample(s);
     }
+
+    if (stereoWarn)
+        okBoxThreadSafe(0, "System message", "Stereo samples were found and will be converted to mono.");
 
     return (true);
 }
@@ -2235,9 +2242,11 @@ void clearUnusedChannels(tonTyp *p, int16_t pattLen, uint8_t antChn)
 
 static int8_t loadPatterns(FILE *f, uint16_t antPtn)
 {
-    uint8_t tmpLen, *pattPtr;
+    uint8_t pattLenWarn, tmpLen, *pattPtr;
     uint16_t i, a;
     patternHeaderTyp ph;
+
+    pattLenWarn = false;
 
     for (i = 0; i < antPtn; ++i)
     {
@@ -2310,9 +2319,12 @@ static int8_t loadPatterns(FILE *f, uint16_t antPtn)
         if (pattLensTmp[i] > 256)
         {
             pattLensTmp[i] = 64;
-            pattLenOverflowWarning = true;
+            pattLenWarn = true;
         }
     }
+
+    if (pattLenWarn)
+        okBoxThreadSafe(0, "System message", "The module contains pattern lengths above 256! They will be set to 64.");
 
     return (true);
 }
@@ -2494,18 +2506,6 @@ static void setupLoadedModule(void)
     if (editor.ui.instEditorShown)
         drawPiano(); /* redraw piano now (since if playing = wait for next tick update) */
 
-    /* queue up sys req's as needed (warnings) */
-
-    if (over128InsWarning)      sysReqQueue(SR_XM_OVER_128_INS);
-    if (pattLenOverflowWarning) sysReqQueue(SR_OVERFLOWN_PATT);
-    if (stereoSamplesWarning)   sysReqQueue(SR_STERO_SAMPLES);
-
-    if (loadedFormat == FORMAT_S3M)
-    {
-        if (!(config.dontShowAgainFlags & DONT_SHOW_S3M_LOAD_WARNING_FLAG))
-            sysReqQueue(SR_S3M_LOADED);
-    }
-
     removeSongModifiedFlag();
 
     moduleFailedToLoad = false;
@@ -2533,7 +2533,7 @@ int8_t handleModuleLoadFromArg(int argc, char **argv)
     filenameU = (UNICHAR *)(calloc((filenameLen + 1), sizeof (UNICHAR)));
     if (filenameU == NULL)
     {
-        sysReqQueue(SR_OOM_ERROR);
+        okBox(0, "System message", "Not enough memory!");
         return (false);
     }
 
@@ -2565,7 +2565,7 @@ void loadDroppedFile(char *fullPathUTF8, uint8_t songModifiedCheck)
     fullPathU = (UNICHAR *)(calloc(fullPathLen + 2, sizeof (UNICHAR)));
     if (fullPathU == NULL)
     {
-        sysReqQueue(SR_OOM_ERROR);
+        okBox(0, "System message", "Not enough memory!");
         return;
     }
 
@@ -2585,51 +2585,24 @@ void loadDroppedFile(char *fullPathUTF8, uint8_t songModifiedCheck)
     }
     else
     {
+        SDL_RestoreWindow(video.window);
+
         if (songModifiedCheck && song.isModified)
         {
-            free(fullPathU); /* allocated above */
+            /* de-minimize window so that the user sees the message box */       
+            SDL_RaiseWindow(video.window);
 
-            tmpDragDropFilename = (char *)(calloc(fullPathLen + 2, sizeof (char)));
-            if (tmpDragDropFilename == NULL)
+            if (okBox(2, "System request", "You have unsaved changes in your song. Load new song and lose all changes?") != 1)
             {
-                sysReqQueue(SR_OOM_ERROR);
+                free(fullPathU); /* allocated above */
                 return;
             }
-
-            strcpy(tmpDragDropFilename, fullPathUTF8);
-            sysReqQueue(SR_DROP_LOADMOD_DISCARD);
-            return;
         }
-
         editor.loadMusicEvent = EVENT_LOADMUSIC_DRAGNDROP;
         loadMusic(fullPathU);
     }
 
     free(fullPathU);
-}
-
-void loadDroppedFile2(void) /* called from sys. req. */
-{
-    hideSystemRequest();
-
-    if (tmpDragDropFilename != NULL)
-    {
-        loadDroppedFile(tmpDragDropFilename, false);
-        free(tmpDragDropFilename);
-        tmpDragDropFilename = NULL;
-    }
-}
-
-/* called from sys. req. if song was unsaved and you selected "No" to load */
-void cancelLoadDroppedFile(void)
-{
-    hideSystemRequest();
-
-    if (tmpDragDropFilename != NULL)
-    {
-        free(tmpDragDropFilename);
-        tmpDragDropFilename = NULL;
-    }
 }
 
 static void handleOldPlayMode(void)
@@ -2701,6 +2674,6 @@ void handleLoadMusicEvents(void)
         moduleLoaded = false;
         editor.loadMusicEvent = EVENT_NONE;
         musicIsLoading = false;
-        setMouseBusy(false);
+        mouseAnimOff();
     }
 }

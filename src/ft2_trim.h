@@ -6,7 +6,6 @@ void hideTrimScreen(void);
 void showTrimScreen(void);
 void toggleTrimScreen(void);
 void setInitialTrimFlags(void);
-void trim(void);
 void trimThreadDone(void);
 void resetTrimSizes(void);
 
@@ -17,6 +16,6 @@ void cbTrimUnusedChans(void);
 void cbTrimUnusedSmpData(void);
 void cbTrimSmpsTo8Bit(void);
 void pbTrimCalc(void);
-void pbTrimTrim(void);
+void pbTrimDoTrim(void);
 
 #endif

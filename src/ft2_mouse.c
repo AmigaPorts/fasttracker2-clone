@@ -108,8 +108,7 @@ static void changeMouseIfOverTextEditBoxes(void)
     textBox_t *t;
 
     mouse.mouseOverTextBox = false;
-
-    if (editor.busy)
+    if (editor.busy || (mouse.mode != MOUSE_MODE_NORMAL))
         return;
 
     mx = mouse.x;
@@ -117,22 +116,8 @@ static void changeMouseIfOverTextEditBoxes(void)
 
     for (i = 0; i < NUM_TEXTBOXES; ++i)
     {
-        /* only handle certain textboxes during a system request */
-        if (editor.ui.systemRequestShown)
-        {
-            switch (i)
-            {
-                default: continue;
-                case TB_NIB_PLAYER1_NAME:
-                case TB_NIB_PLAYER2_NAME:
-                case TB_DISKOP_RENAME_NAME:
-                case TB_DISKOP_MAKEDIR_NAME:
-                case TB_DISKOP_SETPATH_NAME:
-                case TB_SCALE_FADE_VOL:
-                case TB_SAVE_RANGE_FILENAME:
-                break;
-            }
-        }
+        if (editor.ui.systemRequestShown && (i > 0))
+            continue;
 
         t = &textBoxes[i];
         if (t->visible)
@@ -188,7 +173,7 @@ void setMouseBusy(int8_t busy) /* can be called from other threads */
     }
 }
 
-void setMouseBusyShape(void)
+void mouseAnimOn(void)
 {
     editor.ui.setMouseBusy = false;
     editor.ui.setMouseIdle = false;
@@ -197,7 +182,7 @@ void setMouseBusyShape(void)
     setMouseShape(config.mouseAnimType);
 }
 
-void setMouseIdleShape(void)
+void mouseAnimOff(void)
 {
     editor.ui.setMouseBusy = false;
     editor.ui.setMouseIdle = false;
@@ -466,13 +451,6 @@ void mouseButtonUpHandler(uint8_t mouseButton)
         mouse.rightButtonReleased = true;
     }
 
-    /* do this here before testing release (kludge) */
-    if (mouse.lastUsedObjectType != OBJECT_DISKOPLIST)
-    {
-        if (mouse.mode != MOUSE_MODE_NORMAL)
-            setMouseMode(MOUSE_MODE_NORMAL);
-    }
-
     mouse.firstTimePressingButton = false;
     mouse.buttonCounter = 0;
     editor.textCursorBlinkCounter = 0;
@@ -480,6 +458,15 @@ void mouseButtonUpHandler(uint8_t mouseButton)
     /* if we used both mouse button at the same time and released *one*, don't release GUI object */
     if ( mouse.leftButtonPressed && !mouse.rightButtonPressed) return;
     if (!mouse.leftButtonPressed &&  mouse.rightButtonPressed) return;
+
+    /* mouse 0,0 = open exit dialog */
+    if ((mouse.x == 0) && (mouse.y == 0)) 
+    {
+        if (quitBox(false) == 1)
+            editor.ui.throwExit = true;
+
+        return;
+    }
 
     if (editor.ui.sampleEditorShown)
         testSmpEdMouseUp();
@@ -491,18 +478,17 @@ void mouseButtonUpHandler(uint8_t mouseButton)
 
     /* check if we released a GUI object */
     testDiskOpMouseRelease();
-    testPushButtonMouseRelease();
+    testPushButtonMouseRelease(true);
     testCheckBoxMouseRelease();
     testScrollBarMouseRelease();
+    testRadioButtonMouseRelease();
 
-    if (editor.ui.systemRequestShown)
+    /* revert "delete/rename" mouse modes (disk op.) */
+    if ((mouse.lastUsedObjectID != PB_DISKOP_DELETE) && (mouse.lastUsedObjectID != PB_DISKOP_RENAME))
     {
-        mouse.lastUsedObjectID   = OBJECT_ID_NONE;
-        mouse.lastUsedObjectType = OBJECT_NONE;
-        return;
+        if (mouse.mode != MOUSE_MODE_NORMAL)
+            setMouseMode(MOUSE_MODE_NORMAL);
     }
-
-    testRadioButtonMouseRelease(); /* test this here, since it's not used in any system request dialogs */
 
     mouse.lastUsedObjectID   = OBJECT_ID_NONE;
     mouse.lastUsedObjectType = OBJECT_NONE;
@@ -565,40 +551,18 @@ void mouseButtonDownHandler(uint8_t mouseButton)
 
     /* check if we pressed a GUI object */
 
-    /* if a system request is open, don't handle anything else than buttons and text boxes */
-    if (editor.ui.systemRequestShown)
-    {
-        /* these must be tested here because they can appear in a system request dialog */
-        if (testTextBoxMouseDown())    return;
-        if (testPushButtonMouseDown()) return;
-        if (testCheckBoxMouseDown())   return;
-        if (testScrollBarMouseDown())  return;
-
-        return;
-    }
-
-    /* mouse 0,0 when no system request is open = open exit dialog */
-    if ((mouse.x == 0) && (mouse.y == 0))
-    {
-        if (!editor.ui.exitSysReqOpen)
-        {
-            if (song.isModified)
-                sysReqQueue(SR_EXIT_SONG_MODIFIED);
-            else
-                sysReqQueue(SR_EXIT);
-        }
-
-        return;
-    }
-
     /* test objects like this - clickable things *never* overlap, so no need to test all
-    ** other objects if we clicked on one already
-    */
+    ** other objects if we clicked on one already */
     if (testTextBoxMouseDown())             return;
     if (testPushButtonMouseDown())          return;
     if (testCheckBoxMouseDown())            return;
     if (testScrollBarMouseDown())           return;
     if (testRadioButtonMouseDown())         return;
+
+    /* from this point, we don't need to test more widgets if a system request box is shown */
+    if (editor.ui.systemRequestShown)
+        return;
+
     if (testInstrSwitcherMouseDown())       return;
     if (testInstrVolEnvMouseDown(false))    return;
     if (testInstrPanEnvMouseDown(false))    return;
@@ -641,7 +605,6 @@ void readMouseXY(void)
     int32_t mx, my, endX, endY;
 
     SDL_PumpEvents(); /* gathers all pending input from devices into the event queue */
-
     SDL_GetMouseState(&mx, &my);
 
 #if SDL_PATCHLEVEL >= 4

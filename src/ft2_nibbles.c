@@ -3,12 +3,10 @@
 #include <stdint.h>
 #include <stdio.h>
 #include <math.h> /* round() */
-#include "ft2_header.h"
 #include "ft2_keyboard.h"
 #include "ft2_config.h"
 #include "ft2_video.h"
 #include "ft2_gui.h"
-#include "ft2_help.h"
 #include "ft2_pattern_ed.h"
 #include "ft2_gfxdata.h"
 
@@ -43,46 +41,16 @@ typedef struct
 } nibbleCrd;
 
 static const char nibblesCheatCode1[] = "skip", nibblesCheatCode2[] = "triton";
-static char nibblesCheatBuffer[16], tempPlayer1Name[22], tempPlayer2Name[22];
+static char nibblesCheatBuffer[16];
 
 const char convHexTable2[10] = { 7, 8, 9, 10, 11, 12, 13, 16, 17, 18 };
 static const uint8_t NI_Speeds[4] = { 12, 8, 6, 4 };
 static uint8_t NI_CheatIndex, NI_EternalLives, NI_CurSpeed, NI_CurTick60Hz, NI_CurSpeed60Hz, NI_Screen[51][23], NI_Level;
-static uint8_t p1Died, p2Died, p1GameOver, p2GameOver;
 static int16_t NI_P1Dir, NI_P2Dir, NI_P1Len, NI_P2Len, NI_Number, NI_NumberX, NI_NumberY, NI_P1NoRens, NI_P2NoRens;
 static uint16_t NI_P1Lives, NI_P2Lives;
 static int32_t NI_P1Score, NI_P2Score;
 static nibbleCrd NI_P1[256], NI_P2[256];
 static nibbleBufferTyp nibblesBuffer[2];
-
-static void nibblesTextOutClipped(uint16_t x, uint16_t y, uint8_t paletteIndex, char *textPtr, uint16_t clipX)
-{
-    char ch;
-    uint16_t i, currX;
-
-    MY_ASSERT(textPtr != NULL)
-
-    currX = x;
-    for (i = 0; i < 22; ++i)
-    {
-        if (textPtr[i] == '\0')
-            break;
-
-        ch = relocateChars(textPtr[i], FONT_TYPE1);
-        charOutClipped(currX, y, paletteIndex, ch, clipX);
-
-        currX += font1Widths[(uint32_t)(ch)];
-        if (currX >= clipX)
-            break;
-    }
-}
-
-static void nibblesTextOutShadowClipped(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shadowPaletteIndex, char *textPtr, uint16_t clipX)
-{
-    /* clipping is done in nibblesTextOutClipped() */
-    nibblesTextOutClipped(x + 1, y + 1, shadowPaletteIndex, textPtr, clipX); /* shadow */
-    nibblesTextOutClipped(x + 0, y + 0, paletteIndex,       textPtr, clipX); /* foreground */
-}
 
 static void redrawNibblesScreen(void)
 {
@@ -114,7 +82,7 @@ static void redrawNibblesScreen(void)
             }
             else
             {
-                charOutFast(xs + 2, ys, PAL_FORGRND, convHexTable2[NI_Number]);
+                charOut(xs + 2, ys, PAL_FORGRND, convHexTable2[NI_Number]);
             }
         }
     }
@@ -159,7 +127,7 @@ static int16_t nibblesGetBuffer(int16_t nr)
     if (n->antal > 0)
     {
         dataOut = n->data[0];
-        memmove(&n->data[0], &n->data[1], 7);
+        memmove(&n->data[0], &n->data[1], 7); /* memmove() must be used because of overlapping. Don't use memcpy()! */
         n->antal--;
 
         return (dataOut);
@@ -269,26 +237,49 @@ static void nibbleWriteLevelSprite(int16_t xOut, int16_t yOut, int16_t nr)
     video.frameBuffer[(yOut * SCREEN_W) + (xOut + 1)] = video.palette[PAL_FORGRND];
 }
 
+static void highScoreTextOutClipX(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shadowPaletteIndex, char *textPtr, uint16_t clipX)
+{
+    char ch;
+    uint16_t i, currX;
+
+    MY_ASSERT(textPtr != NULL)
+
+    currX = x;
+    for (i = 0; i < 22; ++i)
+    {
+        ch = textPtr[i];
+        if (ch == '\0')
+            break;
+
+        charOutClipX(currX + 1, y + 1, shadowPaletteIndex, ch, clipX); /* shadow */
+        charOutClipX(currX,     y,     paletteIndex,       ch, clipX); /* foreground */
+
+        currX += charWidth(ch);
+        if (currX >= clipX)
+            break;
+    }
+}
+
 void nibblesHighScore(void)
 {
     int16_t i;
 
     if (editor.NI_Play)
     {
-        sysReqQueue(SR_NIB_NO_HIGHS);
+        okBox(0, "System message", "No highscoretable is available during play.");
         return;
     }
 
     clearRect(152, 7, 409, 162);
 
-    textBigOut(160, 10, PAL_FORGRND, "Fasttracker Nibbles Highscore");
+    bigTextOut(160, 10, PAL_FORGRND, "Fasttracker Nibbles Highscore");
     for (i = 0; i < 5; ++i)
     {
-        nibblesTextOutShadowClipped(160, 42 + (26 * i), PAL_FORGRND, PAL_DSKTOP2, &config.NI_HighScore[i].name[1], 160 + 70);
+        highScoreTextOutClipX(160, 42 + (26 * i), PAL_FORGRND, PAL_DSKTOP2, &config.NI_HighScore[i].name[1], 160 + 70);
         hexOutShadow(160 + 76, 42 + (26 * i), PAL_FORGRND, PAL_DSKTOP2, config.NI_HighScore[i].score, 8);
         nibbleWriteLevelSprite(160 + 136, (42 - 9) + (26 * i), config.NI_HighScore[i].level);
 
-        nibblesTextOutShadowClipped(360, 42 + (26 * i), PAL_FORGRND, PAL_DSKTOP2, &config.NI_HighScore[i + 5].name[1], 360 + 70);
+        highScoreTextOutClipX(360, 42 + (26 * i), PAL_FORGRND, PAL_DSKTOP2, &config.NI_HighScore[i + 5].name[1], 360 + 70);
         hexOutShadow(360 + 76, 42 + (26 * i), PAL_FORGRND, PAL_DSKTOP2, config.NI_HighScore[i + 5].score, 8);
         nibbleWriteLevelSprite(360 + 136, (42 - 9) + (26 * i), config.NI_HighScore[i + 5].level);
     }
@@ -343,7 +334,7 @@ static void nibblesGenNewNumber(void)
                 fillRect(xs, ys, 8, 7, PAL_BCKGRND);
             }
 
-            charOutFast((x * 8) + 154, (y * 7) + 7, PAL_FORGRND, convHexTable2[NI_Number]);
+            charOut((x * 8) + 154, (y * 7) + 7, PAL_FORGRND, convHexTable2[NI_Number]);
 
             break;
         }
@@ -361,17 +352,6 @@ static void newNibblesGame(void)
 
     if (!config.NI_Surround)
         nibblesGenNewNumber();
-}
-
-void nibblesPlayerDiedOK(void) /* called from sys. req. */
-{
-    hideSystemRequest();
-
-    p1Died = false;
-    p2Died = false;
-
-    if (!p1GameOver && !p2GameOver)
-        newNibblesGame();
 }
 
 static uint8_t nibblesInvalid(int16_t x, int16_t y, int16_t d)
@@ -398,8 +378,8 @@ static void drawScoresLives(void)
     MY_ASSERT(NI_P1Lives < 100)
 
     fillRect(131, 39, 13, 8, PAL_DESKTOP);
-    charOutFast(131 + (0 * 7), 39, PAL_FORGRND, '0' + ((uint8_t)(NI_P1Lives) / 10));
-    charOutFast(131 + (1 * 7), 39, PAL_FORGRND, '0' + ((uint8_t)(NI_P1Lives) % 10));
+    charOut(131 + (0 * 7), 39, PAL_FORGRND, '0' + ((uint8_t)(NI_P1Lives) / 10));
+    charOut(131 + (1 * 7), 39, PAL_FORGRND, '0' + ((uint8_t)(NI_P1Lives) % 10));
 
     /* player 2 */
     fillRect(89, 75, 55, 8, PAL_DESKTOP);
@@ -408,12 +388,16 @@ static void drawScoresLives(void)
     MY_ASSERT(NI_P2Lives < 100)
 
     fillRect(131, 87, 13, 8, PAL_DESKTOP);
-    charOutFast(131 + (0 * 7), 87, PAL_FORGRND, '0' + ((uint8_t)(NI_P2Lives) / 10));
-    charOutFast(131 + (1 * 7), 87, PAL_FORGRND, '0' + ((uint8_t)(NI_P2Lives) % 10));
+    charOut(131 + (0 * 7), 87, PAL_FORGRND, '0' + ((uint8_t)(NI_P2Lives) / 10));
+    charOut(131 + (1 * 7), 87, PAL_FORGRND, '0' + ((uint8_t)(NI_P2Lives) % 10));
 }
 
 static void nibblesDecLives(int16_t l1, int16_t l2)
 {
+    char name[22 + 1];
+    int16_t i, k;
+    highScoreType *h;
+
     if (!NI_EternalLives)
     {
         NI_P1Lives -= l1;
@@ -424,34 +408,90 @@ static void nibblesDecLives(int16_t l1, int16_t l2)
 
     if ((l1 + l2) == 2)
     {
-        p1Died = true;
-        p2Died = true;
+        okBox(0, "Nibbles message", "Both players died!");
     }
     else
     {
         if (l2 == 0)
-            p1Died = true;
+            okBox(0, "Nibbles message", "Player 1 died!");
         else
-            p2Died = true;
+            okBox(0, "Nibbles message", "Player 2 died!");
     }
 
-    if (NI_P1Lives == 0) p1GameOver = true;
-    if (NI_P2Lives == 0) p2GameOver = true;
-
-    if (p1Died && p2Died)
+    if ((NI_P1Lives == 0) || (NI_P2Lives == 0))
     {
-        sysReqQueue(SR_NIB_BOTH_PLAYERS_DIED);
+        editor.NI_Play = false;
+        okBox(0, "Nibbles message", "GAME OVER");
+
+        if (NI_P1Score > config.NI_HighScore[9].score)
+        {
+            strcpy(name, "Unknown");
+            inputBox(0, "Player 1 - Enter your name:", name, sizeof (name) - 1);
+
+            i = 0;
+            while (NI_P1Score <= config.NI_HighScore[i].score)
+                i++;
+
+            for (k = 8; k >= i; --k)
+                memcpy(&config.NI_HighScore[k + 1], &config.NI_HighScore[k], sizeof (highScoreType));
+
+            if (i == 0)
+                okBox(0, "Nibbles message", "You've probably cheated!");
+
+            /* count name length */
+            for (k = 0; k < 22; ++k)
+            {
+                if (name[k] == '\0')
+                    break;
+            }
+
+            h = &config.NI_HighScore[i];
+
+            memset(h->name, 0, sizeof (h->name));
+            memcpy(&h->name[1], name, k);
+            h->name[0] = (char)(k);
+            h->score = NI_P1Score;
+            h->level = NI_Level;
+        }
+
+        if (NI_P2Score > config.NI_HighScore[9].score)
+        {
+            strcpy(name, "Unknown");
+            inputBox(0, "Player 2 - Enter your name:", name, sizeof (name) - 1);
+
+            i = 0;
+            while (NI_P2Score <= config.NI_HighScore[i].score)
+                i++;
+
+            for (k = 8; k >= i; --k)
+                memcpy(&config.NI_HighScore[k + 1], &config.NI_HighScore[k], sizeof (highScoreType));
+
+            if (i == 0)
+                okBox(0, "Nibbles message", "You've probably cheated!");
+
+            /* count name length */
+            for (k = 0; k < 22; ++k)
+            {
+                if (name[k] == '\0')
+                    break;
+            }
+
+            h = &config.NI_HighScore[i];
+
+            memset(h->name, 0, sizeof (h->name));
+            memcpy(&h->name[1], name, k);
+            h->name[0] = (char)(k);
+            h->score = NI_P2Score;
+            h->level = NI_Level;
+        }
+
+        nibblesHighScore();
     }
     else
     {
-        if (p1Died)
-            sysReqQueue(SR_NIB_PLAYER1_DIED);
-        else if (p2Died)
-            sysReqQueue(SR_NIB_PLAYER2_DIED);
+        editor.NI_Play = true;
+        newNibblesGame();
     }
-
-    if (p1GameOver || p2GameOver)
-        sysReqQueue(SR_NIB_GAME_OVER);
 }
 
 static void nibblesEraseNumber(void)
@@ -462,13 +502,10 @@ static void nibblesEraseNumber(void)
 
 static void nibblesNewLevel(void)
 {
-    sprintf(editor.ui.nibblesLvlText, "Level %d finished!", NI_Level + 1);
-    sysReqQueue(SR_NIB_STAGE_FINISHED);
-}
+    char text[24];
 
-void nibblesLevelFinishedOK(void) /* called from sys. req. */
-{
-    hideSystemRequest();
+    sprintf(text, "Level %d finished!", NI_Level + 1);
+    okBox(0, "Nibbles message", text);
 
     /* cast to int16_t to simulate a bug in FT2 */
     NI_P1Score += (0x10000 + (int16_t)((12 - NI_CurSpeed) * 0x2000));
@@ -528,6 +565,7 @@ void moveNibblePlayers(void)
         }
     }
 
+    /* memmove() must be used because of overlapping. Don't use memcpy()! */
     memmove(&NI_P1[1], &NI_P1[0], 255 * sizeof (nibbleCrd));
     if (config.NI_AntPlayers == 1)
         memmove(&NI_P2[1], &NI_P2[0], 255 * sizeof (nibbleCrd));
@@ -682,8 +720,8 @@ void showNibblesScreen(void)
     drawFramework(150,   5, 413, 166, FRAMEWORK_TYPE2);
     drawFramework(565,   3,  67, 170, FRAMEWORK_TYPE1);
 
-    textBigOutShadow(4,   6,  PAL_FORGRND, PAL_DSKTOP2, "Player 1");
-    textBigOutShadow(4,  55,  PAL_FORGRND, PAL_DSKTOP2, "Player 2");
+    bigTextOutShadow(4,   6,  PAL_FORGRND, PAL_DSKTOP2, "Player 1");
+    bigTextOutShadow(4,  55,  PAL_FORGRND, PAL_DSKTOP2, "Player 2");
 
     textOutShadow(4,  27,  PAL_FORGRND, PAL_DSKTOP2, "Score");
     textOutShadow(4,  75,  PAL_FORGRND, PAL_DSKTOP2, "Score");
@@ -764,18 +802,17 @@ void nibblesPlay(void)
 {
     if (editor.NI_Play)
     {
-        sysReqQueue(SR_NIB_RESTART);
-        return;
+        if (okBox(2, "Nibbles request", "Restart the current game of nibbles?") != 1)
+            return;
     }
 
     if (config.NI_Surround && (config.NI_AntPlayers == 0))
     {
-        sysReqQueue(SR_NIB_SURR_1PLAYER);
+        okBox(0, "Nibbles message", "\"Surround\" is not appropriate in one-player mode.");
         return;
     }
 
     MY_ASSERT(config.NI_Speed < 4)
-
     NI_CurSpeed = NI_Speeds[config.NI_Speed];
 
     /* adjust for 70Hz -> 60Hz frames */
@@ -789,17 +826,9 @@ void nibblesPlay(void)
     NI_P2Score = 0;
     NI_P1Lives = 5;
     NI_P2Lives = 5;
-    NI_Level = 0;
+    NI_Level   = 0;
 
     newNibblesGame();
-}
-
-void nibblesRestartYes(void) /* called from system request */
-{
-    hideSystemRequest();
-    editor.NI_Play = false;
-
-    nibblesPlay();
 }
 
 void nibblesHelp(void)
@@ -808,13 +837,13 @@ void nibblesHelp(void)
 
     if (editor.NI_Play)
     {
-        sysReqQueue(SR_NIB_NO_HELP);
+        okBox(0, "System message", "No help available during play.");
         return;
     }
 
     clearRect(152, 7, 409, 162);
 
-    textBigOut(160, 10, PAL_FORGRND, "Fasttracker Nibbles Help");
+    bigTextOut(160, 10, PAL_FORGRND, "Fasttracker Nibbles Help");
     for (i = 0; i < NIBBLES_HELP_LINES; ++i)
         textOut(160, 36 + (11 * i), PAL_BUTTONS, (char *)(NI_HelpText[i]));
 }
@@ -823,17 +852,15 @@ void nibblesExit(void)
 {
     if (editor.NI_Play)
     {
-        sysReqQueue(SR_NIB_QUIT);
+        if (okBox(2, "System request", "Quit current game of nibbles?") == 1)
+        {
+            editor.NI_Play = false;
+            exitNibblesScreen();
+        }
+
         return;
     }
 
-    exitNibblesScreen();
-}
-
-void nibblesExit2(void) /* called from system request */
-{
-    hideSystemRequest();
-    editor.NI_Play = false;
     exitNibblesScreen();
 }
 
@@ -902,139 +929,18 @@ void nibblesToggleWrap(void)
     showCheckBox(CB_NIBBLES_WRAP);
 }
 
-void nibblesPlayer1NameOK(void)
-{
-    uint8_t showHighScoreScreen, player2HadHighScore;
-    int16_t i, k;
-    highScoreType *h;
-
-    hideSystemRequest();
-
-    player2HadHighScore = NI_P2Score > config.NI_HighScore[9].score;
-
-    showHighScoreScreen = false;
-    if ((config.NI_AntPlayers == 0) || !player2HadHighScore)
-        showHighScoreScreen = true;
-
-    i = 0;
-    while (NI_P1Score <= config.NI_HighScore[i].score)
-        i++;
-
-    for (k = 8; k >= i; --k)
-        memcpy(&config.NI_HighScore[k + 1], &config.NI_HighScore[k], sizeof (highScoreType));
-
-    /* count name length */
-    for (k = 0; k < 22; ++k)
-    {
-        if (tempPlayer1Name[k] == '\0')
-            break;
-    }
-
-    h = &config.NI_HighScore[i];
-
-    memset(h->name, 0, sizeof (h->name));
-    memcpy(&h->name[1], tempPlayer1Name, k);
-    h->name[0] = (char)(k);
-    h->score = NI_P1Score;
-    h->level = NI_Level;
-
-    if (player2HadHighScore && (NI_P2Score <= config.NI_HighScore[9].score))
-    {
-        /* player 2 no longer has a highscore */
-
-        hideSystemRequest(); /* close player 2 highscore system request */
-        showHighScoreScreen = true;
-    }
-
-    if (showHighScoreScreen)
-        nibblesHighScore();
-}
-
-void nibblesPlayer2NameOK(void)
-{
-    int16_t i, k;
-    highScoreType *h;
-
-    hideSystemRequest();
-
-    if (NI_P2Score <= config.NI_HighScore[9].score)
-        return;
-
-    i = 0;
-    while (NI_P2Score <= config.NI_HighScore[i].score)
-        i++;
-
-    for (k = 8; k >= i; --k)
-        memcpy(&config.NI_HighScore[k + 1], &config.NI_HighScore[k], sizeof (highScoreType));
-
-    /* count name length */
-    for (k = 0; k < 22; ++k)
-    {
-        if (tempPlayer2Name[k] == '\0')
-            break;
-    }
-
-    h = &config.NI_HighScore[i];
-
-    memset(h->name, 0, sizeof (h->name));
-    memcpy(&h->name[1], tempPlayer2Name, k);
-    h->name[0] = (char)(k);
-    h->score = NI_P2Score;
-    h->level = NI_Level;
-
-    nibblesHighScore();
-}
-
-void nibblesGameOverOK(void) /* called from system request */
-{
-    uint8_t showHighScoreScreen;
-
-    hideSystemRequest();
-
-    editor.NI_Play = false;
-
-    p1GameOver = true;
-    p2GameOver = true;
-
-    showHighScoreScreen = true;
-
-    if (NI_P1Score > config.NI_HighScore[9].score)
-    {
-        memset(tempPlayer1Name, 0, sizeof (tempPlayer1Name));
-        strcpy(tempPlayer1Name, "Unknown");
-        setupTextBoxForSysReq(TB_NIB_PLAYER1_NAME, tempPlayer1Name, sizeof (tempPlayer1Name), true);
-        sysReqQueue(SR_NIB_P1_NAME);
-        showHighScoreScreen = false; /* will be done later */
-    }
-
-    if (config.NI_AntPlayers == 1)
-    {
-        if (NI_P2Score > config.NI_HighScore[9].score)
-        {
-            memset(tempPlayer2Name, 0, sizeof (tempPlayer2Name));
-            strcpy(tempPlayer2Name, "Unknown");
-            setupTextBoxForSysReq(TB_NIB_PLAYER2_NAME, tempPlayer2Name, sizeof (tempPlayer2Name), true);
-            sysReqQueue(SR_NIB_P2_NAME);
-            showHighScoreScreen = false; /* will be done later */
-        }
-    }
-
-    if (showHighScoreScreen)
-    {
-        p1GameOver = false;
-        p2GameOver = false;
-
-        nibblesHighScore();
-    }
-}
-
 /* GLOBAL FUNCTIONS */
 
 void nibblesKeyAdministrator(SDL_Scancode scancode)
 {
     if (scancode == SDL_SCANCODE_ESCAPE)
     {
-        sysReqQueue(SR_NIB_QUIT);
+        if (okBox(2, "System request", "Quit current game of nibbles?") == 1)
+        {
+            editor.NI_Play = false;
+            exitNibblesScreen();
+        }
+
         return;
     }
 
@@ -1099,9 +1005,9 @@ uint8_t testNibblesCheatCodes(SDL_Keycode keycode)
             {
                 NI_EternalLives ^= 1;
                 if (NI_EternalLives)
-                    sysReqQueue(SR_NIB_CHEAT_ON);
+                    okBox(0, "Triton productions declares:", "Eternal lives activated!");
                 else
-                    sysReqQueue(SR_NIB_CHEAT_OFF);
+                    okBox(0, "Triton productions declares:", "Eternal lives deactivated!");
             }
         }
 

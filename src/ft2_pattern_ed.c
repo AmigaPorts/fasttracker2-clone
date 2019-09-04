@@ -501,6 +501,8 @@ static void updatePatternEditorGUI(void)
     const uint8_t iSwitchExtY[8] = { 2, 2, 2, 2, 19, 19, 19, 19 };
     const uint8_t iSwitchY[8] = { 2, 19, 36, 53, 73, 90, 107, 124 };
     uint8_t i;
+    pushButton_t *p;
+    textBox_t *t;
 
     if (editor.ui.extended)
     {
@@ -509,19 +511,21 @@ static void updatePatternEditorGUI(void)
         /* instrument names */
         for (i = 0; i < 8; ++i)
         {
+            t = &textBoxes[TB_INST1 + i];
+
             if (i < 4)
             {
-                textBoxes[TB_INST1 + i].x = 406;
-                textBoxes[TB_INST1 + i].y = 5 + (i * 11);
+                t->x = 406;
+                t->y = 5 + (i * 11);
             }
             else
             {
-                textBoxes[TB_INST1 + i].x = 529;
-                textBoxes[TB_INST1 + i].y = 5 + ((i - 4) * 11);
+                t->x = 529;
+                t->y = 5 + ((i - 4) * 11);
             }
 
-            textBoxes[TB_INST1 + i].w  = 98;
-            textBoxes[TB_INST1 + i].tw = 96;
+            t->w = 99;
+            t->renderW = t->w - (t->tx * 2);
         }
 
         scrollBars[SB_POS_ED].h = 23;
@@ -556,9 +560,11 @@ static void updatePatternEditorGUI(void)
         /* instrument switcher */
         for (i = 0; i < 16; ++i)
         {
-            pushButtons[PB_RANGE1 + i].w = iSwitchExtW[i % 4];
-            pushButtons[PB_RANGE1 + i].x = iSwitchExtX[i % 4];
-            pushButtons[PB_RANGE1 + i].y = iSwitchExtY[i % 8];
+            p = &pushButtons[PB_RANGE1 + i];
+
+            p->w = iSwitchExtW[i % 4];
+            p->x = iSwitchExtX[i % 4];
+            p->y = iSwitchExtY[i % 8];
         }
     }
     else
@@ -566,10 +572,12 @@ static void updatePatternEditorGUI(void)
         /* instrument names */
         for (i = 0; i < 8; ++i)
         {
-            textBoxes[TB_INST1 + i].y  = 5 + (i * 11);
-            textBoxes[TB_INST1 + i].x  = 446;
-            textBoxes[TB_INST1 + i].w  = 139;
-            textBoxes[TB_INST1 + i].tw = 138;
+            t = &textBoxes[TB_INST1 + i];
+
+            t->y = 5 + (i * 11);
+            t->x = 446;
+            t->w = 140;
+            t->renderW = t->w - (t->tx * 2);
         }
 
         /* normal pattern editor */
@@ -606,9 +614,11 @@ static void updatePatternEditorGUI(void)
         /* instrument switcher */
         for (i = 0; i < 16; ++i)
         {
-            pushButtons[PB_RANGE1 + i].w = 39;
-            pushButtons[PB_RANGE1 + i].x = 590;
-            pushButtons[PB_RANGE1 + i].y = iSwitchY[i % 8];
+            p = &pushButtons[PB_RANGE1 + i];
+
+            p->w = 39;
+            p->x = 590;
+            p->y = iSwitchY[i % 8];
         }
     }
 }
@@ -1189,7 +1199,7 @@ int8_t loadTrack(UNICHAR *filenameU)
     f = UNICHAR_FOPEN(filenameU, "rb");
     if (f == NULL)
     {
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBox(0, "System message", "General I/O error during loading! Is the file in use?");
         return (false);
     }
 
@@ -1199,7 +1209,7 @@ int8_t loadTrack(UNICHAR *filenameU)
     if (fread(&th, 1, sizeof (th), f) != sizeof (th))
     {
         fclose(f);
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBox(0, "System message", "General I/O error during loading! Is the file in use?");
 
         return (false);
     }
@@ -1207,7 +1217,7 @@ int8_t loadTrack(UNICHAR *filenameU)
     if (th.ver != 1)
     {
         fclose(f);
-        sysReqQueue(SR_LOAD_WRONG_VERSION);
+        okBox(0, "System message", "Incompatible format version!");
 
         return (false);
     }
@@ -1221,7 +1231,7 @@ int8_t loadTrack(UNICHAR *filenameU)
     if (fread(loadBuff, pattLen * sizeof (tonTyp), 1, f) != 1)
     {
         fclose(f);
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBox(0, "System message", "General I/O error during loading! Is the file in use?");
 
         return (false);
     }
@@ -1229,7 +1239,7 @@ int8_t loadTrack(UNICHAR *filenameU)
     if (!allocatePattern(nr))
     {
         fclose(f);
-        sysReqQueue(SR_OOM_ERROR);
+        okBox(0, "System message", "Not enough memory!");
 
         return (false);
     }
@@ -1264,14 +1274,14 @@ int8_t saveTrack(UNICHAR *filenameU)
 
     if (pattPtr == NULL)
     {
-        sysReqQueue(SR_CURR_PATT_EMPTY);
+        okBox(0, "System message", "The current pattern is empty!");
         return (false);
     }
 
     f = UNICHAR_FOPEN(filenameU, "wb");
     if (f == NULL)
     {
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBox(0, "System message", "General I/O error during saving! Is the file in use?");
         return (false);
     }
 
@@ -1285,7 +1295,7 @@ int8_t saveTrack(UNICHAR *filenameU)
     if (fwrite(&th, sizeof (th), 1, f) !=  1)
     {
         fclose(f);
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBox(0, "System message", "General I/O error during saving! Is the file in use?");
 
         return (false);
     }
@@ -1293,7 +1303,7 @@ int8_t saveTrack(UNICHAR *filenameU)
     if (fwrite(saveBuff, pattLen * sizeof (tonTyp), 1, f) != 1)
     {
         fclose(f);
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBox(0, "System message", "General I/O error during saving! Is the file in use?");
 
         return (false);
     }
@@ -1312,7 +1322,7 @@ int8_t loadPattern(UNICHAR *filenameU)
     f = UNICHAR_FOPEN(filenameU, "rb");
     if (f == NULL)
     {
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBox(0, "System message", "General I/O error during loading! Is the file in use?");
         return (false);
     }
 
@@ -1321,7 +1331,7 @@ int8_t loadPattern(UNICHAR *filenameU)
     if (!allocatePattern(nr))
     {
         fclose(f);
-        sysReqQueue(SR_OOM_ERROR);
+        okBox(0, "System message", "Not enough memory!");
         return (false);
     }
 
@@ -1331,7 +1341,7 @@ int8_t loadPattern(UNICHAR *filenameU)
     if (fread(&th, 1, sizeof (th), f) != sizeof (th))
     {
         fclose(f);
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBox(0, "System message", "General I/O error during loading! Is the file in use?");
 
         return (false);
     }
@@ -1339,7 +1349,7 @@ int8_t loadPattern(UNICHAR *filenameU)
     if (th.ver != 1)
     {
         fclose(f);
-        sysReqQueue(SR_LOAD_WRONG_VERSION);
+        okBox(0, "System message", "Incompatible format version!");
 
         return (false);
     }
@@ -1356,7 +1366,7 @@ int8_t loadPattern(UNICHAR *filenameU)
     {
         unlockMixerCallback();
         fclose(f);
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBox(0, "System message", "General I/O error during loading! Is the file in use?");
 
         return (false);
     }
@@ -1386,14 +1396,14 @@ int8_t savePattern(UNICHAR *filenameU)
 
     if (pattPtr == NULL)
     {
-        sysReqQueue(SR_CURR_PATT_EMPTY);
+        okBox(0, "System message", "The current pattern is empty!");
         return (false);
     }
 
     f = UNICHAR_FOPEN(filenameU, "wb");
     if (f == NULL)
     {
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBox(0, "System message", "General I/O error during saving! Is the file in use?");
         return (false);
     }
 
@@ -1405,7 +1415,7 @@ int8_t savePattern(UNICHAR *filenameU)
     if (fwrite(&th, 1, sizeof (th), f) != sizeof (th))
     {
         fclose(f);
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBox(0, "System message", "General I/O error during saving! Is the file in use?");
 
         return (false);
     }
@@ -1413,7 +1423,7 @@ int8_t savePattern(UNICHAR *filenameU)
     if (fwrite(pattPtr, pattLen * TRACK_WIDTH, 1, f) != 1)
     {
         fclose(f);
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBox(0, "System message", "General I/O error during saving! Is the file in use?");
 
         return (false);
     }
@@ -2009,11 +2019,6 @@ void pbPattLenDown(void)
         unlockAudio();
 }
 
-void pbShrinkPattern(void)
-{
-    sysReqQueue(SR_SHRINK_PATT);
-}
-
 void drawPosEdNums(int16_t songPos)
 {
     uint8_t y;
@@ -2133,9 +2138,9 @@ void drawSongBPM(uint16_t speed)
 
     fillRect(145, 36, 20, 8, PAL_DESKTOP);
 
-    charOutFast(145 + (0 * 7), 36, PAL_FORGRND, '0' + (int8_t)(speed  / 100));
-    charOutFast(145 + (1 * 7), 36, PAL_FORGRND, '0' + ((speed / 10) % 10));
-    charOutFast(145 + (2 * 7), 36, PAL_FORGRND, '0' + (speed  % 10));
+    charOut(145 + (0 * 7), 36, PAL_FORGRND, '0' + (int8_t)(speed  / 100));
+    charOut(145 + (1 * 7), 36, PAL_FORGRND, '0' + ((speed / 10) % 10));
+    charOut(145 + (2 * 7), 36, PAL_FORGRND, '0' + (speed  % 10));
 }
 
 void drawSongSpeed(uint16_t tempo)
@@ -2145,8 +2150,8 @@ void drawSongSpeed(uint16_t tempo)
 
     fillRect(152, 50, 13, 8, PAL_DESKTOP);
 
-    charOutFast(152 + (0 * 7), 50, PAL_FORGRND, '0' + (int8_t)(tempo / 10));
-    charOutFast(152 + (1 * 7), 50, PAL_FORGRND, '0' + (tempo % 10));
+    charOut(152 + (0 * 7), 50, PAL_FORGRND, '0' + (int8_t)(tempo / 10));
+    charOut(152 + (1 * 7), 50, PAL_FORGRND, '0' + (tempo % 10));
 }
 
 void drawEditPattern(uint16_t editPattern)
@@ -2196,8 +2201,8 @@ void drawGlobalVol(int16_t globalVol)
 
     fillRect(87, 80, 13, 8, PAL_DESKTOP);
 
-    charOutFast(87 + (0 * 7), 80, PAL_FORGRND, '0' + (int8_t)(globalVol / 10));
-    charOutFast(87 + (1 * 7), 80, PAL_FORGRND, '0' + (globalVol % 10));
+    charOut(87 + (0 * 7), 80, PAL_FORGRND, '0' + (int8_t)(globalVol / 10));
+    charOut(87 + (1 * 7), 80, PAL_FORGRND, '0' + (globalVol % 10));
 }
 
 void drawEditSkip(void)
@@ -2206,8 +2211,8 @@ void drawEditSkip(void)
 
     fillRect(152, 64, 13, 8, PAL_DESKTOP);
 
-    charOutFast(152 + (0 * 7), 64, PAL_FORGRND, '0' + (editor.editSkip / 10));
-    charOutFast(152 + (1 * 7), 64, PAL_FORGRND, '0' + (editor.editSkip % 10));
+    charOut(152 + (0 * 7), 64, PAL_FORGRND, '0' + (editor.editSkip / 10));
+    charOut(152 + (1 * 7), 64, PAL_FORGRND, '0' + (editor.editSkip % 10));
 }
 
 void drawPlaybackTime(void)
@@ -2217,20 +2222,20 @@ void drawPlaybackTime(void)
     /* hours */
     time = (editor.playbackSeconds / 3600) % 100;
     fillRect(235, 80, 13, 8, PAL_DESKTOP);
-    charOutFast(235 + (0 * 7), 80, PAL_FORGRND, '0' + (time / 10));
-    charOutFast(235 + (1 * 7), 80, PAL_FORGRND, '0' + (time % 10));
+    charOut(235 + (0 * 7), 80, PAL_FORGRND, '0' + (time / 10));
+    charOut(235 + (1 * 7), 80, PAL_FORGRND, '0' + (time % 10));
 
     /* minutes */
     time = (editor.playbackSeconds / 60) % 60;
     fillRect(255, 80, 13, 8, PAL_DESKTOP);
-    charOutFast(255 + (0 * 7), 80, PAL_FORGRND, '0' + (time / 10));
-    charOutFast(255 + (1 * 7), 80, PAL_FORGRND, '0' + (time % 10));
+    charOut(255 + (0 * 7), 80, PAL_FORGRND, '0' + (time / 10));
+    charOut(255 + (1 * 7), 80, PAL_FORGRND, '0' + (time % 10));
 
     /* seconds */
     time = editor.playbackSeconds % 60;
     fillRect(275, 80, 13, 8, PAL_DESKTOP);
-    charOutFast(275 + (0 * 7), 80, PAL_FORGRND, '0' + (time / 10));
-    charOutFast(275 + (1 * 7), 80, PAL_FORGRND, '0' + (time % 10));
+    charOut(275 + (0 * 7), 80, PAL_FORGRND, '0' + (time / 10));
+    charOut(275 + (1 * 7), 80, PAL_FORGRND, '0' + (time % 10));
 }
 
 void drawSongName(void)
@@ -2635,11 +2640,9 @@ static void zapSong(void)
     freeAllPatterns();
     for (i = 0; i < MAX_PATTERNS; ++i)
         pattLens[i] = 64;
-
     song.pattLen = pattLens[song.pattNr];
 
     resetMusic();
-
     setSpeed(song.speed);
 
     editor.songPos     = song.songPos;
@@ -2659,7 +2662,6 @@ static void zapSong(void)
 
     clearPattMark();
     resetWavRenderer();
-
     resetChannels();
     unlockMixerCallback();
 
@@ -2700,44 +2702,29 @@ static void zapInstrs(void)
 
 void pbZap(void)
 {
-    sysReqQueue(SR_ZAP);
-}
+    int16_t choice;
 
-void pbZapAll(void)
-{
-    hideSystemRequest();
+    choice = okBox(4, "System request", "Total devastation of the...");
+    if (choice == 1) /* zap all */
+    {
+        zapSong();
+        zapInstrs();
+    }
+    else if (choice == 2) /* zap song */
+    {
+        zapSong();
+    }
+    else if (choice == 3) /* zap instruments */
+    {
+        zapInstrs();
+    }
 
-    zapSong();
-    zapInstrs();
-
-    hideTopScreen();
-    showTopScreen(true);
-
-    setSongModifiedFlag();
-}
-
-void pbZapSong(void)
-{
-    hideSystemRequest();
-
-    zapSong();
-
-    hideTopScreen();
-    showTopScreen(true);
-
-    setSongModifiedFlag();
-}
-
-void pbZapInstr(void)
-{
-    hideSystemRequest();
-
-    zapInstrs();
-
-    hideTopScreen();
-    showTopScreen(true);
-
-    setSongModifiedFlag();
+    if ((choice >= 1) && (choice <= 3))
+    {
+        hideTopScreen();
+        showTopScreen(true);
+        setSongModifiedFlag();
+    }
 }
 
 void sbSmpBankPos(int32_t pos)
@@ -2771,12 +2758,13 @@ void resetChannelOffset(void)
     editor.ui.channelOffset = 0;
 }
 
-void shrinkPattern(void) /* *only* called from Srnk. button (after sys req)! */
+void shrinkPattern(void)
 {
     uint16_t nr, i, j, pattLen;
     tonTyp *pattPtr;
 
-    hideSystemRequest();
+    if (okBox(2, "System request", "Shrink pattern?") != 1)
+        return;
 
     nr = editor.editPattern;
 
@@ -2814,7 +2802,7 @@ void shrinkPattern(void) /* *only* called from Srnk. button (after sys req)! */
     }
 }
 
-void expandPattern(void) /* *only* called from Expd. button */
+void expandPattern(void)
 {
     uint16_t nr, i, j, pattLen;
     tonTyp *tmpPtn;
@@ -2824,7 +2812,7 @@ void expandPattern(void) /* *only* called from Expd. button */
     pattLen = pattLens[nr];
     if (pattLen > 128)
     {
-        sysReqQueue(SR_EXPAND_PATT_ERROR);
+        okBox(0, "System message", "Pattern is too long to be expanded.");
     }
     else
     {
@@ -2836,7 +2824,7 @@ void expandPattern(void) /* *only* called from Expd. button */
             if (tmpPtn == NULL)
             {
                 unlockMixerCallback();
-                sysReqQueue(SR_OOM_ERROR);
+                okBox(0, "System message", "Not enough memory!");
                 return;
             }
 

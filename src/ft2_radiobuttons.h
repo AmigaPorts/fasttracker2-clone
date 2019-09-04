@@ -198,9 +198,10 @@ enum
 typedef struct radioButton_t /* DO NOT TOUCH!!! */
 {
     uint16_t x, y, clickAreaWidth;
-    uint8_t state, visible;
     uint16_t group;
     void (*callbackFunc)(void);
+
+    uint8_t state, visible;
 } radioButton_t;
 
 void drawRadioButton(uint16_t radioButtonID);

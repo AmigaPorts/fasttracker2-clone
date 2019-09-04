@@ -53,6 +53,7 @@ typedef struct
     uint16_t w, h;
 } sprite_t;
 
+void flipFrame(void);
 void showErrorMsgBox(const char *fmt, ...);
 void updateWindowTitle(uint8_t forceUpdate);
 void setPalettePreset(int16_t palettePreset);
@@ -62,7 +63,6 @@ void handleScopesFromChQueue(chSyncData_t *chSyncData, uint8_t *scopeUpdateStatu
 int8_t setupWindow(int argc, char *argv[]);
 int8_t setupRenderer(void);
 void closeVideo(void);
-void flipFrame(void);
 void setLeftLoopPinState(int8_t clicked);
 void setRightLoopPinState(int8_t clicked);
 int32_t getSpritePosX(uint8_t sprite);

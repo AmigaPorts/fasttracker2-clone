@@ -307,12 +307,12 @@ static void drawChannelNumbering(uint16_t yPos)
         chNum = editor.ui.channelOffset + i + 1;
         if (chNum < 10)
         {
-            charOutFastOutlined(xPos, yPos, PAL_MOUSEPT, '0' + chNum);
+            charOutOutlined(xPos, yPos, PAL_MOUSEPT, '0' + chNum);
         }
         else
         {
-            charOutFastOutlined(xPos,     yPos, PAL_MOUSEPT, '0' + (chNum / 10));
-            charOutFastOutlined(xPos + 9, yPos, PAL_MOUSEPT, '0' + (chNum % 10));
+            charOutOutlined(xPos,     yPos, PAL_MOUSEPT, '0' + (chNum / 10));
+            charOutOutlined(xPos + 9, yPos, PAL_MOUSEPT, '0' + (chNum % 10));
         }
 
         xPos += editor.ui.patternChannelWidth;

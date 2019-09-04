@@ -10,6 +10,6 @@ enum
     SAVE_RANGE  = 1
 };
 
-void saveSample(UNICHAR *filenameU, uint8_t saveRangeFlag);
+void saveSample(UNICHAR *filenameU, uint8_t saveAsRange);
 
 #endif

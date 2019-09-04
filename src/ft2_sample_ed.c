@@ -24,15 +24,16 @@
 #include "ft2_keyboard.h"
 
 static char smpEd_SysReqText[128];
-static int8_t *smpCopyBuff, smpEd_RelReSmp, mix_Balance = 50;
-static uint8_t echo_AddMemory, updateLoopsOnMouseUp;
-static int16_t vol_StartVol = 100, vol_EndVol = 100, echo_nEcho = 1, echo_VolChange = 30;
+static int8_t *smpCopyBuff;
+static uint8_t updateLoopsOnMouseUp;
 static int32_t smpEd_OldSmpPosLine = -1; /* must be initialized to -1! */
-static int32_t smpEd_Rx1, smpEd_Rx2, smpEd_ViewSize, smpEd_ScrPos, smpCopySize, smpCopyBits;
-static int32_t old_Rx1, old_Rx2, old_ViewSize, old_SmpScrPos, echo_Distance = 0x100;
-static int32_t lastMouseX, lastMouseY, lastDrawX, lastDrawY, mouseXOffs, curSmpRep, curSmpRepL;
-static sampleTyp *currSmp;
-static SDL_Thread *echoThread;
+static int32_t smpEd_ViewSize, smpEd_ScrPos, smpCopySize, smpCopyBits;
+static int32_t old_Rx1, old_Rx2, old_ViewSize, old_SmpScrPos;
+static int32_t lastMouseX, lastMouseY, lastDrawX, lastDrawY, mouseXOffs, curSmpRepS, curSmpRepL;
+
+/* globals */
+int32_t smpEd_Rx1 = 0, smpEd_Rx2 = 0;
+sampleTyp *currSmp = NULL;
 
 /* adds wrapped sample after loop/end (for branchless linear interpolation) */
 void fixSample(sampleTyp *s)
@@ -178,7 +179,7 @@ void restoreSample(sampleTyp *s)
     }
 }
 
-static int16_t getSampleValueNr(int8_t *ptr, uint8_t typ, int32_t pos)
+int16_t getSampleValueNr(int8_t *ptr, uint8_t typ, int32_t pos)
 {
     if ((ptr == NULL) || (pos < 0))
         return (0);
@@ -194,7 +195,7 @@ static int16_t getSampleValueNr(int8_t *ptr, uint8_t typ, int32_t pos)
     }
 }
 
-static void putSampleValueNr(int8_t *ptr, uint8_t typ, int32_t pos, int16_t val)
+void putSampleValueNr(int8_t *ptr, uint8_t typ, int32_t pos, int16_t val)
 {
     if ((ptr == NULL) || (pos < 0))
         return;
@@ -220,752 +221,6 @@ void clearCopyBuffer(void)
 
     smpCopySize = 0;
     smpCopyBits = 8;
-}
-
-void cbEchoAddMemory(void)
-{
-    echo_AddMemory ^= 1;
-}
-
-void sbSetEchoNumPos(int32_t pos)
-{
-    if (echo_nEcho != pos)
-        echo_nEcho = (int16_t)(pos);
-}
-
-void sbSetEchoDistPos(int32_t pos)
-{
-    if (echo_Distance != pos)
-        echo_Distance = (int32_t)(pos);
-}
-
-void sbSetEchoFadeoutPos(int32_t pos)
-{
-    if (echo_VolChange != pos)
-        echo_VolChange = (int16_t)(pos);
-}
-
-void pbEchoNumDown(void)
-{
-    if (echo_nEcho > 0)
-        echo_nEcho--;
-}
-
-void pbEchoNumUp(void)
-{
-    if (echo_nEcho < 1024)
-        echo_nEcho++;
-}
-
-void pbEchoDistDown(void)
-{
-    if (echo_Distance > 0)
-        echo_Distance--;
-}
-
-void pbEchoDistUp(void)
-{
-    if (echo_Distance < 16384)
-        echo_Distance++;
-}
-
-void pbEchoFadeoutDown(void)
-{
-    if (echo_VolChange > 0)
-        echo_VolChange--;
-}
-
-void pbEchoFadeoutUp(void)
-{
-    if (echo_VolChange < 100)
-        echo_VolChange++;
-}
-
-static int32_t SDLCALL createEchoThread(void *ptr)
-{
-    int8_t *readPtr, *writePtr;
-    uint8_t is16Bit;
-    int32_t numEchoes, distance, readLen, writeLen, i, j;
-    int32_t tmp32, smpOut, smpMul, echoRead, echoCycle, writeIdx;
-    double dTmp;
-
-    readLen  = currSmp->len;
-    readPtr  = currSmp->pek;
-    is16Bit  = (currSmp->typ & 16) ? true : false;
-    distance = is16Bit ? (echo_Distance * 32) : (echo_Distance * 16);
-
-    /* calculate real number of echoes */
-    j = is16Bit ? 32768 : 128; i = 0;
-    while ((i < echo_nEcho) && (j > 0))
-    {
-        j = (j * echo_VolChange) / 100;
-        i++;
-    }
-    numEchoes = i + 1;
-
-    /* set write length (either original length or full echo length) */
-    writeLen = readLen;
-    if (echo_AddMemory)
-    {
-        writeLen += (distance * (numEchoes - 1));
-        if (is16Bit)
-            writeLen &= 0xFFFFFFFE;
-    }
-
-    writePtr = (int8_t *)(malloc(writeLen + 2));
-    if (writePtr == NULL)
-    {
-        setMouseBusy(false);
-        sysReqQueue(SR_OOM_ERROR);
-        return (false);
-    }
-
-    pauseAudio();
-    restoreSample(currSmp);
-
-    writeIdx = 0;
-    while (writeIdx < writeLen)
-    {
-        tmp32  = 0;
-        smpOut = 0;
-        smpMul = 32768;
-
-        echoRead  = writeIdx;
-        echoCycle = numEchoes;
-
-        while ((echoRead > 0) && (echoCycle-- > 0))
-        {
-            if (echoRead < readLen)
-            {
-                if (is16Bit)
-                    tmp32 = *((int16_t *)(&readPtr[echoRead & 0xFFFFFFFE]));
-                else
-                    tmp32 = readPtr[echoRead] << 8;
-
-                dTmp = (tmp32 * smpMul) / 32768.0;
-                double2int32_round(tmp32, dTmp);
-                smpOut += tmp32;
-            }
-
-            dTmp = (echo_VolChange * smpMul) / 100.0;
-            double2int32_round(smpMul, dTmp);
-            echoRead -= distance;
-        }
-        CLAMP16(smpOut);
-
-        if (is16Bit)
-        {
-            *((int16_t *)(&writePtr[writeIdx & 0xFFFFFFFE])) = (int16_t)(smpOut);
-            writeIdx += 2;
-        }
-        else
-        {
-            writePtr[writeIdx++] = (int8_t)(smpOut >> 8);
-        }
-    }
-
-    if (is16Bit)
-        writeLen &= 0xFFFFFFFE;
-
-    free(readPtr);
-    currSmp->pek = writePtr;
-    currSmp->len = writeLen;
-
-    fixSample(currSmp);
-    resumeAudio();
-
-    setSongModifiedFlag();
-
-    (void)(ptr); /* prevent compiler warning */
-
-    editor.ui.updateLoadedSample = true; /* also sets mouse busy to false when done */
-    return (true);
-}
-
-void createEcho(void) /* called from sys. req */
-{
-    hideSystemRequest();
-
-    if ((editor.curInstr == 0) || (echo_nEcho == 0) || (currSmp->pek == NULL))
-        return;
-
-    setMouseBusy(true);
-    echoThread = SDL_CreateThread(createEchoThread, "FT2 Clone Sample Echo Thread", NULL);
-    if (echoThread == NULL)
-    {
-        setMouseBusy(false);
-        sysReqQueue(SR_THREAD_ERROR);
-        return;
-    }
-
-    /* don't let thread wait for this thread, let it clean up on its own when done */
-    SDL_DetachThread(echoThread);
-}
-
-void sampleEcho(void)
-{
-    if ((editor.curInstr == 0) || (currSmp->pek == NULL))
-        return;
-
-    sysReqQueue(SR_SAMP_ECHO);
-}
-
-void drawEchoBox(void)
-{
-    const int16_t x = 171;
-    const int16_t y = 220;
-    const int16_t w = 291;
-    const int16_t h = 66;
-    uint16_t i;
-    sysReq_t *sysReq;
-
-    /* main fill */
-    fillRect(x + 1, y + 1, w - 2, h - 2, PAL_BUTTONS);
-
-    /* outer border */
-    vLine(x,         y,         h - 1, PAL_BUTTON1);
-    hLine(x + 1,     y,         w - 2, PAL_BUTTON1);
-    vLine(x + w - 1, y,         h,     PAL_BUTTON2);
-    hLine(x,         y + h - 1, w - 1, PAL_BUTTON2);
-
-    /* inner border */
-    vLine(x + 2,     y + 2,     h - 5, PAL_BUTTON2);
-    hLine(x + 3,     y + 2,     w - 6, PAL_BUTTON2);
-    vLine(x + w - 3, y + 2,     h - 4, PAL_BUTTON1);
-    hLine(x + 2,     y + h - 3, w - 4, PAL_BUTTON1);
-
-    textOutShadow(177, 226, PAL_FORGRND, PAL_BUTTON2, "Number of echoes");
-    textOutShadow(177, 239, PAL_FORGRND, PAL_BUTTON2, "Echo distance");
-    textOutShadow(177, 253, PAL_FORGRND, PAL_BUTTON2, "Fade out");
-    textOutShadow(192, 270, PAL_FORGRND, PAL_BUTTON2, "Add memory to sample");
-
-    MY_ASSERT(echo_nEcho <= 1024)
-
-    charOutFast(315 + (0 * 7), 226, PAL_FORGRND, '0' + (echo_nEcho / 1000) % 10);
-    charOutFast(315 + (1 * 7), 226, PAL_FORGRND, '0' + (echo_nEcho / 100) % 10);
-    charOutFast(315 + (2 * 7), 226, PAL_FORGRND, '0' + (echo_nEcho / 10) % 10);
-    charOutFast(315 + (3 * 7), 226, PAL_FORGRND, '0' + (echo_nEcho % 10));
-
-    MY_ASSERT((echo_Distance * 16) <= 262144)
-
-    hexOut(308, 240, PAL_FORGRND, echo_Distance * 16, 5);
-
-    MY_ASSERT(echo_VolChange <= 100)
-
-    charOutFast(312 + (0 * 7), 254, PAL_FORGRND, '0' + (echo_VolChange / 100) % 10);
-    charOutFast(312 + (1 * 7), 254, PAL_FORGRND, '0' + (echo_VolChange / 10) % 10);
-    charOutFast(312 + (2 * 7), 254, PAL_FORGRND, '0' + (echo_VolChange % 10));
-    charOutShadow(313 + (3 * 7), 254, PAL_FORGRND, PAL_BUTTON2, '%');
-
-    /* show/activate push buttons... */
-    sysReq = &sysReqs[editor.ui.systemRequestID];
-    for (i = 0; i < sysReq->numButtons; ++i)
-        showPushButton(sysReq->buttonIDs[i]);
-
-    showCheckBox(CB_SAMP_ECHO_ADD_MEMORY);
-
-    showScrollBar(SB_ECHO_NUM);
-    setScrollBarPos(SB_ECHO_NUM, echo_nEcho, false);
-
-    showScrollBar(SB_ECHO_DISTANCE);
-    setScrollBarPos(SB_ECHO_DISTANCE, echo_Distance, false);
-
-    showScrollBar(SB_ECHO_FADEOUT);
-    setScrollBarPos(SB_ECHO_FADEOUT, echo_VolChange, false);
-}
-
-void mixSample(void) /* called from sys. req */
-{
-    int8_t *dstPtr, *mixPtr, *p, dstRelTone;
-    uint8_t mixTyp, dstTyp;
-    int32_t smp32, x1, x2, i, dstLen, mixLen, maxLen, dst8Size, max8Size, mix8Size;
-    instrTyp *srcIns, *dstIns;
-    sampleTyp *srcSmp, *dstSmp;
-    double dSmp;
-
-    hideSystemRequest();
-
-    if ((editor.curInstr == editor.srcInstr) && (editor.curSmp == editor.srcSmp))
-        return;
-
-    srcIns = &instr[editor.srcInstr];
-    dstIns = &instr[editor.curInstr];
-
-    srcSmp = &srcIns->samp[editor.srcSmp];
-    dstSmp = &dstIns->samp[editor.curSmp];
-
-    mixLen = srcSmp->len;
-    mixPtr = srcSmp->pek;
-    mixTyp = srcSmp->typ;
-
-    if (mixPtr == NULL)
-    {
-        mixLen = 0;
-        mixTyp = 0;
-    }
-
-    dstLen     = dstSmp->len;
-    dstPtr     = dstSmp->pek;
-    dstTyp     = dstSmp->typ;
-    dstRelTone = dstSmp->relTon;
-
-    if (dstPtr == NULL)
-    {
-        dstLen = 0;
-        dstTyp = mixTyp;
-        dstRelTone = srcSmp->relTon;
-    }
-
-    mix8Size = (mixTyp & 16) ? (mixLen / 2) : mixLen;
-    dst8Size = (dstTyp & 16) ? (dstLen / 2) : dstLen;
-    max8Size = (dst8Size > mix8Size) ? dst8Size : mix8Size;
-    maxLen   = (dstTyp & 16) ? (max8Size * 2) : max8Size;
-
-    if (maxLen <= 0)
-        return;
-
-    p = (int8_t *)(calloc(maxLen + 2, sizeof (int8_t)));
-    if (p == NULL)
-    {
-        sysReqQueue(SR_OOM_ERROR);
-        return;
-    }
-
-    pauseAudio();
-    restoreSample(dstSmp);
-    restoreSample(srcSmp);
-
-    for (i = 0; i < max8Size; ++i)
-    {
-        x1 = (i >= mix8Size) ? 0 : getSampleValueNr(mixPtr, mixTyp, (mixTyp & 16) ? (i * 2) : i);
-        x2 = (i >= dst8Size) ? 0 : getSampleValueNr(dstPtr, dstTyp, (dstTyp & 16) ? (i * 2) : i);
-
-        if (!(mixTyp & 16)) x1 *= 256;
-        if (!(dstTyp & 16)) x2 *= 256;
-
-        dSmp = ((x1 * mix_Balance) + (x2 * (100 - mix_Balance))) / 100.0;
-        double2int32_round(smp32, dSmp);
-        CLAMP16(smp32);
-
-        if (!(dstTyp & 16))
-            smp32 >>= 8;
-
-        putSampleValueNr(p, dstTyp, (dstTyp & 16) ? (i * 2) : i, (int16_t)(smp32));
-    }
-
-    if (dstSmp->pek != NULL)
-        free(dstSmp->pek);
-
-    if (currSmp->typ & 16)
-        maxLen &= 0xFFFFFFFE;
-
-    dstSmp->pek    = p;
-    dstSmp->len    = maxLen;
-    dstSmp->typ    = dstTyp;
-    dstSmp->relTon = dstRelTone;
-
-    fixSample(srcSmp);
-    fixSample(dstSmp);
-    resumeAudio();
-
-    updateNewSample();
-    setSongModifiedFlag();
-}
-
-void sbSetMixBalancePos(int32_t pos)
-{
-    if (pos != mix_Balance)
-        mix_Balance = (int8_t)(pos);
-}
-
-void pbMixBalanceDown(void)
-{
-    if (mix_Balance > 0)
-        mix_Balance--;
-}
-
-void pbMixBalanceUp(void)
-{
-    if (mix_Balance < 100)
-        mix_Balance++;
-}
-
-void drawMixSampleBox(void)
-{
-    const int16_t x = 192;
-    const int16_t y = 240;
-    const int16_t w = 248;
-    const int16_t h = 38;
-    uint16_t i;
-    sysReq_t *sysReq;
-
-    /* main fill */
-    fillRect(x + 1, y + 1, w - 2, h - 2, PAL_BUTTONS);
-
-    /* outer border */
-    vLine(x,         y,         h - 1, PAL_BUTTON1);
-    hLine(x + 1,     y,         w - 2, PAL_BUTTON1);
-    vLine(x + w - 1, y,         h,     PAL_BUTTON2);
-    hLine(x,         y + h - 1, w - 1, PAL_BUTTON2);
-
-    /* inner border */
-    vLine(x + 2,     y + 2,     h - 5, PAL_BUTTON2);
-    hLine(x + 3,     y + 2,     w - 6, PAL_BUTTON2);
-    vLine(x + w - 3, y + 2,     h - 4, PAL_BUTTON1);
-    hLine(x + 2,     y + h - 3, w - 4, PAL_BUTTON1);
-
-    textOutShadow(198, 246, PAL_FORGRND, PAL_BUTTON2, "Mixing balance");
-
-    MY_ASSERT((mix_Balance >= 0) && (mix_Balance <= 100))
-
-    charOutFast(299 + (0 * 7), 246, PAL_FORGRND, '0' + ((mix_Balance / 100) % 10));
-    charOutFast(299 + (1 * 7), 246, PAL_FORGRND, '0' + ((mix_Balance / 10) % 10));
-    charOutFast(299 + (2 * 7), 246, PAL_FORGRND, '0' + (mix_Balance % 10));
-
-    /* show/activate push buttons... */
-    sysReq = &sysReqs[editor.ui.systemRequestID];
-    for (i = 0; i < sysReq->numButtons; ++i)
-        showPushButton(sysReq->buttonIDs[i]);
-
-    showScrollBar(SB_MIX_BALANCE);
-    setScrollBarPos(SB_MIX_BALANCE, mix_Balance, false);
-}
-
-void sampleMixSample(void)
-{
-    if (editor.curInstr == 0)
-        return;
-
-    sysReqQueue(SR_SAMP_MIX_SAMPLE);
-}
-
-void sbSetStartVolPos(int32_t pos)
-{
-    int16_t val;
-
-    val = (int16_t)(pos - 400);
-    if (val != vol_StartVol)
-    {
-             if (ABS(val) < 10)       val =    0;
-        else if (ABS(val - 100) < 10) val =  100;
-        else if (ABS(val - 200) < 10) val =  200;
-        else if (ABS(val - 300) < 10) val =  300;
-        else if (ABS(val + 100) < 10) val = -100;
-        else if (ABS(val + 200) < 10) val = -200;
-        else if (ABS(val + 300) < 10) val = -300;
-
-        vol_StartVol = val;
-    }
-}
-
-void sbSetEndVolPos(int32_t pos)
-{
-    int16_t val;
-
-    val = (int16_t)(pos - 400);
-    if (val != vol_EndVol)
-    {
-             if (ABS(val) < 10)       val =    0;
-        else if (ABS(val - 100) < 10) val =  100;
-        else if (ABS(val - 200) < 10) val =  200;
-        else if (ABS(val - 300) < 10) val =  300;
-        else if (ABS(val + 100) < 10) val = -100;
-        else if (ABS(val + 200) < 10) val = -200;
-        else if (ABS(val + 300) < 10) val = -300;
-
-        vol_EndVol = val;
-    }
-}
-
-void pbSampStartVolDown(void)
-{
-    if (vol_StartVol > -400)
-        vol_StartVol--;
-}
-
-void pbSampStartVolUp(void)
-{
-    if (vol_StartVol < 400)
-        vol_StartVol++;
-}
-
-void pbSampEndVolDown(void)
-{
-    if (vol_EndVol > -400)
-        vol_EndVol--;
-}
-
-void pbSampEndVolUp(void)
-{
-    if (vol_EndVol < 400)
-        vol_EndVol++;
-}
-
-void sampleChangeVolume(void) /* called from sys. req */
-{
-    int8_t *ptr8;
-    int16_t *ptr16;
-    int32_t smp;
-    int32_t x1, x2, len, i;
-    double dSmp;
-
-    hideSystemRequest();
-
-    if ((currSmp == NULL) || (currSmp->pek == NULL) || (currSmp->len == 0) || ((vol_StartVol == 100) && (vol_EndVol == 100)))
-        return;
-
-    if (smpEd_Rx1 < smpEd_Rx2)
-    {
-        x1 = smpEd_Rx1;
-        x2 = smpEd_Rx2;
-
-        if (x1 < 0)
-            x1 = 0;
-
-        if (x2 > currSmp->len)
-            x2 = currSmp->len;
-
-        if (x2 <= x1)
-            return;
-    }
-    else
-    {
-        x1 = 0;
-        x2 = currSmp->len;
-    }
-
-    if (currSmp->typ & 16)
-    {
-        x1 /= 2;
-        x2 /= 2;
-    }
-
-    len = x2 - x1;
-
-    /* the rounding here is slightly wrong for a PCM waveform, but no one will notice... */
-
-    restoreSample(currSmp);
-    if (currSmp->typ & 16)
-    {
-        ptr16 = (int16_t *)(currSmp->pek);
-        for (i = x1; i < x2; ++i)
-        {
-            dSmp = (ptr16[i] * (vol_StartVol + (((vol_EndVol - vol_StartVol) * (i - x1)) / (double)(len)))) / 100.0;
-            double2int32_round(smp, dSmp);
-            CLAMP16(smp);
-            ptr16[i] = (int16_t)(smp);
-        }
-    }
-    else
-    {
-        ptr8 = currSmp->pek;
-        for (i = x1; i < x2; ++i)
-        {
-            dSmp = (ptr8[i] * (vol_StartVol + (((vol_EndVol - vol_StartVol) * (i - x1)) / (double)(len)))) / 100.0;
-            double2int32_round(smp, dSmp);
-            CLAMP8(smp);
-            ptr8[i] = (int8_t)(smp);
-        }
-    }
-    fixSample(currSmp);
-
-    writeSample(true);
-    setSongModifiedFlag();
-}
-
-void sampleGetMaxVolume(void) /* called from sys. req */
-{
-    int8_t *ptr8;
-    int16_t *ptr16, vol;
-    int32_t absSmp, x1, x2, len, i, maxAmp;
-
-    if ((currSmp == NULL) || (currSmp->pek == NULL) || (currSmp->len == 0))
-    {
-        vol_StartVol = 0;
-        vol_EndVol   = 0;
-
-        setScrollBarPos(SB_SAMPVOL_START, 400 + vol_StartVol, true);
-        setScrollBarPos(SB_SAMPVOL_END, 400 + vol_EndVol, true);
-
-        return;
-    }
-
-    if (smpEd_Rx1 < smpEd_Rx2)
-    {
-        x1 = smpEd_Rx1;
-        x2 = smpEd_Rx2;
-
-        if (x1 < 0)
-            x1 = 0;
-
-        if (x2 > currSmp->len)
-            x2 = currSmp->len;
-
-        if (x2 <= x1)
-            return;
-    }
-    else
-    {
-        x1 = 0;
-        x2 = currSmp->len;
-    }
-
-    if (currSmp->typ & 16)
-    {
-        x1 /= 2;
-        x2 /= 2;
-    }
-
-    len = x2 - x1;
-
-    restoreSample(currSmp);
-
-    maxAmp = 0;
-    if (currSmp->typ & 16)
-    {
-        ptr16 = (int16_t *)(&currSmp->pek[x1 * 2]);
-        for (i = 0; i < len; ++i)
-        {
-            absSmp = ABS(ptr16[i]);
-            if (absSmp > maxAmp)
-                maxAmp = absSmp;
-        }
-    }
-    else
-    {
-        ptr8 = &currSmp->pek[x1];
-        for (i = 0; i < len; ++i)
-        {
-            absSmp = ABS(ptr8[i]);
-            if (absSmp > maxAmp)
-                maxAmp = absSmp;
-        }
-    }
-
-    fixSample(currSmp);
-
-    if (maxAmp <= 0)
-    {
-        vol_StartVol = 0;
-        vol_EndVol   = 0;
-    }
-    else
-    {
-        vol = (int16_t)(((100 * ((currSmp->typ & 16) ? 32768 : 128)) / maxAmp));
-        vol = CLAMP(vol, 100, 400);
-
-        vol_StartVol = vol;
-        vol_EndVol   = vol;
-    }
-
-    if ((400 + vol_StartVol) != scrollBars[SB_SAMPVOL_START].pos)
-        setScrollBarPos(SB_SAMPVOL_START, 400 + vol_StartVol, true);
-
-    if ((400 + vol_EndVol) != scrollBars[SB_SAMPVOL_END].pos)
-        setScrollBarPos(SB_SAMPVOL_END, 400 + vol_EndVol, true);
-}
-
-void drawSampleVolumeBox(void)
-{
-    char sign;
-    const int16_t x = 166;
-    const int16_t y = 230;
-    const int16_t w = 301;
-    const int16_t h = 52;
-    uint16_t i, val;
-    sysReq_t *sysReq;
-
-    /* main fill */
-    fillRect(x + 1, y + 1, w - 2, h - 2, PAL_BUTTONS);
-
-    /* outer border */
-    vLine(x,         y,         h - 1, PAL_BUTTON1);
-    hLine(x + 1,     y,         w - 2, PAL_BUTTON1);
-    vLine(x + w - 1, y,         h,     PAL_BUTTON2);
-    hLine(x,         y + h - 1, w - 1, PAL_BUTTON2);
-
-    /* inner border */
-    vLine(x + 2,     y + 2,     h - 5, PAL_BUTTON2);
-    hLine(x + 3,     y + 2,     w - 6, PAL_BUTTON2);
-    vLine(x + w - 3, y + 2,     h - 4, PAL_BUTTON1);
-    hLine(x + 2,     y + h - 3, w - 4, PAL_BUTTON1);
-
-    textOutShadow(172, 236, PAL_FORGRND, PAL_BUTTON2, "Start volume");
-    textOutShadow(172, 249, PAL_FORGRND, PAL_BUTTON2, "End volume");
-    charOutShadow(282, 236, PAL_FORGRND, PAL_BUTTON2, '%');
-    charOutShadow(282, 250, PAL_FORGRND, PAL_BUTTON2, '%');
-
-    if (vol_StartVol == 0)
-        sign = ' ';
-    else if (vol_StartVol < 0)
-        sign = '-';
-    else
-        sign = '+';
-
-    val = ABS(vol_StartVol);
-    if (val > 99)
-    {
-        charOutFast(253, 236, PAL_FORGRND, sign);
-        charOutFast(260, 236, PAL_FORGRND, '0' + ((val / 100) % 10));
-        charOutFast(267, 236, PAL_FORGRND, '0' + ((val / 10) % 10));
-        charOutFast(274, 236, PAL_FORGRND, '0' + (val % 10));
-    }
-    else if (val > 9)
-    {
-        charOutFast(260, 236, PAL_FORGRND, sign);
-        charOutFast(267, 236, PAL_FORGRND, '0' + ((val / 10) % 10));
-        charOutFast(274, 236, PAL_FORGRND, '0' + (val % 10));
-    }
-    else
-    {
-        charOutFast(267, 236, PAL_FORGRND, sign);
-        charOutFast(274, 236, PAL_FORGRND, '0' + (val % 10));
-    }
-
-    if (vol_EndVol == 0)
-        sign = ' ';
-    else if (vol_EndVol < 0)
-        sign = '-';
-    else
-        sign = '+';
-
-    val = ABS(vol_EndVol);
-    if (val > 99)
-    {
-        charOutFast(253, 250, PAL_FORGRND, sign);
-        charOutFast(260, 250, PAL_FORGRND, '0' + ((val / 100) % 10));
-        charOutFast(267, 250, PAL_FORGRND, '0' + ((val / 10) % 10));
-        charOutFast(274, 250, PAL_FORGRND, '0' + (val % 10));
-    }
-    else if (val > 9)
-    {
-        charOutFast(260, 250, PAL_FORGRND, sign);
-        charOutFast(267, 250, PAL_FORGRND, '0' + ((val / 10) % 10));
-        charOutFast(274, 250, PAL_FORGRND, '0' + (val % 10));
-    }
-    else
-    {
-        charOutFast(267, 250, PAL_FORGRND, sign);
-        charOutFast(274, 250, PAL_FORGRND, '0' + (val % 10));
-    }
-
-    /* show/activate push buttons... */
-    sysReq = &sysReqs[editor.ui.systemRequestID];
-    for (i = 0; i < sysReq->numButtons; ++i)
-        showPushButton(sysReq->buttonIDs[i]);
-
-    showScrollBar(SB_SAMPVOL_START);
-    showScrollBar(SB_SAMPVOL_END);
-    setScrollBarPos(SB_SAMPVOL_START, 400 + vol_StartVol, false);
-    setScrollBarPos(SB_SAMPVOL_END,   400 + vol_EndVol,   false);
-}
-
-void sampleVolume(void)
-{
-    if ((editor.curInstr == 0) || (currSmp->pek == NULL))
-        return;
-
-    sysReqQueue(SR_SAMP_VOLUME);
 }
 
 uint32_t getSampleMiddleCRate(sampleTyp *s)
@@ -1069,7 +324,7 @@ void fixRepeatGadgets(void)
 {
     int32_t repS, repE;
 
-    if ((currSmp->len <= 0) || ((currSmp->typ & 3) == 0))
+    if ((currSmp->len <= 0) || (currSmp->pek == NULL) || ((currSmp->typ & 3) == 0))
     {
         hideSprite(SPRITE_LEFT_LOOP_PIN);
         hideSprite(SPRITE_RIGHT_LOOP_PIN);
@@ -1078,8 +333,8 @@ void fixRepeatGadgets(void)
     {
         /* draw sample loop points */
 
-        repS = smpPos2Scr(curSmpRep);
-        repE = smpPos2Scr(curSmpRep + curSmpRepL);
+        repS = smpPos2Scr(curSmpRepS);
+        repE = smpPos2Scr(curSmpRepS + curSmpRepL);
 
         /* do -8 test because part of the loop sprite sticks out on the left/right */
 
@@ -1104,7 +359,7 @@ void fixRepeatGadgets(void)
     if (editor.ui.sampleEditorShown)
     {
         fillRect(536, 375, 56, 20, PAL_DESKTOP);
-        hexOut(536, 375, PAL_FORGRND, curSmpRep,  8);
+        hexOut(536, 375, PAL_FORGRND, curSmpRepS, 8);
         hexOut(536, 387, PAL_FORGRND, curSmpRepL, 8);
     }
 }
@@ -1132,198 +387,6 @@ int8_t getCopyBuffer(int32_t size)
     return (true);
 }
 
-void sbSetResampleTones(int32_t pos)
-{
-    int8_t val;
-
-    val = (int8_t)(pos - 36);
-    if (val != smpEd_RelReSmp)
-        smpEd_RelReSmp = val;
-}
-
-void pbResampleTonesDown(void)
-{
-    if (smpEd_RelReSmp > -36)
-        smpEd_RelReSmp--;
-}
-
-void pbResampleTonesUp(void)
-{
-    if (smpEd_RelReSmp < 36)
-        smpEd_RelReSmp++;
-}
-
-void resampleSample(void)
-{
-    int8_t *p1, *p2, *src8, *dst8;
-    int16_t *src16, *dst16;
-    int32_t oldLen, newLen, mask, i, readOffset, resampleLen, maxReadLen;
-    double dLenMul, dReadOffsetMul;
-
-    hideSystemRequest();
-
-    if ((currSmp->pek == NULL) || (currSmp->len == 0))
-        return;
-
-    mask = (currSmp->typ & 16) ? 0xFFFFFFFE : 0xFFFFFFFF;
-
-    dLenMul = pow(2.0, smpEd_RelReSmp / 12.0);
-    newLen  = (int32_t)(currSmp->len * dLenMul) & mask;
-
-    p2 = (int8_t *)(malloc(newLen + 2));
-    if (p2 == NULL)
-    {
-        sysReqQueue(SR_OOM_ERROR);
-        return;
-    }
-
-    p1     = currSmp->pek;
-    oldLen = currSmp->len;
-
-    pauseAudio();
-    restoreSample(currSmp);
-
-    if (newLen > 0)
-    {
-        dReadOffsetMul = oldLen / (double)(newLen);
-
-        if (currSmp->typ & 16)
-        {
-            src16 = (int16_t *)(p1);
-            dst16 = (int16_t *)(p2);
-
-            resampleLen = newLen / 2;
-            maxReadLen  = oldLen / 2;
-
-            for (i = 0; i < resampleLen; ++i)
-            {
-                readOffset = (int32_t)(i * dReadOffsetMul); /* truncate */
-
-                if (readOffset >= maxReadLen)
-                    dst16[i] = 0;
-                else
-                    dst16[i] = src16[readOffset];
-            }
-        }
-        else
-        {
-            src8 = p1;
-            dst8 = p2;
-
-            for (i = 0; i < newLen; ++i)
-            {
-                readOffset = (int32_t)(i * dReadOffsetMul); /* truncate */
-
-                if (readOffset >= oldLen)
-                    dst8[i] = 0;
-                else
-                    dst8[i] = src8[readOffset];
-            }
-        }
-    }
-
-    free(p1);
-
-    currSmp->relTon += smpEd_RelReSmp;
-    currSmp->relTon = CLAMP(currSmp->relTon, -48, 71);
-
-    currSmp->len  = newLen;
-    currSmp->pek  = p2;
-    currSmp->repS = (int32_t)(currSmp->repS * dLenMul) & mask;
-    currSmp->repL = (int32_t)(currSmp->repL * dLenMul) & mask;
-
-    if (currSmp->repS > currSmp->len)
-        currSmp->repS = currSmp->len;
-
-    if ((currSmp->repS + currSmp->repL) > currSmp->len)
-        currSmp->repL  = currSmp->len   - currSmp->repS;
-
-    if (currSmp->typ & 16)
-    {
-        currSmp->len  &= 0xFFFFFFFE;
-        currSmp->repS &= 0xFFFFFFFE;
-        currSmp->repL &= 0xFFFFFFFE;
-    }
-
-    fixSample(currSmp);
-    resumeAudio();
-
-    updateNewSample();
-    setSongModifiedFlag();
-}
-
-void drawResampleBox(void)
-{
-    char sign;
-    const int16_t x = 209;
-    const int16_t y = 230;
-    const int16_t w = 214;
-    const int16_t h = 54;
-    uint16_t i, val;
-    uint32_t mask;
-    double dLenMul;
-    sysReq_t *sysReq;
-
-    /* main fill */
-    fillRect(x + 1, y + 1, w - 2, h - 2, PAL_BUTTONS);
-
-    /* outer border */
-    vLine(x,         y,         h - 1, PAL_BUTTON1);
-    hLine(x + 1,     y,         w - 2, PAL_BUTTON1);
-    vLine(x + w - 1, y,         h,     PAL_BUTTON2);
-    hLine(x,         y + h - 1, w - 1, PAL_BUTTON2);
-
-    /* inner border */
-    vLine(x + 2,     y + 2,     h - 5, PAL_BUTTON2);
-    hLine(x + 3,     y + 2,     w - 6, PAL_BUTTON2);
-    vLine(x + w - 3, y + 2,     h - 4, PAL_BUTTON1);
-    hLine(x + 2,     y + h - 3, w - 4, PAL_BUTTON1);
-
-    mask    = (currSmp->typ & 16) ? 0xFFFFFFFE : 0xFFFFFFFF;
-    dLenMul = pow(2.0, smpEd_RelReSmp / 12.0);
-
-    textOutShadow(215, 236, PAL_FORGRND, PAL_BUTTON2, "Rel. h.tones");
-    textOutShadow(215, 250, PAL_FORGRND, PAL_BUTTON2, "New sample size");
-    hexOut(361, 250, PAL_FORGRND, (uint32_t)(currSmp->len * dLenMul) & mask, 8);
-
-     if (smpEd_RelReSmp == 0)
-        sign = ' ';
-    else if (smpEd_RelReSmp < 0)
-        sign = '-';
-    else
-        sign = '+';
-
-    val = ABS(smpEd_RelReSmp);
-    if (val > 9)
-    {
-        charOutFast(291, 236, PAL_FORGRND, sign);
-        charOutFast(298, 236, PAL_FORGRND, '0' + ((val / 10) % 10));
-        charOutFast(305, 236, PAL_FORGRND, '0' + (val % 10));
-    }
-    else
-    {
-        charOutFast(298, 236, PAL_FORGRND, sign);
-        charOutFast(305, 236, PAL_FORGRND, '0' + (val % 10));
-    }
-
-    /* show/activate push buttons... */
-    sysReq = &sysReqs[editor.ui.systemRequestID];
-    for (i = 0; i < sysReq->numButtons; ++i)
-        showPushButton(sysReq->buttonIDs[i]);
-
-    showScrollBar(SB_RESAMPLE_HTONES);
-    setScrollBarPos(SB_RESAMPLE_HTONES, smpEd_RelReSmp + 36, false);
-}
-
-void sampleResample(void)
-{
-    if ((editor.curInstr == 0) || (currSmp->pek == NULL))
-        return;
-
-    smpEd_RelReSmp = 0;
-    sysReqQueue(SR_SAMP_RESAMPLE);
-}
-
 void copySmp(void) /* copy sample from srcInstr->srcSmp to curInstr->curSmp */
 {
     int8_t *p;
@@ -1348,7 +411,7 @@ void copySmp(void) /* copy sample from srcInstr->srcSmp to curInstr->curSmp */
         }
         else
         {
-            sysReqQueue(SR_OOM_ERROR);
+            okBox(0, "System message", "Not enough memory!");
         }
     }
 
@@ -1739,8 +802,8 @@ void getSampleDataPeak(int32_t index, int32_t numBytes, int16_t *outMin, int16_t
 
         getMinMax16((int16_t *)(&currSmp->pek[index]), numBytes / 2, &min16, &max16);
 
-        *outMin = SAMPLE_AREA_Y_CENTER - (int8_t)((min16 * SAMPLE_AREA_HEIGHT) / 65536);
-        *outMax = SAMPLE_AREA_Y_CENTER - (int8_t)((max16 * SAMPLE_AREA_HEIGHT) / 65536);
+        *outMin = SAMPLE_AREA_Y_CENTER - ((min16 * SAMPLE_AREA_HEIGHT) >> 16);
+        *outMax = SAMPLE_AREA_Y_CENTER - ((max16 * SAMPLE_AREA_HEIGHT) >> 16);
     }
     else
     {
@@ -1748,8 +811,8 @@ void getSampleDataPeak(int32_t index, int32_t numBytes, int16_t *outMin, int16_t
 
         getMinMax8(&currSmp->pek[index], numBytes, &min8, &max8);
 
-        *outMin = SAMPLE_AREA_Y_CENTER - (int8_t)((min8 * SAMPLE_AREA_HEIGHT) / 256);
-        *outMax = SAMPLE_AREA_Y_CENTER - (int8_t)((max8 * SAMPLE_AREA_HEIGHT) / 256);
+        *outMin = SAMPLE_AREA_Y_CENTER - ((min8 * SAMPLE_AREA_HEIGHT) >> 8);
+        *outMax = SAMPLE_AREA_Y_CENTER - ((max8 * SAMPLE_AREA_HEIGHT) >> 8);
     }
 }
 
@@ -1823,12 +886,12 @@ void writeSample(uint8_t forceSmpRedraw)
     /* update sample loop points for visuals */
     if (currSmp == NULL)
     {
-        curSmpRep  = 0;
+        curSmpRepS = 0;
         curSmpRepL = 0;
     }
     else
     {
-        curSmpRep  = currSmp->repS;
+        curSmpRepS = currSmp->repS;
         curSmpRepL = currSmp->repL;
     }
 
@@ -1943,15 +1006,13 @@ void setSampleRange(int32_t start, int32_t end)
 void updateSampleEditorSample(void)
 {
     MY_ASSERT(editor.curSmp <= 0x0F)
-
     currSmp = &instr[editor.curInstr].samp[editor.curSmp];
-
     MY_ASSERT(currSmp != NULL)
 
     smpEd_Rx1 = 0;
     smpEd_Rx2 = 0;
 
-    smpEd_ScrPos   = 0;
+    smpEd_ScrPos = 0;
     smpEd_ViewSize = currSmp->len;
 
     writeSample(true);
@@ -2010,9 +1071,9 @@ void updateSampleEditor(void)
 
     octaChar = '0' + ((editor.samplerNote - 1) / 12);
 
-    charOutFast(7,  369, PAL_FORGRND, noteChar1);
-    charOutFast(15, 369, PAL_FORGRND, noteChar2);
-    charOutFast(23, 369, PAL_FORGRND, octaChar);
+    charOut(7,  369, PAL_FORGRND, noteChar1);
+    charOut(15, 369, PAL_FORGRND, noteChar2);
+    charOut(23, 369, PAL_FORGRND, octaChar);
 
     fillRect(536, 350, 55, 20, PAL_DESKTOP);
     hexOut(536, 350, PAL_FORGRND, smpEd_ViewSize, 8);
@@ -2119,28 +1180,28 @@ void sampPlayDisplay(void)
 
 void showRange(void)
 {
-    int32_t newViewSize;
-
     if ((editor.curInstr == 0) || (currSmp->pek == NULL))
         return;
 
     if (smpEd_Rx1 < smpEd_Rx2)
     {
-        newViewSize = smpEd_Rx2 - smpEd_Rx1;
+        smpEd_ViewSize = smpEd_Rx2 - smpEd_Rx1;
 
         if (currSmp->typ & 16)
         {
-            newViewSize &= 0xFFFFFFFE;
-            if (newViewSize < 4)
-                newViewSize = 4;
+            if (smpEd_ViewSize < 4)
+                smpEd_ViewSize = 4;
         }
-        else if (newViewSize < 2)
+        else if (smpEd_ViewSize < 2)
         {
-            newViewSize = 2;
+            smpEd_ViewSize = 2;
         }
 
-        smpEd_ViewSize = newViewSize;
-        smpEd_ScrPos   = smpEd_Rx1;
+        smpEd_ScrPos = smpEd_Rx1;
+    }
+    else
+    {
+        okBox(0, "System message", "Cannot show empty range!");
     }
 }
 
@@ -2151,97 +1212,73 @@ void rangeAll(void)
 
     smpEd_Rx1 = smpEd_ScrPos;
     smpEd_Rx2 = smpEd_ScrPos + smpEd_ViewSize;
-
-    if (currSmp->typ & 16) /* shouldn't be needed, but for safety */
-    {
-        smpEd_Rx1 &= 0xFFFFFFFE;
-        smpEd_Rx2 &= 0xFFFFFFFE;
-    }
 }
 
 static void zoomSampleDataIn(int32_t step, int16_t x)
 {
-    int32_t newViewSize32, newScrPos32;
+    int32_t tmp32, minViewSize;
     int64_t newScrPos64;
 
-    if (currSmp->typ & 16)
-    {
-        if (old_ViewSize <= 4)
-            return;
-    }
-    else
-    {
-        if (old_ViewSize <= 2)
-            return;
-    }
-
-    if ((editor.curInstr == 0) || (currSmp->pek == NULL))
+    minViewSize = (currSmp->typ & 16) ? 4 : 2;
+    if (old_ViewSize <= minViewSize)
         return;
 
     if (step < 1)
         step = 1;
 
-    newViewSize32 = old_ViewSize  - (step * 2);
-    if (currSmp->typ & 16)
-    {
-        if (newViewSize32 < 4)
-            newViewSize32 = 4;
-    }
-    else if (newViewSize32 < 2)
-    {
-        newViewSize32 = 2;
-    }
+    smpEd_ViewSize = old_ViewSize - (step * 2);
+    if (smpEd_ViewSize < minViewSize)
+        smpEd_ViewSize = minViewSize;
 
-    step += (((x - (SCREEN_W / 2)) * step) / (SCREEN_W / 2));
+    tmp32 = (x - (SAMPLE_AREA_WIDTH / 2)) * step;
+    step += (int32_t)(round(tmp32 / (double)(SAMPLE_AREA_WIDTH / 2)));
 
     newScrPos64 = old_SmpScrPos + step;
-    if ((newScrPos64 + newViewSize32) > currSmp->len)
-        newScrPos64 = currSmp->len - newViewSize32;
+    if ((newScrPos64 + smpEd_ViewSize) > currSmp->len)
+        newScrPos64 = currSmp->len - smpEd_ViewSize;
 
-    newScrPos32 = newScrPos64 & 0xFFFFFFFF;
-
-    smpEd_ViewSize = newViewSize32;
-    smpEd_ScrPos   = newScrPos32;
+    smpEd_ScrPos = newScrPos64 & 0xFFFFFFFF;
 }
 
 static void zoomSampleDataOut(int32_t step, int16_t x)
 {
-    int32_t newScrPos32, newViewSize32;
+    int32_t tmp32;
     int64_t newViewSize64;
 
-    if ((old_ViewSize == currSmp->len) || (editor.curInstr == 0) || (currSmp->pek == NULL))
+    if (old_ViewSize == currSmp->len)
         return;
 
     if (step < 1)
         step = 1;
 
-    newViewSize64 = old_ViewSize + (step * 2);
+    newViewSize64 = (int64_t)(old_ViewSize) + (step * 2);
     if (newViewSize64 > currSmp->len)
     {
-        newScrPos32   = 0;
-        newViewSize32 = currSmp->len;
+        smpEd_ViewSize = currSmp->len;
+        smpEd_ScrPos   = 0;
     }
     else
     {
-        step += (((x - (SCREEN_W / 2)) * step) / (SCREEN_W / 2));
+        tmp32 = (x - (SAMPLE_AREA_WIDTH / 2)) * step;
+        step += (int32_t)(round(tmp32 / (double)(SAMPLE_AREA_WIDTH / 2)));
 
-        newViewSize32 = newViewSize64 & 0xFFFFFFFF;
+        smpEd_ViewSize = newViewSize64 & 0xFFFFFFFF;
 
-        newScrPos32 = old_SmpScrPos - step;
-        if (newScrPos32 < 0)
-            newScrPos32 = 0;
+        smpEd_ScrPos = old_SmpScrPos - step;
+        if (smpEd_ScrPos < 0)
+            smpEd_ScrPos = 0;
 
-        if ((newScrPos32 + newViewSize32) > currSmp->len)
-            newScrPos32 = currSmp->len - newViewSize32;
+        if ((smpEd_ScrPos + smpEd_ViewSize) > currSmp->len)
+            smpEd_ScrPos = currSmp->len - smpEd_ViewSize;
     }
-
-    smpEd_ViewSize = newViewSize32;
-    smpEd_ScrPos   = newScrPos32;
 }
 
 void mouseZoomSampleDataIn(void)
 {
     int32_t step;
+
+    if ((editor.curInstr == 0) || (currSmp->pek == NULL))
+        return;
 
     step = (int32_t)(round(old_ViewSize / 10.0));
     zoomSampleDataIn(step, mouse.x);
@@ -2251,16 +1288,32 @@ void mouseZoomSampleDataOut(void)
 {
     int32_t step;
 
+    if ((editor.curInstr == 0) || (currSmp->pek == NULL))
+        return;
+
     step = (int32_t)(round(old_ViewSize / 10.0));
     zoomSampleDataOut(step, mouse.x);
 }
 
-void zoomSampleDataOut2x(void)
+void zoomOut(void)
 {
-    int32_t step;
+    if ((old_ViewSize == currSmp->len) || (editor.curInstr == 0) || (currSmp->pek == NULL))
+        return;
 
-    step = (int32_t)(round(old_ViewSize / 2.0));
-    zoomSampleDataOut(step, SCREEN_W / 2);
+    smpEd_ScrPos = (int32_t)(round(old_SmpScrPos - (old_ViewSize / 2.0)));
+    if (smpEd_ScrPos < 0)
+        smpEd_ScrPos = 0;
+
+    smpEd_ViewSize = old_ViewSize * 2;
+    if (smpEd_ViewSize < old_ViewSize)
+    {
+        smpEd_ViewSize = currSmp->len;
+        smpEd_ScrPos   = 0;
+    }
+    else if ((smpEd_ViewSize + smpEd_ScrPos) > currSmp->len)
+    {
+        smpEd_ViewSize = currSmp->len - smpEd_ScrPos;
+    }
 }
 
 void showAll(void)
@@ -2274,43 +1327,36 @@ void showAll(void)
 
 void saveRange(void)
 {
-    if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len == 0))
+    UNICHAR *filenameU;
+
+    if ((editor.curInstr == 0) || (currSmp->pek == NULL))
         return;
 
     if (smpEd_Rx1 >= smpEd_Rx2)
     {
-        sysReqQueue(SR_NO_RANGE);
+        okBox(0, "System message", "No range specified!");
         return;
     }
 
-    memset(smpEd_SysReqText, 0, sizeof (smpEd_SysReqText));
-    setupTextBoxForSysReq(TB_SAVE_RANGE_FILENAME, smpEd_SysReqText, sizeof (smpEd_SysReqText) - 1, false);
-    sysReqQueue(SR_SAMP_SAVERANGE);
-}
-
-void saveRange2(void) /* called from sys. req */
-{
-    UNICHAR *filenameU;
-
-    hideSystemRequest();
+    smpEd_SysReqText[0] = '\0';
+    if (inputBox(1, "Enter filename:", smpEd_SysReqText, sizeof (smpEd_SysReqText) - 1) != 1)
+        return;
 
     if (smpEd_SysReqText[0] == '\0')
     {
-        sysReqQueue(SR_EMPTY_FILENAME);
+        okBox(0, "System message", "Filename can't be empty!");
         return;
     }
 
-    /* test if the very first character has a dot... */
     if (smpEd_SysReqText[0] == '.')
     {
-        sysReqQueue(SR_ILLEGAL_FILENAME_DOT);
+        okBox(0, "System message", "The very first character in the filename can't be '.' (dot)!");
         return;
     }
 
-    /* test for illegal file name */
-    if ((smpEd_SysReqText[0] == '\0') || (strpbrk(smpEd_SysReqText, "\\/:*?\"<>|") != NULL))
+    if (strpbrk(smpEd_SysReqText, "\\/:*?\"<>|") != NULL)
     {
-        sysReqQueue(SR_ILLEGAL_FILENAME);
+        okBox(0, "System message", "The filename can't contain the following characters: \\ / : * ? \" < > |");
         return;
     }
 
@@ -2324,7 +1370,7 @@ void saveRange2(void) /* called from sys. req */
     filenameU = cp437ToUnichar(smpEd_SysReqText);
     if (filenameU == NULL)
     {
-        sysReqQueue(SR_SAVE_IO_ERROR);
+        okBox(0, "System message", "Error converting string locale!");
         return;
     }
 
@@ -2351,7 +1397,7 @@ int8_t cutRange(void)
             fixSample(currSmp);
             resumeAudio();
 
-            sysReqQueue(SR_OOM_ERROR);
+            okBox(0, "System message", "Not enough memory!");
             return (false);
         }
 
@@ -2371,7 +1417,7 @@ int8_t cutRange(void)
             writeSample(true);
             resumeAudio();
 
-            sysReqQueue(SR_OOM_ERROR);
+            okBox(0, "System message", "Not enough memory!");
             return (false);
         }
 
@@ -2409,7 +1455,7 @@ int8_t cutRange(void)
         if (currSmp->repL == 0)
         {
             currSmp->repS = 0;
-            currSmp->typ &= ~3; /* disable loop */
+            currSmp->typ &= 0xFC; /* disable loop */
         }
 
         fixSample(currSmp);
@@ -2435,7 +1481,7 @@ void sampCut(void)
         return;
 
     if (!cutRange())
-        sysReqQueue(SR_CUT_TO_BUF_OOM);
+        okBox(0, "System message", "Not enough memory! (Disable \"cut to buffer\")");
     else
         writeSample(true);
 }
@@ -2449,7 +1495,7 @@ void sampCopy(void)
 
     if (!getCopyBuffer(smpEd_Rx2 - smpEd_Rx1))
     {
-        sysReqQueue(SR_OOM_ERROR);
+        okBox(0, "System message", "Not enough memory!");
         return;
     }
 
@@ -2475,7 +1521,7 @@ void sampPaste(void)
         ptr = (int8_t *)(malloc(smpCopySize + 2));
         if (ptr == NULL)
         {
-            sysReqQueue(SR_OOM_ERROR);
+            okBox(0, "System message", "Not enough memory!");
             return;
         }
 
@@ -2544,7 +1590,7 @@ void sampPaste(void)
     ptr = (int8_t *)(malloc(l + 2));
     if (ptr == NULL)
     {
-        sysReqQueue(SR_OOM_ERROR);
+        okBox(0, "System message", "Not enough memory!");
         return;
     }
 
@@ -2728,21 +1774,21 @@ void sampXFade(void)
     /* check if the sample has the loop flag enabled */
     if ((t & 3) == 0)
     {
-        sysReqQueue(SR_XFADE_ERROR_4);
+        okBox(0, "System message", "X-Fade can only be used on a loop-enabled sample!");
         return;
     }
 
     /* check if we selected a range */
     if (smpEd_Rx2 == 0)
     {
-        sysReqQueue(SR_XFADE_ERROR_3);
+        okBox(0, "System message", "No range selected! Make a small range that includes loop start or loop end.");
         return;
     }
 
     /* check if we selected a valid range length */
     if ((smpEd_Rx2 - smpEd_Rx1) <= 2)
     {
-        sysReqQueue(SR_XFADE_ERROR_2);
+        okBox(0, "System message", "Invalid range!");
         return;
     }
 
@@ -2762,7 +1808,7 @@ void sampXFade(void)
 
             if ((x2 <= y1) || (x2 >= (currSmp->repS + currSmp->repL)))
             {
-                sysReqQueue(SR_XFADE_ERROR_1);
+                okBox(0, "System message", "Not enough sample data outside loop!");
                 return;
             }
 
@@ -2775,13 +1821,13 @@ void sampXFade(void)
 
             if ((d1 < 1) || (d2 < 1) || (d3 < 1))
             {
-                sysReqQueue(SR_XFADE_ERROR_1);
+                okBox(0, "System message", "Not enough sample data outside loop!");
                 return;
             }
 
             if (((y1 - d1) < 0) || ((y1 + d1) >= currSmp->len))
             {
-                sysReqQueue(SR_XFADE_ERROR_2);
+                okBox(0, "System message", "Invalid range!");
                 return;
             }
 
@@ -2820,7 +1866,7 @@ void sampXFade(void)
             y1 += currSmp->repL;
             if ((x1 >= y1) || (x2 <= y1) || (x2 >= currSmp->len))
             {
-                sysReqQueue(SR_XFADE_ERROR_1);
+                okBox(0, "System message", "Not enough sample data outside loop!");
                 return;
             }
 
@@ -2833,13 +1879,13 @@ void sampXFade(void)
 
             if ((d1 < 1) || (d2 < 1) || (d3 < 1))
             {
-                sysReqQueue(SR_XFADE_ERROR_1);
+                okBox(0, "System message", "Not enough sample data outside loop!");
                 return;
             }
 
             if (((y1 - d1) < 0) || ((y1 + d1) >= currSmp->len))
             {
-                sysReqQueue(SR_XFADE_ERROR_2);
+                okBox(0, "System message", "Invalid range!");
                 return;
             }
 
@@ -2884,7 +1930,7 @@ void sampXFade(void)
 
         if ((x1 < 0) || (x2 <= x1) || (x2 >= currSmp->len))
         {
-            sysReqQueue(SR_XFADE_ERROR_1);
+            okBox(0, "System message", "Not enough sample data outside loop!");
             return;
         }
 
@@ -2900,7 +1946,7 @@ void sampXFade(void)
 
         if ((y1 < 0) || ((y2 + (x2 - x1)) >= currSmp->len))
         {
-            sysReqQueue(SR_XFADE_ERROR_2);
+            okBox(0, "System message", "Invalid range!");
             return;
         }
 
@@ -2910,7 +1956,7 @@ void sampXFade(void)
 
         if (((y1 + (x2 - x1)) <= currSmp->repS) || (d1 == 0) || (d3 == 0) || (d1 > currSmp->repL))
         {
-            sysReqQueue(SR_XFADE_ERROR_1);
+            okBox(0, "System message", "Not enough sample data outside loop!");
             return;
         }
 
@@ -3027,7 +2073,11 @@ void rbSamplePingpongLoop(void)
 
 void rbSample8bit(void)
 {
-    if ((editor.curInstr == 0) || (currSmp->pek == NULL))
+    int8_t *dst8;
+    int16_t *src16;
+    int32_t i, newLen;
+
+    if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len == 0))
         return;
 
     radioButtons[RB_SAMPLE_8BIT].state  = RADIOBUTTON_CHECKED;
@@ -3035,11 +2085,59 @@ void rbSample8bit(void)
     drawRadioButton(RB_SAMPLE_8BIT);
     drawRadioButton(RB_SAMPLE_16BIT);
 
-    sysReqQueue(SR_SAMP_CONV_8BIT);
+    if (okBox(2, "System request", "Convert sampledata?") == 1)
+    {
+        newLen = currSmp->len / 2;
+
+        dst8 = (int8_t *)(malloc(newLen + 2));
+        if (dst8 == NULL)
+        {
+            okBox(0, "System message", "Not enough memory!");
+            return;
+        }
+
+        pauseAudio();
+        restoreSample(currSmp);
+
+        currSmp->typ &= ~16; /* remove 16-bit flag */
+
+        currSmp->repL /= 2;
+        currSmp->repS /= 2;
+        currSmp->len  /= 2;
+
+        src16 = (int16_t *)(currSmp->pek);
+        for (i = 0; i < newLen; ++i)
+            dst8[i] = (int8_t)(src16[i] >> 8);
+
+        free(currSmp->pek);
+        currSmp->pek = dst8;
+
+        fixSample(currSmp);
+        resumeAudio();
+    }
+    else
+    {
+        lockMixerCallback();
+        restoreSample(currSmp);
+
+        currSmp->typ &= ~16; /* remove 16-bit flag */
+
+        fixSample(currSmp);
+        unlockMixerCallback();
+    }
+
+    updateSampleEditorSample();
+    updateSampleEditor();
+    writeSample(true);
+    setSongModifiedFlag();
 }
 
 void rbSample16bit(void)
 {
+    int8_t *dst8, *src8;
+    int16_t *dst16;
+    int32_t i, newLen;
+
     if ((editor.curInstr == 0) || (currSmp->pek == NULL))
         return;
 
@@ -3048,14 +2146,67 @@ void rbSample16bit(void)
     drawRadioButton(RB_SAMPLE_8BIT);
     drawRadioButton(RB_SAMPLE_16BIT);
 
-    sysReqQueue(SR_SAMP_CONV_16BIT);
+    if (okBox(2, "System request", "Convert sampledata?") == 1)
+    {
+        pauseAudio();
+        restoreSample(currSmp);
+
+        newLen = currSmp->len * 2;
+
+        dst8 = (int8_t *)(malloc(newLen + 2));
+        if (dst8 == NULL)
+        {
+            okBox(0, "System message", "Not enough memory!");
+            return;
+        }
+
+        currSmp->typ |= 16; /* add 16-bit flag */
+
+        currSmp->repL *= 2;
+        currSmp->repS *= 2;
+
+        dst16 = (int16_t *)(dst8);
+        src8  = currSmp->pek;
+
+        for (i = 0; i < currSmp->len; ++i)
+            dst16[i] = src8[i] << 8;
+
+        currSmp->len = newLen;
+
+        free(currSmp->pek);
+        currSmp->pek = dst8;
+
+        fixSample(currSmp);
+        resumeAudio();
+    }
+    else
+    {
+        lockMixerCallback();
+        restoreSample(currSmp);
+
+        currSmp->typ |= 16; /* add 16-bit flag */
+
+        /* make sure stuff is 2-byte aligned for 16-bit mode */
+        currSmp->repS &= 0xFFFFFFFE;
+        currSmp->repL &= 0xFFFFFFFE;
+        currSmp->len  &= 0xFFFFFFFE;
+
+        fixSample(currSmp);
+        unlockMixerCallback();
+    }
+
+    updateSampleEditorSample();
+    updateSampleEditor();
+    writeSample(true);
+    setSongModifiedFlag();
 }
 
-void clearCurSample(void)
+void clearSample(void)
 {
-    hideSystemRequest();
+    if ((editor.curInstr == 0) || (currSmp->pek == NULL))
+        return;
 
-    if (editor.curInstr == 0)
+    if (okBox(1, "System request", "Clear sample?") != 1)
         return;
 
     lockMixerCallback();
@@ -3064,8 +2215,6 @@ void clearCurSample(void)
         free(currSmp->pek);
 
     memset(currSmp, 0, sizeof (sampleTyp));
-
-    currSmp->pek = NULL;
     currSmp->vol = 64;
     currSmp->pan = 128;
 
@@ -3075,159 +2224,36 @@ void clearCurSample(void)
     setSongModifiedFlag();
 }
 
-void convSampleTo8BitCancel(void)
-{
-    hideSystemRequest();
-
-    lockMixerCallback();
-    restoreSample(currSmp);
-
-    currSmp->typ &= ~16; /* remove 16-bit flag */
-
-    fixSample(currSmp);
-    unlockMixerCallback();
-
-    updateSampleEditorSample();
-    updateSampleEditor();
-    writeSample(true);
-    setSongModifiedFlag();
-}
-
-void convSampleTo16BitCancel(void)
-{
-    hideSystemRequest();
-
-    lockMixerCallback();
-    restoreSample(currSmp);
-
-    currSmp->typ |= 16; /* add 16-bit flag */
-
-    /* make sure stuff is 2-byte aligned for 16-bit mode */
-    currSmp->repS &= 0xFFFFFFFE;
-    currSmp->repL &= 0xFFFFFFFE;
-    currSmp->len  &= 0xFFFFFFFE;
-
-    fixSample(currSmp);
-    unlockMixerCallback();
-
-    updateSampleEditorSample();
-    updateSampleEditor();
-    writeSample(true);
-    setSongModifiedFlag();
-}
-
-void convSampleTo8Bit(void)
-{
-    int8_t *dst8;
-    int16_t *src16;
-    int32_t i, newLen;
-
-    hideSystemRequest();
-
-    if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len == 0))
-        return;
-
-    newLen = currSmp->len / 2;
-
-    dst8 = (int8_t *)(malloc(newLen + 2));
-    if (dst8 == NULL)
-    {
-        sysReqQueue(SR_OOM_ERROR);
-        return;
-    }
-
-    pauseAudio();
-    restoreSample(currSmp);
-
-    currSmp->typ &= ~16; /* remove 16-bit flag */
-
-    currSmp->repL /= 2;
-    currSmp->repS /= 2;
-    currSmp->len  /= 2;
-
-    src16 = (int16_t *)(currSmp->pek);
-    for (i = 0; i < newLen; ++i)
-        dst8[i] = (int8_t)(src16[i] >> 8);
-
-    free(currSmp->pek);
-    currSmp->pek = dst8;
-
-    fixSample(currSmp);
-    resumeAudio();
-
-    setSongModifiedFlag();
-
-    updateSampleEditorSample();
-    updateSampleEditor();
-    writeSample(true);
-}
-
-void convSampleTo16Bit(void)
-{
-    int8_t *dst8, *src8;
-    int16_t *dst16;
-    int32_t i, newLen;
-
-    hideSystemRequest();
-
-    if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len == 0))
-        return;
-
-    pauseAudio();
-    restoreSample(currSmp);
-
-    newLen = currSmp->len * 2;
-
-    dst8 = (int8_t *)(malloc(newLen + 2));
-    if (dst8 == NULL)
-    {
-        sysReqQueue(SR_OOM_ERROR);
-        return;
-    }
-
-    currSmp->typ |= 16; /* add 16-bit flag */
-
-    currSmp->repL *= 2;
-    currSmp->repS *= 2;
-
-    dst16 = (int16_t *)(dst8);
-    src8  = currSmp->pek;
-
-    for (i = 0; i < currSmp->len; ++i)
-        dst16[i] = src8[i] << 8;
-
-    currSmp->len = newLen;
-
-    free(currSmp->pek);
-    currSmp->pek = dst8;
-
-    fixSample(currSmp);
-    resumeAudio();
-
-    setSongModifiedFlag();
-
-    updateSampleEditorSample();
-    updateSampleEditor();
-    writeSample(true);
-}
-
-void sampClear(void)
-{
-    if ((editor.curInstr == 0) || (currSmp->pek == NULL))
-        return;
-
-    sysReqQueue(SR_SAMP_CLEAR);
-}
-
 void sampMin(void)
 {
     if ((editor.curInstr == 0) || (currSmp->pek == NULL))
         return;
 
-    if (!(currSmp->typ & 3) || ((currSmp->repS + currSmp->repL) == currSmp->len) || ((currSmp->repS + currSmp->repL) <= 0))
-        sysReqQueue(SR_SAMP_MINIMIZE_NOT_NEEDED);
+    if (!(currSmp->typ & 3) || ((currSmp->repS + currSmp->repL) >= currSmp->len) || ((currSmp->repS + currSmp->repL) <= 0))
+    {
+        okBox(0, "System message", "Sample is already minimized.");
+    }
     else
-        sysReqQueue(SR_SAMP_MINIMIZE);
+    {
+        lockMixerCallback();
+        restoreSample(currSmp);
+
+        currSmp->len = currSmp->repS + currSmp->repL;
+
+        currSmp->pek = (int8_t *)(realloc(currSmp->pek, currSmp->len + 2));
+        if (currSmp->pek == NULL)
+        {
+            freeSample(currSmp);
+            okBox(0, "System message", "Not enough memory!");
+        }
+
+        fixSample(currSmp);
+        unlockMixerCallback();
+
+        updateSampleEditorSample();
+        updateSampleEditor();
+        setSongModifiedFlag();
+    }
 }
 
 void sampRepeatUp(void)
@@ -3248,7 +2274,7 @@ void sampRepeatUp(void)
         addVal  = 1;
     }
 
-    repS = curSmpRep;
+    repS = curSmpRepS;
     repL = curSmpRepL;
 
     loopLen = mouse.rightButtonPressed ? 16 : 1;
@@ -3261,7 +2287,7 @@ void sampRepeatUp(void)
             repL = currSmp->len - repS;
     }
 
-    curSmpRep  = (currSmp->typ & 16) ? (signed)(repS & 0xFFFFFFFE) : repS;
+    curSmpRepS = (currSmp->typ & 16) ? (signed)(repS & 0xFFFFFFFE) : repS;
     curSmpRepL = (currSmp->typ & 16) ? (signed)(repL & 0xFFFFFFFE) : repL;
 
     fixRepeatGadgets();
@@ -3279,11 +2305,11 @@ void sampRepeatDown(void)
     if (currSmp->typ & 16)
         delta *= 2;
 
-    repS = curSmpRep - delta;
+    repS = curSmpRepS - delta;
     if (repS < 0)
         repS = 0;
 
-    curSmpRep = (currSmp->typ & 16) ? (signed)(repS & 0xFFFFFFFE) : repS;
+    curSmpRepS = (currSmp->typ & 16) ? (signed)(repS & 0xFFFFFFFE) : repS;
 
     fixRepeatGadgets();
     updateLoopsOnMouseUp = true;
@@ -3301,8 +2327,8 @@ void sampReplenUp(void)
         delta *= 2;
 
     repL = curSmpRepL + delta;
-    if ((curSmpRep + repL) > currSmp->len)
-        repL = currSmp->len - curSmpRep;
+    if ((curSmpRepS + repL) > currSmp->len)
+        repL = currSmp->len - curSmpRepS;
 
     curSmpRepL = (currSmp->typ & 16) ? (signed)(repL & 0xFFFFFFFE) : repL;
 
@@ -3329,36 +2355,6 @@ void sampReplenDown(void)
 
     fixRepeatGadgets();
     updateLoopsOnMouseUp = true;
-}
-
-void minimizeSample(void)
-{
-    hideSystemRequest();
-
-    if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len == 0))
-        return;
-
-    if ((currSmp->typ & 3) && (currSmp->repL < currSmp->len))
-    {
-        lockMixerCallback();
-        restoreSample(currSmp);
-
-        currSmp->len = currSmp->repS + currSmp->repL;
-
-        currSmp->pek = (int8_t *)(realloc(currSmp->pek, currSmp->len + 2));
-        if (currSmp->pek == NULL)
-        {
-            freeSample(currSmp);
-            sysReqQueue(SR_OOM_ERROR);
-        }
-
-        fixSample(currSmp);
-        unlockMixerCallback();
-
-        updateSampleEditorSample();
-        updateSampleEditor();
-        setSongModifiedFlag();
-    }
 }
 
 void hideSampleEditor(void)
@@ -3573,9 +2569,9 @@ void setLeftLoopPinPos(int32_t x)
     if ((editor.curInstr == 0) || (currSmp->pek == NULL))
         return;
 
-    newPos = scr2SmpPos(x) - curSmpRep;
+    newPos = scr2SmpPos(x) - curSmpRepS;
 
-    repS = curSmpRep  + newPos;
+    repS = curSmpRepS + newPos;
     repL = curSmpRepL - newPos;
 
     if (repS < 0)
@@ -3587,7 +2583,7 @@ void setLeftLoopPinPos(int32_t x)
     if (repL < 0)
     {
         repL = 0;
-        repS = curSmpRep + curSmpRepL;
+        repS = curSmpRepS + curSmpRepL;
     }
 
     if (currSmp->typ & 16)
@@ -3596,7 +2592,7 @@ void setLeftLoopPinPos(int32_t x)
         repL &= 0xFFFFFFFE;
     }
 
-    curSmpRep  = repS;
+    curSmpRepS = repS;
     curSmpRepL = repL;
 
     fixRepeatGadgets();
@@ -3610,12 +2606,12 @@ void setRightLoopPinPos(int32_t x)
     if ((editor.curInstr == 0) || (currSmp->pek == NULL))
         return;
 
-    repL = scr2SmpPos(x) - curSmpRep;
+    repL = scr2SmpPos(x) - curSmpRepS;
     if (repL < 0)
         repL = 0;
 
-    if ((repL + curSmpRep) > currSmp->len)
-        repL = currSmp->len - curSmpRep;
+    if ((repL + curSmpRepS) > currSmp->len)
+        repL = currSmp->len - curSmpRepS;
 
     if (repL < 0)
         repL = 0;
@@ -3637,7 +2633,7 @@ void editSampleData(uint8_t mouseButtonHeld)
 
     /* ported directly from FT2 and slightly modified */
 
-    if ((editor.curInstr == 0) || (currSmp->len <= 0))
+    if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len <= 0))
         return;
 
     mx = mouse.x;
@@ -3649,7 +2645,7 @@ void editSampleData(uint8_t mouseButtonHeld)
         if (currSmp->typ & 16)
             lastDrawX /= 2;
 
-        lastDrawY = ((my - 173) * 255) / SAMPLE_AREA_HEIGHT;
+        lastDrawY = ((my - 174) * 256) / SAMPLE_AREA_HEIGHT;
         lastDrawY = CLAMP(lastDrawY, 0, 255) ^ 0xFF;
 
         lastMouseX = mx;
@@ -3673,7 +2669,7 @@ void editSampleData(uint8_t mouseButtonHeld)
 
     if (((p != lastDrawX) || (p != lastDrawY)) && !keyb.leftShiftPressed)
     {
-        vl = ((my - 173) * 255) / SAMPLE_AREA_HEIGHT;
+        vl = ((my - 174) * 256) / SAMPLE_AREA_HEIGHT;
         vl = CLAMP(vl, 0, 255) ^ 0xFF;
     }
     else
@@ -3708,9 +2704,9 @@ void editSampleData(uint8_t mouseButtonHeld)
             if ((rl >= 0) && ((rl * 2) < currSmp->len))
             {
                 if (p != lastDrawX)
-                    tvl = 256 * ((vl - lastDrawY) * (rl - p) / (p - lastDrawX) + vl);
+                    tvl = ((vl - lastDrawY) * (rl - p) / (p - lastDrawX) + vl) * 256;
                 else
-                    tvl = 256 * vl;
+                    tvl = vl * 256;
 
                 ptr16[rl] = (int16_t)(tvl ^ 0x8000);
             }
@@ -4185,18 +3181,20 @@ void testSmpEdMouseUp(void) /* used for setting new loop points */
         if ((currSmp == NULL) || (editor.curInstr == 0))
             return;
 
-        lockMixerCallback();
-        restoreSample(currSmp);
+        if ((currSmp->repS != curSmpRepS) || (currSmp->repL != curSmpRepL))
+        {
+            lockMixerCallback();
+            restoreSample(currSmp);
 
-        if ((currSmp->repS != curSmpRep) || (currSmp->repL != curSmpRepL))
             setSongModifiedFlag();
 
-        currSmp->repS = curSmpRep;
-        currSmp->repL = curSmpRepL;
+            currSmp->repS = curSmpRepS;
+            currSmp->repL = curSmpRepL;
 
-        fixSample(currSmp);
-        unlockMixerCallback();
+            fixSample(currSmp);
+            unlockMixerCallback();
 
-        writeSample(true);
+            writeSample(true);
+        }
     }
 }

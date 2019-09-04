@@ -2,6 +2,7 @@
 #define __FT2_CONFIG_H
 
 #include <stdint.h>
+#include "ft2_replayer.h"
 
 #define CFG_ID_STR "FastTracker 2.0 configuration file\x1A"
 #define CFG_VER 0x0101
@@ -216,7 +217,6 @@ config;
 #endif
 
 void resetConfig(void);
-void resetConfig2(void); /* called by "Load config" button */
 uint8_t loadConfig(uint8_t showErrorFlag);
 void loadConfig2(void); /* called by "Load config" button */
 uint8_t saveConfig(uint8_t showErrorFlag);

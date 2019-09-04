@@ -4,11 +4,11 @@
 #include <stdint.h>
 
 /* ft2_gfx_fonts.c */
-extern const uint8_t font1Widths[128];
-extern const uint8_t font2Widths[128];
+extern const uint8_t font1Widths[154];
+extern const uint8_t font2Widths[154];
 extern const uint8_t smallHexBitmap[560];
-extern const uint8_t font1Data[10240];
-extern const uint8_t font2Data[40960];
+extern const uint8_t font1Data[12320];
+extern const uint8_t font2Data[49280];
 extern const uint8_t font3Data[1376];
 extern const uint8_t font4Data[18688];
 extern const uint8_t font5Data[19968];

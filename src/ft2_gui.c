@@ -22,10 +22,62 @@
 #include "ft2_trim.h"
 #include "ft2_video.h"
 
+void unstuckAllGUIElements(void) /* releases all GUI elements if they were held down/used */
+{
+    int16_t i;
+
+    if (mouse.lastUsedObjectID == OBJECT_ID_NONE)
+        return; /* nothing to unstuck */
+
+    mouse.lastUsedObjectID   = OBJECT_ID_NONE;
+    mouse.lastUsedObjectType = OBJECT_NONE;
+
+    for (i = 0; i < NUM_RADIOBUTTONS; ++i)
+    {
+        if (radioButtons[i].state == RADIOBUTTON_PRESSED)
+        {
+            radioButtons[i].state = RADIOBUTTON_UNCHECKED;
+            if (radioButtons[i].visible)
+                drawRadioButton(i);
+        }
+    }
+
+    for (i = 0; i < NUM_CHECKBOXES; ++i)
+    {
+        if (checkBoxes[i].state == CHECKBOX_PRESSED)
+        {
+            checkBoxes[i].state = CHECKBOX_UNPRESSED;
+            if (checkBoxes[i].visible)
+                drawCheckBox(i);
+        }
+    }
+
+    for (i = 0; i < NUM_PUSHBUTTONS; ++i)
+    {
+        if (pushButtons[i].state == PUSHBUTTON_PRESSED)
+        {
+            pushButtons[i].state = PUSHBUTTON_UNPRESSED;
+            if (pushButtons[i].visible)
+                drawPushButton(i);
+        }
+    }
+
+    for (i = 0; i < NUM_SCROLLBARS; ++i)
+    {
+        scrollBars[i].state = SCROLLBAR_UNPRESSED;
+        if (scrollBars[i].visible)
+            drawScrollBar(i);
+    }
+}
+
 int8_t setupGUI(void)
 {
     int16_t i;
     textBox_t *t;
+    pushButton_t *p;
+    checkBox_t *c;
+    radioButton_t *r;
+    scrollBar_t *s;
 
     /* all memory will be NULL-tested and free'd if we return false somewhere in this function */
 
@@ -49,21 +101,80 @@ int8_t setupGUI(void)
     if (editor.tmpInstrFilenameU == NULL)
         return (false);
 
-    /* setup text edit boxes */
-    for (i = 0; i < NUM_TEXTBOXES; ++i)
+    /* set uninitialized GUI struct entries */
+
+    for (i = 1; i < NUM_TEXTBOXES; ++i) /* skip first entry, it's reserved for inputBox()) */
     {
         t = &textBoxes[i];
 
-        t->visible         = false;
-        t->bufOffset       = 0;
-        t->cursorPos       = 0;
-        t->textPtr         = NULL;
-        t->renderBufWidth  = (9 + 1) * t->maxChars; /* 9 = max character/glyph width possible */
-        t->renderBufHeight = 10; /* 10 = max character height possible */
+        t->visible    = false;
+        t->bufOffset  = 0;
+        t->cursorPos  = 0;
+        t->textPtr    = NULL;
+        t->renderBufW = (9 + 1) * t->maxChars; /* 9 = max character/glyph width possible */
+        t->renderBufH = 10; /* 10 = max character height possible */
+        t->renderW    = t->w - (t->tx * 2);
 
-        t->renderBuf = (uint8_t *)(calloc(t->renderBufWidth * t->renderBufHeight, sizeof (int8_t)));
+        t->renderBuf = (uint8_t *)(malloc(t->renderBufW * t->renderBufH * sizeof (int8_t)));
         if (t->renderBuf == NULL)
             return (false);
+    }
+
+    for (i = 0; i < NUM_PUSHBUTTONS; ++i)
+    {
+        p = &pushButtons[i];
+
+        p->state = 0;
+        p->visible = false;
+
+        if (i == PB_LOGO)
+        {
+            p->bitmapFlag = true;
+            /* bitmap pointers were already set from config load routines */
+        }
+        else if (i == PB_BADGE)
+        {
+            p->bitmapFlag = true;
+            /* --- */
+        }
+        else
+        {
+            p->bitmapFlag = false;
+            p->bitmapUnpressed = NULL;
+            p->bitmapPressed = NULL;
+        }
+    }
+
+    for (i = 0; i < NUM_CHECKBOXES; ++i)
+    {
+        c = &checkBoxes[i];
+
+        c->state   = 0;
+        c->checked = false;
+        c->visible = false;
+    }
+
+    for (i = 0; i < NUM_RADIOBUTTONS; ++i)
+    {
+        r = &radioButtons[i];
+
+        r->state   = 0;
+        r->visible = false;
+    }
+
+    for (i = 0; i < NUM_SCROLLBARS; ++i)
+    {
+        s = &scrollBars[i];
+
+        s->visible = false;
+        s->state   = 0;
+        s->pos     = 0;
+        s->page    = 0;
+        s->end     = 0;
+        s->thumbX  = 0;
+        s->thumbY  = 0;
+        s->thumbW  = 0;
+        s->thumbH  = 0;
     }
 
     seedAboutScreenRandom((uint32_t)(time(NULL)));
@@ -82,135 +193,80 @@ int8_t setupGUI(void)
 
 /* TEXT ROUTINES */
 
-char relocateChars(char ch, int8_t fontType)
+/* returns full pixel width of a char/glyph */
+uint8_t charWidth(char ch)
 {
-    switch (fontType)
-    {
-        /* standard GUI font */
-        case FONT_TYPE1:
-        {
-            if (ch >= 0)
-                return (ch);
+    uint8_t c;
 
-            /* codepage 437 nordic characters */
-                 if (ch == -124) ch = 4;
-            else if (ch == -108) ch = 20;
-            else if (ch == -122) ch = 6;
-            else if (ch == -114) ch = 14;
-            else if (ch == -103) ch = 25;
-            else if (ch == -113) ch = 15;
-        }
-        break;
+    c = (uint8_t)(ch);
+    if (c >= FONT_CHARS)
+        return (8);
 
-        case FONT_TYPE2:
-        {
-            if (ch >= 0)
-                return (ch);
-
-            /* codepage 437 nordic characters */
-                 if (ch == -124) ch = 24;
-            else if (ch == -108) ch = 25;
-            else if (ch == -122) ch = 26;
-            else if (ch == -114) ch = 21;
-            else if (ch == -103) ch = 22;
-            else if (ch == -113) ch = 23;
-        }
-        break;
-
-        case FONT_TYPE3: /* small pattern font */
-        {
-            /* characters */
-            if ((ch >= '0') && (ch <= '9'))
-                ch -= '0';
-            else if ((ch >= 'A') && (ch <= 'Z'))
-                ch -= ('A' - 10);
-            else
-                ch = ' ';
-        }
-        break;
-
-        case FONT_TYPE4: /* medium pattern font */
-        {
-            /* characters */
-            if ((ch >= '0') && (ch <= '9'))
-                ch -= '0';
-            else if (ch >= 'A')
-                ch -= ('A' - 10);
-            else
-                ch = ' ';
-        }
-        break;
-
-        case FONT_TYPE5: /* big pattern font */
-        {
-            if ((ch >= '0') && (ch <= '9'))
-                ch -= '0';
-            else if (ch >= 'A')
-                ch -= ('A' - 10);
-            else
-                ch = ' ';
-        }
-        break;
-
-        case FONT_TYPE6: /* hex font */
-        {
-            if ((ch >= '0') && (ch <= '9'))
-                ch -= '0';
-            else if ((ch >= 'A') && (ch <= 'F'))
-                ch -= ('A' - 10);
-        }
-        break;
-
-        case FONT_TYPE7: /* tiny pattern note font */
-        {
-                 if ((ch >= '0') && (ch <= '7')) ch -= '0';
-            else if ((ch >= 'C') && (ch <= 'G')) ch = 8 + (ch - 'C');
-            else if (ch == 'A') ch = 13;
-            else ch = ' ';
-        }
-        break;
-
-        default:
-            break;
-    }
-
-    /* really important! font has 128 chars not 256 */
-    if (ch < 0)
-        ch = ' ';
-
-    return (ch);
+    return (font1Widths[c]);
 }
 
-int8_t getCharWidth(char ch, int8_t fontType)
+/* returns full pixel width of a char/glyph (big font) */
+uint8_t bigCharWidth(char ch)
 {
-    const uint8_t *widthPtr;
+    uint8_t c;
 
-    switch (fontType)
-    {
-        case FONT_TYPE1: widthPtr = font1Widths; break;
-        case FONT_TYPE2: widthPtr = font2Widths; break;
-        case FONT_TYPE3: return (4);
-        case FONT_TYPE4: return (8);
-        case FONT_TYPE5: return (16);
-        case FONT_TYPE6: return (8);
-        case FONT_TYPE7: return (6);
-        default:         return (0);
-    }
+    c = (uint8_t)(ch);
+    if (c >= FONT_CHARS)
+        return (16);
 
-   ch = relocateChars(ch, fontType);
-   return (widthPtr[(uint32_t)(ch)]);
+    return (font2Widths[c]);
 }
 
-/* normal font, no relocate for extended characters */
-void charOutFast(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr)
+/* return full pixel width of a text string */
+uint16_t textWidth(char *textPtr)
+{
+    uint16_t textWidth;
+
+    MY_ASSERT(textPtr != NULL)
+
+    textWidth = 0;
+    while (*textPtr != '\0')
+        textWidth += charWidth(*textPtr++);
+
+    /* there will be a pixel spacer at the end of the last char/glyph, remove it */
+    if (textWidth > 0)
+        textWidth--;
+
+    return (textWidth);
+}
+
+/* return full pixel width of a text string (big font) */
+uint16_t textBigWidth(char *textPtr)
+{
+    uint16_t textWidth;
+
+    MY_ASSERT(textPtr != NULL)
+
+    textWidth = 0;
+    while (*textPtr != '\0')
+        textWidth += charWidth(*textPtr++);
+
+    /* there will be a pixel spacer at the end of the last char/glyph, remove it */
+    if (textWidth > 0)
+        textWidth--;
+
+    return (textWidth);
+}
+
+void charOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr)
 {
     const uint8_t *srcPtr;
-    uint32_t x, y, *dstPtr, pixVal;
+    uint8_t c, x, y;
+    uint32_t *dstPtr, pixVal;
 
     MY_ASSERT((xPos < SCREEN_W) && (yPos < SCREEN_H))
 
+    c = (uint8_t)(chr);
+    if ((c == ' ') || (c >= FONT_CHARS))
+        return;
+
     pixVal = video.palette[paletteIndex];
-    srcPtr = &font1Data[chr * FONT1_CHAR_W];
+    srcPtr = &font1Data[c * FONT1_CHAR_W];
     dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 
     for (y = 0; y < FONT1_CHAR_H; ++y)
@@ -226,35 +282,73 @@ void charOutFast(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr)
     }
 }
 
-void charOutFastOutlined(uint16_t x, uint16_t y, uint8_t paletteIndex, char chr)
+void charOutOutlined(uint16_t x, uint16_t y, uint8_t paletteIndex, char chr)
 {
-    charOutFast(x - 1, y, PAL_BCKGRND, chr);
-    charOutFast(x + 1, y, PAL_BCKGRND, chr);
-    charOutFast(x, y - 1, PAL_BCKGRND, chr);
-    charOutFast(x, y + 1, PAL_BCKGRND, chr);
+    charOut(x - 1, y,     PAL_BCKGRND, chr);
+    charOut(x + 1, y,     PAL_BCKGRND, chr);
+    charOut(x,     y - 1, PAL_BCKGRND, chr);
+    charOut(x,     y + 1, PAL_BCKGRND, chr);
 
-    charOutFast(x, y, paletteIndex, chr);
+    charOut(x, y, paletteIndex, chr);
 }
 
-/* normal font */
-void charOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr)
+void charOutShadow(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint8_t shadowPaletteIndex, char chr)
 {
     const uint8_t *srcPtr;
-    uint8_t x, y;
-    uint32_t *dstPtr, pixVal;
+    uint8_t c, x, y;
+    uint32_t *dstPtr, pixVal1, pixVal2;
 
     MY_ASSERT((xPos < SCREEN_W) && (yPos < SCREEN_H))
 
-    if (chr == ' ')
+    c = (uint8_t)(chr);
+    if ((c == ' ') || (c >= FONT_CHARS))
         return;
 
-    srcPtr = &font1Data[relocateChars(chr, FONT_TYPE1) * FONT1_CHAR_W];
-    dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
-    pixVal = video.palette[paletteIndex];
+    pixVal1 = video.palette[paletteIndex];
+    pixVal2 = video.palette[shadowPaletteIndex];
+    srcPtr  = &font1Data[c * FONT1_CHAR_W];
+    dstPtr  = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 
     for (y = 0; y < FONT1_CHAR_H; ++y)
     {
         for (x = 0; x < FONT1_CHAR_W; ++x)
+        {
+            if (srcPtr[x])
+            {
+                dstPtr[x + (SCREEN_W + 1)] = pixVal2;
+                dstPtr[x] = pixVal1;
+            }
+        }
+
+        srcPtr += FONT1_WIDTH;
+        dstPtr += SCREEN_W;
+    }
+}
+
+void charOutClipX(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr, uint16_t clipX)
+{
+    const uint8_t *srcPtr;
+    uint8_t c;
+    uint16_t x, y, width;
+    uint32_t *dstPtr, pixVal;
+
+    MY_ASSERT((xPos < SCREEN_W) && (yPos < SCREEN_H))
+
+    c = (uint8_t)(chr);
+    if ((c == ' ') || (c >= FONT_CHARS) || (xPos > clipX))
+        return;
+
+    pixVal = video.palette[paletteIndex];
+    srcPtr = &font1Data[c * FONT1_CHAR_W];
+    dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
+
+    width = FONT1_CHAR_W;
+    if ((xPos + width) > clipX)
+        width = FONT1_CHAR_W - (((xPos + width) - clipX));
+
+    for (y = 0; y < FONT1_CHAR_H; ++y)
+    {
+        for (x = 0; x < width; ++x)
         {
             if (srcPtr[x])
                 dstPtr[x] = pixVal;
@@ -266,18 +360,19 @@ void charOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr)
 }
 
 /* big font */
-void charBigOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr)
+void bigCharOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr)
 {
     const uint8_t *srcPtr;
-    uint8_t x, y;
+    uint8_t c, x, y;
     uint32_t *dstPtr, pixVal;
 
     MY_ASSERT((xPos < SCREEN_W) && (yPos < SCREEN_H))
 
-    if (chr == ' ')
+    c = (uint8_t)(chr);
+    if ((c == ' ') || (c >= FONT_CHARS))
         return;
 
-    srcPtr = &font2Data[relocateChars(chr, FONT_TYPE2) * FONT2_CHAR_W];
+    srcPtr = &font2Data[c * FONT2_CHAR_W];
     dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
     pixVal = video.palette[paletteIndex];
 
@@ -294,200 +389,134 @@ void charBigOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr)
     }
 }
 
-void charBigOutFast(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr)
+static void bigCharOutShadow(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint8_t shadowPaletteIndex, char chr)
 {
     const uint8_t *srcPtr;
-    uint8_t x, y;
-    uint32_t *dstPtr, pixVal;
+    uint8_t c, x, y;
+    uint32_t *dstPtr, pixVal1, pixVal2;
 
     MY_ASSERT((xPos < SCREEN_W) && (yPos < SCREEN_H))
 
-    if (chr == ' ')
+    c = (uint8_t)(chr);
+    if ((c == ' ') || (c >= FONT_CHARS))
         return;
 
-    pixVal = video.palette[paletteIndex];
-    srcPtr = &font2Data[chr * FONT2_CHAR_W];
-    dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
+    pixVal1 = video.palette[paletteIndex];
+    pixVal2 = video.palette[shadowPaletteIndex];
+    srcPtr  = &font2Data[c * FONT2_CHAR_W];
+    dstPtr  = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 
     for (y = 0; y < FONT2_CHAR_H; ++y)
     {
         for (x = 0; x < FONT2_CHAR_W; ++x)
         {
             if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
-
-        srcPtr += FONT2_WIDTH;
-        dstPtr += SCREEN_W;
-    }
-}
-
-void charOutClipped(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr, uint16_t clipX)
-{
-    const uint8_t *srcPtr;
-    uint8_t x, y;
-    uint32_t *dstPtr, pixVal;
-
-    MY_ASSERT((xPos < SCREEN_W) && (yPos < SCREEN_H))
-
-    if (chr == ' ')
-        return;
-
-    pixVal = video.palette[paletteIndex];
-    srcPtr = &font1Data[chr * FONT1_CHAR_W];
-    dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
-
-    for (y = 0; y < FONT1_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT1_CHAR_W; ++x)
-        {
-            if ((x + xPos) >= clipX)
             {
-                srcPtr++;
-                dstPtr++;
-                continue;
+                dstPtr[x + (SCREEN_W + 1)] = pixVal2;
+                dstPtr[x] = pixVal1;
             }
-
-            if (*srcPtr++)
-                *dstPtr = pixVal;
-
-            dstPtr++;
         }
 
-        srcPtr += (FONT1_WIDTH - FONT1_CHAR_W);
-        dstPtr += (SCREEN_W    - FONT1_CHAR_W);
+        srcPtr += FONT2_WIDTH;
+        dstPtr += SCREEN_W;
     }
-}
-
-void charOutShadow(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shadowPaletteIndex, char chr)
-{
-    /* clipping is done in charOut() */
-    charOut(x + 1, y + 1, shadowPaletteIndex, chr); /* shadow */
-    charOut(x + 0, y + 0, paletteIndex,       chr); /* foreground */
 }
 
 void textOut(uint16_t x, uint16_t y, uint8_t paletteIndex, char *textPtr)
 {
-    char ch;
+    uint8_t c;
     uint16_t currX;
 
     MY_ASSERT(textPtr != NULL)
 
     currX = x;
-    while (*textPtr != '\0')
+    while (true)
     {
-        ch = relocateChars(*textPtr++, FONT_TYPE1);
-
-        charOutFast(currX, y, paletteIndex, ch);
-        currX += font1Widths[(uint32_t)(ch)];
-    }
-}
-
-void textBigOut(uint16_t x, uint16_t y, uint8_t paletteIndex, char *textPtr)
-{
-    char ch;
-    uint16_t currX;
-
-    MY_ASSERT(textPtr != NULL)
-
-    currX = x;
-    while (*textPtr != '\0')
-    {
-        ch = relocateChars(*textPtr++, FONT_TYPE2);
-
-        charBigOutFast(currX, y, paletteIndex, ch);
-        currX += font2Widths[(uint32_t)(ch)];
-    }
-}
-
-void textBigOutShadow(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shadowPaletteIndex, char *textPtr)
-{
-    /* clipping is done in charOut() */
-    textBigOut(x + 1, y + 1, shadowPaletteIndex, textPtr); /* shadow */
-    textBigOut(x + 0, y + 0, paletteIndex,       textPtr); /* foreground */
-}
-
-void textOutClipped(uint16_t x, uint16_t y, uint8_t paletteIndex, char *textPtr, uint16_t clipX)
-{
-    char ch;
-    uint16_t currX;
-
-    MY_ASSERT(textPtr != NULL)
-
-    currX = x;
-    while (*textPtr != '\0')
-    {
-        ch = relocateChars(*textPtr++, FONT_TYPE1);
-
-        charOutClipped(currX, y, paletteIndex, ch, clipX);
-
-        currX += font1Widths[(uint32_t)(ch)];
-        if (currX >= clipX)
+        c = (uint8_t)(*textPtr++);
+        if (c == '\0')
             break;
-    }
-}
 
-void textOutShadowClipped(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shadowPaletteIndex, char *textPtr, uint16_t clipX)
-{
-    /* clipping is done in charOutClipped() */
-    textOutClipped(x + 1, y + 1, shadowPaletteIndex, textPtr, clipX); /* shadow */
-    textOutClipped(x + 0, y + 0, paletteIndex,       textPtr, clipX); /* foreground */
+        charOut(currX, y, paletteIndex, c);
+        currX += charWidth(c);
+    }
 }
 
 void textOutShadow(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shadowPaletteIndex, char *textPtr)
 {
-    textOut(x + 1, y + 1, shadowPaletteIndex, textPtr); /* shadow */
-    textOut(x + 0, y + 0, paletteIndex,       textPtr); /* foreground */
-}
+    uint8_t c;
+    uint16_t currX;
 
-void drawSmallHex(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint8_t val)
-{
-    const uint8_t *srcPtr;
-    uint32_t x, y, *dstPtr, pixVal;
+    MY_ASSERT(textPtr != NULL)
 
-    MY_ASSERT(val <= 0xF)
-
-    dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
-    srcPtr = &smallHexBitmap[val * 5];
-
-    pixVal = video.palette[paletteIndex];
-    for (y = 0; y < 7; ++y)
+    currX = x;
+    while (true)
     {
-        for (x = 0; x < 5; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-        }
+        c = (uint8_t)(*textPtr++);
+        if (c == '\0')
+            break;
 
-        dstPtr += SCREEN_W;
-        srcPtr += 80;
+        charOutShadow(currX, y, paletteIndex, shadowPaletteIndex, c);
+        currX += charWidth(c);
     }
 }
 
-void drawSmallHexBg(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint8_t bgPaletteIndex, uint8_t val)
+void bigTextOut(uint16_t x, uint16_t y, uint8_t paletteIndex, char *textPtr)
 {
-    const uint8_t *srcPtr;
-    uint32_t x, y, *dstPtr, pixVal, bgPixVal;
+    uint8_t c;
+    uint16_t currX;
 
-    MY_ASSERT(val <= 0xF)
+    MY_ASSERT(textPtr != NULL)
 
-    dstPtr   = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
-    srcPtr   = &smallHexBitmap[val * 5];
-    pixVal   = video.palette[paletteIndex];
-    bgPixVal = video.palette[bgPaletteIndex];
-
-    for (y = 0; y < 7; ++y)
+    currX = x;
+    while (true)
     {
-        for (x = 0; x < 5; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = pixVal;
-            else
-                dstPtr[x] = bgPixVal;
-        }
+        c = (uint8_t)(*textPtr++);
+        if (c == '\0')
+            break;
 
-        dstPtr += SCREEN_W;
-        srcPtr += 80;
+        bigCharOut(currX, y, paletteIndex, c);
+        currX += bigCharWidth(c);
+    }
+}
+
+void bigTextOutShadow(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shadowPaletteIndex, char *textPtr)
+{
+    uint8_t c;
+    uint16_t currX;
+
+    MY_ASSERT(textPtr != NULL)
+
+    currX = x;
+    while (true)
+    {
+        c = (uint8_t)(*textPtr++);
+        if (c == '\0')
+            break;
+
+        bigCharOutShadow(currX, y, paletteIndex, shadowPaletteIndex, c);
+        currX += bigCharWidth(c);
+    }
+}
+
+void textOutClipX(uint16_t x, uint16_t y, uint8_t paletteIndex, char *textPtr, uint16_t clipX)
+{
+    uint8_t c;
+    uint16_t currX;
+
+    MY_ASSERT(textPtr != NULL)
+
+    currX = x;
+    while (true)
+    {
+        c = (uint8_t)(*textPtr++);
+        if (c == '\0')
+            break;
+
+        charOutClipX(currX, y, paletteIndex, c, clipX);
+
+        currX += charWidth(c);
+        if (currX >= clipX)
+            break;
     }
 }
 
@@ -531,24 +560,6 @@ void hexOutShadow(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint8_t sh
 {
     hexOut(xPos + 1, yPos + 1, shadowPaletteIndex, val, numDigits);
     hexOut(xPos + 0, yPos + 0,       paletteIndex, val, numDigits);
-}
-
-/* return full pixel width of a text string */
-uint16_t getTextWidth(char *textPtr, uint8_t fontType)
-{
-    uint16_t textWidth;
-
-    MY_ASSERT(textPtr != NULL)
-
-    textWidth = 0;
-    while (*textPtr != '\0')
-        textWidth += getCharWidth(*textPtr++, fontType);
-
-    /* there will be a pixel spacer at the end of the last char, remove it */
-    if (textWidth > 0)
-        textWidth--;
-
-    return (textWidth);
 }
 
 /* FILL ROUTINES */
@@ -884,18 +895,12 @@ void showTopLeftMainScreen(uint8_t restoreScreens)
         charOutShadow(270, 80, PAL_FORGRND, PAL_DSKTOP2, ':');
         drawPlaybackTime();
 
-        if (editor.ui.sampleEditorExtShown)
-            drawSampleEditorExt();
-        else if (editor.ui.instEditorExtShown)
-            drawInstEditorExt();
-        else if (editor.ui.transposeShown)
-            drawTranspose();
-        else if (editor.ui.advEditShown)
-            drawAdvEdit();
-        else if (editor.ui.wavRendererShown)
-            drawWavRenderer();
-        else if (editor.ui.trimScreenShown)
-            drawTrimScreen();
+             if (editor.ui.sampleEditorExtShown) drawSampleEditorExt();
+        else if (editor.ui.instEditorExtShown)   drawInstEditorExt();
+        else if (editor.ui.transposeShown)       drawTranspose();
+        else if (editor.ui.advEditShown)         drawAdvEdit();
+        else if (editor.ui.wavRendererShown)     drawWavRenderer();
+        else if (editor.ui.trimScreenShown)      drawTrimScreen();
 
         if (editor.ui.scopesShown)
             drawScopeFramework();
@@ -1009,20 +1014,13 @@ void hideTopRightMainScreen(void)
 
 void setOldTopLeftScreenFlag(void)
 {
-    if (editor.ui.diskOpShown)
-        editor.ui.oldTopLeftScreen = 1;
-    else if (editor.ui.sampleEditorExtShown)
-        editor.ui.oldTopLeftScreen = 2;
-    else if (editor.ui.instEditorExtShown)
-        editor.ui.oldTopLeftScreen = 3;
-    else if (editor.ui.transposeShown)
-        editor.ui.oldTopLeftScreen = 4;
-    else if (editor.ui.advEditShown)
-        editor.ui.oldTopLeftScreen = 5;
-    else if (editor.ui.wavRendererShown)
-        editor.ui.oldTopLeftScreen = 6;
-    else if (editor.ui.trimScreenShown)
-        editor.ui.oldTopLeftScreen = 7;
+         if (editor.ui.diskOpShown)          editor.ui.oldTopLeftScreen = 1;
+    else if (editor.ui.sampleEditorExtShown) editor.ui.oldTopLeftScreen = 2;
+    else if (editor.ui.instEditorExtShown)   editor.ui.oldTopLeftScreen = 3;
+    else if (editor.ui.transposeShown)       editor.ui.oldTopLeftScreen = 4;
+    else if (editor.ui.advEditShown)         editor.ui.oldTopLeftScreen = 5;
+    else if (editor.ui.wavRendererShown)     editor.ui.oldTopLeftScreen = 6;
+    else if (editor.ui.trimScreenShown)      editor.ui.oldTopLeftScreen = 7;
 }
 
 void hideTopLeftScreen(void)
@@ -1081,17 +1079,11 @@ void showTopScreen(uint8_t restoreScreens)
 void showBottomScreen(void)
 {
     if (editor.ui.extended || editor.ui.patternEditorShown)
-    {
         showPatternEditor();
-    }
     else if (editor.ui.instEditorShown)
-    {
         showInstEditor();
-    }
     else if (editor.ui.sampleEditorShown)
-    {
         showSampleEditor();
-    }
 }
 
 void drawGUIOnRunTime(void)

@@ -48,9 +48,25 @@ static sprite_t sprites[SPRITE_NUM];
 
 static void drawReplayerData(void);
 
+void flipFrame(void)
+{
+    renderSprites();
+
+    SDL_UpdateTexture(video.texture, NULL, video.frameBuffer, SCREEN_W * sizeof (int32_t));
+
+    SDL_RenderClear(video.renderer);
+    SDL_RenderCopy(video.renderer, video.texture, NULL, NULL);
+    SDL_RenderPresent(video.renderer);
+
+    eraseSprites();
+
+    waitVBL();
+    editor.framesPassed++;
+}
+
 void showErrorMsgBox(const char *fmt, ...)
 {
-    char strBuf[512];
+    char strBuf[256];
     va_list args;
 
     /* format the text string */
@@ -703,19 +719,6 @@ void waitVBL(void)
     timeNext64 += video.vblankTimeLen;
 }
 
-void flipFrame(void)
-{
-    renderSprites();
-
-    SDL_UpdateTexture(video.texture, NULL, video.frameBuffer, SCREEN_W * sizeof (int32_t));
-
-    SDL_RenderClear(video.renderer);
-    SDL_RenderCopy(video.renderer, video.texture, NULL, NULL);
-    SDL_RenderPresent(video.renderer);
-
-    eraseSprites();
-}
-
 void closeVideo(void)
 {
     if (video.texture != NULL)
@@ -906,7 +909,7 @@ int8_t setupRenderer(void)
 {
     uint32_t rendererFlags;
 
-    rendererFlags = SDL_RENDERER_ACCELERATED;
+    rendererFlags = 0;
     if (editor.vsync60HzPresent)
         rendererFlags |= SDL_RENDERER_PRESENTVSYNC;
 
@@ -949,7 +952,7 @@ int8_t setupRenderer(void)
     video.frameBuffer = (uint32_t *)(malloc(SCREEN_W * SCREEN_H * sizeof (int32_t)));
     if (video.frameBuffer == NULL)
     {
-        showErrorMsgBox("Out of memory!");
+        showErrorMsgBox("Not enough memory!");
         return (false);
     }
 
@@ -1058,7 +1061,6 @@ void handleRedrawing(void)
         animateBusyMouse();
 
     renderLoopPins();
-    drawSystemRequest();
 }
 
 static void drawReplayerData(void)

@@ -7,89 +7,61 @@
 #include "ft2_gui.h"
 #include "ft2_video.h"
 #include "ft2_config.h"
-#include "ft2_nibbles.h"
 #include "ft2_diskop.h"
-#include "ft2_sample_ed.h"
-#include "ft2_pattern_ed.h"
 #include "ft2_keyboard.h"
 #include "ft2_gfxdata.h"
 #include "ft2_mouse.h"
-#include "ft2_edit.h"
-
-static int16_t markX1, markX2;
-static uint16_t oldCursorPos, oldMouseX;
 
 textBox_t textBoxes[NUM_TEXTBOXES] =
 {
-    // tx = how much to add to x (for text)
-    // ty = how much to add to y (for text)
-    // tw = how much to render of text in pixels
-    // maxChars = max characters in box
+    // ------ RESERVED TEXTBOXES ------
+    { 0 },
 
-    /* -- instrument switcher and song name elements must be in this order! --------- */
+    /*
+    ** -- STRUCT INFO: --
+    **  x    = x position
+    **  y    = y position
+    **  w    = width
+    **  h    = height
+    **  tx   = left padding for text
+    **  ty   = top padding for text
+    **  maxc = max characters in box string
+    **  rmb  = can only be triggered with right mouse button (f.ex. tracker instrument texts)
+    **  cmc  = change mouse cursor when hovering over it
+    */
 
-    // instrument switcher
-    // x,   y,   w,   h,  tx,ty, tw,  maxChars, rightMouseButton
-    {  446,   5, 139,  10, 1, 0, 138, 22,       true, NULL, false, 0, NULL, 0, 0, 0, 0 },
-    {  446,  16, 139,  10, 1, 0, 138, 22,       true, NULL, false, 0, NULL, 0, 0, 0, 0 },
-    {  446,  27, 139,  10, 1, 0, 138, 22,       true, NULL, false, 0, NULL, 0, 0, 0, 0 },
-    {  446,  38, 139,  10, 1, 0, 138, 22,       true, NULL, false, 0, NULL, 0, 0, 0, 0 },
-    {  446,  49, 139,  10, 1, 0, 138, 22,       true, NULL, false, 0, NULL, 0, 0, 0, 0 },
-    {  446,  60, 139,  10, 1, 0, 138, 22,       true, NULL, false, 0, NULL, 0, 0, 0, 0 },
-    {  446,  71, 139,  10, 1, 0, 138, 22,       true, NULL, false, 0, NULL, 0, 0, 0, 0 },
-    {  446,  82, 139,  10, 1, 0, 138, 22,       true, NULL, false, 0, NULL, 0, 0, 0, 0 },
+    // ------ INSTRUMENT/SAMPLE/SONG NAME TEXTBOXES ------
+    // x,   y,   w,   h,  tx,ty, maxc,       rmb,   cmc
+    {  446,   5, 140,  10, 1, 0, 22,         true,  false },
+    {  446,  16, 140,  10, 1, 0, 22,         true,  false },
+    {  446,  27, 140,  10, 1, 0, 22,         true,  false },
+    {  446,  38, 140,  10, 1, 0, 22,         true,  false },
+    {  446,  49, 140,  10, 1, 0, 22,         true,  false },
+    {  446,  60, 140,  10, 1, 0, 22,         true,  false },
+    {  446,  71, 140,  10, 1, 0, 22,         true,  false },
+    {  446,  82, 140,  10, 1, 0, 22,         true,  false },
+    {  446,  99, 116,  10, 1, 0, 22,         true,  false },
+    {  446, 110, 116,  10, 1, 0, 22,         true,  false },
+    {  446, 121, 116,  10, 1, 0, 22,         true,  false },
+    {  446, 132, 116,  10, 1, 0, 22,         true,  false },
+    {  446, 143, 116,  10, 1, 0, 22,         true,  false },
+    {  424, 158, 160,  12, 2, 1, 20,         false, true  },
 
-    // sample switcher
-    // x,   y,   w,   h,  tx,ty, tw,  maxChars, rightMouseButton
-    {  446,  99, 115,  10, 1, 0, 114, 22,       true, NULL, false, 0, NULL, 0, 0, 0, 0 },
-    {  446, 110, 115,  10, 1, 0, 114, 22,       true, NULL, false, 0, NULL, 0, 0, 0, 0 },
-    {  446, 121, 115,  10, 1, 0, 114, 22,       true, NULL, false, 0, NULL, 0, 0, 0, 0 },
-    {  446, 132, 115,  10, 1, 0, 114, 22,       true, NULL, false, 0, NULL, 0, 0, 0, 0 },
-    {  446, 143, 115,  10, 1, 0, 114, 22,       true, NULL, false, 0, NULL, 0, 0, 0, 0 },
+    // ------ DISK OP. TEXTBOXES ------
+    // x,   y,   w,   h,  tx,ty, maxc,       rmb,   cmc
+    {   62, 158, 103,  12, 2, 1, PATH_MAX-1, false, true  },
 
-    // song name
-    // x,   y,   w,   h,  tx,ty, tw,  maxChars, rightMouseButton
-    {  424, 158, 160,  12, 2, 1, 156, 20,       false, NULL, true, 0, NULL, 0, 0, 0, 0 },
-
-    /* -- you can hereby change the structure ----------------------------------------*/
-
-    // nibbles - player 1 and 2 name
-    // x,   y,   w,   h,  tx,ty, tw,  maxChars, rightMouseButton
-    {  215, 273, 203,  12, 2, 1, 199, 22,       false, NULL, true, 0, NULL, 0, 0, 0, 0 },
-    {  215, 273, 203,  12, 2, 1, 199, 22,       false, NULL, true, 0, NULL, 0, 0, 0, 0 },
-
-    // config - default directories
-    // x,   y,   w,   h,  tx,ty, tw,  maxChars, rightMouseButton
-    { 486,  16, 143,  12, 2, 1, 139, 80,        false, NULL, true, 0, NULL, 0, 0, 0, 0 },
-    { 486,  31, 143,  12, 2, 1, 139, 80,        false, NULL, true, 0, NULL, 0, 0, 0, 0 },
-    { 486,  46, 143,  12, 2, 1, 139, 80,        false, NULL, true, 0, NULL, 0, 0, 0, 0 },
-    { 486,  61, 143,  12, 2, 1, 139, 80,        false, NULL, true, 0, NULL, 0, 0, 0, 0 },
-    { 486,  76, 143,  12, 2, 1, 139, 80,        false, NULL, true, 0, NULL, 0, 0, 0, 0 },
-
-    // disk op. filename
-    // x,   y,   w,   h,  tx,ty, tw,  maxChars,  rightMouseButton
-    {   62, 158, 103,  12, 2, 1, 99, PATH_MAX-1, false, NULL, true, 0, NULL, 0, 0, 0, 0 },
-
-    // disk op. rename name
-    // x,   y,   w,   h,  tx,ty, tw,  maxChars,   rightMouseButton
-    {  177, 273, 278,  12, 2, 1, 274, PATH_MAX-1, false, NULL, true, 0, NULL, 0, 0, 0, 0 },
-
-    // disk op. new directory name
-    // x,   y,   w,   h,  tx,ty, tw,  maxChars,   rightMouseButton
-    {  177, 273, 278,  12, 2, 1, 274, PATH_MAX-1, false, NULL, true, 0, NULL, 0, 0, 0, 0 },
-
-    // disk op. set path name
-    // x,   y,   w,   h,  tx,ty, tw,  maxChars,   rightMouseButton
-    {  177, 273, 278,  12, 2, 1, 274, PATH_MAX-1, false, NULL, true, 0, NULL, 0, 0, 0, 0 },
-
-    // save range filename
-    // x,   y,   w,   h,  tx,ty, tw,  maxChars, rightMouseButton
-    {  215, 273, 203,  12, 2, 1, 199, 128-1,    false, NULL, true, 0, NULL, 0, 0, 0, 0 },
-
-    // scale fade volume
-    // x,   y,   w,   h,  tx,ty, tw,  maxChars, rightMouseButton
-    {  215, 273, 203,  12, 2, 1, 199, 32,       false, NULL, true, 0, NULL, 0, 0, 0, 0 },
+    // ------ CONFIG TEXTBOXES ------
+    // x,   y,   w,   h,  tx,ty, maxc,       rmb,   cmc
+    { 486,   16, 143,  12, 2, 1, 80,         false, true  },
+    { 486,   31, 143,  12, 2, 1, 80,         false, true  },
+    { 486,   46, 143,  12, 2, 1, 80,         false, true  },
+    { 486,   61, 143,  12, 2, 1, 80,         false, true  },
+    { 486,   76, 143,  12, 2, 1, 80,         false, true  }
 };
+
+static int16_t markX1, markX2;
+static uint16_t oldCursorPos, oldMouseX;
 
 static void moveTextCursorLeft(int16_t i, uint8_t updateTextBox);
 static void moveTextCursorRight(int16_t i, uint8_t updateTextBox);
@@ -135,18 +107,24 @@ static int16_t getTextMarkEnd(void)
     return (markX2);
 }
 
-static int16_t getTextLength(textBox_t *t, uint32_t offset)
+static int16_t getTextLength(textBox_t *t, uint16_t offset)
 {
-    int16_t numChars;
+    uint16_t i;
 
-    /* count number of characters in text (don't use strlen() - not safe here!) */
-    for (numChars = 0; numChars < t->maxChars; ++numChars)
+    if (offset >= t->maxChars)
+        return (0);
+
+    /* count number of characters in text */
+    for (i = offset; i < t->maxChars; ++i)
     {
-        if (((offset + numChars) >= t->maxChars) || (t->textPtr[offset + numChars] == '\0'))
+        if (t->textPtr[i] == '\0')
             break;
     }
 
-    return (numChars);
+    i -= offset; /* i now contains string length */
+
+    MY_ASSERT(i <= t->maxChars)
+    return (i);
 }
 
 static void deleteMarkedText(textBox_t *t)
@@ -165,14 +143,15 @@ static void deleteMarkedText(textBox_t *t)
     /* calculate pixel width of string to delete */
     deleteTextWidth = 0;
     for (i = start; i < end; ++i)
-        deleteTextWidth += getCharWidth(t->textPtr[i], FONT_TYPE1);
+        deleteTextWidth += charWidth(t->textPtr[i]);
 
-    /* copy markEnd part to markStart, and zero out leftover junk */
+    /* copy markEnd part to markStart, and add null termination */
     length = (int32_t)(strlen(&t->textPtr[end]));
-    memcpy(&t->textPtr[start], &t->textPtr[end], length);
-    memset(&t->textPtr[start + length], 0, t->maxChars - (start + length));
+    if (length > 0)
+        memcpy(&t->textPtr[start], &t->textPtr[end], length);
+    t->textPtr[start + length] = '\0';
 
-    /* move buffer offset to the left if scrolled */
+    /* scroll buffer offset to the left if we are scrolled */
     if (t->bufOffset >= deleteTextWidth)
         t->bufOffset -= deleteTextWidth;
     else
@@ -206,7 +185,7 @@ static void setCursorToMarkStart(textBox_t *t)
         if (ch == '\0')
             break;
 
-        startXPos += getCharWidth(ch, FONT_TYPE1);
+        startXPos += charWidth(ch);
     }
 
     /* change buffer offset, if needed */
@@ -236,12 +215,12 @@ static void setCursorToMarkEnd(textBox_t *t)
         if (ch == '\0')
             break;
 
-        endXPos += getCharWidth(ch, FONT_TYPE1);
+        endXPos += charWidth(ch);
     }
 
     /* change buffer offset, if needed */
-    if (endXPos > (t->bufOffset + t->tw))
-        t->bufOffset = endXPos - t->tw;
+    if (endXPos > (t->bufOffset + t->renderW))
+        t->bufOffset = endXPos - t->renderW;
 }
 
 static void copyMarkedText(textBox_t *t)
@@ -284,7 +263,8 @@ static void cutMarkedText(textBox_t *t)
 static void pasteText(textBox_t *t)
 {
     char *copiedText, *copiedTextUtf8, *endPart;
-    int32_t i, textLength, roomLeft, copiedTextLength, endOffset, endPartLength;
+    uint16_t endOffset;
+    int32_t i, textLength, roomLeft, copiedTextLength, endPartLength;
 
     if (!SDL_HasClipboardText())
         return;
@@ -325,7 +305,7 @@ static void pasteText(textBox_t *t)
         if (endPart == NULL)
         {
             free(copiedText);
-            sysReqQueue(SR_OOM_ERROR);
+            okBox(0, "System message", "Not enough memory!");
             return;
         }
     }
@@ -357,76 +337,6 @@ static void pasteText(textBox_t *t)
     setSongModifiedFlagIfNeeded();
 }
 
-static void blitClipW(uint16_t xPos, uint16_t yPos, const uint8_t *srcPtr, uint32_t w, uint16_t h, uint32_t clipW)
-{
-    uint32_t *dstPtr, x, y, blitW;
-
-    blitW = w;
-    if (blitW > clipW)
-        blitW = clipW;
-
-    MY_ASSERT((xPos < SCREEN_W) && (yPos < SCREEN_H) && ((xPos + blitW) <= SCREEN_W) &&
-             ((yPos + h) <= SCREEN_H) && (srcPtr != NULL))
-
-    dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
-    for (y = 0; y < h; ++y)
-    {
-        for (x = 0; x < blitW; ++x)
-        {
-            if (srcPtr[x] != PAL_TRANSPR)
-                dstPtr[x] = video.palette[srcPtr[x]];
-        }
-
-        srcPtr += w;
-        dstPtr += SCREEN_W;
-    }
-}
-
-static void charOutBuf(uint8_t *dstBuffer, uint32_t dstWidth, uint32_t xPos, uint32_t yPos, uint8_t paletteIndex, char chr)
-{
-    uint8_t *dstPtr, x, y;
-    const uint8_t *srcPtr;
-
-    if ((chr == '\0') || (chr == ' '))
-        return;
-
-    srcPtr = &font1Data[chr * FONT1_CHAR_W];
-    dstPtr = &dstBuffer[(yPos * dstWidth) + xPos];
-
-    for (y = 0; y < FONT1_CHAR_H; ++y)
-    {
-        for (x = 0; x < FONT1_CHAR_W; ++x)
-        {
-            if (srcPtr[x])
-                dstPtr[x] = paletteIndex;
-        }
-
-        srcPtr += FONT1_WIDTH;
-        dstPtr += dstWidth;
-    }
-}
-
-static void textOutBuf(uint8_t *dstBuffer, uint32_t dstWidth, uint16_t x, uint16_t y, uint8_t paletteIndex, char *text, uint32_t textLength)
-{
-    char ch;
-    uint16_t currX;
-    uint32_t i;
-
-    MY_ASSERT(text != NULL)
-
-    if (*text == '\0')
-        return;
-
-    currX = 0;
-    for (i = 0; i < textLength; ++i)
-    {
-        ch = relocateChars(text[i], FONT_TYPE1);
-
-        charOutBuf(dstBuffer, dstWidth, x + currX, y, paletteIndex, ch);
-        currX += getCharWidth(ch, FONT_TYPE1);
-    }
-}
-
 void exitTextEditing(void)
 {
     if (editor.ui.editTextFlag)
@@ -439,20 +349,20 @@ void exitTextEditing(void)
             drawTextBox(mouse.lastEditBox);
         }
 
-        keyb.ignoreCurrKeyUp   = true; /* prevent "note off" */
-        editor.ui.editTextFlag = false;
-
         if ((mouse.lastEditBox == TB_DISKOP_FILENAME) && (getDiskOpItem() == DISKOP_ITEM_MODULE))
         {
             updateCurrSongFilename(); /* for window title */
             updateWindowTitle(true);
         }
+
+        keyb.ignoreCurrKeyUp = true; /* prevent a note being played (on enter key) */
+        editor.ui.editTextFlag = false;
     }
 
     hideSprite(SPRITE_TEXT_CURSOR);
 }
 
-static inline int16_t cursorPosToX(textBox_t *t)
+static int16_t cursorPosToX(textBox_t *t)
 {
     int16_t i;
     int32_t x;
@@ -461,10 +371,9 @@ static inline int16_t cursorPosToX(textBox_t *t)
 
     x = -1; /* cursor starts one pixel before character */
     for (i = 0; i < t->cursorPos; ++i)
-        x += getCharWidth(t->textPtr[i], FONT_TYPE1);
-
-    /* subtract by buffer offset to get real X position */
-    x -= t->bufOffset;
+        x += charWidth(t->textPtr[i]);
+ 
+    x -= t->bufOffset; /* subtract by buffer offset to get real X position */
 
     return ((int16_t)(x));
 }
@@ -497,10 +406,10 @@ static void scrollTextBufferRight(textBox_t *t, uint16_t numCharsInText)
     /* get end of text position */
     textEnd = 0;
     for (j = 0; j < numCharsInText; ++j)
-        textEnd += getCharWidth(t->textPtr[j], FONT_TYPE1);
+        textEnd += charWidth(t->textPtr[j]);
 
     /* subtract by text box width and clamp to 0 */
-    textEnd -= t->tw;
+    textEnd -= t->renderW;
     if (textEnd < 0)
         textEnd = 0;
 
@@ -533,7 +442,7 @@ static void moveTextCursorToMouseX(uint16_t textBoxID)
 
     for (i = 0; i < numChars; ++i)
     {
-        cw  = getCharWidth(t->textPtr[i], FONT_TYPE1);
+        cw = charWidth(t->textPtr[i]);
         tx2 = tx + cw;
 
         if ((mx >= tx) && (mx < tx2))
@@ -554,7 +463,7 @@ static void moveTextCursorToMouseX(uint16_t textBoxID)
         cursorPos = cursorPosToX(t);
 
         /* scroll buffer to the right if needed */
-        if ((cursorPos + cw) > t->tw)
+        if ((cursorPos + cw) > t->renderW)
             scrollTextBufferRight(t, numChars);
 
         /* scroll buffer to the left if needed */
@@ -565,6 +474,73 @@ static void moveTextCursorToMouseX(uint16_t textBoxID)
     editor.textCursorBlinkCounter = 0;
 }
 
+static void textOutBuf(uint8_t *dstBuffer, uint32_t dstWidth, uint8_t paletteIndex, char *text, uint32_t maxTextLen)
+{
+    uint8_t *dstPtr, c, x, y;
+    const uint8_t *srcPtr;
+    uint16_t currX;
+    uint32_t i;
+
+    MY_ASSERT(text != NULL)
+    if (*text == '\0')
+        return;
+
+    currX = 0;
+    for (i = 0; i < maxTextLen; ++i)
+    {
+        c = (uint8_t)(*text++);
+        if (c == '\0')
+            break;
+
+        if ((c != ' ') && (c < FONT_CHARS))
+        {
+            srcPtr = &font1Data[c * FONT1_CHAR_W];
+            dstPtr = &dstBuffer[currX];
+
+            for (y = 0; y < FONT1_CHAR_H; ++y)
+            {
+                for (x = 0; x < FONT1_CHAR_W; ++x)
+                {
+                    if (srcPtr[x])
+                        dstPtr[x] = paletteIndex;
+                }
+
+                srcPtr += FONT1_WIDTH;
+                dstPtr += dstWidth;
+            }
+        }
+
+        currX += charWidth(c);
+    }
+}
+
+static void blitClipW(uint16_t xPos, uint16_t yPos, const uint8_t *srcPtr, uint16_t w, uint16_t h, uint16_t clipW)
+{
+    uint16_t x, y, blitW;
+    uint32_t *dstPtr;
+
+    blitW = w;
+    if (blitW > clipW)
+        blitW = clipW;
+
+    MY_ASSERT((xPos < SCREEN_W) && (yPos < SCREEN_H) && ((xPos + blitW) <= SCREEN_W) &&
+             ((yPos + h) <= SCREEN_H) && (srcPtr != NULL))
+
+    dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
+    for (y = 0; y < h; ++y)
+    {
+        for (x = 0; x < blitW; ++x)
+        {
+            if (srcPtr[x] != PAL_TRANSPR)
+                dstPtr[x] = video.palette[srcPtr[x]];
+        }
+
+        srcPtr += w;
+        dstPtr += SCREEN_W;
+    }
+}
+
+ /* a lot of filling here, but textboxes are small so no problem... */
 void drawTextBox(uint16_t textBoxID)
 {
     char ch;
@@ -575,12 +551,18 @@ void drawTextBox(uint16_t textBoxID)
     textBox_t *t;
 
     MY_ASSERT(textBoxID < NUM_TEXTBOXES)
-
     t = &textBoxes[textBoxID];
     if (!t->visible)
         return;
 
-    memset(t->renderBuf, PAL_TRANSPR, t->renderBufWidth * t->renderBufHeight);
+    /* test if buffer offset is not overflowing */
+#ifdef _DEBUG
+    if (t->renderBufW > t->renderW)
+        MY_ASSERT(t->bufOffset <= (t->renderBufW - t->renderW))
+#endif
+
+    /* fill text rendering buffer with transparency key */
+    memset(t->renderBuf, PAL_TRANSPR, t->renderBufW * t->renderBufH);
 
     /* draw text mark background */
     if (textIsMarked())
@@ -601,7 +583,7 @@ void drawTextBox(uint16_t textBoxID)
             if (ch == '\0')
                 break;
 
-            cw = getCharWidth(ch, FONT_TYPE1);
+            cw = charWidth(ch);
             if (i < start)
                 x1 += cw;
 
@@ -614,66 +596,34 @@ void drawTextBox(uint16_t textBoxID)
             start  = x1;
             length = x2 - x1;
 
-            MY_ASSERT((start + length) <= t->renderBufWidth)
-
-            for (y = 0; y < t->renderBufHeight; ++y)
-                memset(&t->renderBuf[(y * t->renderBufWidth) + start], PAL_TEXTMRK, length);
+            MY_ASSERT((start + length) <= t->renderBufW)
+            for (y = 0; y < t->renderBufH; ++y)
+                memset(&t->renderBuf[(y * t->renderBufW) + start], PAL_TEXTMRK, length);
         }
     }
 
-    textOutBuf(t->renderBuf, t->renderBufWidth, 0, 0, PAL_FORGRND, t->textPtr, t->maxChars);
+    /* render text to text render buffer */
+    textOutBuf(t->renderBuf, t->renderBufW, PAL_FORGRND, t->textPtr, t->maxChars);
 
+    /* fill screen rect background color (not always needed, but I'm lazy) */
     pal = video.frameBuffer[(t->y * SCREEN_W) + t->x] >> 24; /* get background palette (stored in alpha channel) */
-    fillRect(t->x + t->tx, t->y + t->ty, t->tw, 10, pal);
+    fillRect(t->x + t->tx, t->y + t->ty, t->renderW, 10, pal); /* 10 = tallest possible glyph/char height */
 
-    MY_ASSERT(t->bufOffset <= (t->renderBufWidth - t->tw))
-
-    blitClipW(t->x + t->tx, t->y + t->ty, t->renderBuf + t->bufOffset, t->renderBufWidth, t->renderBufHeight, t->tw);
+    /* render visible part of text render buffer to screen */
+    blitClipW(t->x + t->tx, t->y + t->ty, &t->renderBuf[t->bufOffset], t->renderBufW, t->renderBufH, t->renderW);
 }
 
 void showTextBox(uint16_t textBoxID)
 {
     MY_ASSERT(textBoxID < NUM_TEXTBOXES)
-
     textBoxes[textBoxID].visible = true;
 }
 
 void hideTextBox(uint16_t textBoxID)
 {
     MY_ASSERT(textBoxID < NUM_TEXTBOXES)
-
     hideSprite(SPRITE_TEXT_CURSOR);
     textBoxes[textBoxID].visible = false;
-}
-
-void setupTextBoxForSysReq(int16_t textBoxID, char *textPtr, int16_t textPtrLen, uint8_t setCursorToEnd)
-{
-    int16_t textW, textLen;
-    textBox_t *t;
-
-    MY_ASSERT((textBoxID >= 0) && (textBoxID < NUM_TEXTBOXES) && (textPtr != NULL))
-
-    t = &textBoxes[textBoxID];
-
-    t->visible   = false; /* will be shown later */
-    t->textPtr   = textPtr;
-    t->cursorPos = 0;
-    t->bufOffset = 0;
-
-    if (setCursorToEnd)
-    {
-        for (textLen = 0; textLen < textPtrLen; ++textLen)
-        {
-            if (textPtr[textLen] == '\0')
-                break;
-        }
-
-        t->cursorPos = textLen;
-
-        textW = getTextWidth(textPtr, FONT_TYPE1);
-        if (textW >= t->tw)
-            t->bufOffset = (int16_t)(textW - t->tw);
-    } 
 }
 
 static void setMarkX2ToMouseX(textBox_t *t)
@@ -702,7 +652,7 @@ static void setMarkX2ToMouseX(textBox_t *t)
 
     for (i = 0; i < numChars; ++i)
     {
-        cw  = getCharWidth(t->textPtr[i], FONT_TYPE1);
+        cw  = charWidth(t->textPtr[i]);
         tx2 = tx + cw;
 
         if ((mx >= tx) && (mx < tx2))
@@ -764,33 +714,29 @@ void handleTextBoxWhileMouseDown(void)
 
 int8_t testTextBoxMouseDown(void)
 {
-    uint16_t i;
+    uint16_t i, start, end;
     textBox_t *t;
 
     oldMouseX = mouse.x;
     oldCursorPos = 0;
 
-    for (i = 0; i < NUM_TEXTBOXES; ++i)
+    if (editor.ui.systemRequestShown)
+    {
+        /* if a system request is open, only test the first textbox (reserved) */
+        start = 0;
+        end   = 1;
+    }
+    else
+    {
+        start = 1;
+        end   = NUM_TEXTBOXES;
+    }
+
+    for (i = start; i < end; ++i)
     {
         t = &textBoxes[i];
         if (!t->visible)
             continue;
-
-        /* if a system request is shown, only handle textboxes within a system request */
-        if (editor.ui.systemRequestShown)
-        {
-            switch (i)
-            {
-                default: continue;
-                case TB_NIB_PLAYER1_NAME:
-                case TB_NIB_PLAYER2_NAME:
-                case TB_DISKOP_RENAME_NAME:
-                case TB_DISKOP_MAKEDIR_NAME:
-                case TB_DISKOP_SETPATH_NAME:
-                case TB_SCALE_FADE_VOL:
-                break;
-            }
-        }
 
         if ((mouse.y >= t->y) && (mouse.y < (t->y + t->h)))
         {
@@ -812,7 +758,7 @@ int8_t testTextBoxMouseDown(void)
 
                 editor.textCursorBlinkCounter  = 0;
                 mouse.lastUsedObjectType = OBJECT_TEXTBOX;
-                mouse.lastUsedObjectID   = i;
+                mouse.lastUsedObjectID = i;
 
                 editor.ui.editTextFlag = true;
                 return (true);
@@ -821,8 +767,7 @@ int8_t testTextBoxMouseDown(void)
     }
 
     /* if we were editing text and we clicked outside of a text box, exit text editing */
-    if (editor.ui.editTextFlag && !editor.ui.systemRequestShown)
-        exitTextEditing();
+    exitTextEditing();
 
     return (false);
 }
@@ -855,9 +800,51 @@ void setupInitialTextBoxPointers(void)
     textBoxes[TB_CONF_DEF_TRACKS_DIR].textPtr = &config.tracksPath[1];
 }
 
-void handleTextEditControl(SDL_Keycode keycode)
+void setTextCursorToEnd(textBox_t *t)
 {
     char ch;
+    uint16_t numChars;
+    uint32_t textWidth;
+
+    /* count number of chars and get full text width */
+    textWidth = 0;
+    for (numChars = 0; numChars < t->maxChars; ++numChars)
+    {
+        ch = t->textPtr[numChars];
+        if (ch == '\0')
+            break;
+
+        textWidth += charWidth(ch);
+    }
+
+    /* if cursor is not at the end, handle text marking */
+    if (t->cursorPos < numChars)
+    {
+        if (keyb.leftShiftPressed)
+        {
+            if (!textIsMarked())
+                markX1 = t->cursorPos;
+
+            markX2 = numChars;
+        }
+        else
+        {
+            removeTextMarking();
+        }
+    }
+
+    t->cursorPos = numChars;
+
+    t->bufOffset = 0;
+    if (textWidth > t->renderW)
+        t->bufOffset = textWidth - t->renderW;
+
+    drawTextBox(mouse.lastEditBox);
+    editor.textCursorBlinkCounter = 0;
+}
+
+void handleTextEditControl(SDL_Keycode keycode)
+{
     int16_t i;
     uint16_t numChars;
     int32_t textLength;
@@ -867,7 +854,6 @@ void handleTextEditControl(SDL_Keycode keycode)
     MY_ASSERT((mouse.lastEditBox >= 0) && (mouse.lastEditBox < NUM_TEXTBOXES))
 
     t = &textBoxes[mouse.lastEditBox];
-
     MY_ASSERT(t->textPtr != NULL)
 
     switch (keycode)
@@ -875,16 +861,7 @@ void handleTextEditControl(SDL_Keycode keycode)
         case SDLK_ESCAPE:
         {
             removeTextMarking();
-
-            if (mouse.lastEditBox == TB_NIB_PLAYER1_NAME)
-                nibblesPlayer1NameOK();
-            else if (mouse.lastEditBox == TB_NIB_PLAYER2_NAME)
-                nibblesPlayer2NameOK();
-            else
-                exitTextEditing();
-
-            if (editor.ui.systemRequestShown)
-                hideSystemRequest();
+            exitTextEditing();
         }
         break;
 
@@ -900,14 +877,16 @@ void handleTextEditControl(SDL_Keycode keycode)
                     if (t->textPtr[numChars] == '\0')
                         break;
 
-                    textWidth += getCharWidth(t->textPtr[numChars], FONT_TYPE1);
+                    textWidth += charWidth(t->textPtr[numChars]);
                 }
 
                 markX1 = 0;
                 markX2 = numChars;
                 t->cursorPos = markX2;
 
-                t->bufOffset = (textWidth > t->tw) ? (textWidth - t->tw) : 0;
+                t->bufOffset = 0;
+                if (textWidth > t->renderW)
+                    t->bufOffset = textWidth - t->renderW;
 
                 drawTextBox(mouse.lastEditBox);
             }
@@ -941,24 +920,9 @@ void handleTextEditControl(SDL_Keycode keycode)
         case SDLK_KP_ENTER:
         case SDLK_RETURN:
         {
-            /* handle RETURN/ENTER event for textboxes ( hardcoded :( ) */
-
+            /* ALT+ENTER = toggle fullscreen, even while text editing */
             if (keyb.leftAltPressed)
                 toggleFullScreen();
-            else if (mouse.lastEditBox == TB_NIB_PLAYER1_NAME)
-                nibblesPlayer1NameOK();
-            else if (mouse.lastEditBox == TB_NIB_PLAYER2_NAME)
-                nibblesPlayer2NameOK();
-            else if (mouse.lastEditBox == TB_DISKOP_RENAME_NAME)
-                diskOpRenameAnsi();
-            else if (mouse.lastEditBox == TB_DISKOP_MAKEDIR_NAME)
-                diskOpMakeDirAnsi();
-            else if (mouse.lastEditBox == TB_DISKOP_SETPATH_NAME)
-                diskOpSetPathAnsi();
-            else if (mouse.lastEditBox == TB_SCALE_FADE_VOL)
-                handleScaleFadeVolume();
-            else if (mouse.lastEditBox == TB_SAVE_RANGE_FILENAME)
-                saveRange2();
             else
                 exitTextEditing();
         }
@@ -1072,20 +1036,25 @@ void handleTextEditControl(SDL_Keycode keycode)
 
             if ((t->cursorPos > 0) && (t->textPtr[0] != '\0'))
             {
+                /* scroll buffer offset if we are scrolled */
                 if (t->bufOffset > 0)
                 {
-                    ch = relocateChars(t->textPtr[t->cursorPos - 1], FONT_TYPE1);
-
-                    t->bufOffset -= font1Widths[(uint32_t)(ch)];
+                    t->bufOffset -= charWidth(t->textPtr[t->cursorPos - 1]);
                     if (t->bufOffset < 0)
                         t->bufOffset = 0;
                 }
 
                 moveTextCursorLeft(mouse.lastEditBox, TEXTBOX_UPDATE);
 
-                for (i = t->cursorPos; i < (t->maxChars - 1); ++i)
+                i = t->cursorPos;
+                while (i < t->maxChars)
+                {
                     t->textPtr[i] = t->textPtr[i + 1];
-                t->textPtr[t->maxChars - 1] = '\0';
+                    if (t->textPtr[i] == '\0')
+                        break;
+
+                    i++;
+                }
 
                 drawTextBox(mouse.lastEditBox);
                 setSongModifiedFlagIfNeeded();
@@ -1105,18 +1074,23 @@ void handleTextEditControl(SDL_Keycode keycode)
 
             if ((t->textPtr[t->cursorPos] != '\0') && (t->textPtr[0] != '\0') && (t->cursorPos < t->maxChars))
             {
-                if (t->bufOffset > 0) /* are we scrolled? */
+                /* scroll buffer offset if we are scrolled */
+                if (t->bufOffset > 0)
                 {
-                    ch = relocateChars(t->textPtr[t->cursorPos], FONT_TYPE1);
-
-                    t->bufOffset -= font1Widths[(uint32_t)(ch)];
+                    t->bufOffset -= charWidth(t->textPtr[t->cursorPos]);
                     if (t->bufOffset < 0)
                         t->bufOffset = 0;
                 }
 
-                for (i = t->cursorPos; i < (t->maxChars - 1); ++i)
+                i = t->cursorPos;
+                while (i < t->maxChars)
+                {
+                    if (t->textPtr[i] == '\0')
+                        break;
+
                     t->textPtr[i] = t->textPtr[i + 1];
-                t->textPtr[t->maxChars - 1] = '\0';
+                    i++;
+                }
 
                 drawTextBox(mouse.lastEditBox);
                 setSongModifiedFlagIfNeeded();
@@ -1154,36 +1128,7 @@ void handleTextEditControl(SDL_Keycode keycode)
 
         case SDLK_END:
         {
-            /* count number of chars and get full text width */
-            textWidth = 0;
-            for (numChars = 0; numChars < t->maxChars; ++numChars)
-            {
-                if (t->textPtr[numChars] == '\0')
-                    break;
-
-                textWidth += getCharWidth(t->textPtr[numChars], FONT_TYPE1);
-            }
-
-            if (t->cursorPos < numChars)
-            {
-                if (keyb.leftShiftPressed)
-                {
-                    if (!textIsMarked())
-                        markX1 = t->cursorPos;
-
-                    markX2 = numChars;
-                }
-                else
-                {
-                    removeTextMarking();
-                }
-
-                t->cursorPos = numChars;
-                t->bufOffset = (textWidth > t->tw) ? (textWidth - t->tw) : 0;
-
-                drawTextBox(mouse.lastEditBox);
-                editor.textCursorBlinkCounter = 0;
-            }
+            setTextCursorToEnd(t);
         }
         break;
 
@@ -1213,13 +1158,6 @@ void handleTextEditInputChar(char textChar)
         }
     }
 
-    /* this text box can only handle certain characters */
-    if (mouse.lastEditBox == TB_SCALE_FADE_VOL)
-    {
-        if (((textChar != '.') && (textChar != ',')) && ((textChar < '0') || (textChar > '9')))
-            return;
-    }
-
     if (textIsMarked())
     {
         deleteMarkedText(t);
@@ -1231,8 +1169,15 @@ void handleTextEditInputChar(char textChar)
         i = getTextLength(t, 0);
         if (i < t->maxChars) /* do we have room for a new character? */
         {
-            for (i = (t->maxChars - 1); i > t->cursorPos; --i)
-                t->textPtr[i] = t->textPtr[i - 1];
+            t->textPtr[i + 1] = '\0';
+
+            /* if string not empty, shift string to the right to make space for char insertion */
+            if (i > 0)
+            {
+                for (; i > t->cursorPos; --i)
+                    t->textPtr[i] = t->textPtr[i - 1];
+            }
+
             t->textPtr[t->cursorPos] = textChar;
 
             moveTextCursorRight(mouse.lastEditBox, TEXTBOX_UPDATE); /* also updates textbox */
@@ -1274,7 +1219,7 @@ static void moveTextCursorRight(int16_t i, uint8_t updateTextBox)
         t->cursorPos++;
 
         /* scroll buffer if needed */
-        if (cursorPosToX(t) >= t->tw)
+        if (cursorPosToX(t) >= t->renderW)
             scrollTextBufferRight(t, numChars);
 
         if (updateTextBox)
@@ -1289,8 +1234,8 @@ void freeTextBoxes(void)
     int32_t i;
     textBox_t *t;
 
-    /* free up text edit box buffers */
-    for (i = 0; i < NUM_TEXTBOXES; ++i)
+    /* free text box buffers (skip first entry, it's reserved for inputBox()) */
+    for (i = 1; i < NUM_TEXTBOXES; ++i)
     {
         t = &textBoxes[i];
         if (t->renderBuf != NULL)

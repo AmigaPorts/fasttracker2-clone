@@ -16,19 +16,17 @@
 
 enum
 {
-    STEREO_SAMPLE_READ_LEFT  = 0,
-    STEREO_SAMPLE_READ_RIGHT = 1,
-    STEREO_SAMPLE_CONVERT    = 2,
+    STEREO_SAMPLE_READ_LEFT  = 1,
+    STEREO_SAMPLE_READ_RIGHT = 2,
+    STEREO_SAMPLE_CONVERT    = 3,
 
     WAV_FORMAT_PCM        = 0x0001,
     WAV_FORMAT_IEEE_FLOAT = 0x0003
 };
 
 static volatile uint8_t sampleIsLoading;
-static int8_t stereoSampleLoadMode = -1;
-static uint8_t _sampleSlot, _loadAsInstrFlag; /* for sample loader */
-static UNICHAR sampleLoadFilenameU[PATH_MAX + 1]; /* used for stereo sample temp loading */
-static sampleTyp *currSmp;
+static int16_t stereoSampleLoadMode;
+static uint8_t sampleSlot, loadAsInstrFlag;
 static SDL_Thread *thread;
 
 static void normalize32bitSigned(int32_t *sampleData, uint32_t sampleLength);
@@ -61,7 +59,7 @@ static double aiffRateToDouble(uint8_t *in)
     return (neg ? -dOut : dOut);
 }
 
-static int8_t checkIfAiffIsStereo(FILE *f) /* only ran on files that are confirmed to be AIFFs */
+static int8_t aiffIsStereo(FILE *f) /* only ran on files that are confirmed to be AIFFs */
 {
     int8_t stereoFlag;
     uint16_t numChannels;
@@ -124,7 +122,7 @@ static int8_t checkIfAiffIsStereo(FILE *f) /* only ran on files that are confirm
     return (stereoFlag);
 }
 
-static int8_t checkIfWavIsStereo(FILE *f) /* only ran on files that are confirmed to be WAVs */
+static int8_t wavIsStereo(FILE *f) /* only ran on files that are confirmed to be WAVs */
 {
     int8_t stereoFlag;
     uint16_t numChannels;
@@ -201,7 +199,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
     double dRate;
     FILE *f;
     UNICHAR *filename;
-    sampleTyp tmpSmp;
+    sampleTyp tmpSmp, *s;
 
     /* this is important for the "goto" on load error */
     f = NULL;
@@ -213,8 +211,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
         __debugbreak();
 #endif
 
-        setMouseBusy(false);
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
         goto aiffLoadError;
     }
 
@@ -223,8 +220,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
     f = UNICHAR_FOPEN(filename, "rb");
     if (f == NULL)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
         goto aiffLoadError;
     }
 
@@ -232,8 +228,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
     filesize = ftell(f);
     if (filesize < 12)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_SAMP_LOAD_ERROR);
+        okBoxThreadSafe(0, "System message", "Error loading sample: The sample is not supported or is invalid!");
         goto aiffLoadError;
     }
 
@@ -275,8 +270,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 
     if ((commPtr == 0) || (commLen < 18) || (ssndPtr == 0))
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_SAMP_LOAD_ERROR);
+        okBoxThreadSafe(0, "System message", "Error loading sample: The sample is not supported or is invalid!");
         goto aiffLoadError;
     }
 
@@ -295,15 +289,13 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 
     if ((numChannels != 1) && (numChannels != 2))
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_SAMP_LOAD_ERROR);
+        okBoxThreadSafe(0, "System message", "Error loading sample: Unsupported amounts of channels!");
         goto aiffLoadError;
     }
 
     if ((bitDepth != 8) && (bitDepth != 16) && (bitDepth != 24) && (bitDepth != 32))
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_SAMP_LOAD_ERROR);
+        okBoxThreadSafe(0, "System message", "Error loading sample: Unsupported bitdepth!");
         goto aiffLoadError;
     }
 
@@ -313,8 +305,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
         fread(&compType, 1, 4, f);
         if (memcmp(compType, "NONE", 4))
         {
-            setMouseBusy(false);
-            sysReqQueue(SR_SAMP_LOAD_ERROR);
+            okBoxThreadSafe(0, "System message", "Error loading sample: The sample is not supported or is invalid!");
             goto aiffLoadError;
         }
     }
@@ -329,8 +320,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
     fread(&offset, 4, 1, f);
     if (offset > 0)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_SAMP_LOAD_ERROR);
+        okBoxThreadSafe(0, "System message", "Error loading sample: The sample is not supported or is invalid!");
         goto aiffLoadError;
     }
 
@@ -356,15 +346,13 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
         tmpSmp.pek = (int8_t *)(malloc(sampleLength + 2));
         if (tmpSmp.pek == NULL)
         {
-            setMouseBusy(false);
-            sysReqQueue(SR_OOM_ERROR);
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
             goto aiffLoadError;
         }
 
         if (fread(tmpSmp.pek, sampleLength, 1, f) != 1)
         {
-            setMouseBusy(false);
-            sysReqQueue(SR_LOAD_IO_ERROR);
+            okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
             goto aiffLoadError;
         }
 
@@ -408,8 +396,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
             tmpSmp.pek = (int8_t *)(realloc(tmpSmp.pek, sampleLength + 2));
             if (tmpSmp.pek == NULL)
             {
-                setMouseBusy(false);
-                sysReqQueue(SR_OOM_ERROR);
+                okBoxThreadSafe(0, "System message", "Not enough memory!");
                 goto aiffLoadError;
             }
         }
@@ -421,15 +408,13 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
         tmpSmp.pek = (int8_t *)(malloc(sampleLength + 2));
         if (tmpSmp.pek == NULL)
         {
-            setMouseBusy(false);
-            sysReqQueue(SR_OOM_ERROR);
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
             goto aiffLoadError;
         }
 
         if (fread(tmpSmp.pek, sampleLength, 1, f) != 1)
         {
-            setMouseBusy(false);
-            sysReqQueue(SR_LOAD_IO_ERROR);
+            okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
             goto aiffLoadError;
         }
 
@@ -481,8 +466,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
             tmpSmp.pek = (int8_t *)(realloc(tmpSmp.pek, sampleLength + 2));
             if (tmpSmp.pek == NULL)
             {
-                setMouseBusy(false);
-                sysReqQueue(SR_OOM_ERROR);
+                okBoxThreadSafe(0, "System message", "Not enough memory!");
                 goto aiffLoadError;
             }
         }
@@ -498,8 +482,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
         tmpSmp.pek = (int8_t *)(malloc(sampleLength + 2));
         if (tmpSmp.pek == NULL)
         {
-            setMouseBusy(false);
-            sysReqQueue(SR_OOM_ERROR);
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
             goto aiffLoadError;
         }
 
@@ -578,8 +561,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
         tmpSmp.pek = (int8_t *)(realloc(tmpSmp.pek, sampleLength + 2));
         if (tmpSmp.pek == NULL)
         {
-            setMouseBusy(false);
-            sysReqQueue(SR_OOM_ERROR);
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
             goto aiffLoadError;
         }
     }
@@ -590,15 +572,13 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
         tmpSmp.pek = (int8_t *)(malloc(sampleLength + 2));
         if (tmpSmp.pek == NULL)
         {
-            setMouseBusy(false);
-            sysReqQueue(SR_OOM_ERROR);
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
             goto aiffLoadError;
         }
 
         if (fread(tmpSmp.pek, sampleLength, 1, f) != 1)
         {
-            setMouseBusy(false);
-            sysReqQueue(SR_LOAD_IO_ERROR);
+            okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
             goto aiffLoadError;
         }
 
@@ -667,8 +647,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
         tmpSmp.pek = (int8_t *)(realloc(tmpSmp.pek, sampleLength + 2));
         if (tmpSmp.pek == NULL)
         {
-            setMouseBusy(false);
-            sysReqQueue(SR_OOM_ERROR);
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
             goto aiffLoadError;
         }
     }
@@ -716,15 +695,15 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
     fclose(f);
 
     /* if loaded in instrument mode */
-    if (_loadAsInstrFlag)
+    if (loadAsInstrFlag)
         clearInstr(editor.curInstr);
 
-    currSmp = &instr[editor.curInstr].samp[_sampleSlot];
+    s = &instr[editor.curInstr].samp[sampleSlot];
 
     lockMixerCallback();
-    freeSample(currSmp);
-    memcpy(currSmp, &tmpSmp, sizeof (sampleTyp));
-    fixSample(currSmp);
+    freeSample(s);
+    memcpy(s, &tmpSmp, sizeof (sampleTyp));
+    fixSample(s);
     unlockMixerCallback();
 
     setSongModifiedFlag();
@@ -756,7 +735,7 @@ static int32_t SDLCALL loadIFFSample(void *ptr)
     uint32_t vhdrPtr, vhdrLen, bodyPtr, bodyLen, namePtr, nameLen;
     FILE *f;
     UNICHAR *filename;
-    sampleTyp tmpSmp;
+    sampleTyp tmpSmp, *s;
 
     /* this is important for the "goto" on load error */
     f = NULL;
@@ -767,9 +746,7 @@ static int32_t SDLCALL loadIFFSample(void *ptr)
 #ifdef _DEBUG
         __debugbreak();
 #endif
-
-        setMouseBusy(false);
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
         goto iffLoadError;
     }
 
@@ -778,8 +755,7 @@ static int32_t SDLCALL loadIFFSample(void *ptr)
     f = UNICHAR_FOPEN(filename, "rb");
     if (f == NULL)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
         goto iffLoadError;
     }
 
@@ -787,8 +763,7 @@ static int32_t SDLCALL loadIFFSample(void *ptr)
     filesize = ftell(f);
     if (filesize < 12)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_SAMP_LOAD_ERROR);
+        okBoxThreadSafe(0, "System message", "Error loading sample: The sample is not supported or is invalid!");
         goto iffLoadError;
     }
 
@@ -847,8 +822,7 @@ static int32_t SDLCALL loadIFFSample(void *ptr)
 
     if ((vhdrPtr == 0) || (vhdrLen < 20) || (bodyPtr == 0))
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_SAMP_LOAD_ERROR);
+        okBoxThreadSafe(0, "System message", "Error loading sample: The sample is not supported or is invalid!");
         goto iffLoadError;
     }
 
@@ -868,8 +842,7 @@ static int32_t SDLCALL loadIFFSample(void *ptr)
 
     if (fgetc(f) != 0) /* sample type */
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_SAMP_LOAD_ERROR);
+        okBoxThreadSafe(0, "System message", "Error loading sample: The sample is not supported!");
         goto iffLoadError;
     }
 
@@ -905,16 +878,14 @@ static int32_t SDLCALL loadIFFSample(void *ptr)
     tmpSmp.pek = (int8_t *)(malloc(sampleLength + 2));
     if (tmpSmp.pek == NULL)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_OOM_ERROR);
+        okBoxThreadSafe(0, "System message", "Not enough memory!");
         goto iffLoadError;
     }
 
     fseek(f, bodyPtr, SEEK_SET);
     if (fread(tmpSmp.pek, sampleLength, 1, f) != 1)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
         goto iffLoadError;
     }
 
@@ -990,15 +961,15 @@ static int32_t SDLCALL loadIFFSample(void *ptr)
     fclose(f);
 
     /* if loaded in instrument mode */
-    if (_loadAsInstrFlag)
+    if (loadAsInstrFlag)
         clearInstr(editor.curInstr);
 
-    currSmp = &instr[editor.curInstr].samp[_sampleSlot];
+    s = &instr[editor.curInstr].samp[sampleSlot];
 
     lockMixerCallback();
-    freeSample(currSmp);
-    memcpy(currSmp, &tmpSmp, sizeof (sampleTyp));
-    fixSample(currSmp);
+    freeSample(s);
+    memcpy(s, &tmpSmp, sizeof (sampleTyp));
+    fixSample(s);
     unlockMixerCallback();
 
     setSongModifiedFlag();
@@ -1028,7 +999,7 @@ static int32_t SDLCALL loadRawSample(void *ptr)
     uint32_t filenameLen, i, filesize;
     FILE *f;
     UNICHAR *filename;
-    sampleTyp tmpSmp;
+    sampleTyp tmpSmp, *s;
 
     /* this is important for the "goto" on load error */
     f = NULL;
@@ -1039,8 +1010,7 @@ static int32_t SDLCALL loadRawSample(void *ptr)
 #ifdef _DEBUG
         __debugbreak();
 #endif
-
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
         goto rawLoadError;
     }
 
@@ -1049,7 +1019,7 @@ static int32_t SDLCALL loadRawSample(void *ptr)
     f = UNICHAR_FOPEN(filename, "rb");
     if (f == NULL)
     {
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
         goto rawLoadError;
     }
 
@@ -1059,8 +1029,7 @@ static int32_t SDLCALL loadRawSample(void *ptr)
 
     if (filesize == 0)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_SAMP_LOAD_ERROR);
+        okBoxThreadSafe(0, "System message", "Error loading sample: The sample is not supported or is invalid!");
         goto rawLoadError;
     }
 
@@ -1070,15 +1039,13 @@ static int32_t SDLCALL loadRawSample(void *ptr)
     tmpSmp.pek = (int8_t *)(malloc(filesize + 2));
     if (tmpSmp.pek == NULL)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_OOM_ERROR);
+        okBoxThreadSafe(0, "System message", "Not enough memory!");
         goto rawLoadError;
     }
 
     if (fread(tmpSmp.pek, filesize, 1, f) != 1)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
         goto rawLoadError;
     }
 
@@ -1117,15 +1084,15 @@ static int32_t SDLCALL loadRawSample(void *ptr)
     tmpSmp.pan = 128;
 
     /* if loaded in instrument mode */
-    if (_loadAsInstrFlag)
+    if (loadAsInstrFlag)
         clearInstr(editor.curInstr);
 
-    currSmp = &instr[editor.curInstr].samp[_sampleSlot];
+    s = &instr[editor.curInstr].samp[sampleSlot];
 
     lockMixerCallback();
-    freeSample(currSmp);
-    memcpy(currSmp, &tmpSmp, sizeof (sampleTyp));
-    fixSample(currSmp);
+    freeSample(s);
+    memcpy(s, &tmpSmp, sizeof (sampleTyp));
+    fixSample(s);
     unlockMixerCallback();
 
     setSongModifiedFlag();
@@ -1162,7 +1129,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
     float fSmp, *fAudioDataFloat;
     double *dAudioDataDouble, dSmp;
     FILE *f;
-    sampleTyp tmpSmp;
+    sampleTyp tmpSmp, *s;
     UNICHAR *filename;
 
     /* this is important for the "goto" on load error */
@@ -1188,8 +1155,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
 #ifdef _DEBUG
         __debugbreak();
 #endif
-        setMouseBusy(false);
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
         goto wavLoadError;
     }
 
@@ -1198,8 +1164,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
     f = UNICHAR_FOPEN(filename, "rb");
     if (f == NULL)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
         goto wavLoadError;
     }
 
@@ -1208,8 +1173,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
     filesize = ftell(f);
     if (filesize < 12)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_SAMP_LOAD_ERROR);
+        okBoxThreadSafe(0, "System message", "Error loading sample: The sample is not supported or is invalid!");
         goto wavLoadError;
     }
 
@@ -1295,8 +1259,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
     /* we need at least "fmt " and "data" - check if we found them sanely */
     if (((fmtPtr == 0) || (fmtLen < 16)) || ((dataPtr == 0) || (dataLen == 0)))
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_SAMP_LOAD_ERROR);
+        okBoxThreadSafe(0, "System message", "Error loading sample: The sample is not supported or is invalid!");
         goto wavLoadError;
     }
 
@@ -1314,43 +1277,38 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
 
     if ((sampleRate == 0) || (sampleLength == 0) || (sampleLength >= filesize))
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_SAMP_LOAD_ERROR);
+        okBoxThreadSafe(0, "System message", "Error loading sample: The sample is not supported or is invalid!");
         goto wavLoadError;
     }
 
     if ((audioFormat != WAV_FORMAT_PCM) && (audioFormat != WAV_FORMAT_IEEE_FLOAT))
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_SAMP_LOAD_ERROR);
+        okBoxThreadSafe(0, "System message", "Error loading sample: The sample is not supported!");
         goto wavLoadError;
     }
 
     if ((numChannels == 0) || (numChannels > 2))
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_SAMP_LOAD_ERROR);
+        okBoxThreadSafe(0, "System message", "Error loading sample: Unsupported number of channels!");
         goto wavLoadError;
     }
 
     if ((audioFormat == WAV_FORMAT_IEEE_FLOAT) && (bitsPerSample != 32) && (bitsPerSample != 64))
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_SAMP_LOAD_ERROR);
+        okBoxThreadSafe(0, "System message", "Error loading sample: Unsupported bitdepth!");
         goto wavLoadError;
     }
 
     if ((bitsPerSample != 8) && (bitsPerSample != 16) && (bitsPerSample != 24) && (bitsPerSample != 32) && (bitsPerSample != 64))
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_SAMP_LOAD_ERROR);
+        okBoxThreadSafe(0, "System message", "Error loading sample: Unsupported bitdepth!");
         goto wavLoadError;
     }
 
     /* ---- READ SAMPLE DATA ---- */
     fseek(f, dataPtr, SEEK_SET);
 
-    currSmp = &instr[editor.curInstr].samp[editor.curSmp];
+    s = &instr[editor.curInstr].samp[editor.curSmp];
     tmpSmp.pek = NULL;
     freeSample(&tmpSmp);
 
@@ -1359,8 +1317,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
         audioDataU8 = (uint8_t *)(malloc(sampleLength * sizeof (int8_t)));
         if (audioDataU8 == NULL)
         {
-            setMouseBusy(false);
-            sysReqQueue(SR_OOM_ERROR);
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
             goto wavLoadError;
         }
 
@@ -1410,8 +1367,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
         tmpSmp.pek = (int8_t *)(malloc(sampleLength + 2));
         if (tmpSmp.pek == NULL)
         {
-            setMouseBusy(false);
-            sysReqQueue(SR_OOM_ERROR);
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
             goto wavLoadError;
         }
 
@@ -1426,8 +1382,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
         audioDataS16 = (int16_t *)(malloc(sampleLength * sizeof (int16_t)));
         if (audioDataS16 == NULL)
         {
-            setMouseBusy(false);
-            sysReqQueue(SR_OOM_ERROR);
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
             goto wavLoadError;
         }
 
@@ -1482,8 +1437,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
         tmpSmp.pek = (int8_t *)(malloc(sampleLength + 2));
         if (tmpSmp.pek == NULL)
         {
-            setMouseBusy(false);
-            sysReqQueue(SR_OOM_ERROR);
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
             goto wavLoadError;
         }
 
@@ -1497,8 +1451,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
         audioDataS32 = (int32_t *)(malloc(sampleLength * sizeof (int32_t)));
         if (audioDataS32 == NULL)
         {
-            setMouseBusy(false);
-            sysReqQueue(SR_OOM_ERROR);
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
             goto wavLoadError;
         }
 
@@ -1564,8 +1517,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
         tmpSmp.pek = (int8_t *)(malloc(sampleLength + 2));
         if (tmpSmp.pek == NULL)
         {
-            setMouseBusy(false);
-            sysReqQueue(SR_OOM_ERROR);
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
             goto wavLoadError;
         }
 
@@ -1585,8 +1537,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
         audioDataS32 = (int32_t *)(malloc(sampleLength * sizeof (int32_t)));
         if (audioDataS32 == NULL)
         {
-            setMouseBusy(false);
-            sysReqQueue(SR_OOM_ERROR);
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
             goto wavLoadError;
         }
 
@@ -1647,8 +1598,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
         tmpSmp.pek = (int8_t *)(malloc(sampleLength + 2));
         if (tmpSmp.pek == NULL)
         {
-            setMouseBusy(false);
-            sysReqQueue(SR_OOM_ERROR);
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
             goto wavLoadError;
         }
 
@@ -1665,8 +1615,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
         audioDataU32 = (uint32_t *)(malloc(sampleLength * sizeof (float)));
         if (audioDataU32 == NULL)
         {
-            setMouseBusy(false);
-            sysReqQueue(SR_OOM_ERROR);
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
             goto wavLoadError;
         }
 
@@ -1721,8 +1670,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
         tmpSmp.pek = (int8_t *)(malloc(sampleLength + 2));
         if (tmpSmp.pek == NULL)
         {
-            setMouseBusy(false);
-            sysReqQueue(SR_OOM_ERROR);
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
             goto wavLoadError;
         }
 
@@ -1744,8 +1692,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
         dAudioDataDouble = (double *)(malloc(sampleLength * sizeof (double)));
         if (dAudioDataDouble == NULL)
         {
-            setMouseBusy(false);
-            sysReqQueue(SR_OOM_ERROR);
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
             goto wavLoadError;
         }
 
@@ -1798,8 +1745,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
         tmpSmp.pek = (int8_t *)(malloc(sampleLength + 2));
         if (tmpSmp.pek == NULL)
         {
-            setMouseBusy(false);
-            sysReqQueue(SR_OOM_ERROR);
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
             goto wavLoadError;
         }
 
@@ -1944,15 +1890,15 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
     if (dAudioDataDouble != NULL) free(dAudioDataDouble);
 
     /* if loaded in instrument mode */
-    if (_loadAsInstrFlag)
+    if (loadAsInstrFlag)
         clearInstr(editor.curInstr);
 
-    currSmp = &instr[editor.curInstr].samp[_sampleSlot];
+    s = &instr[editor.curInstr].samp[sampleSlot];
 
     lockMixerCallback();
-    freeSample(currSmp);
-    memcpy(currSmp, &tmpSmp, sizeof (sampleTyp));
-    fixSample(currSmp);
+    freeSample(s);
+    memcpy(s, &tmpSmp, sizeof (sampleTyp));
+    fixSample(s);
     unlockMixerCallback();
 
     setSongModifiedFlag();
@@ -1980,7 +1926,7 @@ wavLoadError:
     return (false);
 }
 
-int8_t loadSample(UNICHAR *filenameU, uint8_t sampleSlot, uint8_t loadAsInstr)
+int8_t loadSample(UNICHAR *filenameU, uint8_t smpNr, uint8_t instrFlag)
 {
     char tmpBuffer[16 + 1];
     FILE *f;
@@ -1988,26 +1934,25 @@ int8_t loadSample(UNICHAR *filenameU, uint8_t sampleSlot, uint8_t loadAsInstr)
     if (sampleIsLoading)
         return (false);
 
-    _sampleSlot      = sampleSlot;
-    _loadAsInstrFlag = loadAsInstr;
+    stereoSampleLoadMode = 0;
+
+    sampleSlot      = smpNr;
+    loadAsInstrFlag = instrFlag;
 
     if (editor.curInstr == 0)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_LOAD_INSTR0_ERROR);
+        okBox(0, "System message", "The zero-instrument cannot hold intrument data.");
         return (false);
     }
 
     f = UNICHAR_FOPEN(filenameU, "rb");
     if (f == NULL)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_LOAD_IO_ERROR);
+        okBox(0, "System message", "General I/O error during loading! Is the file in use?");
         return (false);
     }
 
     memset(tmpBuffer, 0, sizeof (tmpBuffer));
-
     if (fread(tmpBuffer, sizeof (tmpBuffer) - 1, 1, f) == 1)
     {
         tmpBuffer[sizeof (tmpBuffer) - 1] = '\0';
@@ -2018,26 +1963,19 @@ int8_t loadSample(UNICHAR *filenameU, uint8_t sampleSlot, uint8_t loadAsInstr)
         if (!strncmp("RIFF", tmpBuffer, 4) && !strncmp("WAVE", tmpBuffer + 8, 4))
         {
             /* let the user pick what to do with stereo samples... */
-            if ((stereoSampleLoadMode == -1) && checkIfWavIsStereo(f))
-            {
-                fclose(f);
-                UNICHAR_STRCPY(sampleLoadFilenameU, filenameU);
-                setMouseBusy(false);
-                sysReqQueue(SR_SAMP_LOAD_STEREO);
-                return (true);
-            }
+            if (wavIsStereo(f))
+                stereoSampleLoadMode = okBox(5, "System request", "This is a stereo sample...");
 
             sampleIsLoading = true;
 
             fclose(f);
             UNICHAR_STRCPY(editor.tmpFilenameU, filenameU);
 
-            setMouseBusy(true);
+            mouseAnimOn();
             thread = SDL_CreateThread(loadWAVSample, "FT2 Clone Sample Loading Thread", NULL);
             if (thread == NULL)
             {
-                setMouseBusy(false);
-                sysReqQueue(SR_THREAD_ERROR);
+                okBox(0, "System message", "Error creating sample loading thread!");
                 sampleIsLoading = false;
                 return (false);
             }
@@ -2056,8 +1994,7 @@ int8_t loadSample(UNICHAR *filenameU, uint8_t sampleSlot, uint8_t loadAsInstr)
                 /* AIFC (not supported) */
 
                 fclose(f);
-                setMouseBusy(false);
-                sysReqQueue(SR_SAMP_LOAD_AIFC_ERROR);
+                okBox(0, "System message", "Error loading sample: This AIFF type (AIFC) is not supported!");
                 return (true);
             }
             else if (!strncmp("AIFF", tmpBuffer + 8, 4))
@@ -2065,26 +2002,19 @@ int8_t loadSample(UNICHAR *filenameU, uint8_t sampleSlot, uint8_t loadAsInstr)
                 /* AIFF */
 
                 /* let the user pick what to do with stereo samples... */
-                if ((stereoSampleLoadMode == -1) && checkIfAiffIsStereo(f))
-                {
-                    fclose(f);
-                    UNICHAR_STRCPY(sampleLoadFilenameU, filenameU);
-                    setMouseBusy(false);
-                    sysReqQueue(SR_SAMP_LOAD_STEREO);
-                    return (true);
-                }
+                if (aiffIsStereo(f))
+                    stereoSampleLoadMode = okBox(5, "System request", "This is a stereo sample...");
 
                 sampleIsLoading = true;
 
                 fclose(f);
                 UNICHAR_STRCPY(editor.tmpFilenameU, filenameU);
 
-                setMouseBusy(true);
+                mouseAnimOn();
                 thread = SDL_CreateThread(loadAIFFSample, "FT2 Clone Sample Loading Thread", NULL);
                 if (thread == NULL)
                 {
-                    setMouseBusy(false);
-                    sysReqQueue(SR_THREAD_ERROR);
+                    okBox(0, "System message", "Error creating sample loading thread!");
                     sampleIsLoading = false;
                     return (false);
                 }
@@ -2103,12 +2033,11 @@ int8_t loadSample(UNICHAR *filenameU, uint8_t sampleSlot, uint8_t loadAsInstr)
                 fclose(f);
                 UNICHAR_STRCPY(editor.tmpFilenameU, filenameU);
 
-                setMouseBusy(true);
+                mouseAnimOn();
                 thread = SDL_CreateThread(loadIFFSample, "FT2 Clone Sample Loading Thread", NULL);
                 if (thread == NULL)
                 {
-                    setMouseBusy(false);
-                    sysReqQueue(SR_THREAD_ERROR);
+                    okBox(0, "System message", "Error creating sample loading thread!");
                     sampleIsLoading = false;
                     return (false);
                 }
@@ -2128,12 +2057,11 @@ int8_t loadSample(UNICHAR *filenameU, uint8_t sampleSlot, uint8_t loadAsInstr)
     fclose(f);
     UNICHAR_STRCPY(editor.tmpFilenameU, filenameU);
 
-    setMouseBusy(true);
+    mouseAnimOn();
     thread = SDL_CreateThread(loadRawSample, "FT2 Clone Sample Loading Thread", NULL);
     if (thread == NULL)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_THREAD_ERROR);
+        okBox(0, "System message", "Error creating sample loading thread!");
         sampleIsLoading = false;
         return (false);
     }
@@ -2158,8 +2086,8 @@ static void normalize32bitSigned(int32_t *sampleData, uint32_t sampleLength)
     }
 
     /* prevent division by zero! */
-    if (sampleVolPeak <= 0)
-        sampleVolPeak  = 1;
+    if (sampleVolPeak < 1)
+        sampleVolPeak = 1;
 
     /* 2147483647 = (2^32 / 2) - 1 */
     dGain = 2147483647.0 / sampleVolPeak;
@@ -2181,8 +2109,8 @@ static void normalize24bitSigned(int32_t *sampleData, uint32_t sampleLength)
     }
 
     /* prevent division by zero! */
-    if (sampleVolPeak <= 0)
-        sampleVolPeak  = 1;
+    if (sampleVolPeak < 1)
+        sampleVolPeak = 1;
 
     /* 8388607 = (2^24 / 2) - 1 */
     dGain = 8388607.0 / sampleVolPeak;
@@ -2230,27 +2158,6 @@ static void normalize64bitDoubleSigned(double *dSampleData, uint32_t sampleLengt
         for (i = 0; i < sampleLength; ++i)
             dSampleData[i] *= dGain;
     }
-}
-
-void stereoSampleReadLeft(void)
-{
-    hideSystemRequest();
-    stereoSampleLoadMode = STEREO_SAMPLE_READ_LEFT;
-    loadSample(sampleLoadFilenameU, _sampleSlot, _loadAsInstrFlag);
-}
-
-void stereoSampleReadRight(void)
-{
-    hideSystemRequest();
-    stereoSampleLoadMode = STEREO_SAMPLE_READ_RIGHT;
-    loadSample(sampleLoadFilenameU, _sampleSlot, _loadAsInstrFlag);
-}
-
-void stereoSampleConvert(void)
-{
-    hideSystemRequest();
-    stereoSampleLoadMode = STEREO_SAMPLE_CONVERT;
-    loadSample(sampleLoadFilenameU, _sampleSlot, _loadAsInstrFlag);
 }
 
 int8_t fileIsInstrument(char *fullPath)
@@ -2321,8 +2228,7 @@ int8_t fileIsSample(char *fullPath)
     if (!_strnicmp("xm.",  filename, 3) || !_strnicmp("ft.",  filename, 3) ||
         !_strnicmp("mod.", filename, 4) || !_strnicmp("nst.", filename, 4) ||
         !_strnicmp("s3m.", filename, 4) || !_strnicmp("stm.", filename, 4) ||
-        !_strnicmp("fst.", filename, 4)
-       )
+        !_strnicmp("fst.", filename, 4))
     {
         return (false); /* definitely a module */
     }
@@ -2335,8 +2241,7 @@ int8_t fileIsSample(char *fullPath)
             filename = &filename[extOffset];
             if (!_strnicmp(".mod", filename, 4) || !_strnicmp(".nst", filename, 4) ||
                 !_strnicmp(".s3m", filename, 4) || !_strnicmp(".stm", filename, 4) ||
-                !_strnicmp(".fst", filename, 4)
-               )
+                !_strnicmp(".fst", filename, 4))
             {
                 return (false); /* definitely a module */
             }

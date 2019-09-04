@@ -4,10 +4,8 @@
 #endif
 
 #include <stdint.h>
-#include "ft2_header.h"
 #include "ft2_gui.h"
 #include "ft2_mouse.h"
-#include "ft2_audio.h"
 #include "ft2_sample_ed.h"
 #include "ft2_video.h"
 
@@ -19,7 +17,6 @@ static volatile uint8_t drawSamplingBufferFlag, outOfMemoryFlag;
 static int16_t *currWriteBuf, displayBuffer1[SAMPLING_BUFFER_SIZE], displayBuffer2[SAMPLING_BUFFER_SIZE];
 static volatile int32_t currSampleLen, displayBufferLen;
 static SDL_AudioDeviceID recordDev;
-static sampleTyp *currSmp;
 
 static void SDLCALL samplingCallback(void *userdata, Uint8 *stream, int len)
 {
@@ -72,8 +69,7 @@ static void SDLCALL samplingCallback(void *userdata, Uint8 *stream, int len)
 void stopSampling(void)
 {
     resumeAudio();
-
-    setMouseBusy(false);
+    mouseAnimOff();
 
     SDL_CloseAudioDevice(recordDev);
     editor.samplingAudioFlag = false;
@@ -128,7 +124,7 @@ void handleSamplingUpdates(void)
         outOfMemoryFlag = false;
 
         stopSampling();
-        sysReqQueue(SR_OOM_ERROR);
+        okBox(0, "System message", "Not enough memory!");
 
         return;
     }
@@ -164,12 +160,21 @@ void handleSamplingUpdates(void)
     }
 }
 
-static uint8_t startSampling(void)
+void startSampling(void)
 {
+#if SDL_PATCHLEVEL < 5
+    okBox(2, "System message", "The program needs to be compiled with SDL 2.0.5 or later to support audio sampling.");
+    return;
+#else
     SDL_AudioSpec want, have;
 
+    if (okBox(2, "System request", "Clear sample data and start sampling? While ongoing, press any key to stop.") != 1)
+        return;
+
     if (editor.samplingAudioFlag || (editor.curInstr == 0))
-        return (false); /* instrument 0 = placeholder */
+        return;
+
+    mouseAnimOn();
 
     currSmp = &instr[editor.curInstr].samp[editor.curSmp];
 
@@ -184,11 +189,10 @@ static uint8_t startSampling(void)
     recordDev = SDL_OpenAudioDevice(audio.currInputDevice, true, &want, &have, SDL_AUDIO_ALLOW_FREQUENCY_CHANGE);
     if (recordDev == 0)
     {
-        sysReqQueue(SR_SAMPLING_AUDIO_DEV_ERROR);
-        return (false);
+        okBox(0, "System message", "Couldn't open audio input device.");
+        return;
     }
 
-    setMouseBusy(true);
     pauseAudio();
 
     /* wipe current sample and prepare it */
@@ -212,20 +216,5 @@ static uint8_t startSampling(void)
     editor.samplingAudioFlag = true;
 
     SDL_PauseAudioDevice(recordDev, false);
-    return (true);
-}
-
-void askToSample(void) /* we call this when clicking the "Sample" button */
-{
-#if SDL_PATCHLEVEL < 5
-    sysReqQueue(SR_SAMPLING_NOT_SUPPORTED);
-#else
-    sysReqQueue(SR_SAMPLING);
 #endif
-}
-
-void srStartSampling(void) /* called from system request. when we decided to start sampling */
-{
-    hideSystemRequest();
-    startSampling();
 }

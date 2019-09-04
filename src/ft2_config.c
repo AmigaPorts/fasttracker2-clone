@@ -100,6 +100,12 @@ static void loadConfigFromBuffer(uint8_t defaults)
 
     /* sanitize certain values */
 
+    config.modulesPath[80 - 1]  = '\0';
+    config.instrPath[80 - 1]    = '\0';
+    config.samplesPath[80 - 1]  = '\0';
+    config.patternsPath[80 - 1] = '\0';
+    config.tracksPath[80 - 1]   = '\0';
+
     config.boostLevel       = CLAMP(config.boostLevel,       1,  32);
     config.masterVol        = CLAMP(config.masterVol,        0, 256);
     config.ptnMaxChannels   = CLAMP(config.ptnMaxChannels,   0,   3);
@@ -211,12 +217,12 @@ static void drawContrastText(void)
             percent = editor.buttonContrast;
 
         if (percent >= 100)
-            charOutFast(599, 59, PAL_FORGRND, '0' + (percent / 100) % 10);
+            charOut(599, 59, PAL_FORGRND, '0' + (percent / 100) % 10);
 
         if (percent >= 10)
-            charOutFast(606, 59, PAL_FORGRND, '0' + ((percent / 10) % 10));
+            charOut(606, 59, PAL_FORGRND, '0' + ((percent / 10) % 10));
 
-        charOutFast(613, 59, PAL_FORGRND, '0' + (percent % 10));
+        charOut(613, 59, PAL_FORGRND, '0' + (percent % 10));
     }
 }
 
@@ -297,8 +303,8 @@ static void configDrawAmp(void)
 
     fillRect(607, 120, 13, 8, PAL_DESKTOP);
 
-    charOutFast(607, 120, PAL_FORGRND, '0' + (amp / 10));
-    charOutFast(614, 120, PAL_FORGRND, '0' + (amp % 10));
+    charOut(607, 120, PAL_FORGRND, '0' + (amp / 10));
+    charOut(614, 120, PAL_FORGRND, '0' + (amp % 10));
 }
 
 static void configDrawMasterVol(void)
@@ -314,20 +320,17 @@ static void configDrawMasterVol(void)
     decimal = (int32_t)(((fPercent - floorf(fPercent)) * 10.0f));
 
     if (percent >= 100)
-        charOutFast(590, 148, PAL_FORGRND, '0' + (percent / 100) % 10);  /* 100th */
+        charOut(590, 148, PAL_FORGRND, '0' + (percent / 100) % 10);  /* 100th */
     if (percent >= 10)
-        charOutFast(597, 148, PAL_FORGRND, '0' + ((percent / 10) % 10)); /* 10th */
+        charOut(597, 148, PAL_FORGRND, '0' + ((percent / 10) % 10)); /* 10th */
 
-    charOutFast(604, 148, PAL_FORGRND, '0' + (percent % 10));  /* 1st */
-    charOutFast(611, 148, PAL_FORGRND, '.');                   /* decimal point */
-    charOutFast(614, 148, PAL_FORGRND, '0' + (char)(decimal)); /* decimal */
+    charOut(604, 148, PAL_FORGRND, '0' + (percent % 10));  /* 1st */
+    charOut(611, 148, PAL_FORGRND, '.');                   /* decimal point */
+    charOut(614, 148, PAL_FORGRND, '0' + (char)(decimal)); /* decimal */
 }
 
 static void setDefaultConfigSettings(void)
 {
-    checkBoxes[CB_SR_S3M_DONT_SHOW].checked = false;
-    checkBoxes[CB_SR_NOT_YET_APPLIED_DONT_SHOW].checked = false;
-
     memcpy(configBuffer, defaultConfigBuffer, CONFIG_FILE_SIZE);
     loadConfigFromBuffer(true);
 }
@@ -336,9 +339,11 @@ void resetConfig(void)
 {
     uint8_t oldWindowFlags;
 
+    if (okBox(2, "System request", "Are you sure you want to completely reset your FT2 configuration?") != 1)
+        return;
+
     oldWindowFlags = config.windowFlags;
 
-    hideSystemRequest();
     setDefaultConfigSettings();
     setToDefaultAudioOutputDevice();
     setToDefaultAudioInputDevice();
@@ -362,11 +367,6 @@ void resetConfig(void)
             enterFullscreen();
         }
     }
-}
-
-void resetConfig2(void) /* called by "Reset config" button */
-{
-    sysReqQueue(SR_CONFIG_RESET);
 }
 
 uint8_t loadConfig(uint8_t showErrorFlag)
@@ -403,7 +403,7 @@ uint8_t loadConfig(uint8_t showErrorFlag)
     if (editor.configFileLocation == NULL)
     {
         if (showErrorFlag)
-            sysReqQueue(SR_CONFIG_CANT_LOAD);
+            okBox(0, "System message", "Error opening config file for reading!");
 
         return (false);
     }
@@ -412,7 +412,7 @@ uint8_t loadConfig(uint8_t showErrorFlag)
     if (in == NULL)
     {
         if (showErrorFlag)
-            sysReqQueue(SR_CONFIG_CANT_LOAD);
+            okBox(0, "System message", "Error opening config file for reading!");
 
         return (false);
     }
@@ -426,7 +426,7 @@ uint8_t loadConfig(uint8_t showErrorFlag)
         fclose(in);
 
         if (showErrorFlag)
-            sysReqQueue(SR_CONFIG_NOT_VALID);
+            okBox(0, "System message", "Error loading config: the config file is not valid!");
 
         return (false);
     }
@@ -437,7 +437,7 @@ uint8_t loadConfig(uint8_t showErrorFlag)
         fclose(in);
 
         if (showErrorFlag)
-            sysReqQueue(SR_CONFIG_NOT_VALID);
+            okBox(0, "System message", "Error loading config: the config file is not valid!");
 
         return (false);
     }
@@ -451,7 +451,7 @@ uint8_t loadConfig(uint8_t showErrorFlag)
         fclose(in);
 
         if (showErrorFlag)
-            sysReqQueue(SR_CONFIG_CANT_LOAD);
+            okBox(0, "System message", "Error opening config file for reading!");
 
         return (false);
     }
@@ -464,7 +464,7 @@ uint8_t loadConfig(uint8_t showErrorFlag)
     if (memcmp(&configBuffer[0], CFG_ID_STR, 35) != 0)
     {
         if (showErrorFlag)
-            sysReqQueue(SR_CONFIG_NOT_VALID);
+            okBox(0, "System message", "Error loading config: the config file is not valid!");
 
         return (false);
     }
@@ -520,7 +520,7 @@ uint8_t saveConfig(uint8_t showErrorFlag)
     if (editor.configFileLocation == NULL)
     {
         if (showErrorFlag)
-            sysReqQueue(SR_CONFIG_CANT_SAVE);
+            okBox(0, "System message", "General I/O error during saving! Is the file in use?");
 
         return (false);
     }
@@ -532,7 +532,7 @@ uint8_t saveConfig(uint8_t showErrorFlag)
     if (out == NULL)
     {
         if (showErrorFlag)
-            sysReqQueue(SR_CONFIG_CANT_SAVE);
+            okBox(0, "System message", "General I/O error during saving! Is the file in use?");
 
         return (false);
     }
@@ -557,7 +557,7 @@ uint8_t saveConfig(uint8_t showErrorFlag)
         fclose(out);
 
         if (showErrorFlag)
-            sysReqQueue(SR_CONFIG_CANT_SAVE);
+            okBox(0, "System message", "General I/O error during saving! Is the file in use?");
 
         return (false);
     }
@@ -663,7 +663,7 @@ static void setConfigFileLocation(void) /* kinda hackish */
         if (editor.configFileLocation != NULL) free(editor.configFileLocation);
 
         editor.configFileLocation = NULL;
-        sysReqQueue(SR_CONFIGPATH_ERROR);
+        showErrorMsgBox("Error: Couldn't set config file location. You can't load/save the config!");
         return;
     }
 
@@ -674,7 +674,7 @@ static void setConfigFileLocation(void) /* kinda hackish */
         free(editor.configFileLocation);
 
         editor.configFileLocation = NULL;
-        sysReqQueue(SR_CONFIGPATH_ERROR);
+        showErrorMsgBox("Error: Couldn't set config file location. You can't load/save the config!");
         return;
     }
 
@@ -716,7 +716,7 @@ static void setConfigFileLocation(void) /* kinda hackish */
     editor.configFileLocation = (UNICHAR *)(calloc(PATH_MAX + ft2DotCfgStrLen + 2, sizeof (UNICHAR)));
     if (editor.configFileLocation == NULL)
     {
-        sysReqQueue(SR_CONFIGPATH_ERROR);
+        showErrorMsgBox("Error: Couldn't set config file location. You can't load/save the config!");
         return;
     }
 
@@ -724,7 +724,7 @@ static void setConfigFileLocation(void) /* kinda hackish */
     {
         free(editor.configFileLocation);
         editor.configFileLocation = NULL;
-        sysReqQueue(SR_CONFIGPATH_ERROR);
+        showErrorMsgBox("Error: Couldn't set config file location. You can't load/save the config!");
         return;
     }
 
@@ -761,7 +761,7 @@ static void setConfigFileLocation(void) /* kinda hackish */
     editor.configFileLocation = (UNICHAR *)(calloc(PATH_MAX + ft2DotCfgStrLen + 2, sizeof (UNICHAR)));
     if (editor.configFileLocation == NULL)
     {
-        sysReqQueue(SR_CONFIGPATH_ERROR);
+        showErrorMsgBox("Error: Couldn't set config file location. You can't load/save the config!");
         return;
     }
 
@@ -769,7 +769,7 @@ static void setConfigFileLocation(void) /* kinda hackish */
     {
         free(editor.configFileLocation);
         editor.configFileLocation = NULL;
-        sysReqQueue(SR_CONFIGPATH_ERROR);
+        showErrorMsgBox("Error: Couldn't set config file location. You can't load/save the config!");
         return;
     }
 
@@ -900,16 +900,16 @@ static void drawQuantValue(void)
 {
     fillRect(354, 123, 13, 8, PAL_DESKTOP);
 
-    charOutFast(354 + (0 * 7), 123, PAL_FORGRND, '0' + (char)(config.recQuantRes / 10));
-    charOutFast(354 + (1 * 7), 123, PAL_FORGRND, '0' + (char)(config.recQuantRes % 10));
+    charOut(354 + (0 * 7), 123, PAL_FORGRND, '0' + (char)(config.recQuantRes / 10));
+    charOut(354 + (1 * 7), 123, PAL_FORGRND, '0' + (char)(config.recQuantRes % 10));
 }
 
 static void drawMIDIChanValue(void)
 {
     fillRect(578, 109, 13, 8, PAL_DESKTOP);
 
-    charOutFast(578 + (0 * 7), 109, PAL_FORGRND, '0' + (uint8_t)(config.recMIDIChn / 10));
-    charOutFast(578 + (1 * 7), 109, PAL_FORGRND, '0' + (uint8_t)(config.recMIDIChn % 10));
+    charOut(578 + (0 * 7), 109, PAL_FORGRND, '0' + (uint8_t)(config.recMIDIChn / 10));
+    charOut(578 + (1 * 7), 109, PAL_FORGRND, '0' + (uint8_t)(config.recMIDIChn % 10));
 }
 
 static void drawMIDITransp(void)
@@ -924,16 +924,16 @@ static void drawMIDITransp(void)
     val = (int8_t)(ABS(config.recMIDITranspVal));
     if (val >= 10)
     {
-        charOutFast(571, 123, PAL_FORGRND, sign);
-        charOutFast(578, 123, PAL_FORGRND, '0' + ((val / 10) % 10));
-        charOutFast(585, 123, PAL_FORGRND, '0' + (val % 10));
+        charOut(571, 123, PAL_FORGRND, sign);
+        charOut(578, 123, PAL_FORGRND, '0' + ((val / 10) % 10));
+        charOut(585, 123, PAL_FORGRND, '0' + (val % 10));
     }
     else
     {
         if (val > 0)
-            charOutFast(578, 123, PAL_FORGRND, sign);
+            charOut(578, 123, PAL_FORGRND, sign);
 
-        charOutFast(585, 123, PAL_FORGRND, '0' + (val % 10));
+        charOut(585, 123, PAL_FORGRND, '0' + (val % 10));
     }
 }
 
@@ -945,9 +945,9 @@ static void drawMIDISens(void)
 
     val = (uint8_t)(config.recMIDIVolSens);
 
-    charOutFast(525 + (0 * 7), 160, PAL_FORGRND, '0' + ((val / 100) % 10));
-    charOutFast(525 + (1 * 7), 160, PAL_FORGRND, '0' + ((val / 10)  % 10));
-    charOutFast(525 + (2 * 7), 160, PAL_FORGRND, '0' + ( val        % 10));
+    charOut(525 + (0 * 7), 160, PAL_FORGRND, '0' + ((val / 100) % 10));
+    charOut(525 + (1 * 7), 160, PAL_FORGRND, '0' + ((val / 10)  % 10));
+    charOut(525 + (2 * 7), 160, PAL_FORGRND, '0' + ( val        % 10));
 }
 
 static void setConfigRadioButtonStates(void)
@@ -2206,7 +2206,7 @@ void rbWinSizeAuto(void)
 {
     if (video.fullscreen)
     {
-        sysReqQueue(SR_CANT_CHANGE_SETTING_FULLSCREEN);
+        okBox(0, "System message", "You can't change the window size while in fullscreen mode!");
         return;
     }
 
@@ -2221,7 +2221,7 @@ void rbWinSize1x(void)
 {
     if (video.fullscreen)
     {
-        sysReqQueue(SR_CANT_CHANGE_SETTING_FULLSCREEN);
+        okBox(0, "System message", "You can't change the window size while in fullscreen mode!");
         return;
     }
 
@@ -2236,7 +2236,7 @@ void rbWinSize2x(void)
 {
     if (video.fullscreen)
     {
-        sysReqQueue(SR_CANT_CHANGE_SETTING_FULLSCREEN);
+        okBox(0, "System message", "You can't change the window size while in fullscreen mode!");
         return;
     }
 
@@ -2251,7 +2251,7 @@ void rbWinSize3x(void)
 {
     if (video.fullscreen)
     {
-        sysReqQueue(SR_CANT_CHANGE_SETTING_FULLSCREEN);
+        okBox(0, "System message", "You can't change the window size while in fullscreen mode!");
         return;
     }
 
@@ -2266,7 +2266,7 @@ void rbWinSize4x(void)
 {
     if (video.fullscreen)
     {
-        sysReqQueue(SR_CANT_CHANGE_SETTING_FULLSCREEN);
+        okBox(0, "System message", "You can't change the window size while in fullscreen mode!");
         return;
     }
 
@@ -2804,7 +2804,7 @@ void cbVsyncOff(void)
     config.windowFlags ^= FORCE_VSYNC_OFF;
 
     if (!(config.dontShowAgainFlags & DONT_SHOW_NOT_YET_APPLIED_WARNING_FLAG))
-        sysReqQueue(SR_SETTING_NOT_APPLIED_YET);
+        okBox(7, "System message", "This setting is not applied until you close and reopen the program.");
 }
 
 void cbFullScreen(void)
@@ -2812,7 +2812,7 @@ void cbFullScreen(void)
     config.windowFlags ^= START_IN_FULLSCR;
 
     if (!(config.dontShowAgainFlags & DONT_SHOW_NOT_YET_APPLIED_WARNING_FLAG))
-        sysReqQueue(SR_SETTING_NOT_APPLIED_YET);
+        okBox(7, "System message", "This setting is not applied until you close and reopen the program.");
 }
 
 void cbPixelFilter(void)

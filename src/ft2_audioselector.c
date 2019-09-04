@@ -167,7 +167,7 @@ void drawAudioOutputList(void)
                 tmpString = utf8ToCp437(audio.outputDeviceNames[deviceEntry], true);
                 if (tmpString != NULL)
                 {
-                    textOutClipped(114, y, PAL_FORGRND, tmpString, 114 + AUDIO_SELECTORS_BOX_WIDTH);
+                    textOutClipX(114, y, PAL_FORGRND, tmpString, 114 + AUDIO_SELECTORS_BOX_WIDTH);
                     free(tmpString);
                 }
             }
@@ -208,7 +208,7 @@ void drawAudioInputList(void)
                 tmpString = utf8ToCp437(audio.inputDeviceNames[deviceEntry], true);
                 if (tmpString != NULL)
                 {
-                    textOutClipped(114, y, PAL_FORGRND, tmpString, 114 + AUDIO_SELECTORS_BOX_WIDTH);
+                    textOutClipX(114, y, PAL_FORGRND, tmpString, 114 + AUDIO_SELECTORS_BOX_WIDTH);
                     free(tmpString);
                 }
             }
@@ -256,7 +256,7 @@ uint8_t testAudioDeviceListsMouseDown(void)
             audio.currOutputDevice[devStringLen + 1] = '\0'; /* UTF-8 needs double null termination */
 
             if (!setNewAudioSettings())
-                sysReqQueue(SR_AUD_OUT_DEV_ERROR);
+                okBox(0, "System message", "Couldn't open audio input device!");
             else
                 drawAudioOutputList();
         }

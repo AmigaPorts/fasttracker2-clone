@@ -156,24 +156,24 @@ static void drawScopeNumber(uint16_t scopeXOffs, uint16_t scopeYOffs, uint8_t ch
     {
         if (channel < 10) /* one digit? */
         {
-            charOutFastOutlined(scopeXOffs, scopeYOffs, PAL_MOUSEPT, '0' + channel);
+            charOutOutlined(scopeXOffs, scopeYOffs, PAL_MOUSEPT, '0' + channel);
         }
         else
         {
-            charOutFastOutlined(scopeXOffs,     scopeYOffs, PAL_MOUSEPT, '0' + (channel / 10));
-            charOutFastOutlined(scopeXOffs + 7, scopeYOffs, PAL_MOUSEPT, '0' + (channel % 10));
+            charOutOutlined(scopeXOffs,     scopeYOffs, PAL_MOUSEPT, '0' + (channel / 10));
+            charOutOutlined(scopeXOffs + 7, scopeYOffs, PAL_MOUSEPT, '0' + (channel % 10));
         }
     }
     else
     {
         if (channel < 10) /* one digit? */
         {
-            charOutFast(scopeXOffs, scopeYOffs, PAL_MOUSEPT, '0' + channel);
+            charOut(scopeXOffs, scopeYOffs, PAL_MOUSEPT, '0' + channel);
         }
         else
         {
-            charOutFast(scopeXOffs,     scopeYOffs, PAL_MOUSEPT, '0' + (channel / 10));
-            charOutFast(scopeXOffs + 7, scopeYOffs, PAL_MOUSEPT, '0' + (channel % 10));
+            charOut(scopeXOffs,     scopeYOffs, PAL_MOUSEPT, '0' + (channel / 10));
+            charOut(scopeXOffs + 7, scopeYOffs, PAL_MOUSEPT, '0' + (channel % 10));
         }
     }
 }
@@ -873,10 +873,8 @@ static int32_t SDLCALL scopeThreadFunc(void *ptr)
     uint64_t time64;
     double dTime;
 
-#ifdef _WIN32
     /* this is needed for the scopes to stutter slightly less (confirmed) */
     SDL_SetThreadPriority(SDL_THREAD_PRIORITY_HIGH);
-#endif
 
     /* set next frame time */
     timeNext64 = SDL_GetPerformanceCounter() + video.vblankTimeLen;

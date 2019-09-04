@@ -46,7 +46,7 @@ typedef struct mptExtraChunk_t
 static const char rangedDataStr[] = "Ranged data from FT2";
 
 /* thread data */
-static uint8_t _saveRangeFlag;
+static uint8_t saveRangeFlag;
 static SDL_Thread *thread;
 
 /* used to restore linear interpolation unroll sample on .RAW/.IFF/.WAV files after save */
@@ -100,8 +100,7 @@ static int8_t saveRawSample(UNICHAR *filenameU, uint8_t saveRangedData)
     smp = &instr[editor.curInstr].samp[editor.curSmp];
     if ((smp->pek == NULL) || (smp->len == 0))
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_SAMP_SAVE_EMPTY);
+        okBoxThreadSafe(0, "System message", "Error saving sample: The sample is empty!");
         return (false);
     }
 
@@ -119,8 +118,7 @@ static int8_t saveRawSample(UNICHAR *filenameU, uint8_t saveRangedData)
     f = UNICHAR_FOPEN(filenameU, "wb");
     if (f == NULL)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_SAVE_IO_ERROR);
+        okBoxThreadSafe(0, "System message", "General I/O error during saving! Is the file in use?");
         return (false);
     }
 
@@ -172,16 +170,14 @@ static int8_t saveIFFSample(UNICHAR *filenameU, uint8_t saveRangedData)
     smp = &instr[editor.curInstr].samp[editor.curSmp];
     if ((smp->pek == NULL) || (smp->len == 0))
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_SAMP_SAVE_EMPTY);
+        okBoxThreadSafe(0, "System message", "Error saving sample: The sample is empty!");
         return (false);
     }
 
     f = UNICHAR_FOPEN(filenameU, "wb");
     if (f == NULL)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_SAVE_IO_ERROR);
+        okBoxThreadSafe(0, "System message", "General I/O error during saving! Is the file in use?");
         return (false);
     }
 
@@ -305,16 +301,14 @@ static int8_t saveWAVSample(UNICHAR *filenameU, uint8_t saveRangedData)
     smp = &ins->samp[editor.curSmp];
     if ((smp->pek == NULL) || (smp->len == 0))
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_SAMP_SAVE_EMPTY);
+        okBoxThreadSafe(0, "System message", "Error saving sample: The sample is empty!");
         return (false);
     }
 
     f = UNICHAR_FOPEN(filenameU, "wb");
     if (f == NULL)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_SAVE_IO_ERROR);
+        okBoxThreadSafe(0, "System message", "General I/O error during saving! Is the file in use?");
         return (false);
     }
 
@@ -491,42 +485,40 @@ static int32_t SDLCALL saveSampleThread(void *ptr)
 #ifdef _DEBUG
         __debugbreak();
 #endif
-        setMouseBusy(false);
-        sysReqQueue(SR_SAVE_IO_ERROR);
+        okBoxThreadSafe(0, "System message", "General I/O error during saving! Is the file in use?");
         return (false);
     }
 
     oldPathU = getDiskOpCurPath();
 
     /* in "save range mode", we must enter the sample directory */
-    if (_saveRangeFlag)
+    if (saveRangeFlag)
         UNICHAR_CHDIR(getDiskOpSmpPath());
 
     switch (editor.sampleSaveMode)
     {
-                 case SMP_SAVE_MODE_RAW: saveRawSample(editor.tmpFilenameU, _saveRangeFlag); break;
-                 case SMP_SAVE_MODE_IFF: saveIFFSample(editor.tmpFilenameU, _saveRangeFlag); break;
-        default: case SMP_SAVE_MODE_WAV: saveWAVSample(editor.tmpFilenameU, _saveRangeFlag); break;
+                 case SMP_SAVE_MODE_RAW: saveRawSample(editor.tmpFilenameU, saveRangeFlag); break;
+                 case SMP_SAVE_MODE_IFF: saveIFFSample(editor.tmpFilenameU, saveRangeFlag); break;
+        default: case SMP_SAVE_MODE_WAV: saveWAVSample(editor.tmpFilenameU, saveRangeFlag); break;
     }
 
     /* set back old working directory if we changed it */
-    if (_saveRangeFlag)
+    if (saveRangeFlag)
         UNICHAR_CHDIR(oldPathU);
 
     return (true);
 }
 
-void saveSample(UNICHAR *filenameU, uint8_t saveRangeFlag)
+void saveSample(UNICHAR *filenameU, uint8_t saveAsRange)
 {
-    _saveRangeFlag = saveRangeFlag;
+    saveRangeFlag = saveAsRange;
     UNICHAR_STRCPY(editor.tmpFilenameU, filenameU);
 
-    setMouseBusy(true);
+    mouseAnimOn();
     thread = SDL_CreateThread(saveSampleThread, "FT2 Clone Sample Saving Thread", NULL);
     if (thread == NULL)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_THREAD_ERROR);
+        okBoxThreadSafe(0, "System message", "Error creating sample saving thread!");
         return;
     }
 

@@ -13,7 +13,7 @@
 #endif
 #include "ft2_replayer.h"
 
-#define BETA_VERSION 120
+#define BETA_VERSION 121
 
 /* do NOT change these! It will only mess things up... */
 #define VBLANK_HZ 60
@@ -109,7 +109,7 @@ struct editor_t
 {
     struct ui_t
     {
-        char fullscreenButtonText[24], transpDelNotesText[48], nibblesLvlText[24];
+        char fullscreenButtonText[24];
         uint8_t updateLoadedSample, updateLoadedInstrument, setMouseBusy, setMouseIdle;
         uint8_t maxVisibleChannels, throwExit, editTextFlag;
         int16_t systemRequestID;
@@ -124,7 +124,7 @@ struct editor_t
 
         /* bottom screens */
         uint8_t patternEditorShown, instEditorShown, sampleEditorShown, systemRequestShown;
-        uint8_t exitSysReqOpen, channelOffset, numChannelsShown, pattChanScrollShown;
+        uint8_t channelOffset, numChannelsShown, pattChanScrollShown;
         uint8_t leftLoopPinMoving, rightLoopPinMoving, recordBoxShown;
         uint16_t patternChannelWidth;
         int32_t sampleDataOrLoopDrag;
@@ -146,8 +146,6 @@ struct editor_t
     UNICHAR *tmpFilenameU, *tmpInstrFilenameU; /* used by saving/loading threads */
     UNICHAR *configFileLocation, *audioDevConfigFileLocation, *midiConfigFileLocation;
 
-    char scaleFadeVolText[32 + 1];
-
     volatile uint8_t busy;
     volatile uint8_t loadMusicEvent;
     volatile uint8_t scopeThreadMutex;
@@ -156,8 +154,8 @@ struct editor_t
     volatile uint8_t wavReachedEndFlag;
     volatile FILE *wavRendererFileHandle;
 
-    int8_t buttonContrast, desktopContrast, curSmpChannel, scaleFadeVolumeMode, autoPlayOnDrop;
-    uint8_t trimThreadWasDone;
+    int8_t buttonContrast, desktopContrast, curSmpChannel;
+    uint8_t autoPlayOnDrop, trimThreadWasDone;
     uint8_t currPanEnvPoint, currVolEnvPoint, patternMode, currPaletteEdit, vsync60HzPresent;
     uint8_t copyMaskEnable, copyMask[5], pasteMask[5], transpMask[5], updateWindowTitle;
     uint8_t samplerNote, instrBankSwapped, instrBankOffset, sampleBankOffset, channelMute[MAX_VOICES];

@@ -25,454 +25,367 @@
 #include "ft2_midi.h"
 #include "ft2_mouse.h"
 #include "ft2_edit.h"
+#include "ft2_sample_ed_features.h"
 
 pushButton_t pushButtons[NUM_PUSHBUTTONS] =
 {
+    // ------ RESERVED PUSHBUTTONS ------
+    { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 }, { 0 },
+
+    /*
+    ** -- STRUCT INFO: --
+    **  x           = x position
+    **  y           = y position
+    **  w           = width
+    **  h           = height
+    **  preD (flag) = button is delaying once after the first trigger (f.ex. used on scrollbar buttons)
+    **  d           = function call repeat delay while button is being held down (number of frames)
+    **  text #1     = text line #1
+    **  text #2     = text line #2 (if present, it will be rendered below text #1)
+    **  funcOnDown  = function to call when pressed
+    **  funcOnUp    = function to call when released
+    */
+
     // ------ POSITION EDITOR PUSHBUTTONS ------
-    //x,   y,   w,   h,   visible, state,                   text line #1,      line #2, funcOnDown,      funcOnUp
-    {  55,   2,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_UP_STRING,   NULL,    pbPosEdPosDown,  NULL,    false, NULL, NULL, true },
-    {  55,  36,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_DOWN_STRING, NULL,    pbPosEdPosUp,    NULL,    false, NULL, NULL, true },
-    {  74,   2,  35,  16, false,   PUSHBUTTON_UNPRESSED, 6, "Ins.",            NULL,    pbPosEdIns,      NULL,    false, NULL, NULL, true },
-    {  74,  19,  18,  13, false,   PUSHBUTTON_UNPRESSED, 6, ARROW_UP_STRING,   NULL,    pbPosEdPattUp,   NULL,    false, NULL, NULL, true },
-    {  91,  19,  18,  13, false,   PUSHBUTTON_UNPRESSED, 6, ARROW_DOWN_STRING, NULL,    pbPosEdPattDown, NULL,    false, NULL, NULL, true },
-    {  74,  33,  35,  16, false,   PUSHBUTTON_UNPRESSED, 6, "Del.",            NULL,    pbPosEdDel,      NULL,    false, NULL, NULL, true },
-    {  74,  50,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_UP_STRING,   NULL,    pbPosEdLenUp,    NULL,    false, NULL, NULL, true },
-    {  91,  50,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_DOWN_STRING, NULL,    pbPosEdLenDown,  NULL,    false, NULL, NULL, true },
-    {  74,  62,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_UP_STRING,   NULL,    pbPosEdRepSUp,   NULL,    false, NULL, NULL, true },
-    {  91,  62,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_DOWN_STRING, NULL,    pbPosEdRepSDown, NULL,    false, NULL, NULL, true },
+    //x,  y,  w,  h,  preD, d, text #1,           text #2, funcOnDown,      funcOnUp
+    { 55,  2, 18, 13, true, 3, ARROW_UP_STRING,   NULL,    pbPosEdPosDown,  NULL },
+    { 55, 36, 18, 13, true, 3, ARROW_DOWN_STRING, NULL,    pbPosEdPosUp,    NULL },
+    { 74,  2, 35, 16, true, 6, "Ins.",            NULL,    pbPosEdIns,      NULL },
+    { 74, 19, 18, 13, true, 6, ARROW_UP_STRING,   NULL,    pbPosEdPattUp,   NULL },
+    { 91, 19, 18, 13, true, 6, ARROW_DOWN_STRING, NULL,    pbPosEdPattDown, NULL },
+    { 74, 33, 35, 16, true, 6, "Del.",            NULL,    pbPosEdDel,      NULL },
+    { 74, 50, 18, 13, true, 3, ARROW_UP_STRING,   NULL,    pbPosEdLenUp,    NULL },
+    { 91, 50, 18, 13, true, 3, ARROW_DOWN_STRING, NULL,    pbPosEdLenDown,  NULL },
+    { 74, 62, 18, 13, true, 3, ARROW_UP_STRING,   NULL,    pbPosEdRepSUp,   NULL },
+    { 91, 62, 18, 13, true, 3, ARROW_DOWN_STRING, NULL,    pbPosEdRepSDown, NULL },
 
     // ------ SONG/PATTERN PUSHBUTTONS ------
-    //x,   y,   w,   h,   visible, state,                   text line #1,      line #2, funcOnDown,     funcOnUp
-    { 168,  34,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_UP_STRING,   NULL,    pbBPMUp,        NULL,            false, NULL, NULL, true },
-    { 185,  34,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_DOWN_STRING, NULL,    pbBPMDown,      NULL,            false, NULL, NULL, true },
-    { 168,  48,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_UP_STRING,   NULL,    pbSpeedUp,      NULL,            false, NULL, NULL, true },
-    { 185,  48,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_DOWN_STRING, NULL,    pbSpeedDown,    NULL,            false, NULL, NULL, true },
-    { 168,  62,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_UP_STRING,   NULL,    pbEditSkipUp,   NULL,            false, NULL, NULL, true },
-    { 185,  62,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_DOWN_STRING, NULL,    pbEditSkipDown, NULL,            false, NULL, NULL, true },
-    { 253,  34,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_UP_STRING,   NULL,    pbEditPattUp,   NULL,            false, NULL, NULL, true },
-    { 270,  34,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_DOWN_STRING, NULL,    pbEditPattDown, NULL,            false, NULL, NULL, true },
-    { 253,  48,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_UP_STRING,   NULL,    pbPattLenUp,    NULL,            false, NULL, NULL, true },
-    { 270,  48,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_DOWN_STRING, NULL,    pbPattLenDown,  NULL,            false, NULL, NULL, true },
-    { 209,  62,  40,  13, false,   PUSHBUTTON_UNPRESSED, 3, "Expd.",           NULL,    NULL,           expandPattern,   false, NULL, NULL, true },
-    { 248,  62,  40,  13, false,   PUSHBUTTON_UNPRESSED, 3, "Srnk.",           NULL,    NULL,           pbShrinkPattern, false, NULL, NULL, true },
+    //x,   y,  w,  h,  preD,  d, text #1,           text #2, funcOnDown,     funcOnUp
+    { 168, 34, 18, 13, true,  3, ARROW_UP_STRING,   NULL,    pbBPMUp,        NULL },
+    { 185, 34, 18, 13, true,  3, ARROW_DOWN_STRING, NULL,    pbBPMDown,      NULL },
+    { 168, 48, 18, 13, true,  3, ARROW_UP_STRING,   NULL,    pbSpeedUp,      NULL },
+    { 185, 48, 18, 13, true,  3, ARROW_DOWN_STRING, NULL,    pbSpeedDown,    NULL },
+    { 168, 62, 18, 13, true,  3, ARROW_UP_STRING,   NULL,    pbEditSkipUp,   NULL },
+    { 185, 62, 18, 13, true,  3, ARROW_DOWN_STRING, NULL,    pbEditSkipDown, NULL },
+    { 253, 34, 18, 13, true,  3, ARROW_UP_STRING,   NULL,    pbEditPattUp,   NULL },
+    { 270, 34, 18, 13, true,  3, ARROW_DOWN_STRING, NULL,    pbEditPattDown, NULL },
+    { 253, 48, 18, 13, true,  3, ARROW_UP_STRING,   NULL,    pbPattLenUp,    NULL },
+    { 270, 48, 18, 13, true,  3, ARROW_DOWN_STRING, NULL,    pbPattLenDown,  NULL },
+    { 209, 62, 40, 13, false, 0, "Expd.",           NULL,    NULL,           expandPattern },
+    { 248, 62, 40, 13, false, 0, "Srnk.",           NULL,    NULL,           shrinkPattern },
 
     // ------ LOGO PUSHBUTTON ------
-    //x,   y,   w,   h,   visible, state,                   text line #1, line #2, funcOnDown, funcOnUp
-    { 112,   0, 154,  32, false,   PUSHBUTTON_UNPRESSED, 3, "",           NULL,    NULL,       pbToggleLogo,  false, NULL, NULL, true },
-    { 266,   0,  25,  32, false,   PUSHBUTTON_UNPRESSED, 3, "",           NULL,    NULL,       pbToggleBadge, false, NULL, NULL, true },
+    //x,   y, w,   h,  preD,  d, text #1, text #2, funcOnDown, funcOnUp
+    { 112, 0, 154, 32, false, 0, NULL,    NULL,    NULL,       pbToggleLogo  },
+    { 266, 0,  25, 32, false, 0, NULL,    NULL,    NULL,       pbToggleBadge },
 
-    // ------ MAIN MENU PUSHBUTTONS ------
-    //x,   y,   w,   h,   visible, state,                  text line #1, line #2, funcOnDown, funcOnUp
-    { 294,   2,  59,  16, false,   PUSHBUTTON_UNPRESSED, 3, "About",      NULL,    NULL,       showAboutScreen,            false, NULL, NULL, true },
-    { 294,  19,  59,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Nibbles",    NULL,    NULL,       pbNibbles,                  false, NULL, NULL, true },
-    { 294,  36,  59,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Zap",        NULL,    NULL,       pbZap,                      false, NULL, NULL, true },
-    { 294,  53,  59,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Trim",       NULL,    NULL,       toggleTrimScreen,           false, NULL, NULL, true },
-    { 294,  70,  59,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Extend",     NULL,    NULL,       patternEditorExtended,      false, NULL, NULL, true },
-    { 294,  87,  59,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Transps.",   NULL,    NULL,       toggleTranspose,            false, NULL, NULL, true },
-    { 294, 104,  59,  16, false,   PUSHBUTTON_UNPRESSED, 3, "I.E.Ext.",   NULL,    NULL,       toggleInstEditorExt,        false, NULL, NULL, true },
-    { 294, 121,  59,  16, false,   PUSHBUTTON_UNPRESSED, 3, "S.E.Ext.",   NULL,    NULL,       toggleSampleEditorExt,      false, NULL, NULL, true },
-    { 294, 138,  59,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Adv. Edit",  NULL,    NULL,       toggleAdvEdit,              false, NULL, NULL, true },
-    { 294, 155,  30,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Add",        NULL,    NULL,       pbAddChan,                  false, NULL, NULL, true },
-    { 323, 155,  30,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Sub",        NULL,    NULL,       pbSubChan,                  false, NULL, NULL, true },
-    { 359,   2,  59,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Play sng.",  NULL,    NULL,       playSong,                   false, NULL, NULL, true },
-    { 359,  19,  59,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Play ptn.",  NULL,    NULL,       playPattern,                false, NULL, NULL, true },
-    { 359,  36,  59,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Stop",       NULL,    NULL,       stopPlaying,                false, NULL, NULL, true },
-    { 359,  53,  59,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Rec. sng.",  NULL,    NULL,       recordSong,                 false, NULL, NULL, true },
-    { 359,  70,  59,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Rec. ptn.",  NULL,    NULL,       recordPattern,              false, NULL, NULL, true },
-    { 359,  87,  59,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Disk op.",   NULL,    NULL,       toggleDiskOpScreen,         false, NULL, NULL, true },
-    { 359, 104,  59,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Instr. Ed.", NULL,    NULL,       toggleInstEditor,           false, NULL, NULL, true },
-    { 359, 121,  59,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Smp. Ed.",   NULL,    NULL,       toggleSampleEditor,         false, NULL, NULL, true },
-    { 359, 138,  59,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Config",     NULL,    NULL,       showConfigScreen,           false, NULL, NULL, true },
-    { 359, 155,  59,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Help",       NULL,    NULL,       showHelpScreen,             false, NULL, NULL, true },
-    /* extended pattern editor */
-    { 115,  35,  46,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Exit",       NULL,    NULL,       exitPatternEditorExtended,  false, NULL, NULL, true },
+    // ------ MAIN SCREEN PUSHBUTTONS ------
+    //x,   y,   w,  h,  preD,  d, text #1,      text #2, funcOnDown, funcOnUp
+    { 294,   2, 59, 16, false, 0, "About",      NULL,    NULL,       showAboutScreen },
+    { 294,  19, 59, 16, false, 0, "Nibbles",    NULL,    NULL,       pbNibbles },
+    { 294,  36, 59, 16, false, 0, "Zap",        NULL,    NULL,       pbZap },
+    { 294,  53, 59, 16, false, 0, "Trim",       NULL,    NULL,       toggleTrimScreen },
+    { 294,  70, 59, 16, false, 0, "Extend",     NULL,    NULL,       patternEditorExtended },
+    { 294,  87, 59, 16, false, 0, "Transps.",   NULL,    NULL,       toggleTranspose },
+    { 294, 104, 59, 16, false, 0, "I.E.Ext.",   NULL,    NULL,       toggleInstEditorExt },
+    { 294, 121, 59, 16, false, 0, "S.E.Ext.",   NULL,    NULL,       toggleSampleEditorExt },
+    { 294, 138, 59, 16, false, 0, "Adv. Edit",  NULL,    NULL,       toggleAdvEdit },
+    { 294, 155, 30, 16, false, 0, "Add",        NULL,    NULL,       pbAddChan },
+    { 323, 155, 30, 16, false, 0, "Sub",        NULL,    NULL,       pbSubChan },
+    { 359,   2, 59, 16, false, 0, "Play sng.",  NULL,    NULL,       playSong },
+    { 359,  19, 59, 16, false, 0, "Play ptn.",  NULL,    NULL,       playPattern },
+    { 359,  36, 59, 16, false, 0, "Stop",       NULL,    NULL,       stopPlaying },
+    { 359,  53, 59, 16, false, 0, "Rec. sng.",  NULL,    NULL,       recordSong },
+    { 359,  70, 59, 16, false, 0, "Rec. ptn.",  NULL,    NULL,       recordPattern },
+    { 359,  87, 59, 16, false, 0, "Disk op.",   NULL,    NULL,       toggleDiskOpScreen },
+    { 359, 104, 59, 16, false, 0, "Instr. Ed.", NULL,    NULL,       toggleInstEditor },
+    { 359, 121, 59, 16, false, 0, "Smp. Ed.",   NULL,    NULL,       toggleSampleEditor },
+    { 359, 138, 59, 16, false, 0, "Config",     NULL,    NULL,       showConfigScreen },
+    { 359, 155, 59, 16, false, 0, "Help",       NULL,    NULL,       showHelpScreen },
+    { 115,  35, 46, 16, false, 0, "Exit",       NULL,    NULL,       exitPatternEditorExtended },
 
     // ------ INSTRUMENT SWITCHER PUSHBUTTONS ------
-    //x,   y,   w,   h,   visible, state,                   text line #1,      line #2, funcOnDown,           funcOnUp
-    { 590,   2,  39,  16, false,   PUSHBUTTON_UNPRESSED, 3, "01-08",           NULL,    NULL,                 pbSetInstrBank1,  false, NULL, NULL, true },
-    { 590,  19,  39,  16, false,   PUSHBUTTON_UNPRESSED, 3, "09-10",           NULL,    NULL,                 pbSetInstrBank2,  false, NULL, NULL, true },
-    { 590,  36,  39,  16, false,   PUSHBUTTON_UNPRESSED, 3, "11-18",           NULL,    NULL,                 pbSetInstrBank3,  false, NULL, NULL, true },
-    { 590,  53,  39,  16, false,   PUSHBUTTON_UNPRESSED, 3, "19-20",           NULL,    NULL,                 pbSetInstrBank4,  false, NULL, NULL, true },
-    { 590,  73,  39,  16, false,   PUSHBUTTON_UNPRESSED, 3, "21-28",           NULL,    NULL,                 pbSetInstrBank5,  false, NULL, NULL, true },
-    { 590,  90,  39,  16, false,   PUSHBUTTON_UNPRESSED, 3, "29-30",           NULL,    NULL,                 pbSetInstrBank6,  false, NULL, NULL, true },
-    { 590, 107,  39,  16, false,   PUSHBUTTON_UNPRESSED, 3, "31-38",           NULL,    NULL,                 pbSetInstrBank7,  false, NULL, NULL, true },
-    { 590, 124,  39,  16, false,   PUSHBUTTON_UNPRESSED, 3, "39-40",           NULL,    NULL,                 pbSetInstrBank8,  false, NULL, NULL, true },
-    { 590,   2,  39,  16, false,   PUSHBUTTON_UNPRESSED, 3, "41-48",           NULL,    NULL,                 pbSetInstrBank9,  false, NULL, NULL, true },
-    { 590,  19,  39,  16, false,   PUSHBUTTON_UNPRESSED, 3, "49-50",           NULL,    NULL,                 pbSetInstrBank10, false, NULL, NULL, true },
-    { 590,  36,  39,  16, false,   PUSHBUTTON_UNPRESSED, 3, "51-58",           NULL,    NULL,                 pbSetInstrBank11, false, NULL, NULL, true },
-    { 590,  53,  39,  16, false,   PUSHBUTTON_UNPRESSED, 3, "59-60",           NULL,    NULL,                 pbSetInstrBank12, false, NULL, NULL, true },
-    { 590,  73,  39,  16, false,   PUSHBUTTON_UNPRESSED, 3, "61-68",           NULL,    NULL,                 pbSetInstrBank13, false, NULL, NULL, true },
-    { 590,  90,  39,  16, false,   PUSHBUTTON_UNPRESSED, 3, "69-70",           NULL,    NULL,                 pbSetInstrBank14, false, NULL, NULL, true },
-    { 590, 107,  39,  16, false,   PUSHBUTTON_UNPRESSED, 3, "71-78",           NULL,    NULL,                 pbSetInstrBank15, false, NULL, NULL, true },
-    { 590, 124,  39,  16, false,   PUSHBUTTON_UNPRESSED, 3, "79-80",           NULL,    NULL,                 pbSetInstrBank16, false, NULL, NULL, true },
-    { 590, 144,  39,  27, false,   PUSHBUTTON_UNPRESSED, 3, "Swap",            "Bank",  NULL,                 pbSwapInstrBank,  false, NULL, NULL, true },
-    { 566,  99,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_UP_STRING,   NULL,    sampleListScrollUp,   NULL,             false, NULL, NULL, true },
-    { 566, 140,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_DOWN_STRING, NULL,    sampleListScrollDown, NULL,             false, NULL, NULL, true },
+    //x,   y,   w,  h,  preD,  d, text #1,           text #2, funcOnDown,           funcOnUp
+    { 590,   2, 39, 16, false, 0, "01-08",           NULL,    NULL,                 pbSetInstrBank1 },
+    { 590,  19, 39, 16, false, 0, "09-10",           NULL,    NULL,                 pbSetInstrBank2 },
+    { 590,  36, 39, 16, false, 0, "11-18",           NULL,    NULL,                 pbSetInstrBank3 },
+    { 590,  53, 39, 16, false, 0, "19-20",           NULL,    NULL,                 pbSetInstrBank4 },
+    { 590,  73, 39, 16, false, 0, "21-28",           NULL,    NULL,                 pbSetInstrBank5 },
+    { 590,  90, 39, 16, false, 0, "29-30",           NULL,    NULL,                 pbSetInstrBank6 },
+    { 590, 107, 39, 16, false, 0, "31-38",           NULL,    NULL,                 pbSetInstrBank7 },
+    { 590, 124, 39, 16, false, 0, "39-40",           NULL,    NULL,                 pbSetInstrBank8 },
+    { 590,   2, 39, 16, false, 0, "41-48",           NULL,    NULL,                 pbSetInstrBank9 },
+    { 590,  19, 39, 16, false, 0, "49-50",           NULL,    NULL,                 pbSetInstrBank10 },
+    { 590,  36, 39, 16, false, 0, "51-58",           NULL,    NULL,                 pbSetInstrBank11 },
+    { 590,  53, 39, 16, false, 0, "59-60",           NULL,    NULL,                 pbSetInstrBank12 },
+    { 590,  73, 39, 16, false, 0, "61-68",           NULL,    NULL,                 pbSetInstrBank13,},
+    { 590,  90, 39, 16, false, 0, "69-70",           NULL,    NULL,                 pbSetInstrBank14 },
+    { 590, 107, 39, 16, false, 0, "71-78",           NULL,    NULL,                 pbSetInstrBank15 },
+    { 590, 124, 39, 16, false, 0, "79-80",           NULL,    NULL,                 pbSetInstrBank16 },
+    { 590, 144, 39, 27, false, 0, "Swap",            "Bank",  NULL,                 pbSwapInstrBank },
+    { 566,  99, 18, 13, true,  3, ARROW_UP_STRING,   NULL,    sampleListScrollUp,   NULL },
+    { 566, 140, 18, 13, true,  3, ARROW_DOWN_STRING, NULL,    sampleListScrollDown, NULL },
 
     // ------ NIBBLES SCREEN PUSHBUTTONS ------
-    //x,   y,   w,   h,   visible, state,                   text line #1, line #2, funcOnDown, funcOnUp
-    { 568, 104,  61,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Play",       NULL,    NULL,       nibblesPlay,      false, NULL, NULL, true },
-    { 568, 121,  61,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Help",       NULL,    NULL,       nibblesHelp,      false, NULL, NULL, true },
-    { 568, 138,  61,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Highs",      NULL,    NULL,       nibblesHighScore, false, NULL, NULL, true },
-    { 568, 155,  61,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Exit",       NULL,    NULL,       nibblesExit,      false, NULL, NULL, true },
+    //x,   y,   w,  h,  preD,  d, text #1, text #2, funcOnDown, funcOnUp
+    { 568, 104, 61, 16, false, 0, "Play",  NULL,    NULL,       nibblesPlay },
+    { 568, 121, 61, 16, false, 0, "Help",  NULL,    NULL,       nibblesHelp  },
+    { 568, 138, 61, 16, false, 0, "Highs", NULL,    NULL,       nibblesHighScore },
+    { 568, 155, 61, 16, false, 0, "Exit",  NULL,    NULL,       nibblesExit },
 
     // ------ ADVANCED EDIT PUSHBUTTONS ------
-    //x,   y,   w,   h,   visible, state,                   text line #1, line #2, funcOnDown, funcOnUp
-    {   3, 138,  51,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Track",      NULL,    NULL,       remapTrack,   false, NULL, NULL, true },
-    {  55, 138,  52,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Pattern",    NULL,    NULL,       remapPattern, false, NULL, NULL, true },
-    {   3, 155,  51,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Song",       NULL,    NULL,       remapSong,    false, NULL, NULL, true },
-    {  55, 155,  52,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Block",      NULL,    NULL,       remapBlock,   false, NULL, NULL, true },
+    //x,  y,   w,  h,  preD,  d, text #1,   text #2, funcOnDown, funcOnUp
+    {  3, 138, 51, 16, false, 0, "Track",   NULL,    NULL,       remapTrack },
+    { 55, 138, 52, 16, false, 0, "Pattern", NULL,    NULL,       remapPattern },
+    {  3, 155, 51, 16, false, 0, "Song",    NULL,    NULL,       remapSong },
+    { 55, 155, 52, 16, false, 0, "Block",   NULL,    NULL,       remapBlock },
       
     // ------ ABOUT SCREEN PUSHBUTTONS ------
-    //x,   y,   w,   h,   visible, state,                   text line #1, line #2, funcOnDown, funcOnUp
-    {   5, 153,  59,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Exit",        NULL,    NULL,       exitAboutScreen, false, NULL, NULL, true },
+    //x, y,   w,  h,  preD,  d, text #1, text #2, funcOnDown, funcOnUp
+    { 5, 153, 59, 16, false, 0, "Exit",  NULL,    NULL,       exitAboutScreen },
 
     // ------ HELP SCREEN PUSHBUTTONS ------
-    //x,   y,   w,   h,    visible, state,                  text line #1,      line #2, funcOnDown,     funcOnUp
-    {   3, 155,  59,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Exit",            NULL,    NULL,           exitHelpScreen, false, NULL, NULL, true },
-    { 611,   2,  18,  13, false,   PUSHBUTTON_UNPRESSED, 1, ARROW_UP_STRING,   NULL,    helpScrollUp,   NULL,           false, NULL, NULL, true },
-    { 611, 158,  18,  13, false,   PUSHBUTTON_UNPRESSED, 1, ARROW_DOWN_STRING, NULL,    helpScrollDown, NULL,           false, NULL, NULL, true },
+    //x,   y,   w,  h,  preD,  d, text #1,           text #2, funcOnDown,     funcOnUp
+    {   3, 155, 59, 16, false, 0, "Exit",            NULL,    NULL,           exitHelpScreen },
+    { 611,   2, 18, 13, true,  1, ARROW_UP_STRING,   NULL,    helpScrollUp,   NULL },
+    { 611, 158, 18, 13, true,  1, ARROW_DOWN_STRING, NULL,    helpScrollDown, NULL },
 
     // ------ PATTERN EDITOR PUSHBUTTONS ------
-    //x,   y,   w,   h,    visible, state,                  text line #1,       line #2, funcOnDown,         funcOnUp
-    {   3, 385,  25,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_LEFT_STRING,  NULL,    scrollChannelLeft,  NULL,    false, NULL, NULL, true },
-    { 604, 385,  25,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_RIGHT_STRING, NULL,    scrollChannelRight, NULL,    false, NULL, NULL, true },
+    //x,   y,   w,  h,  preD,  d, text #1,            text #2, funcOnDown,         funcOnUp
+    {   3, 385, 25, 13, true,  3, ARROW_LEFT_STRING,  NULL,    scrollChannelLeft,  NULL },
+    { 604, 385, 25, 13, true,  3, ARROW_RIGHT_STRING, NULL,    scrollChannelRight, NULL },
 
     // ------ TRANSPOSE PUSHBUTTONS ------
-    //x,   y,   w,   h,    visible, state,                  text line #1,       line #2, funcOnDown, funcOnUp
-    {  56, 110,  21,  16, false,   PUSHBUTTON_UNPRESSED, 3, "up",               NULL,    NULL,       trackTranspCurInsUp,   false, NULL, NULL, true },
-    {  76, 110,  21,  16, false,   PUSHBUTTON_UNPRESSED, 3, "dn",               NULL,    NULL,       trackTranspCurInsDn,   false, NULL, NULL, true },
-    {  98, 110,  36,  16, false,   PUSHBUTTON_UNPRESSED, 3, "12up",             NULL,    NULL,       trackTranspCurIns12Up, false, NULL, NULL, true },
-    { 133, 110,  36,  16, false,   PUSHBUTTON_UNPRESSED, 3, "12dn",             NULL,    NULL,       trackTranspCurIns12Dn, false, NULL, NULL, true },
-    { 175, 110,  21,  16, false,   PUSHBUTTON_UNPRESSED, 3, "up",               NULL,    NULL,       trackTranspAllInsUp,   false, NULL, NULL, true },
-    { 195, 110,  21,  16, false,   PUSHBUTTON_UNPRESSED, 3, "dn",               NULL,    NULL,       trackTranspAllInsDn,   false, NULL, NULL, true },
-    { 217, 110,  36,  16, false,   PUSHBUTTON_UNPRESSED, 3, "12up",             NULL,    NULL,       trackTranspAllIns12Up, false, NULL, NULL, true },
-    { 252, 110,  36,  16, false,   PUSHBUTTON_UNPRESSED, 3, "12dn",             NULL,    NULL,       trackTranspAllIns12Dn, false, NULL, NULL, true },
-    {  56, 125,  21,  16, false,   PUSHBUTTON_UNPRESSED, 3, "up",               NULL,    NULL,       pattTranspCurInsUp,    false, NULL, NULL, true },
-    {  76, 125,  21,  16, false,   PUSHBUTTON_UNPRESSED, 3, "dn",               NULL,    NULL,       pattTranspCurInsDn,    false, NULL, NULL, true },
-    {  98, 125,  36,  16, false,   PUSHBUTTON_UNPRESSED, 3, "12up",             NULL,    NULL,       pattTranspCurIns12Up,  false, NULL, NULL, true },
-    { 133, 125,  36,  16, false,   PUSHBUTTON_UNPRESSED, 3, "12dn",             NULL,    NULL,       pattTranspCurIns12Dn,  false, NULL, NULL, true },
-    { 175, 125,  21,  16, false,   PUSHBUTTON_UNPRESSED, 3, "up",               NULL,    NULL,       pattTranspAllInsUp,    false, NULL, NULL, true },
-    { 195, 125,  21,  16, false,   PUSHBUTTON_UNPRESSED, 3, "dn",               NULL,    NULL,       pattTranspAllInsDn,    false, NULL, NULL, true },
-    { 217, 125,  36,  16, false,   PUSHBUTTON_UNPRESSED, 3, "12up",             NULL,    NULL,       pattTranspAllIns12Up,  false, NULL, NULL, true },
-    { 252, 125,  36,  16, false,   PUSHBUTTON_UNPRESSED, 3, "12dn",             NULL,    NULL,       pattTranspAllIns12Dn,  false, NULL, NULL, true },
-    {  56, 140,  21,  16, false,   PUSHBUTTON_UNPRESSED, 3, "up",               NULL,    NULL,       songTranspCurInsUp,    false, NULL, NULL, true },
-    {  76, 140,  21,  16, false,   PUSHBUTTON_UNPRESSED, 3, "dn",               NULL,    NULL,       songTranspCurInsDn,    false, NULL, NULL, true },
-    {  98, 140,  36,  16, false,   PUSHBUTTON_UNPRESSED, 3, "12up",             NULL,    NULL,       songTranspCurIns12Up,  false, NULL, NULL, true },
-    { 133, 140,  36,  16, false,   PUSHBUTTON_UNPRESSED, 3, "12dn",             NULL,    NULL,       songTranspCurIns12Dn,  false, NULL, NULL, true },
-    { 175, 140,  21,  16, false,   PUSHBUTTON_UNPRESSED, 3, "up",               NULL,    NULL,       songTranspAllInsUp,    false, NULL, NULL, true },
-    { 195, 140,  21,  16, false,   PUSHBUTTON_UNPRESSED, 3, "dn",               NULL,    NULL,       songTranspAllInsDn,    false, NULL, NULL, true },
-    { 217, 140,  36,  16, false,   PUSHBUTTON_UNPRESSED, 3, "12up",             NULL,    NULL,       songTranspAllIns12Up,  false, NULL, NULL, true },
-    { 252, 140,  36,  16, false,   PUSHBUTTON_UNPRESSED, 3, "12dn",             NULL,    NULL,       songTranspAllIns12Dn,  false, NULL, NULL, true },
-    {  56, 155,  21,  16, false,   PUSHBUTTON_UNPRESSED, 3, "up",               NULL,    NULL,       blockTranspCurInsUp,   false, NULL, NULL, true },
-    {  76, 155,  21,  16, false,   PUSHBUTTON_UNPRESSED, 3, "dn",               NULL,    NULL,       blockTranspCurInsDn,   false, NULL, NULL, true },
-    {  98, 155,  36,  16, false,   PUSHBUTTON_UNPRESSED, 3, "12up",             NULL,    NULL,       blockTranspCurIns12Up, false, NULL, NULL, true },
-    { 133, 155,  36,  16, false,   PUSHBUTTON_UNPRESSED, 3, "12dn",             NULL,    NULL,       blockTranspCurIns12Dn, false, NULL, NULL, true },
-    { 175, 155,  21,  16, false,   PUSHBUTTON_UNPRESSED, 3, "up",               NULL,    NULL,       blockTranspAllInsUp,   false, NULL, NULL, true },
-    { 195, 155,  21,  16, false,   PUSHBUTTON_UNPRESSED, 3, "dn",               NULL,    NULL,       blockTranspAllInsDn,   false, NULL, NULL, true },
-    { 217, 155,  36,  16, false,   PUSHBUTTON_UNPRESSED, 3, "12up",             NULL,    NULL,       blockTranspAllIns12Up, false, NULL, NULL, true },
-    { 252, 155,  36,  16, false,   PUSHBUTTON_UNPRESSED, 3, "12dn",             NULL,    NULL,       blockTranspAllIns12Dn, false, NULL, NULL, true },
+    //x,   y,   w,  h,  preD,  d, text #1,text #2, funcOnDown, funcOnUp
+    {  56, 110, 21, 16, false, 0, "up",   NULL,    NULL,       trackTranspCurInsUp },
+    {  76, 110, 21, 16, false, 0, "dn",   NULL,    NULL,       trackTranspCurInsDn },
+    {  98, 110, 36, 16, false, 0, "12up", NULL,    NULL,       trackTranspCurIns12Up },
+    { 133, 110, 36, 16, false, 0, "12dn", NULL,    NULL,       trackTranspCurIns12Dn },
+    { 175, 110, 21, 16, false, 0, "up",   NULL,    NULL,       trackTranspAllInsUp },
+    { 195, 110, 21, 16, false, 0, "dn",   NULL,    NULL,       trackTranspAllInsDn },
+    { 217, 110, 36, 16, false, 0, "12up", NULL,    NULL,       trackTranspAllIns12Up },
+    { 252, 110, 36, 16, false, 0, "12dn", NULL,    NULL,       trackTranspAllIns12Dn },
+    {  56, 125, 21, 16, false, 0, "up",   NULL,    NULL,       pattTranspCurInsUp },
+    {  76, 125, 21, 16, false, 0, "dn",   NULL,    NULL,       pattTranspCurInsDn },
+    {  98, 125, 36, 16, false, 0, "12up", NULL,    NULL,       pattTranspCurIns12Up },
+    { 133, 125, 36, 16, false, 0, "12dn", NULL,    NULL,       pattTranspCurIns12Dn },
+    { 175, 125, 21, 16, false, 0, "up",   NULL,    NULL,       pattTranspAllInsUp },
+    { 195, 125, 21, 16, false, 0, "dn",   NULL,    NULL,       pattTranspAllInsDn },
+    { 217, 125, 36, 16, false, 0, "12up", NULL,    NULL,       pattTranspAllIns12Up },
+    { 252, 125, 36, 16, false, 0, "12dn", NULL,    NULL,       pattTranspAllIns12Dn },
+    {  56, 140, 21, 16, false, 0, "up",   NULL,    NULL,       songTranspCurInsUp },
+    {  76, 140, 21, 16, false, 0, "dn",   NULL,    NULL,       songTranspCurInsDn },
+    {  98, 140, 36, 16, false, 0, "12up", NULL,    NULL,       songTranspCurIns12Up },
+    { 133, 140, 36, 16, false, 0, "12dn", NULL,    NULL,       songTranspCurIns12Dn },
+    { 175, 140, 21, 16, false, 0, "up",   NULL,    NULL,       songTranspAllInsUp },
+    { 195, 140, 21, 16, false, 0, "dn",   NULL,    NULL,       songTranspAllInsDn },
+    { 217, 140, 36, 16, false, 0, "12up", NULL,    NULL,       songTranspAllIns12Up },
+    { 252, 140, 36, 16, false, 0, "12dn", NULL,    NULL,       songTranspAllIns12Dn },
+    {  56, 155, 21, 16, false, 0, "up",   NULL,    NULL,       blockTranspCurInsUp },
+    {  76, 155, 21, 16, false, 0, "dn",   NULL,    NULL,       blockTranspCurInsDn },
+    {  98, 155, 36, 16, false, 0, "12up", NULL,    NULL,       blockTranspCurIns12Up },
+    { 133, 155, 36, 16, false, 0, "12dn", NULL,    NULL,       blockTranspCurIns12Dn },
+    { 175, 155, 21, 16, false, 0, "up",   NULL,    NULL,       blockTranspAllInsUp },
+    { 195, 155, 21, 16, false, 0, "dn",   NULL,    NULL,       blockTranspAllInsDn },
+    { 217, 155, 36, 16, false, 0, "12up", NULL,    NULL,       blockTranspAllIns12Up },
+    { 252, 155, 36, 16, false, 0, "12dn", NULL,    NULL,       blockTranspAllIns12Dn },
 
     // ------ SAMPLE EDITOR PUSHBUTTONS ------
-    //x,   y,   w,   h,   visible, state,                   text line #1,       line #2, funcOnDown,            funcOnUp
-    {   3, 331,  23,  13, false,   PUSHBUTTON_UNPRESSED, 0, ARROW_LEFT_STRING,  NULL,    scrollSampleDataLeft,  NULL,                false, NULL, NULL, true },
-    { 606, 331,  23,  13, false,   PUSHBUTTON_UNPRESSED, 0, ARROW_RIGHT_STRING, NULL,    scrollSampleDataRight, NULL,                false, NULL, NULL, true },
-    {  38, 356,  18,  13, false,   PUSHBUTTON_UNPRESSED, 4, ARROW_UP_STRING,    NULL,    sampPlayNoteUp,        NULL,                false, NULL, NULL, true },
-    {  38, 368,  18,  13, false,   PUSHBUTTON_UNPRESSED, 4, ARROW_DOWN_STRING,  NULL,    sampPlayNoteDown,      NULL,                false, NULL, NULL, true },
-    {   3, 382,  53,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Stop",             NULL,    NULL,                  smpEdStop,           false, NULL, NULL, true },
-    {  57, 348,  55,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Wave",             NULL,    NULL,                  sampPlayWave,        false, NULL, NULL, true },
-    {  57, 365,  55,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Range",            NULL,    NULL,                  sampPlayRange,       false, NULL, NULL, true },
-    {  57, 382,  55,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Display",          NULL,    NULL,                  sampPlayDisplay,     false, NULL, NULL, true },
-    { 118, 348,  63,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Show r.",          NULL,    NULL,                  showRange,           false, NULL, NULL, true },
-    { 118, 365,  63,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Range all",        NULL,    NULL,                  rangeAll,            false, NULL, NULL, true },
-    { 118, 382,  63,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Sample",           NULL,    NULL,                  askToSample,         false, NULL, NULL, true },
-    { 182, 348,  63,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Zoom out",         NULL,    NULL,                  zoomSampleDataOut2x, false, NULL, NULL, true },
-    { 182, 365,  63,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Show all",         NULL,    NULL,                  showAll,             false, NULL, NULL, true },
-    { 182, 382,  63,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Save rng.",        NULL,    NULL,                  saveRange,           false, NULL, NULL, true },
-    { 251, 348,  43,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Cut",              NULL,    NULL,                  sampCut,             false, NULL, NULL, true },
-    { 251, 365,  43,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Copy",             NULL,    NULL,                  sampCopy,            false, NULL, NULL, true },
-    { 251, 382,  43,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Paste",            NULL,    NULL,                  sampPaste,           false, NULL, NULL, true },
-    { 300, 348,  50,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Crop",             NULL,    NULL,                  sampCrop,            false, NULL, NULL, true },
-    { 300, 365,  50,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Volume",           NULL,    NULL,                  sampleVolume,        false, NULL, NULL, true },
-    { 300, 382,  50,  16, false,   PUSHBUTTON_UNPRESSED, 3, "X-Fade",           NULL,    NULL,                  sampXFade,           false, NULL, NULL, true },
-    { 430, 348,  54,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Exit",             NULL,    NULL,                  exitSampleEditor,    false, NULL, NULL, true },
-    { 594, 348,  35,  13, false,   PUSHBUTTON_UNPRESSED, 3, "Clr S.",           NULL,    NULL,                  sampClear,           false, NULL, NULL, true },
-    { 594, 360,  35,  13, false,   PUSHBUTTON_UNPRESSED, 3, "Min.",             NULL,    NULL,                  sampMin,             false, NULL, NULL, true },
-    { 594, 373,  18,  13, false,   PUSHBUTTON_UNPRESSED, 0, ARROW_UP_STRING,    NULL,    sampRepeatUp,          NULL,                false, NULL, NULL, true },
-    { 611, 373,  18,  13, false,   PUSHBUTTON_UNPRESSED, 0, ARROW_DOWN_STRING,  NULL,    sampRepeatDown,        NULL,                false, NULL, NULL, true },
-    { 594, 385,  18,  13, false,   PUSHBUTTON_UNPRESSED, 0, ARROW_UP_STRING,    NULL,    sampReplenUp,          NULL,                false, NULL, NULL, true },
-    { 611, 385,  18,  13, false,   PUSHBUTTON_UNPRESSED, 0, ARROW_DOWN_STRING,  NULL,    sampReplenDown,        NULL,                false, NULL, NULL, true },
+    //x,   y,   w,  h,  preD,  d, text #1,            text #2, funcOnDown,            funcOnUp
+    {   3, 331, 23, 13, true,  0, ARROW_LEFT_STRING,  NULL,    scrollSampleDataLeft,  NULL },
+    { 606, 331, 23, 13, true,  0, ARROW_RIGHT_STRING, NULL,    scrollSampleDataRight, NULL },
+    {  38, 356, 18, 13, true,  4, ARROW_UP_STRING,    NULL,    sampPlayNoteUp,        NULL },
+    {  38, 368, 18, 13, true,  4, ARROW_DOWN_STRING,  NULL,    sampPlayNoteDown,      NULL },
+    {   3, 382, 53, 16, false, 0, "Stop",             NULL,    NULL,                  smpEdStop},
+    {  57, 348, 55, 16, false, 0, "Wave",             NULL,    NULL,                  sampPlayWave },
+    {  57, 365, 55, 16, false, 0, "Range",            NULL,    NULL,                  sampPlayRange },
+    {  57, 382, 55, 16, false, 0, "Display",          NULL,    NULL,                  sampPlayDisplay },
+    { 118, 348, 63, 16, false, 0, "Show r.",          NULL,    NULL,                  showRange },
+    { 118, 365, 63, 16, false, 0, "Range all",        NULL,    NULL,                  rangeAll },
+    { 118, 382, 63, 16, false, 0, "Sample",           NULL,    NULL,                  startSampling },
+    { 182, 348, 63, 16, false, 0, "Zoom out",         NULL,    NULL,                  zoomOut },
+    { 182, 365, 63, 16, false, 0, "Show all",         NULL,    NULL,                  showAll },
+    { 182, 382, 63, 16, false, 0, "Save rng.",        NULL,    NULL,                  saveRange },
+    { 251, 348, 43, 16, false, 0, "Cut",              NULL,    NULL,                  sampCut },
+    { 251, 365, 43, 16, false, 0, "Copy",             NULL,    NULL,                  sampCopy },
+    { 251, 382, 43, 16, false, 0, "Paste",            NULL,    NULL,                  sampPaste },
+    { 300, 348, 50, 16, false, 0, "Crop",             NULL,    NULL,                  sampCrop },
+    { 300, 365, 50, 16, false, 0, "Volume",           NULL,    NULL,                  pbSampleVolume },
+    { 300, 382, 50, 16, false, 0, "X-Fade",           NULL,    NULL,                  sampXFade },
+    { 430, 348, 54, 16, false, 0, "Exit",             NULL,    NULL,                  exitSampleEditor },
+    { 594, 348, 35, 13, false, 0, "Clr S.",           NULL,    NULL,                  clearSample },
+    { 594, 360, 35, 13, false, 0, "Min.",             NULL,    NULL,                  sampMin },
+    { 594, 373, 18, 13, true,  0, ARROW_UP_STRING,    NULL,    sampRepeatUp,          NULL },
+    { 611, 373, 18, 13, true,  0, ARROW_DOWN_STRING,  NULL,    sampRepeatDown,        NULL },
+    { 594, 385, 18, 13, true,  0, ARROW_UP_STRING,    NULL,    sampReplenUp,          NULL },
+    { 611, 385, 18, 13, true,  0, ARROW_DOWN_STRING,  NULL,    sampReplenDown,        NULL },
 
-    /* SAMPLE EDITOR EXTENSION */
-
-    {   3, 138,  52,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Clr. c.bf", NULL,    NULL, clearCopyBuffer, false, NULL, NULL, true },
-    {  56, 138,  49,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Conv",      NULL,    NULL, sampleConv,      false, NULL, NULL, true },
-    { 106, 138,  49,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Echo",      NULL,    NULL, sampleEcho,      false, NULL, NULL, true },
-    {   3, 155,  52,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Backw.",    NULL,    NULL, sampleBackwards, false, NULL, NULL, true },
-    {  56, 155,  49,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Conv W",    NULL,    NULL, sampleConvW,     false, NULL, NULL, true },
-    { 106, 155,  49,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Fix DC",    NULL,    NULL, fixDC,           false, NULL, NULL, true },
-    { 161, 121,  60,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Copy ins.", NULL,    NULL, copyInstr,       false, NULL, NULL, true },
-    { 222, 121,  66,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Copy smp.", NULL,    NULL, copySmp,         false, NULL, NULL, true },
-    { 161, 138,  60,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Xchg ins.", NULL,    NULL, xchgInstr,       false, NULL, NULL, true },
-    { 222, 138,  66,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Xchg smp.", NULL,    NULL, xchgSmp,         false, NULL, NULL, true },
-    { 161, 155,  60,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Resample",  NULL,    NULL, sampleResample,  false, NULL, NULL, true },
-    { 222, 155,  66,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Mix smp.",  NULL,    NULL, sampleMixSample, false, NULL, NULL, true },
+    // ------ SAMPLE EDITOR EXTENSION PUSHBUTTONS ------
+    //x,   y,   w,  h,  preD,  d, text #1,     text #2, funcOnDown, funcOnUp
+    {   3, 138, 52, 16, false, 0, "Clr. c.bf", NULL,    NULL,       clearCopyBuffer },
+    {  56, 138, 49, 16, false, 0, "Conv",      NULL,    NULL,       sampleConv },
+    { 106, 138, 49, 16, false, 0, "Echo",      NULL,    NULL,       pbSampleEcho },
+    {   3, 155, 52, 16, false, 0, "Backw.",    NULL,    NULL,       sampleBackwards },
+    {  56, 155, 49, 16, false, 0, "Conv W",    NULL,    NULL,       sampleConvW },
+    { 106, 155, 49, 16, false, 0, "Fix DC",    NULL,    NULL,       fixDC },
+    { 161, 121, 60, 16, false, 0, "Copy ins.", NULL,    NULL,       copyInstr },
+    { 222, 121, 66, 16, false, 0, "Copy smp.", NULL,    NULL,       copySmp },
+    { 161, 138, 60, 16, false, 0, "Xchg ins.", NULL,    NULL,       xchgInstr },
+    { 222, 138, 66, 16, false, 0, "Xchg smp.", NULL,    NULL,       xchgSmp },
+    { 161, 155, 60, 16, false, 0, "Resample",  NULL,    NULL,       pbSampleResample },
+    { 222, 155, 66, 16, false, 0, "Mix smp.",  NULL,    NULL,       pbSampleMix },
 
     // ------ INSTRUMENT EDITOR PUSHBUTTONS ------
-    //x,   y,   w,   h,   visible, state,                   text line #1,       line #2, funcOnDown,     funcOnUp
-    { 200, 175,  23,  12, false,   PUSHBUTTON_UNPRESSED, 3, SMALL_1_STRING,     NULL,    NULL,           volPreDef1,     false, NULL, NULL, true },
-    { 222, 175,  24,  12, false,   PUSHBUTTON_UNPRESSED, 3, SMALL_2_STRING,     NULL,    NULL,           volPreDef2,     false, NULL, NULL, true },
-    { 245, 175,  24,  12, false,   PUSHBUTTON_UNPRESSED, 3, SMALL_3_STRING,     NULL,    NULL,           volPreDef3,     false, NULL, NULL, true },
-    { 268, 175,  24,  12, false,   PUSHBUTTON_UNPRESSED, 3, SMALL_4_STRING,     NULL,    NULL,           volPreDef4,     false, NULL, NULL, true },
-    { 291, 175,  24,  12, false,   PUSHBUTTON_UNPRESSED, 3, SMALL_5_STRING,     NULL,    NULL,           volPreDef5,     false, NULL, NULL, true },
-    { 314, 175,  24,  12, false,   PUSHBUTTON_UNPRESSED, 3, SMALL_6_STRING,     NULL,    NULL,           volPreDef6,     false, NULL, NULL, true },
-    { 200, 262,  23,  12, false,   PUSHBUTTON_UNPRESSED, 3, SMALL_1_STRING,     NULL,    NULL,           panPreDef1,     false, NULL, NULL, true },
-    { 222, 262,  24,  12, false,   PUSHBUTTON_UNPRESSED, 3, SMALL_2_STRING,     NULL,    NULL,           panPreDef2,     false, NULL, NULL, true },
-    { 245, 262,  24,  12, false,   PUSHBUTTON_UNPRESSED, 3, SMALL_3_STRING,     NULL,    NULL,           panPreDef3,     false, NULL, NULL, true },
-    { 268, 262,  24,  12, false,   PUSHBUTTON_UNPRESSED, 3, SMALL_4_STRING,     NULL,    NULL,           panPreDef4,     false, NULL, NULL, true },
-    { 291, 262,  24,  12, false,   PUSHBUTTON_UNPRESSED, 3, SMALL_5_STRING,     NULL,    NULL,           panPreDef5,     false, NULL, NULL, true },
-    { 314, 262,  24,  12, false,   PUSHBUTTON_UNPRESSED, 3, SMALL_6_STRING,     NULL,    NULL,           panPreDef6,     false, NULL, NULL, true },
-    { 341, 175,  47,  16, false,   PUSHBUTTON_UNPRESSED, 4, "Add",              NULL,    volEnvAdd,      NULL,           false, NULL, NULL, true },
-    { 389, 175,  46,  16, false,   PUSHBUTTON_UNPRESSED, 4, "Del",              NULL,    volEnvDel,      NULL,           false, NULL, NULL, true },
-    { 398, 204,  19,  13, false,   PUSHBUTTON_UNPRESSED, 4, ARROW_UP_STRING,    NULL,    volEnvSusUp,    NULL,           false, NULL, NULL, true },
-    { 416, 204,  19,  13, false,   PUSHBUTTON_UNPRESSED, 4, ARROW_DOWN_STRING,  NULL,    volEnvSusDown,  NULL,           false, NULL, NULL, true },
-    { 398, 231,  19,  13, false,   PUSHBUTTON_UNPRESSED, 4, ARROW_UP_STRING,    NULL,    volEnvRepSUp,   NULL,           false, NULL, NULL, true },
-    { 416, 231,  19,  13, false,   PUSHBUTTON_UNPRESSED, 4, ARROW_DOWN_STRING,  NULL,    volEnvRepSDown, NULL,           false, NULL, NULL, true },
-    { 398, 245,  19,  13, false,   PUSHBUTTON_UNPRESSED, 4, ARROW_UP_STRING,    NULL,    volEnvRepEUp,   NULL,           false, NULL, NULL, true },
-    { 416, 245,  19,  13, false,   PUSHBUTTON_UNPRESSED, 4, ARROW_DOWN_STRING,  NULL,    volEnvRepEDown, NULL,           false, NULL, NULL, true },
-    { 341, 262,  47,  16, false,   PUSHBUTTON_UNPRESSED, 4, "Add",              NULL,    panEnvAdd,      NULL,           false, NULL, NULL, true },
-    { 389, 262,  46,  16, false,   PUSHBUTTON_UNPRESSED, 4, "Del",              NULL,    panEnvDel,      NULL,           false, NULL, NULL, true },
-    { 398, 291,  19,  13, false,   PUSHBUTTON_UNPRESSED, 4, ARROW_UP_STRING,    NULL,    panEnvSusUp,    NULL,           false, NULL, NULL, true },
-    { 416, 291,  19,  13, false,   PUSHBUTTON_UNPRESSED, 4, ARROW_DOWN_STRING,  NULL,    panEnvSusDown,  NULL,           false, NULL, NULL, true },
-    { 398, 318,  19,  13, false,   PUSHBUTTON_UNPRESSED, 4, ARROW_UP_STRING,    NULL,    panEnvRepSUp,   NULL,           false, NULL, NULL, true },
-    { 416, 318,  19,  13, false,   PUSHBUTTON_UNPRESSED, 4, ARROW_DOWN_STRING,  NULL,    panEnvRepSDown, NULL,           false, NULL, NULL, true },
-    { 398, 332,  19,  13, false,   PUSHBUTTON_UNPRESSED, 4, ARROW_UP_STRING,    NULL,    panEnvRepEUp,   NULL,           false, NULL, NULL, true },
-    { 416, 332,  19,  13, false,   PUSHBUTTON_UNPRESSED, 4, ARROW_DOWN_STRING,  NULL,    panEnvRepEDown, NULL,           false, NULL, NULL, true },
-    { 521, 175,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_LEFT_STRING,  NULL,    volDown,        NULL,           false, NULL, NULL, true },
-    { 606, 175,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_RIGHT_STRING, NULL,    volUp,          NULL,           false, NULL, NULL, true },
-    { 521, 189,  23,  13, false,   PUSHBUTTON_UNPRESSED, 1, ARROW_LEFT_STRING,  NULL,    panDown,        NULL,           false, NULL, NULL, true },
-    { 606, 189,  23,  13, false,   PUSHBUTTON_UNPRESSED, 1, ARROW_RIGHT_STRING, NULL,    panUp,          NULL,           false, NULL, NULL, true },
-    { 521, 203,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_LEFT_STRING,  NULL,    ftuneDown,      NULL,           false, NULL, NULL, true },
-    { 606, 203,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_RIGHT_STRING, NULL,    ftuneUp,        NULL,           false, NULL, NULL, true },
-    { 521, 220,  23,  13, false,   PUSHBUTTON_UNPRESSED, 0, ARROW_LEFT_STRING,  NULL,    fadeoutDown,    NULL,           false, NULL, NULL, true },
-    { 606, 220,  23,  13, false,   PUSHBUTTON_UNPRESSED, 0, ARROW_RIGHT_STRING, NULL,    fadeoutUp,      NULL,           false, NULL, NULL, true },
-    { 521, 234,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_LEFT_STRING,  NULL,    vibSpeedDown,   NULL,           false, NULL, NULL, true },
-    { 606, 234,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_RIGHT_STRING, NULL,    vibSpeedUp,     NULL,           false, NULL, NULL, true },
-    { 521, 248,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_LEFT_STRING,  NULL,    vibDepthDown,   NULL,           false, NULL, NULL, true },
-    { 606, 248,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_RIGHT_STRING, NULL,    vibDepthUp,     NULL,           false, NULL, NULL, true },
-    { 521, 262,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_LEFT_STRING,  NULL,    vibSweepDown,   NULL,           false, NULL, NULL, true },
-    { 606, 262,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_RIGHT_STRING, NULL,    vibSweepUp,     NULL,           false, NULL, NULL, true },
-    { 570, 276,  59,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Exit",             NULL,    NULL,           exitInstEditor, false, NULL, NULL, true },
-    { 441, 312,  94,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Octave up",        NULL,    relToneOctUp,   NULL,           false, NULL, NULL, true },
-    { 536, 312,  93,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Halftone up",      NULL,    relToneUp,      NULL,           false, NULL, NULL, true },
-    { 441, 329,  94,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Octave down",      NULL,    relToneOctDown, NULL,           false, NULL, NULL, true },
-    { 536, 329,  93,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Halftone down",    NULL,    relToneDown,    NULL,           false, NULL, NULL, true },
+    //x,   y,   w,  h,  preD,  d, text #1,            text #2, funcOnDown,     funcOnUp
+    { 200, 175, 23, 12, false, 0, SMALL_1_STRING,     NULL,    NULL,           volPreDef1 },
+    { 222, 175, 24, 12, false, 0, SMALL_2_STRING,     NULL,    NULL,           volPreDef2 },
+    { 245, 175, 24, 12, false, 0, SMALL_3_STRING,     NULL,    NULL,           volPreDef3 },
+    { 268, 175, 24, 12, false, 0, SMALL_4_STRING,     NULL,    NULL,           volPreDef4 },
+    { 291, 175, 24, 12, false, 0, SMALL_5_STRING,     NULL,    NULL,           volPreDef5 },
+    { 314, 175, 24, 12, false, 0, SMALL_6_STRING,     NULL,    NULL,           volPreDef6 },
+    { 200, 262, 23, 12, false, 0, SMALL_1_STRING,     NULL,    NULL,           panPreDef1 },
+    { 222, 262, 24, 12, false, 0, SMALL_2_STRING,     NULL,    NULL,           panPreDef2 },
+    { 245, 262, 24, 12, false, 0, SMALL_3_STRING,     NULL,    NULL,           panPreDef3 },
+    { 268, 262, 24, 12, false, 0, SMALL_4_STRING,     NULL,    NULL,           panPreDef4 },
+    { 291, 262, 24, 12, false, 0, SMALL_5_STRING,     NULL,    NULL,           panPreDef5 },
+    { 314, 262, 24, 12, false, 0, SMALL_6_STRING,     NULL,    NULL,           panPreDef6 },
+    { 570, 276, 59, 16, false, 0, "Exit",             NULL,    NULL,           exitInstEditor },
+    { 341, 175, 47, 16, true,  4, "Add",              NULL,    volEnvAdd,      NULL },
+    { 389, 175, 46, 16, true,  4, "Del",              NULL,    volEnvDel,      NULL },
+    { 398, 204, 19, 13, true,  4, ARROW_UP_STRING,    NULL,    volEnvSusUp,    NULL },
+    { 416, 204, 19, 13, true,  4, ARROW_DOWN_STRING,  NULL,    volEnvSusDown,  NULL },
+    { 398, 231, 19, 13, true,  4, ARROW_UP_STRING,    NULL,    volEnvRepSUp,   NULL },
+    { 416, 231, 19, 13, true,  4, ARROW_DOWN_STRING,  NULL,    volEnvRepSDown, NULL },
+    { 398, 245, 19, 13, true,  4, ARROW_UP_STRING,    NULL,    volEnvRepEUp,   NULL },
+    { 416, 245, 19, 13, true,  4, ARROW_DOWN_STRING,  NULL,    volEnvRepEDown, NULL },
+    { 341, 262, 47, 16, true,  4, "Add",              NULL,    panEnvAdd,      NULL },
+    { 389, 262, 46, 16, true,  4, "Del",              NULL,    panEnvDel,      NULL },
+    { 398, 291, 19, 13, true,  4, ARROW_UP_STRING,    NULL,    panEnvSusUp,    NULL },
+    { 416, 291, 19, 13, true,  4, ARROW_DOWN_STRING,  NULL,    panEnvSusDown,  NULL },
+    { 398, 318, 19, 13, true,  4, ARROW_UP_STRING,    NULL,    panEnvRepSUp,   NULL },
+    { 416, 318, 19, 13, true,  4, ARROW_DOWN_STRING,  NULL,    panEnvRepSDown, NULL },
+    { 398, 332, 19, 13, true,  4, ARROW_UP_STRING,    NULL,    panEnvRepEUp,   NULL },
+    { 416, 332, 19, 13, true,  4, ARROW_DOWN_STRING,  NULL,    panEnvRepEDown, NULL },
+    { 521, 175, 23, 13, true,  3, ARROW_LEFT_STRING,  NULL,    volDown,        NULL },
+    { 606, 175, 23, 13, true,  3, ARROW_RIGHT_STRING, NULL,    volUp,          NULL },
+    { 521, 189, 23, 13, true,  1, ARROW_LEFT_STRING,  NULL,    panDown,        NULL },
+    { 606, 189, 23, 13, true,  1, ARROW_RIGHT_STRING, NULL,    panUp,          NULL },
+    { 521, 203, 23, 13, true,  3, ARROW_LEFT_STRING,  NULL,    ftuneDown,      NULL },
+    { 606, 203, 23, 13, true,  3, ARROW_RIGHT_STRING, NULL,    ftuneUp,        NULL },
+    { 521, 220, 23, 13, true,  0, ARROW_LEFT_STRING,  NULL,    fadeoutDown,    NULL },
+    { 606, 220, 23, 13, true,  0, ARROW_RIGHT_STRING, NULL,    fadeoutUp,      NULL },
+    { 521, 234, 23, 13, true,  3, ARROW_LEFT_STRING,  NULL,    vibSpeedDown,   NULL },
+    { 606, 234, 23, 13, true,  3, ARROW_RIGHT_STRING, NULL,    vibSpeedUp,     NULL },
+    { 521, 248, 23, 13, true,  3, ARROW_LEFT_STRING,  NULL,    vibDepthDown,   NULL },
+    { 606, 248, 23, 13, true,  3, ARROW_RIGHT_STRING, NULL,    vibDepthUp,     NULL },
+    { 521, 262, 23, 13, true,  3, ARROW_LEFT_STRING,  NULL,    vibSweepDown,   NULL },
+    { 606, 262, 23, 13, true,  3, ARROW_RIGHT_STRING, NULL,    vibSweepUp,     NULL },
+    { 441, 312, 94, 16, true,  3, "Octave up",        NULL,    relToneOctUp,   NULL },
+    { 536, 312, 93, 16, true,  3, "Halftone up",      NULL,    relToneUp,      NULL },
+    { 441, 329, 94, 16, true,  3, "Octave down",      NULL,    relToneOctDown, NULL },
+    { 536, 329, 93, 16, true,  3, "Halftone down",    NULL,    relToneDown,    NULL },
 
     // ------ INSTRUMENT EDITOR EXTENSION PUSHBUTTONS ------
-    //x,   y,   w,   h,   visible, state,                   text line #1,       line #2, funcOnDown,   funcOnUp
-    { 172, 130,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_LEFT_STRING,  NULL,    midiChDown,   NULL,    false, NULL, NULL, true },
-    { 265, 130,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_RIGHT_STRING, NULL,    midiChUp,     NULL,    false, NULL, NULL, true },
-    { 172, 144,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_LEFT_STRING,  NULL,    midiPrgDown,  NULL,    false, NULL, NULL, true },
-    { 265, 144,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_RIGHT_STRING, NULL,    midiPrgUp,    NULL,    false, NULL, NULL, true },
-    { 172, 158,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_LEFT_STRING,  NULL,    midiBendDown, NULL,    false, NULL, NULL, true },
-    { 265, 158,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_RIGHT_STRING, NULL,    midiBendUp,   NULL,    false, NULL, NULL, true },
+    //x,   y,   w,  h,  preD, d, text #1,            text #2, funcOnDown,   funcOnUp
+    { 172, 130, 23, 13, true, 3, ARROW_LEFT_STRING,  NULL,    midiChDown,   NULL },
+    { 265, 130, 23, 13, true, 3, ARROW_RIGHT_STRING, NULL,    midiChUp,     NULL },
+    { 172, 144, 23, 13, true, 3, ARROW_LEFT_STRING,  NULL,    midiPrgDown,  NULL },
+    { 265, 144, 23, 13, true, 3, ARROW_RIGHT_STRING, NULL,    midiPrgUp,    NULL },
+    { 172, 158, 23, 13, true, 3, ARROW_LEFT_STRING,  NULL,    midiBendDown, NULL },
+    { 265, 158, 23, 13, true, 3, ARROW_RIGHT_STRING, NULL,    midiBendUp,   NULL },
 
     // ------ TRIM SCREEN PUSHBUTTONS ------
-    //x,   y,   w,   h,   visible, state,                   text line #1, line #2, funcOnDown, funcOnUp
-    { 139, 155,  74,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Calculate",  NULL,    NULL,       pbTrimCalc,    false, NULL, NULL, true },
-    { 214, 155,  74,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Trim",       NULL,    NULL,       pbTrimTrim,    false, NULL, NULL, true },
+    //x,   y,   w,  h,  preD,  d, text #1,     text #2, funcOnDown, funcOnUp
+    { 139, 155, 74, 16, false, 0, "Calculate", NULL,    NULL,       pbTrimCalc },
+    { 214, 155, 74, 16, false, 0, "Trim",      NULL,    NULL,       pbTrimDoTrim },
 
     // ------ CONFIG LEFT PANEL PUSHBUTTONS ------
-    //x,   y,   w,   h,   visible, state,                   text line #1,   line #2, funcOnDown, funcOnUp
-    {   3, 104, 104,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Reset config.", NULL,    NULL,      resetConfig2,     false, NULL, NULL, true },
-    {   3, 121, 104,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Load config.",  NULL,    NULL,      loadConfig2,      false, NULL, NULL, true },
-    {   3, 138, 104,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Save config.",  NULL,    NULL,      saveConfig2,      false, NULL, NULL, true },
-    {   3, 155, 104,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Exit",          NULL,    NULL,      exitConfigScreen, false, NULL, NULL, true },
+    //x, y,   w,   h,  preD,  d, text #1,         text #2, funcOnDown, funcOnUp
+    { 3, 104, 104, 16, false, 0, "Reset config.", NULL,    NULL,       resetConfig },
+    { 3, 121, 104, 16, false, 0, "Load config.",  NULL,    NULL,       loadConfig2 },
+    { 3, 138, 104, 16, false, 0, "Save config.",  NULL,    NULL,       saveConfig2 },
+    { 3, 155, 104, 16, false, 0, "Exit",          NULL,    NULL,       exitConfigScreen },
 
     // ------ CONFIG AUDIO PUSHBUTTONS ------
-    //x,   y,   w,   h,   visible, state,                   text line #1,       line #2, funcOnDown,      funcOnUp
-    { 326,   2,  57,  13, false,   PUSHBUTTON_UNPRESSED, 3, "Re-scan",          NULL,    NULL,                       rescanAudioDevices, false, NULL, NULL, true },
-    { 365,  16,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_UP_STRING,    NULL,    scrollAudOutputDevListUp,   NULL,               false, NULL, NULL, true },
-    { 365,  72,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_DOWN_STRING,  NULL,    scrollAudOutputDevListDown, NULL,               false, NULL, NULL, true },
-    { 365, 103,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_UP_STRING,    NULL,    scrollAudInputDevListUp,    NULL,               false, NULL, NULL, true },
-    { 365, 158,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_DOWN_STRING,  NULL,    scrollAudInputDevListDown,  NULL,               false, NULL, NULL, true },
-    { 508, 132,  21,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_LEFT_STRING,  NULL,    configAmpDown,              NULL,               false, NULL, NULL, true },
-    { 608, 132,  21,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_RIGHT_STRING, NULL,    configAmpUp,                NULL,               false, NULL, NULL, true },
-    { 508, 158,  21,  13, false,   PUSHBUTTON_UNPRESSED, 1, ARROW_LEFT_STRING,  NULL,    configMasterVolDown,        NULL,               false, NULL, NULL, true },
-    { 608, 158,  21,  13, false,   PUSHBUTTON_UNPRESSED, 1, ARROW_RIGHT_STRING, NULL,    configMasterVolUp,          NULL,               false, NULL, NULL, true },
+    //x,   y,   w,  h,  preD,  d, text #1,            text #2, funcOnDown,                 funcOnUp
+    { 326,   2, 57, 13, false, 0, "Re-scan",          NULL,    NULL,                       rescanAudioDevices },
+    { 365,  16, 18, 13, true,  3, ARROW_UP_STRING,    NULL,    scrollAudOutputDevListUp,   NULL },
+    { 365,  72, 18, 13, true,  3, ARROW_DOWN_STRING,  NULL,    scrollAudOutputDevListDown, NULL },
+    { 365, 103, 18, 13, true,  3, ARROW_UP_STRING,    NULL,    scrollAudInputDevListUp,    NULL },
+    { 365, 158, 18, 13, true,  3, ARROW_DOWN_STRING,  NULL,    scrollAudInputDevListDown,  NULL },
+    { 508, 132, 21, 13, true,  3, ARROW_LEFT_STRING,  NULL,    configAmpDown,              NULL },
+    { 608, 132, 21, 13, true,  3, ARROW_RIGHT_STRING, NULL,    configAmpUp,                NULL },
+    { 508, 158, 21, 13, true,  1, ARROW_LEFT_STRING,  NULL,    configMasterVolDown,        NULL },
+    { 608, 158, 21, 13, true,  1, ARROW_RIGHT_STRING, NULL,    configMasterVolUp,          NULL },
 
     // ------ CONFIG LAYOUT PUSHBUTTONS ------
-    //x,   y,   w,   h,   visible, state,                   text line #1,       line #2, funcOnDown,         funcOnUp
-    { 513,  15,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_LEFT_STRING,  NULL,    configPalRDown,     NULL,     false, NULL, NULL, true },
-    { 606,  15,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_RIGHT_STRING, NULL,    configPalRUp,       NULL,     false, NULL, NULL, true },
-    { 513,  29,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_LEFT_STRING,  NULL,    configPalGDown,     NULL,     false, NULL, NULL, true },
-    { 606,  29,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_RIGHT_STRING, NULL,    configPalGUp,       NULL,     false, NULL, NULL, true },
-    { 513,  43,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_LEFT_STRING,  NULL,    configPalBDown,     NULL,     false, NULL, NULL, true },
-    { 606,  43,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_RIGHT_STRING, NULL,    configPalBUp,       NULL,     false, NULL, NULL, true },
-    { 513,  71,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_LEFT_STRING,  NULL,    configPalContDown,  NULL,     false, NULL, NULL, true },
-    { 606,  71,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_RIGHT_STRING, NULL,    configPalContUp,    NULL,     false, NULL, NULL, true },
+    //x,   y,  w,  h,  preD, d, text #1,            text #2, funcOnDown,        funcOnUp
+    { 513, 15, 23, 13, true, 3, ARROW_LEFT_STRING,  NULL,    configPalRDown,    NULL },
+    { 606, 15, 23, 13, true, 3, ARROW_RIGHT_STRING, NULL,    configPalRUp,      NULL },
+    { 513, 29, 23, 13, true, 3, ARROW_LEFT_STRING,  NULL,    configPalGDown,    NULL },
+    { 606, 29, 23, 13, true, 3, ARROW_RIGHT_STRING, NULL,    configPalGUp,      NULL },
+    { 513, 43, 23, 13, true, 3, ARROW_LEFT_STRING,  NULL,    configPalBDown,    NULL },
+    { 606, 43, 23, 13, true, 3, ARROW_RIGHT_STRING, NULL,    configPalBUp,      NULL },
+    { 513, 71, 23, 13, true, 3, ARROW_LEFT_STRING,  NULL,    configPalContDown, NULL },
+    { 606, 71, 23, 13, true, 3, ARROW_RIGHT_STRING, NULL,    configPalContUp,   NULL },
 
     // ------ CONFIG MISCELLANEOUS PUSHBUTTONS ------
-    //x,   y,   w,   h,   visible, state,                   text line #1,                   line #2, funcOnDown,         funcOnUp
-    { 113, 155,  93,  16, false,   PUSHBUTTON_UNPRESSED, 3, editor.ui.fullscreenButtonText, NULL,    NULL,                toggleFullScreen, false, NULL, NULL, true },
-    { 370, 121,  18,  13, false,   PUSHBUTTON_UNPRESSED, 4, ARROW_UP_STRING,                NULL,    configQuantizeUp,    NULL, false, NULL, NULL, true },
-    { 387, 121,  18,  13, false,   PUSHBUTTON_UNPRESSED, 4, ARROW_DOWN_STRING,              NULL,    configQuantizeDown,  NULL, false, NULL, NULL, true },
-    { 594, 107,  18,  13, false,   PUSHBUTTON_UNPRESSED, 4, ARROW_UP_STRING,                NULL,    configMIDIChnUp,     NULL, false, NULL, NULL, true },
-    { 611, 107,  18,  13, false,   PUSHBUTTON_UNPRESSED, 4, ARROW_DOWN_STRING,              NULL,    configMIDIChnDown,   NULL, false, NULL, NULL, true },
-    { 594, 121,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_UP_STRING,                NULL,    configMIDITransUp,   NULL, false, NULL, NULL, true },
-    { 611, 121,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_DOWN_STRING,              NULL,    configMIDITransDown, NULL, false, NULL, NULL, true },
-    { 556, 158,  22,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_LEFT_STRING,              NULL,    configMIDISensDown,  NULL, false, NULL, NULL, true },
-    { 607, 158,  22,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_RIGHT_STRING,             NULL,    configMIDISensUp,    NULL, false, NULL, NULL, true },
+    //x,   y,   w,  h,  preD, d, text #1,                         text #2, funcOnDown,          funcOnUp
+    { 113, 155, 93, 16, false, 0, editor.ui.fullscreenButtonText, NULL,    NULL,                toggleFullScreen },
+    { 370, 121, 18, 13, true,  4, ARROW_UP_STRING,                NULL,    configQuantizeUp,    NULL },
+    { 387, 121, 18, 13, true,  4, ARROW_DOWN_STRING,              NULL,    configQuantizeDown,  NULL },
+    { 594, 107, 18, 13, true,  4, ARROW_UP_STRING,                NULL,    configMIDIChnUp,     NULL },
+    { 611, 107, 18, 13, true,  4, ARROW_DOWN_STRING,              NULL,    configMIDIChnDown,   NULL },
+    { 594, 121, 18, 13, true,  3, ARROW_UP_STRING,                NULL,    configMIDITransUp,   NULL },
+    { 611, 121, 18, 13, true,  3, ARROW_DOWN_STRING,              NULL,    configMIDITransDown, NULL },
+    { 556, 158, 22, 13, true,  3, ARROW_LEFT_STRING,              NULL,    configMIDISensDown,  NULL },
+    { 607, 158, 22, 13, true,  3, ARROW_RIGHT_STRING,             NULL,    configMIDISensUp,    NULL },
 
     // ------ CONFIG MIDI PUSHBUTTONS ------
-    //x,   y,   w,   h,   visible, state,                   text line #1,       line #2, funcOnDown,                 funcOnUp
-    { 483,   2,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_UP_STRING,    NULL,    scrollMidiInputDevListUp,   NULL, false, NULL, NULL, true },
-    { 483, 158,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_DOWN_STRING,  NULL,    scrollMidiInputDevListDown, NULL, false, NULL, NULL, true },
+    //x,   y,   w,  h,  preD, d, text #1,           text #2, funcOnDown,                 funcOnUp
+    { 483,   2, 18, 13, true, 3, ARROW_UP_STRING,   NULL,    scrollMidiInputDevListUp,   NULL },
+    { 483, 158, 18, 13, true, 3, ARROW_DOWN_STRING, NULL,    scrollMidiInputDevListDown, NULL },
 
     // ------ DISK OP. PUSHBUTTONS ------
-    //x,   y,   w,   h,   visible, state,                   text line #1, line #2, funcOnDown, funcOnUp
-    {  70,   2,  58,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Save",       NULL,    NULL,       pbDiskOpSave,    false, NULL, NULL, true },
-    {  70,  19,  58,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Delete",     NULL,    NULL,       pbDiskOpDelete,  false, NULL, NULL, true },
-    {  70,  36,  58,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Rename",     NULL,    NULL,       pbDiskOpRename,  false, NULL, NULL, true },
-    {  70,  53,  58,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Makedir",    NULL,    NULL,       pbDiskOpMakeDir, false, NULL, NULL, true },
-    {  70,  70,  58,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Refresh",    NULL,    NULL,       pbDiskOpRefresh, false, NULL, NULL, true },
-    {  70,  87,  58,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Set path",   NULL,    NULL,       pbDiskOpSetPath, false, NULL, NULL, true },
-    {  70, 104,  58,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Show all",   NULL,    NULL,       pbDiskOpShowAll, false, NULL, NULL, true },
-    {  70, 121,  58,  19, false,   PUSHBUTTON_UNPRESSED, 3, "Exit",       NULL,    NULL,       pbDiskOpExit,    false, NULL, NULL, true },
-
+    //x,   y,   w,  h,  preD,  d, text #1,          text #2, funcOnDown,     funcOnUp
+    {  70,   2, 58, 16, false, 0, "Save",           NULL,    NULL,           pbDiskOpSave },
+    {  70,  19, 58, 16, false, 0, "Delete",         NULL,    NULL,           pbDiskOpDelete },
+    {  70,  36, 58, 16, false, 0, "Rename",         NULL,    NULL,           pbDiskOpRename },
+    {  70,  53, 58, 16, false, 0, "Makedir",        NULL,    NULL,           pbDiskOpMakeDir },
+    {  70,  70, 58, 16, false, 0, "Refresh",        NULL,    NULL,           pbDiskOpRefresh },
+    {  70,  87, 58, 16, false, 0, "Set path",       NULL,    NULL,           pbDiskOpSetPath },
+    {  70, 104, 58, 16, false, 0, "Show all",       NULL,    NULL,           pbDiskOpShowAll },
+    {  70, 121, 58, 19, false, 0, "Exit",           NULL,    NULL,           pbDiskOpExit },
 #ifdef _WIN32
-    { 134,   2,  31,  13, false,   PUSHBUTTON_UNPRESSED, 3, ".\001",      NULL,    NULL,       pbDiskOpParent,  false, NULL, NULL, true },
-    { 134,  16,  31,  12, false,   PUSHBUTTON_UNPRESSED, 3, "\\",         NULL,    NULL,       pbDiskOpRoot,    false, NULL, NULL, true },
+    { 134,   2, 31, 13, false, 0, ".\001",          NULL,    NULL,           pbDiskOpParent },
+    { 134,  16, 31, 12, false, 0, "\\",             NULL,    NULL,           pbDiskOpRoot },
+    { 134,  29, 31, 13, false, 0, NULL,             NULL,    NULL,           pbDiskOpDrive1 },
+    { 134,  43, 31, 13, false, 0, NULL,             NULL,    NULL,           pbDiskOpDrive2 },
+    { 134,  57, 31, 13, false, 0, NULL,             NULL,    NULL,           pbDiskOpDrive3 },
+    { 134,  71, 31, 13, false, 0, NULL,             NULL,    NULL,           pbDiskOpDrive4 },
+    { 134,  85, 31, 13, false, 0, NULL,             NULL,    NULL,           pbDiskOpDrive5 },
+    { 134,  99, 31, 13, false, 0, NULL,             NULL,    NULL,           pbDiskOpDrive6 },
+    { 134, 113, 31, 13, false, 0, NULL,             NULL,    NULL,           pbDiskOpDrive7 },
+    { 134, 127, 31, 13, false, 0, NULL,             NULL,    NULL,           pbDiskOpDrive8 },
 #else
-    { 134,   2,  31,  13, false,   PUSHBUTTON_UNPRESSED, 3, "../",        NULL,    NULL,       pbDiskOpParent,  false, NULL, NULL, true },
-    { 134,  16,  31,  12, false,   PUSHBUTTON_UNPRESSED, 3, "/",          NULL,    NULL,       pbDiskOpRoot,    false, NULL, NULL, true },
+    { 134,   2, 31, 13, false, 0, "../",            NULL,    NULL,           pbDiskOpParent },
+    { 134,  16, 31, 12, false, 0, "/",              NULL,    NULL,           pbDiskOpRoot },
 #endif
-
-#ifdef _WIN32
-    //x,   y,   w,   h,   visible, state,                   text line #1, line #2, funcOnDown, funcOnUp
-    { 134,  29,  31,  13, false,   PUSHBUTTON_UNPRESSED, 3, "",           NULL,    NULL,       pbDiskOpDrive1, false, NULL, NULL, true },
-    { 134,  43,  31,  13, false,   PUSHBUTTON_UNPRESSED, 3, "",           NULL,    NULL,       pbDiskOpDrive2, false, NULL, NULL, true },
-    { 134,  57,  31,  13, false,   PUSHBUTTON_UNPRESSED, 3, "",           NULL,    NULL,       pbDiskOpDrive3, false, NULL, NULL, true },
-    { 134,  71,  31,  13, false,   PUSHBUTTON_UNPRESSED, 3, "",           NULL,    NULL,       pbDiskOpDrive4, false, NULL, NULL, true },
-    { 134,  85,  31,  13, false,   PUSHBUTTON_UNPRESSED, 3, "",           NULL,    NULL,       pbDiskOpDrive5, false, NULL, NULL, true },
-    { 134,  99,  31,  13, false,   PUSHBUTTON_UNPRESSED, 3, "",           NULL,    NULL,       pbDiskOpDrive6, false, NULL, NULL, true },
-    { 134, 113,  31,  13, false,   PUSHBUTTON_UNPRESSED, 3, "",           NULL,    NULL,       pbDiskOpDrive7, false, NULL, NULL, true },
-    { 134, 127,  31,  13, false,   PUSHBUTTON_UNPRESSED, 3, "",           NULL,    NULL,       pbDiskOpDrive8, false, NULL, NULL, true },
-#endif
-
-    { 335,   2,  18,  13, false,   PUSHBUTTON_UNPRESSED, 1, ARROW_UP_STRING,   NULL, pbDiskOpListUp,   NULL, false, NULL, NULL, true },
-    { 335, 158,  18,  13, false,   PUSHBUTTON_UNPRESSED, 1, ARROW_DOWN_STRING, NULL, pbDiskOpListDown, NULL, false, NULL, NULL, true },
+    { 335,   2, 18, 13, true,  1, ARROW_UP_STRING,   NULL, pbDiskOpListUp,   NULL },
+    { 335, 158, 18, 13, true,  1, ARROW_DOWN_STRING, NULL, pbDiskOpListDown, NULL },
 
     // ------ WAV RENDERER PUSHBUTTONS ------
-    //x,   y,   w,   h,   visible, state,                   text line #1,      line #2, funcOnDown,         funcOnUp
-    {   3, 111,  73,  43, false,   PUSHBUTTON_UNPRESSED, 3, "RECORD",          NULL,    NULL,               pbWavRender, false, NULL, NULL, true },
-    {   3, 155,  73,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Exit",            NULL,    NULL,               pbWavExit,   false, NULL, NULL, true },
-    { 253, 114,  18,  13, false,   PUSHBUTTON_UNPRESSED, 6, ARROW_UP_STRING,   NULL,    pbWavFreqUp,        NULL,        false, NULL, NULL, true },
-    { 270, 114,  18,  13, false,   PUSHBUTTON_UNPRESSED, 6, ARROW_DOWN_STRING, NULL,    pbWavFreqDown,      NULL,        false, NULL, NULL, true },
-    { 253, 128,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_UP_STRING,   NULL,    pbWavAmpUp,         NULL,        false, NULL, NULL, true },
-    { 270, 128,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_DOWN_STRING, NULL,    pbWavAmpDown,       NULL,        false, NULL, NULL, true },
-    { 253, 142,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_UP_STRING,   NULL,    pbWavSongStartUp,   NULL,        false, NULL, NULL, true },
-    { 270, 142,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_DOWN_STRING, NULL,    pbWavSongStartDown, NULL,        false, NULL, NULL, true },
-    { 253, 156,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_UP_STRING,   NULL,    pbWavSongEndUp,     NULL,        false, NULL, NULL, true },
-    { 270, 156,  18,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_DOWN_STRING, NULL,    pbWavSongEndDown,   NULL,        false, NULL, NULL, true },
-
-    // ------ SYSTEM REQUEST PUSHBUTTONS ------
-    //x,   y,   w,   h,   visible, state,                   text line #1,  line #2, funcOnDown, funcOnUp
-    { 126, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "All",         NULL,    NULL,       pbZapAll,                 false, NULL, NULL, true },
-    { 226, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Song",        NULL,    NULL,       pbZapSong,                false, NULL, NULL, true },
-    { 326, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Instruments", NULL,    NULL,       pbZapInstr,               false, NULL, NULL, true },
-    { 426, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Cancel",      NULL,    NULL,       hideSystemRequest,        false, NULL, NULL, true },
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Yes",         NULL,    NULL,       doTranspose,              false, NULL, NULL, true },
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Yes",         NULL,    NULL,       resetConfig,              false, NULL, NULL, true },
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Yes",         NULL,    NULL,       quitProgram,              false, NULL, NULL, true },
-    { 326, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "No",          NULL,    NULL,       hideSystemRequest,        false, NULL, NULL, true },
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "OK",          NULL,    NULL,       quitProgram,              false, NULL, NULL, true },
-    { 326, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Cancel",      NULL,    NULL,       hideSystemRequest,        false, NULL, NULL, true },
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "=(",          NULL,    NULL,       quitProgram,              false, NULL, NULL, true },
-    { 326, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Rules",       NULL,    NULL,       hideSystemRequest,        false, NULL, NULL, true },
-    { 276, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "OK",          NULL,    NULL,       hideSystemRequest,        false, NULL, NULL, true },
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Yes",         NULL,    NULL,       shrinkPattern,            false, NULL, NULL, true },
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Yes",         NULL,    NULL,       setNewLenAndPastePattern, false, NULL, NULL, true },
-    { 326, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "No",          NULL,    NULL,       pastePatternNoLenCheck,   false, NULL, NULL, true },
-
-    /* nibbles */
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Yes",         NULL,    NULL,       nibblesRestartYes,        false, NULL, NULL, true },
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Yes",         NULL,    NULL,       nibblesExit2,             false, NULL, NULL, true },
-    { 276, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "OK",          NULL,    NULL,       nibblesGameOverOK,        false, NULL, NULL, true },
-    { 276, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "OK",          NULL,    NULL,       nibblesLevelFinishedOK,   false, NULL, NULL, true },
-    { 276, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "OK",          NULL,    NULL,       nibblesPlayer1NameOK,     false, NULL, NULL, true },
-    { 276, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "OK",          NULL,    NULL,       nibblesPlayer2NameOK,     false, NULL, NULL, true },
-    { 276, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "OK",          NULL,    NULL,       nibblesPlayerDiedOK,      false, NULL, NULL, true },
-
-    /* sampler */
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "OK",          NULL,    NULL,       clearCurSample,          false, NULL, NULL, true },
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Yes",         NULL,    NULL,       convSampleTo8Bit,        false, NULL, NULL, true },
-    { 326, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "No",          NULL,    NULL,       convSampleTo8BitCancel,  false, NULL, NULL, true },
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Yes",         NULL,    NULL,       convSampleTo16Bit,       false, NULL, NULL, true },
-    { 326, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "No",          NULL,    NULL,       convSampleTo16BitCancel, false, NULL, NULL, true },
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "OK",          NULL,    NULL,       minimizeSample,          false, NULL, NULL, true },
-
-    { 125, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Read left",   NULL,    NULL,       stereoSampleReadLeft,  false, NULL, NULL, true },
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Read right",  NULL,    NULL,       stereoSampleReadRight, false, NULL, NULL, true },
-    { 325, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Convert",     NULL,    NULL,       stereoSampleConvert,   false, NULL, NULL, true },
-    { 425, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Abort",       NULL,    NULL,       hideSystemRequest,     false, NULL, NULL, true },
-
-    /* sample volume box */
-    { 171, 262,  73,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Apply",             NULL, NULL, sampleChangeVolume, false, NULL, NULL, true },
-    { 245, 262, 143,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Get maximum scale", NULL, NULL, sampleGetMaxVolume, false, NULL, NULL, true },
-    { 389, 262,  73,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Exit",              NULL, NULL, hideSystemRequest,  false, NULL, NULL, true },
-    { 292, 234,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_LEFT_STRING,   NULL, pbSampStartVolDown, NULL, false, NULL, NULL, true },
-    { 439, 234,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_RIGHT_STRING,  NULL, pbSampStartVolUp,   NULL, false, NULL, NULL, true },
-    { 292, 248,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_LEFT_STRING,   NULL, pbSampEndVolDown,   NULL, false, NULL, NULL, true },
-    { 439, 248,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_RIGHT_STRING,  NULL, pbSampEndVolUp,     NULL, false, NULL, NULL, true },
-
-    /* sample resample box */
-    { 214, 264,  73,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Apply",             NULL, NULL, resampleSample,      false, NULL, NULL, true },
-    { 345, 264,  73,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Exit",              NULL, NULL, hideSystemRequest,   false, NULL, NULL, true },
-    { 314, 234,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_LEFT_STRING,   NULL, pbResampleTonesDown, NULL, false, NULL, NULL, true },
-    { 395, 234,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_RIGHT_STRING,  NULL, pbResampleTonesUp,   NULL, false, NULL, NULL, true },
-
-    /* mix sample box */
-    { 197, 258,  73,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Apply",             NULL, NULL, mixSample,         false, NULL, NULL, true },
-    { 361, 258,  73,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Exit",              NULL, NULL, hideSystemRequest, false, NULL, NULL, true },
-    { 322, 244,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_LEFT_STRING,   NULL, pbMixBalanceDown,  NULL, false, NULL, NULL, true },
-    { 411, 244,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_RIGHT_STRING,  NULL, pbMixBalanceUp,    NULL, false, NULL, NULL, true },
-
-    /* echo box */
-    { 345, 266,  56,  16, false,   PUSHBUTTON_UNPRESSED, 1, "Apply",             NULL, NULL, createEcho,        false, NULL, NULL, true },
-    { 402, 266,  55,  16, false,   PUSHBUTTON_UNPRESSED, 1, "Exit",              NULL, NULL, hideSystemRequest, false, NULL, NULL, true },
-    { 345, 224,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_LEFT_STRING,   NULL, pbEchoNumDown,     NULL, false, NULL, NULL, true },
-    { 434, 224,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_RIGHT_STRING,  NULL, pbEchoNumUp,       NULL, false, NULL, NULL, true },
-    { 345, 238,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_LEFT_STRING,   NULL, pbEchoDistDown,    NULL, false, NULL, NULL, true },
-    { 434, 238,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_RIGHT_STRING,  NULL, pbEchoDistUp,      NULL, false, NULL, NULL, true },
-    { 345, 252,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_LEFT_STRING,   NULL, pbEchoFadeoutDown, NULL, false, NULL, NULL, true },
-    { 434, 252,  23,  13, false,   PUSHBUTTON_UNPRESSED, 3, ARROW_RIGHT_STRING,  NULL, pbEchoFadeoutUp,   NULL, false, NULL, NULL, true },
-
-    /* save range box */
-    { 226, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "OK",          NULL,    NULL, saveRange2,   false, NULL, NULL, true },
-
-    /* disk op */
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Yes",         NULL,    NULL, diskOpDelete,          false, NULL, NULL, true },
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "OK",          NULL,    NULL, diskOpRenameAnsi,      false, NULL, NULL, true },
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "OK",          NULL,    NULL, diskOpMakeDirAnsi,     false, NULL, NULL, true },
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "OK",          NULL,    NULL, diskOpSetPathAnsi,     false, NULL, NULL, true },
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Yes",         NULL,    NULL, diskOpSave2,           false, NULL, NULL, true },
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Yes",         NULL,    NULL, wavRenderOverwrite,    false, NULL, NULL, true },
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Yes",         NULL,    NULL, openFile2,             false, NULL, NULL, true },
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Yes",         NULL,    NULL, loadDroppedFile2,      false, NULL, NULL, true },
-    { 326, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "No",          NULL,    NULL, cancelLoadDroppedFile, false, NULL, NULL, true },
-
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "OK",          NULL,    NULL, clearCurInstr, false, NULL, NULL, true },
-
-    /* scale fade volume */
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "OK",          NULL,    NULL, handleScaleFadeVolume,  false, NULL, NULL, true },
-    { 326, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Cancel",      NULL,    NULL, cancelScaleFadeVolume,  false, NULL, NULL, true },
-
-    /* trim */
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Yes",        NULL,    NULL, trim,  false, NULL, NULL, true },
-
-    /* sampling */
-    { 225, 291,  81,  16, false,   PUSHBUTTON_UNPRESSED, 3, "Yes",        NULL,    NULL, srStartSampling,  false, NULL, NULL, true }
+    //x,   y,   w,  h,  preD,  d, text #1,           text #2, funcOnDown,         funcOnUp
+    {   3, 111, 73, 43, false, 0, "RECORD",          NULL,    NULL,               pbWavRender },
+    {   3, 155, 73, 16, false, 0, "Exit",            NULL,    NULL,               pbWavExit },
+    { 253, 114, 18, 13, true,  6, ARROW_UP_STRING,   NULL,    pbWavFreqUp,        NULL },
+    { 270, 114, 18, 13, true,  6, ARROW_DOWN_STRING, NULL,    pbWavFreqDown,      NULL },
+    { 253, 128, 18, 13, true,  3, ARROW_UP_STRING,   NULL,    pbWavAmpUp,         NULL },
+    { 270, 128, 18, 13, true,  3, ARROW_DOWN_STRING, NULL,    pbWavAmpDown,       NULL },
+    { 253, 142, 18, 13, true,  3, ARROW_UP_STRING,   NULL,    pbWavSongStartUp,   NULL },
+    { 270, 142, 18, 13, true,  3, ARROW_DOWN_STRING, NULL,    pbWavSongStartDown, NULL },
+    { 253, 156, 18, 13, true,  3, ARROW_UP_STRING,   NULL,    pbWavSongEndUp,     NULL },
+    { 270, 156, 18, 13, true,  3, ARROW_DOWN_STRING, NULL,    pbWavSongEndDown,   NULL }
 };
 
 void drawPushButton(uint16_t pushButtonID)
@@ -535,7 +448,7 @@ void drawPushButton(uint16_t pushButtonID)
         /* button text #2 */
         if ((b->caption2 != NULL) && (*b->caption2 != '\0'))
         {
-            textW = getTextWidth(b->caption2, FONT_TYPE1);
+            textW = textWidth(b->caption2);
             textX = x + ((w - textW) / 2);
             textY = y + 6 + ((h - (FONT1_CHAR_H - 2)) / 2);
 
@@ -548,7 +461,7 @@ void drawPushButton(uint16_t pushButtonID)
         }
 
         /* button text #1 */
-        textW = getTextWidth(b->caption, FONT_TYPE1);
+        textW = textWidth(b->caption);
         textX = x + ((w - textW) / 2);
         textY = y + ((h - (FONT1_CHAR_H - 2)) / 2);
 
@@ -571,6 +484,7 @@ void hidePushButton(uint16_t pushButtonID)
 {
     MY_ASSERT(pushButtonID < NUM_PUSHBUTTONS)
 
+    pushButtons[pushButtonID].state   = 0;
     pushButtons[pushButtonID].visible = false;
 }
 
@@ -628,7 +542,7 @@ void handlePushButtonsWhileMouseDown(void)
             {
                 mouse.buttonCounter = 0;
                 if (pushButton->callbackFuncOnDown != NULL)
-                    (pushButton->callbackFuncOnDown)();
+                   (pushButton->callbackFuncOnDown)();
             }
         }
     }
@@ -636,73 +550,47 @@ void handlePushButtonsWhileMouseDown(void)
 
 int8_t testPushButtonMouseDown(void)
 {
-    uint16_t i;
+    uint16_t i, start, end;
     pushButton_t *pushButton;
-    sysReq_t *sysReq;
 
-    if (editor.ui.systemRequestShown) /* only react to buttons inside the box when a system request is shown */
+    if (editor.ui.systemRequestShown)
     {
-        MY_ASSERT(editor.ui.systemRequestID < NUM_SYSREQS)
-
-        sysReq = &sysReqs[editor.ui.systemRequestID];
-        for (i = 0; i < sysReq->numButtons; ++i)
-        {
-            MY_ASSERT(sysReq->buttonIDs[i] < NUM_PUSHBUTTONS)
-
-            pushButton = &pushButtons[sysReq->buttonIDs[i]];
-            if ((mouse.x >= pushButton->x) && (mouse.x < (pushButton->x + pushButton->w)))
-            {
-                if ((mouse.y >= pushButton->y) && (mouse.y < (pushButton->y + pushButton->h)))
-                {
-                    mouse.lastUsedObjectID   = sysReq->buttonIDs[i];
-                    mouse.lastUsedObjectType = OBJECT_PUSHBUTTON;
-
-                    if (!mouse.rightButtonPressed)
-                    {
-                        mouse.firstTimePressingButton = true;
-                        mouse.buttonCounter = 0;
-
-                        pushButton->state = PUSHBUTTON_PRESSED;
-                        drawPushButton(i);
-
-                        if (pushButton->callbackFuncOnDown != NULL)
-                           (pushButton->callbackFuncOnDown)();
-                    }
-
-                    return (true);
-                }
-            }
-        }
+        /* if a system request is open, only test the first eight pushbuttons (reserved) */
+        start = 0;
+        end   = 8;
     }
     else
     {
-        for (i = 0; i < NUM_PUSHBUTTONS; ++i)
+        start = 8;
+        end   = NUM_PUSHBUTTONS;
+    }
+
+    for (i = start; i < end; ++i)
+    {
+        pushButton = &pushButtons[i];
+        if (!pushButton->visible)
+            continue;
+
+        if ((mouse.x >= pushButton->x) && (mouse.x < (pushButton->x + pushButton->w)))
         {
-            pushButton = &pushButtons[i];
-            if (pushButton->visible)
+            if ((mouse.y >= pushButton->y) && (mouse.y < (pushButton->y + pushButton->h)))
             {
-                if ((mouse.x >= pushButton->x) && (mouse.x < (pushButton->x + pushButton->w)))
+                mouse.lastUsedObjectID   = i;
+                mouse.lastUsedObjectType = OBJECT_PUSHBUTTON;
+
+                if (!mouse.rightButtonPressed)
                 {
-                    if ((mouse.y >= pushButton->y) && (mouse.y < (pushButton->y + pushButton->h)))
-                    {
-                        mouse.lastUsedObjectID   = i;
-                        mouse.lastUsedObjectType = OBJECT_PUSHBUTTON;
+                    mouse.firstTimePressingButton = true;
+                    mouse.buttonCounter = 0;
 
-                        if (!mouse.rightButtonPressed)
-                        {
-                            mouse.firstTimePressingButton = true;
-                            mouse.buttonCounter = 0;
+                    pushButton->state = PUSHBUTTON_PRESSED;
+                    drawPushButton(i);
 
-                            pushButton->state = PUSHBUTTON_PRESSED;
-                            drawPushButton(i);
-
-                            if (pushButton->callbackFuncOnDown != NULL)
-                                (pushButton->callbackFuncOnDown)();
-                        }
-
-                        return (true);
-                    }
+                    if (pushButton->callbackFuncOnDown != NULL)
+                       (pushButton->callbackFuncOnDown)();
                 }
+
+                return (true);
             }
         }
     }
@@ -710,7 +598,7 @@ int8_t testPushButtonMouseDown(void)
     return (false);
 }
 
-void testPushButtonMouseRelease(void)
+int16_t testPushButtonMouseRelease(uint8_t runCallback)
 {
     pushButton_t *pushButton;
 
@@ -730,11 +618,18 @@ void testPushButtonMouseRelease(void)
                         pushButton->state = PUSHBUTTON_UNPRESSED;
                         drawPushButton(mouse.lastUsedObjectID);
 
-                        if (pushButton->callbackFuncOnUp != NULL)
-                           (pushButton->callbackFuncOnUp)();
+                        if (runCallback)
+                        {
+                            if (pushButton->callbackFuncOnUp != NULL)
+                               (pushButton->callbackFuncOnUp)();
+                        }
+
+                        return (mouse.lastUsedObjectID);
                     }
                 }
             }
         }
     }
+
+    return (-1);
 }

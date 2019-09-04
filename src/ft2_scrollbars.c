@@ -19,86 +19,81 @@
 
 scrollBar_t scrollBars[NUM_SCROLLBARS] =
 {
+    // ------ RESERVED SCROLLBARS ------
+    { 0 }, { 0 }, { 0 },
+
+    /*
+    ** -- STRUCT INFO: --
+    **  x         = x position
+    **  y         = y position
+    **  w         = width
+    **  h         = height
+    **  type      = scrollbar type (vertical/horizontal)
+    **  style     = scrollbar style (flat/noflat)
+    ** funcOnDown = function to call when pressed
+    */
+
     // ------ POSITION EDITOR SCROLLBARS ------
-    //x,   y,   w,   h,   visible, type,                 state,                              style                   funcOnDown
-    {  55,  15,  18,  21, false,   SCROLLBAR_VERTICAL,   SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_FLAT,   sbPosEdPos },
+    //x,  y,  w,  h,  type,               style                 funcOnDown
+    { 55, 15, 18, 21, SCROLLBAR_VERTICAL, SCROLLBAR_THUMB_FLAT, sbPosEdPos },
 
     // ------ INSTRUMENT SWITCHER SCROLLBARS ------
-    //x,   y,   w,   h,   visible, type,                 state,                              style                   funcOnDown
-    { 566, 112,  18,  28, false,   SCROLLBAR_VERTICAL,   SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_FLAT,   sbSmpBankPos },
+    //x,   y,   w,  h,  type,               style                 funcOnDown
+    { 566, 112, 18, 28, SCROLLBAR_VERTICAL, SCROLLBAR_THUMB_FLAT, sbSmpBankPos },
 
     // ------ PATTERN VIEWER SCROLLBARS ------
-    //x,   y,   w,   h,   visible, type,                 state,                              style                   funcOnDown
-    {  28, 385, 576,  13, false,   SCROLLBAR_HORIZONTAL, SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_FLAT,   setChannelScrollPos },
+    //x,  y,   w,   h,  type,                 style                 funcOnDown
+    { 28, 385, 576, 13, SCROLLBAR_HORIZONTAL, SCROLLBAR_THUMB_FLAT, setChannelScrollPos },
 
     // ------ HELP SCREEN SCROLLBARS ------
-    //x,   y,   w,   h,   visible, type,                 state,                              style                   funcOnDown
-    { 611,  15,  18, 143, false,   SCROLLBAR_VERTICAL,   SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_FLAT,   helpScrollSetPos },
+    //x,   y,  w,  h,   type,               style                 funcOnDown
+    { 611, 15, 18, 143, SCROLLBAR_VERTICAL, SCROLLBAR_THUMB_FLAT, helpScrollSetPos },
 
     // ------ SAMPLE EDITOR SCROLLBARS ------
-    //x,   y,   w,   h,   visible, type,                 state,                              style                   funcOnDown
-    {  26, 331, 580,  13, false,   SCROLLBAR_HORIZONTAL, SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_FLAT,   scrollSampleData },
+    //x,  y,   w,   h,  type,                 style                 funcOnDown
+    { 26, 331, 580, 13, SCROLLBAR_HORIZONTAL, SCROLLBAR_THUMB_FLAT, scrollSampleData },
 
     // ------ INSTRUMENT EDITOR SCROLLBARS ------
-    //x,   y,   w,   h,   visible, type,                 state,                              style                   funcOnDown
-    { 544, 175,  62,  13, false,   SCROLLBAR_HORIZONTAL, SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_NOFLAT, setVolumeScroll },
-    { 544, 189,  62,  13, false,   SCROLLBAR_HORIZONTAL, SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_NOFLAT, setPanningScroll },
-    { 544, 203,  62,  13, false,   SCROLLBAR_HORIZONTAL, SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_NOFLAT, setFinetuneScroll },
-    { 544, 220,  62,  13, false,   SCROLLBAR_HORIZONTAL, SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_NOFLAT, setFadeoutScroll },
-    { 544, 234,  62,  13, false,   SCROLLBAR_HORIZONTAL, SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_NOFLAT, setVibSpeedScroll },
-    { 544, 248,  62,  13, false,   SCROLLBAR_HORIZONTAL, SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_NOFLAT, setVibDepthScroll },
-    { 544, 262,  62,  13, false,   SCROLLBAR_HORIZONTAL, SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_NOFLAT, setVibSweepScroll },
+    //x,   y,   w,  h,  type,                 style                   funcOnDown
+    { 544, 175, 62, 13, SCROLLBAR_HORIZONTAL, SCROLLBAR_THUMB_NOFLAT, setVolumeScroll },
+    { 544, 189, 62, 13, SCROLLBAR_HORIZONTAL, SCROLLBAR_THUMB_NOFLAT, setPanningScroll },
+    { 544, 203, 62, 13, SCROLLBAR_HORIZONTAL, SCROLLBAR_THUMB_NOFLAT, setFinetuneScroll },
+    { 544, 220, 62, 13, SCROLLBAR_HORIZONTAL, SCROLLBAR_THUMB_NOFLAT, setFadeoutScroll },
+    { 544, 234, 62, 13, SCROLLBAR_HORIZONTAL, SCROLLBAR_THUMB_NOFLAT, setVibSpeedScroll },
+    { 544, 248, 62, 13, SCROLLBAR_HORIZONTAL, SCROLLBAR_THUMB_NOFLAT, setVibDepthScroll },
+    { 544, 262, 62, 13, SCROLLBAR_HORIZONTAL, SCROLLBAR_THUMB_NOFLAT, setVibSweepScroll },
 
     // ------ INSTRUMENT EDITOR EXTENSION SCROLLBARS ------
-    //x,   y,   w,   h,   visible, type,                 state,                              style                   funcOnDown
-    { 195, 130,  70,  13, false,   SCROLLBAR_HORIZONTAL, SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_NOFLAT, sbMidiChPos },
-    { 195, 144,  70,  13, false,   SCROLLBAR_HORIZONTAL, SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_NOFLAT, sbMidiPrgPos },
-    { 195, 158,  70,  13, false,   SCROLLBAR_HORIZONTAL, SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_NOFLAT, sbMidiBendPos },
+    //x,   y,   w,  h,  type,                 style                   funcOnDown
+    { 195, 130, 70, 13, SCROLLBAR_HORIZONTAL, SCROLLBAR_THUMB_NOFLAT, sbMidiChPos },
+    { 195, 144, 70, 13, SCROLLBAR_HORIZONTAL, SCROLLBAR_THUMB_NOFLAT, sbMidiPrgPos },
+    { 195, 158, 70, 13, SCROLLBAR_HORIZONTAL, SCROLLBAR_THUMB_NOFLAT, sbMidiBendPos },
 
     // ------ CONFIG AUDIO SCROLLBARS ------
-    //x,   y,   w,   h,   visible, type,                 state,                              style                   funcOnDown
-    { 365,  29,  18,  43, false,   SCROLLBAR_VERTICAL,   SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_FLAT,   sbAudOutputSetPos },
-    { 365, 116,  18,  42, false,   SCROLLBAR_VERTICAL,   SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_FLAT,   sbAudInputSetPos },
-    { 529, 132,  79,  13, false,   SCROLLBAR_HORIZONTAL, SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_NOFLAT, sbAmp },
-    { 529, 158,  79,  13, false,   SCROLLBAR_HORIZONTAL, SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_NOFLAT, sbMasterVol },
+    //x,   y,   w,  h,  type,                 style                   funcOnDown
+    { 365,  29, 18, 43, SCROLLBAR_VERTICAL,   SCROLLBAR_THUMB_FLAT,   sbAudOutputSetPos },
+    { 365, 116, 18, 42, SCROLLBAR_VERTICAL,   SCROLLBAR_THUMB_FLAT,   sbAudInputSetPos },
+    { 529, 132, 79, 13, SCROLLBAR_HORIZONTAL, SCROLLBAR_THUMB_NOFLAT, sbAmp },
+    { 529, 158, 79, 13, SCROLLBAR_HORIZONTAL, SCROLLBAR_THUMB_NOFLAT, sbMasterVol },
 
     // ------ CONFIG LAYOUT SCROLLBARS ------
-    //x,   y,   w,   h,   visible, type,                 state,                              style                   funcOnDown
-    { 536,  15,  70,  13, false,   SCROLLBAR_HORIZONTAL, SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_NOFLAT, sbPalRPos },
-    { 536,  29,  70,  13, false,   SCROLLBAR_HORIZONTAL, SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_NOFLAT, sbPalGPos },
-    { 536,  43,  70,  13, false,   SCROLLBAR_HORIZONTAL, SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_NOFLAT, sbPalBPos },
-    { 536,  71,  70,  13, false,   SCROLLBAR_HORIZONTAL, SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_NOFLAT, sbPalContrastPos },
+    //x,   y,  w,  h,  type,                 style                   funcOnDown
+    { 536, 15, 70, 13, SCROLLBAR_HORIZONTAL, SCROLLBAR_THUMB_NOFLAT, sbPalRPos },
+    { 536, 29, 70, 13, SCROLLBAR_HORIZONTAL, SCROLLBAR_THUMB_NOFLAT, sbPalGPos },
+    { 536, 43, 70, 13, SCROLLBAR_HORIZONTAL, SCROLLBAR_THUMB_NOFLAT, sbPalBPos },
+    { 536, 71, 70, 13, SCROLLBAR_HORIZONTAL, SCROLLBAR_THUMB_NOFLAT, sbPalContrastPos },
 
     // ------ CONFIG MISCELLANEOUS SCROLLBARS ------
-    //x,   y,   w,   h,   visible, type,                 state,                              style                   funcOnDown
-    { 578, 158,  29,  13, false,   SCROLLBAR_HORIZONTAL, SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_NOFLAT, sbMIDISens },
+    //x,   y,   w,  h,  type,                 style                   funcOnDown
+    { 578, 158, 29, 13, SCROLLBAR_HORIZONTAL, SCROLLBAR_THUMB_NOFLAT, sbMIDISens },
 
     // ------ CONFIG MIDI SCROLLBARS ------
-    //x,   y,   w,   h,   visible, type,                 state,                              style                   funcOnDown
-    { 483,  15,  18, 143, false,   SCROLLBAR_VERTICAL,   SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_FLAT,   sbMidiInputSetPos },
+    //x,   y,  w,  h,   type,               style                 funcOnDown
+    { 483, 15, 18, 143, SCROLLBAR_VERTICAL, SCROLLBAR_THUMB_FLAT, sbMidiInputSetPos },
 
     // ------ DISK OP. SCROLLBARS ------
-    //x,   y,   w,   h,   visible, type,                 state,                              style                   funcOnDown
-    { 335,  15,  18, 143, false,   SCROLLBAR_VERTICAL,   SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_FLAT,   sbDiskOpSetPos },
-
-    // ------ SAMPLE VOLUME BOX SCROLLBARS ------
-    //x,   y,   w,   h,   visible, type,                 state,                              style                   funcOnDown
-    { 315, 234, 124,  13, false,   SCROLLBAR_HORIZONTAL, SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_NOFLAT, sbSetStartVolPos },
-    { 315, 248, 124,  13, false,   SCROLLBAR_HORIZONTAL, SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_NOFLAT, sbSetEndVolPos   },
-
-    // ------ SAMPLE RESAMPLE BOX SCROLLBARS ------
-    //x,   y,   w,   h,   visible, type,                 state,                              style                   funcOnDown
-    { 337, 234, 58,  13, false,   SCROLLBAR_HORIZONTAL,  SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_NOFLAT, sbSetResampleTones },
-
-    // ------ SAMPLE MIX SAMPLE BOX SCROLLBARS ------
-    //x,   y,   w,   h,   visible, type,                 state,                              style                   funcOnDown
-    { 345, 244, 66,  13, false,   SCROLLBAR_HORIZONTAL,  SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_NOFLAT, sbSetMixBalancePos },
-
-    // ------ SAMPLE ECHO BOX SCROLLBARS ------
-    //x,   y,   w,   h,   visible, type,                 state,                              style                   funcOnDown
-    { 368, 224, 66,  13, false,   SCROLLBAR_HORIZONTAL,  SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_NOFLAT, sbSetEchoNumPos },
-    { 368, 238, 66,  13, false,   SCROLLBAR_HORIZONTAL,  SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_NOFLAT, sbSetEchoDistPos },
-    { 368, 252, 66,  13, false,   SCROLLBAR_HORIZONTAL,  SCROLLBAR_UNPRESSED, 0,0,0,0,0,0,0, SCROLLBAR_THUMB_NOFLAT, sbSetEchoFadeoutPos },
+    //x,   y,  w,  h,   type,               style                 funcOnDown
+    { 335, 15, 18, 143, SCROLLBAR_VERTICAL, SCROLLBAR_THUMB_FLAT, sbDiskOpSetPos }
 };
 
 void drawScrollBar(uint16_t scrollBarID)
@@ -167,6 +162,7 @@ void hideScrollBar(uint16_t scrollBarID)
 {
     MY_ASSERT(scrollBarID < NUM_SCROLLBARS);
 
+    scrollBars[scrollBarID].state   = 0;
     scrollBars[scrollBarID].visible = false;
 }
 
@@ -466,95 +462,89 @@ void setScrollBarPageLength(uint16_t scrollBarID, int64_t pageLength)
 
 int8_t testScrollBarMouseDown(void)
 {
-    uint16_t i;
+    uint16_t i, start, end;
     int32_t scrollPos;
     double dTmp;
     scrollBar_t *scrollBar;
 
-    for (i = 0; i < NUM_SCROLLBARS; ++i)
+    if (editor.ui.systemRequestShown)
+    {
+        /* if a system request is open, only test the first three scrollbars (reserved) */
+        start = 0;
+        end   = 3;
+    }
+    else
+    {
+        start = 3;
+        end   = NUM_SCROLLBARS;
+    }
+
+    for (i = start; i < end; ++i)
     {
         scrollBar = &scrollBars[i];
-        if (scrollBar->visible)
+        if (!scrollBar->visible)
+            continue;
+
+        if ((mouse.x >= scrollBar->x) && (mouse.x < (scrollBar->x + scrollBar->w)))
         {
-            /* if sys req. is shown, only allow certain scrollbars */
-            if (editor.ui.systemRequestShown)
+            if ((mouse.y >= scrollBar->y) && (mouse.y < (scrollBar->y + scrollBar->h)))
             {
-                switch (i)
+                mouse.lastUsedObjectID   = i;
+                mouse.lastUsedObjectType = OBJECT_SCROLLBAR;
+
+                if (scrollBar->type == SCROLLBAR_HORIZONTAL)
                 {
-                    default: continue;
+                    mouse.lastScrollXTmp = mouse.lastScrollX = mouse.x;
 
-                    case SB_SAMPVOL_START:
-                    case SB_SAMPVOL_END:
-                    case SB_RESAMPLE_HTONES:
-                    case SB_MIX_BALANCE:
-                    case SB_ECHO_NUM:
-                    case SB_ECHO_DISTANCE:
-                    case SB_ECHO_FADEOUT:
-                        break;
-                }
-            }
-
-            if ((mouse.x >= scrollBar->x) && (mouse.x < (scrollBar->x + scrollBar->w)))
-            {
-                if ((mouse.y >= scrollBar->y) && (mouse.y < (scrollBar->y + scrollBar->h)))
-                {
-                    mouse.lastUsedObjectID   = i;
-                    mouse.lastUsedObjectType = OBJECT_SCROLLBAR;
-
-                    if (scrollBar->type == SCROLLBAR_HORIZONTAL)
+                    if ((mouse.x >= scrollBar->thumbX) && (mouse.x < (scrollBar->thumbX + scrollBar->thumbW)))
                     {
-                        mouse.lastScrollXTmp = mouse.lastScrollX = mouse.x;
-
-                        if ((mouse.x >= scrollBar->thumbX) && (mouse.x < (scrollBar->thumbX + scrollBar->thumbW)))
-                        {
-                            mouse.saveMouseX = mouse.lastScrollX - scrollBar->thumbX;
-                        }
-                        else
-                        {
-                            dTmp = scrollBar->thumbW / 2.0;
-                            double2int32_round(mouse.saveMouseX, dTmp);
-
-                            scrollPos = mouse.lastScrollX - scrollBar->x - mouse.saveMouseX;
-                            if (scrollBar->thumbType == SCROLLBAR_THUMB_NOFLAT)
-                            {
-                                dTmp = scrollPos * (scrollBar->w / (scrollBar->w - 15.0));
-                                double2int32_round(scrollPos, dTmp);
-                            }
-
-                            scrollPos = CLAMP(scrollPos, 0, scrollBar->w);
-
-                            MY_ASSERT(scrollBar->w > 0)
-
-                            dTmp = ((scrollPos * scrollBar->end) / (double)(scrollBar->w)) + 0.5;
-                            setScrollBarPos(mouse.lastUsedObjectID, (int64_t)(dTmp), true);
-                        }
+                        mouse.saveMouseX = mouse.lastScrollX - scrollBar->thumbX;
                     }
                     else
                     {
-                        mouse.lastScrollY = mouse.y;
-                        if ((mouse.y >= scrollBar->thumbY) && (mouse.y < (scrollBar->thumbY + scrollBar->thumbH)))
+                        dTmp = scrollBar->thumbW / 2.0;
+                        double2int32_round(mouse.saveMouseX, dTmp);
+
+                        scrollPos = mouse.lastScrollX - scrollBar->x - mouse.saveMouseX;
+                        if (scrollBar->thumbType == SCROLLBAR_THUMB_NOFLAT)
                         {
-                            mouse.saveMouseY = mouse.lastScrollY - scrollBar->thumbY;
+                            dTmp = scrollPos * (scrollBar->w / (scrollBar->w - 15.0));
+                            double2int32_round(scrollPos, dTmp);
                         }
-                        else
-                        {
-                            mouse.saveMouseY = (int32_t)(scrollBar->thumbH / 2.0); /* truncate here */
 
-                            scrollPos = mouse.lastScrollY - scrollBar->y - mouse.saveMouseY;
-                            scrollPos = CLAMP(scrollPos, 0, scrollBar->h);
+                        scrollPos = CLAMP(scrollPos, 0, scrollBar->w);
 
-                            MY_ASSERT(scrollBar->h > 0)
+                        MY_ASSERT(scrollBar->w > 0)
 
-                            dTmp = ((scrollPos * scrollBar->end) / (double)(scrollBar->h)) + 0.5;
-                            setScrollBarPos(mouse.lastUsedObjectID, (int64_t)(dTmp), true);
-                        }
+                        dTmp = ((scrollPos * scrollBar->end) / (double)(scrollBar->w)) + 0.5;
+                        setScrollBarPos(mouse.lastUsedObjectID, (int64_t)(dTmp), true);
                     }
-
-                    scrollBar->state = SCROLLBAR_PRESSED;
-                    drawScrollBar(mouse.lastUsedObjectID);
-
-                    return (true);
                 }
+                else
+                {
+                    mouse.lastScrollY = mouse.y;
+                    if ((mouse.y >= scrollBar->thumbY) && (mouse.y < (scrollBar->thumbY + scrollBar->thumbH)))
+                    {
+                        mouse.saveMouseY = mouse.lastScrollY - scrollBar->thumbY;
+                    }
+                    else
+                    {
+                        mouse.saveMouseY = (int32_t)(scrollBar->thumbH / 2.0); /* truncate here */
+
+                        scrollPos = mouse.lastScrollY - scrollBar->y - mouse.saveMouseY;
+                        scrollPos = CLAMP(scrollPos, 0, scrollBar->h);
+
+                        MY_ASSERT(scrollBar->h > 0)
+
+                        dTmp = ((scrollPos * scrollBar->end) / (double)(scrollBar->h)) + 0.5;
+                        setScrollBarPos(mouse.lastUsedObjectID, (int64_t)(dTmp), true);
+                    }
+                }
+
+                scrollBar->state = SCROLLBAR_PRESSED;
+                drawScrollBar(mouse.lastUsedObjectID);
+
+                return (true);
             }
         }
     }
@@ -648,9 +638,9 @@ void updateScrollBarPalette(void)
     g = RGB_G(pal);
     b = RGB_B(pal);
 
-    r -= 54;
-    g -= 54;
-    b -= 54;
+    r -= 58;
+    g -= 58;
+    b -= 58;
 
     if (r < 0) r = 0;
     if (g < 0) g = 0;
@@ -726,28 +716,4 @@ void initializeScrollBars(void)
     setScrollBarEnd(SB_INST_EXT_MIDI_PRG, 127);
     setScrollBarPageLength(SB_INST_EXT_MIDI_BEND, 1);
     setScrollBarEnd(SB_INST_EXT_MIDI_BEND, 36);
-
-    /* sample volume box */
-    setScrollBarPageLength(SB_SAMPVOL_START, 1);
-    setScrollBarEnd(SB_SAMPVOL_START, 400 * 2);
-    setScrollBarPos(SB_SAMPVOL_START, 400, false);
-    setScrollBarPageLength(SB_SAMPVOL_END, 1);
-    setScrollBarEnd(SB_SAMPVOL_END, 400 * 2);
-    setScrollBarPos(SB_SAMPVOL_END, 400, false);
-
-    /* sample resample box */
-    setScrollBarPageLength(SB_RESAMPLE_HTONES, 1);
-    setScrollBarEnd(SB_RESAMPLE_HTONES, 36 * 2);
-
-    /* sample mix sample box */
-    setScrollBarPageLength(SB_MIX_BALANCE, 1);
-    setScrollBarEnd(SB_MIX_BALANCE, 100);
-
-    /* sample echo vox */
-    setScrollBarPageLength(SB_ECHO_NUM, 1);
-    setScrollBarEnd(SB_ECHO_NUM, 1024);
-    setScrollBarPageLength(SB_ECHO_DISTANCE, 1);
-    setScrollBarEnd(SB_ECHO_DISTANCE, 16384);
-    setScrollBarPageLength(SB_ECHO_FADEOUT, 1);
-    setScrollBarEnd(SB_ECHO_FADEOUT, 100);
 }

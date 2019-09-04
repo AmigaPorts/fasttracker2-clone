@@ -67,6 +67,7 @@
       <Filter>rtmidi</Filter>
     </ClCompile>
     <ClCompile Include="..\..\src\ft2_pattern_draw.c" />
+    <ClCompile Include="..\..\src\ft2_sample_ed_features.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\ft2_audio.h">
@@ -190,6 +191,9 @@
       <Filter>headers</Filter>
     </ClInclude>
     <ClInclude Include="..\..\src\ft2_palette.h">
+      <Filter>headers</Filter>
+    </ClInclude>
+    <ClInclude Include="..\..\src\ft2_sample_ed_features.h">
       <Filter>headers</Filter>
     </ClInclude>
   </ItemGroup>

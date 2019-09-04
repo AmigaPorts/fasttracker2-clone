@@ -12,6 +12,7 @@
 #include "ft2_edit.h"
 #include "ft2_config.h"
 #include "ft2_help.h"
+#include "ft2_mouse.h"
 #include "ft2_nibbles.h"
 #include "ft2_inst_ed.h"
 #include "ft2_pattern_ed.h"
@@ -95,6 +96,20 @@ void keyUpHandler(SDL_Scancode scancode, SDL_Keycode keycode)
 
 void keyDownHandler(SDL_Scancode scancode, SDL_Keycode keycode, uint8_t keyWasRepeated)
 {
+    if (keycode == SDLK_UNKNOWN)
+        return;
+
+    if (mouse.mode != MOUSE_MODE_NORMAL)
+        setMouseMode(MOUSE_MODE_NORMAL);
+
+    if (editor.ui.systemRequestShown)
+    {
+        if (keycode == SDLK_ESCAPE)
+            editor.ui.systemRequestShown = false;
+
+        return;
+    }
+
     if ((keycode == SDLK_UNKNOWN) || testNibblesCheatCodes(keycode))
         return; /* ignore current key */
 
@@ -113,12 +128,6 @@ void keyDownHandler(SDL_Scancode scancode, SDL_Keycode keycode, uint8_t keyWasRe
         return;
     }
 
-    if (editor.ui.systemRequestShown)
-    {
-        checkSysReqKeys(keycode);
-        return;
-    }
-
     if (editor.NI_Play)
     {
         nibblesKeyAdministrator(scancode);
@@ -127,10 +136,8 @@ void keyDownHandler(SDL_Scancode scancode, SDL_Keycode keycode, uint8_t keyWasRe
 
     if (keycode == SDLK_ESCAPE)
     {
-        if (song.isModified)
-            sysReqQueue(SR_EXIT_SONG_MODIFIED);
-        else
-            sysReqQueue(SR_EXIT);
+        if (quitBox(false) == 1)
+            editor.ui.throwExit = true;
 
         return;
     }
@@ -246,9 +253,23 @@ void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
             if (editor.curInstr > 0)
             {
                 if (keyb.leftShiftPressed)
-                    sysReqQueue(SR_SAMP_CLEAR);
+                {
+                    clearSample();
+                }
                 else
-                    sysReqQueue(SR_INSTR_CLEAR);
+                {
+                    if ((editor.curInstr == 0) || instrIsEmpty(editor.curInstr))
+                        return;
+
+                    if (okBox(1, "System request", "Clear instrument?") == 1)
+                    {
+                        lockMixerCallback();
+                        clearInstr(editor.curInstr);
+                        updateNewInstrument();
+                        unlockMixerCallback();
+                        setSongModifiedFlag();
+                    }
+                }
             }
         }
         break;
@@ -987,7 +1008,7 @@ uint8_t checkModifiedKeys(SDL_Keycode keycode)
                 if (editor.ui.sampleEditorShown)
                     sampPaste();
                 else if (!editor.ui.instEditorShown)
-                    scaleFadeVolume(2);
+                    scaleFadeVolumeBlock();
 
                 return (true);
             }
@@ -996,14 +1017,17 @@ uint8_t checkModifiedKeys(SDL_Keycode keycode)
                 if (editor.ui.sampleEditorShown)
                     sampPaste();
                 else if (!editor.ui.instEditorShown)
-                    scaleFadeVolume(1);
+                    scaleFadeVolumePattern();
 
                 return (true);
             }
             else if (keyb.leftShiftPressed)
             {
                 if (!editor.ui.sampleEditorShown && !editor.ui.instEditorShown)
-                    scaleFadeVolume(0);
+                {
+                    keyb.ignoreTextEditKey = true; /* ignore key from first frame */
+                    scaleFadeVolumeTrack();
+                }
 
                 return (true);
             }
@@ -1073,7 +1097,7 @@ uint8_t checkModifiedKeys(SDL_Keycode keycode)
             if (keyb.leftAltPressed)
             {
                 if (editor.ui.sampleEditorShown)
-                    zoomSampleDataOut2x();
+                    zoomOut();
 
                 return (true);
             }

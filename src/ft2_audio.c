@@ -81,7 +81,7 @@ int8_t setNewAudioSettings(void) /* only call this from the main input/video thr
 
         /* if it didn't work to use the old settings again, then something is seriously wrong... */
         if (!setupAudio(CONFIG_HIDE_ERRORS))
-            sysReqQueue(SR_AUDIO_MODE_ERROR);
+            okBox(0, "System message", "Couldn't find a working audio mode... You'll get no sound / replayer timer!");
 
         resumeAudio();
         return (false);
@@ -895,7 +895,7 @@ uint8_t setupAudioBuffers(void)
 
     if ((audio.mixBufferL == NULL) || (audio.mixBufferR == NULL))
     {
-        showErrorMsgBox("Out of memory!");
+        showErrorMsgBox("Not enough memory!");
         return (false); /* allocated memory is free'd later */
     }
 

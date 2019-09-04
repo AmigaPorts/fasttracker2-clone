@@ -5,10 +5,7 @@
 
 enum /* CHECKBOXES */
 {
-    /* ON SYS. REQUESTS */
-    CB_SR_S3M_DONT_SHOW,
-    CB_SR_NOT_YET_APPLIED_DONT_SHOW,
-    CB_SAMP_ECHO_ADD_MEMORY,
+    CB_RES_1, /* reserved */
 
     /* NIBBLES */
     CB_NIBBLES_SURROUND,
@@ -112,8 +109,9 @@ enum
 typedef struct checkBox_t /* DO NOT TOUCH!!! */
 {
     uint16_t x, y, clickAreaWidth, clickAreaHeight;
-    uint8_t state, checked, visible;
     void (*callbackFunc)(void);
+
+    uint8_t state, checked, visible;
 } checkBox_t;
 
 void drawCheckBox(uint16_t checkBoxID);

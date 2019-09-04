@@ -17,15 +17,6 @@ void nibblesHelp(void);
 void nibblesHighScore(void);
 void nibblesExit(void);
 
-/* functions called from sys. reqs */
-void nibblesExit2(void);
-void nibblesRestartYes(void);
-void nibblesGameOverOK(void);
-void nibblesPlayer1NameOK(void);
-void nibblesPlayer2NameOK(void);
-void nibblesPlayerDiedOK(void);
-void nibblesLevelFinishedOK(void);
-
 /* radiobuttons */
 void nibblesSet1Player(void);
 void nibblesSet2Players(void);

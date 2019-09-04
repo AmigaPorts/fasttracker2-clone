@@ -27,7 +27,6 @@ void pbWavSongStartDown(void);
 void pbWavSongEndUp(void);
 void pbWavSongEndDown(void);
 
-void wavRenderOverwrite(void); /* from sys req. */
 void resetWavRenderer(void);
 
 void rbWavRenderBitDepth16(void);

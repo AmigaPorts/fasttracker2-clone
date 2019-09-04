@@ -16,9 +16,9 @@ void insertPatternLine(void);
 void deletePatternNote(void);
 void deletePatternLine(void);
 
-void cancelScaleFadeVolume(void); /* called from sys. req */
-void handleScaleFadeVolume(void); /* called from sys. req */
-void scaleFadeVolume(int8_t mode);
+void scaleFadeVolumeTrack(void);
+void scaleFadeVolumePattern(void);
+void scaleFadeVolumeBlock(void);
 
 void toggleCopyMaskEnable(void);
 void toggleCopyMask0(void);
@@ -77,8 +77,6 @@ void copyTrack(void);
 void pasteTrack(void);
 void cutPattern(void);
 void copyPattern(void);
-void pastePatternNoLenCheck(void);
-void setNewLenAndPastePattern(void);
 void pastePattern(void);
 
 void cutBlock(void);

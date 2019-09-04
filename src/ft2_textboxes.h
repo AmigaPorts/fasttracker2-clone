@@ -6,6 +6,8 @@
 
 enum /* TEXTBOXES */
 {
+    TB_RES_1, /* reserved */
+
     TB_INST1,
     TB_INST2,
     TB_INST3,
@@ -23,23 +25,13 @@ enum /* TEXTBOXES */
 
     TB_SONG_NAME,
 
-    TB_NIB_PLAYER1_NAME,
-    TB_NIB_PLAYER2_NAME,
+    TB_DISKOP_FILENAME,
 
     TB_CONF_DEF_MODS_DIR,
     TB_CONF_DEF_INSTRS_DIR,
     TB_CONF_DEF_SAMPS_DIR,
     TB_CONF_DEF_PATTS_DIR,
     TB_CONF_DEF_TRACKS_DIR,
-
-    TB_DISKOP_FILENAME,
-    TB_DISKOP_RENAME_NAME,
-    TB_DISKOP_MAKEDIR_NAME,
-    TB_DISKOP_SETPATH_NAME,
-
-    TB_SAVE_RANGE_FILENAME,
-
-    TB_SCALE_FADE_VOL,
 
     NUM_TEXTBOXES
 };
@@ -57,15 +49,16 @@ typedef struct textBox_t /* DO NOT TOUCH!!! */
 {
     uint16_t x, y, w;
     uint8_t h, tx, ty;
-    uint16_t tw, maxChars;
+    uint16_t maxChars;
     uint8_t rightMouseButton;
+    uint8_t changeMouseCursor;
 
     /* these ones are changed at run time */
     char *textPtr;
-    uint8_t changeMouseCursor, visible, *renderBuf;
+    uint8_t visible, *renderBuf;
     int16_t cursorPos;
-    uint16_t renderBufHeight;
-    int32_t bufOffset, renderBufWidth;
+    uint16_t renderW, renderBufW, renderBufH;
+    int32_t bufOffset;
 } textBox_t;
 
 int8_t textIsMarked(void);
@@ -75,10 +68,10 @@ int16_t getTextCursorY(textBox_t *t);
 void drawTextBox(uint16_t textBoxID);
 void showTextBox(uint16_t textBoxID);
 void hideTextBox(uint16_t textBoxID);
-void setupTextBoxForSysReq(int16_t textBoxID, char *textPtr, int16_t textPtrLen, uint8_t setCursorToEnd);
 int8_t testTextBoxMouseDown(void);
 void updateTextBoxPointers(void);
 void setupInitialTextBoxPointers(void);
+void setTextCursorToEnd(textBox_t *t);
 void handleTextEditControl(SDL_Keycode keycode);
 void handleTextEditInputChar(char textChar);
 void handleTextBoxWhileMouseDown(void);

@@ -34,8 +34,8 @@ void mouseButtonUpHandler(uint8_t mouseButton);
 void mouseButtonDownHandler(uint8_t mouseButton);
 void updateMouseScaling(void);
 void setMouseBusy(int8_t busy); /* can be called from other threads */
-void setMouseBusyShape(void);
-void setMouseIdleShape(void);
+void mouseAnimOn(void);
+void mouseAnimOff(void);
 void animateBusyMouse(void);
 void handleLastGUIObjectDown(void);
 void readMouseXY(void);

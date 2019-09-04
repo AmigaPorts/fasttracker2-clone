@@ -41,8 +41,7 @@ int8_t saveXM(UNICHAR *filenameU)
     f = UNICHAR_FOPEN(filenameU, "wb");
     if (f == NULL)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_SAVE_IO_ERROR);
+        okBoxThreadSafe(0, "System message", "Error opening file for saving, is it in use?");
         return (false);
     }
 
@@ -82,8 +81,9 @@ int8_t saveXM(UNICHAR *filenameU)
 
     if (fwrite(&h, sizeof (h), 1, f) != 1)
     {
-        sysReqQueue(SR_SAVE_IO_ERROR);
-        goto writeErrorXM;
+        fclose(f);
+        okBoxThreadSafe(0, "System message", "Error saving module: general I/O error!");
+        return (false);
     }
 
     for (i = 0; i < ap; ++i)
@@ -108,8 +108,9 @@ int8_t saveXM(UNICHAR *filenameU)
             ph.dataLen = 0;
             if (fwrite(&ph, ph.patternHeaderSize, 1, f) != 1)
             {
-                sysReqQueue(SR_SAVE_IO_ERROR);
-                goto writeErrorXM;
+                fclose(f);
+                okBoxThreadSafe(0, "System message", "Error saving module: general I/O error!");
+                return (false);
             }
         }
         else
@@ -129,8 +130,9 @@ int8_t saveXM(UNICHAR *filenameU)
 
             if (result != 2) /* write was not OK */
             {
-                sysReqQueue(SR_SAVE_IO_ERROR);
-                goto writeErrorXM;
+                fclose(f);
+                okBoxThreadSafe(0, "System message", "Error saving module: general I/O error!");
+                return (false);
             }
         }
     }
@@ -172,8 +174,9 @@ int8_t saveXM(UNICHAR *filenameU)
 
         if (fwrite(&ih, ih.instrSize + (a * sizeof (sampleHeaderTyp)), 1, f) != 1)
         {
-            sysReqQueue(SR_SAVE_IO_ERROR);
-            goto writeErrorXM;
+            fclose(f);
+            okBoxThreadSafe(0, "System message", "Error saving module: general I/O error!");
+            return (false);
         }
 
         for (k = 0; k < a; ++k)
@@ -191,8 +194,9 @@ int8_t saveXM(UNICHAR *filenameU)
 
                 if (result != (size_t)(srcSmp->len)) /* write not OK */
                 {
-                    sysReqQueue(SR_SAVE_IO_ERROR);
-                    goto writeErrorXM;
+                    fclose(f);
+                    okBoxThreadSafe(0, "System message", "Error saving module: general I/O error!");
+                    return (false);
                 }
             }
         }
@@ -206,18 +210,11 @@ int8_t saveXM(UNICHAR *filenameU)
 
     setMouseBusy(false);
     return (true);
-
-writeErrorXM:
-    fclose(f);
-
-    setMouseBusy(false);
-    return (false);
 }
 
 static int8_t saveMOD(UNICHAR *filenameU)
 {
-    int8_t smp8;
-    uint8_t songTooLong, tooManyPatts, tooManyInstr, noteUnderflow, incompatInstr, incompatEfx;
+    int8_t smp8, test, tooManyInstr, incompatEfx, noteUnderflow;
     uint8_t ton, inst, pattBuff[64 * 4 * 32];
     int16_t a, i, ap, *ptr16;
     int32_t j, k, l1, l2, l3;
@@ -227,37 +224,34 @@ static int8_t saveMOD(UNICHAR *filenameU)
     tonTyp *t;
     songMOD31HeaderTyp hm;
 
-    /* sys. request flags */
-    songTooLong   = false;
-    tooManyPatts  = false;
-    tooManyInstr  = false;
-    noteUnderflow = false;
-    incompatInstr = false;
-    incompatEfx   = false;
+    tooManyInstr = incompatEfx = noteUnderflow = false;
+
+    if (linearFrqTab) okBoxThreadSafe(0, "System message", "Linear frequency table used!");
 
     /* sanity checking */
 
-    if (song.len > 128)
-        songTooLong = true;
-
+    test = false;
+    if (song.len > 128) test = true;
     for (i = 100; i < 256; ++i)
     {
         if (patt[i] != NULL)
         {
-            tooManyPatts = true;
+            test = true;
             break;
         }
     }
+    if (test) okBoxThreadSafe(0, "System message", "Too many patterns!");
 
     for (i = 32; i < 128; ++i)
     {
         if (getRealUsedSamples(i) > 0)
         {
-            tooManyInstr = true;
+            okBoxThreadSafe(0, "System message", "Too many instruments!");
             break;
         }
     }
 
+    test = false;
     for (i = 1; i <= 31; ++i)
     {
         ins = &instr[i];
@@ -266,7 +260,7 @@ static int8_t saveMOD(UNICHAR *filenameU)
         j = getRealUsedSamples(i);
         if (j > 1)
         {
-            incompatInstr = true;
+            test = true;
             break;
         }
 
@@ -276,11 +270,12 @@ static int8_t saveMOD(UNICHAR *filenameU)
                 (ins->envPTyp != 0) || ((smp->typ & 3) == 2) ||
                 (smp->relTon  != 0) || ins->midiOn)
             {
-                incompatInstr = true;
+                test = true;
                 break;
             }
         }
     }
+    if (test) okBoxThreadSafe(0, "System message", "Incompatible instruments!");
 
     for (i = 0; i < 99; ++i)
     {
@@ -288,8 +283,7 @@ static int8_t saveMOD(UNICHAR *filenameU)
         {
             if (pattLens[i] != 64)
             {
-                setMouseBusy(false);
-                sysReqQueue(SR_SAVE_ERR_PATTLEN);
+                okBoxThreadSafe(0, "System message", "Unable to convert module. (Illegal pattern length)");
                 return (false);
             }
 
@@ -312,6 +306,9 @@ static int8_t saveMOD(UNICHAR *filenameU)
             }
         }
     }
+    if (tooManyInstr)  okBoxThreadSafe(0, "System message", "Instrument(s) above 31 was found in pattern data!");
+    if (incompatEfx)   okBoxThreadSafe(0, "System message", "Incompatible effect(s) was found in pattern data!");
+    if (noteUnderflow) okBoxThreadSafe(0, "System message", "Note(s) below A-0 was found in pattern data!");
 
     /* calculate number of patterns */
 
@@ -399,16 +396,16 @@ static int8_t saveMOD(UNICHAR *filenameU)
     f = UNICHAR_FOPEN(filenameU, "wb");
     if (f == NULL)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_SAVE_IO_ERROR);
+        okBoxThreadSafe(0, "System message", "Error opening file for saving, is it in use?");
         return (false);
     }
 
     /* write header */
     if (fwrite(&hm, 1, sizeof (hm), f) != sizeof (hm))
     {
-        sysReqQueue(SR_SAVE_IO_ERROR);
-        goto writeErrorMOD;
+        fclose(f);
+        okBoxThreadSafe(0, "System message", "Error saving module: general I/O error!");
+        return (false);
     }
 
     /* write pattern data */
@@ -469,8 +466,9 @@ static int8_t saveMOD(UNICHAR *filenameU)
 
         if (fwrite(pattBuff, 1, 64 * 4 * song.antChn, f) != (size_t)(64 * 4 * song.antChn))
         {
-            sysReqQueue(SR_SAVE_IO_ERROR);
-            goto writeErrorMOD;
+            fclose(f);
+            okBoxThreadSafe(0, "System message", "Error saving module: general I/O error!");
+            return (false);
         }
     }
 
@@ -500,8 +498,9 @@ static int8_t saveMOD(UNICHAR *filenameU)
                     if (fwrite(&smp8, 1, 1, f) != 1)
                     {
                         fixSample(smp);
-                        sysReqQueue(SR_SAVE_IO_ERROR);
-                        goto writeErrorMOD;
+                        fclose(f);
+                        okBoxThreadSafe(0, "System message", "Error saving module: general I/O error!");
+                        return (false);
                     }
                 }
             }
@@ -516,8 +515,9 @@ static int8_t saveMOD(UNICHAR *filenameU)
                 if (fwrite(smp->pek, 1, l1, f) != (size_t)(l1))
                 {
                     fixSample(smp);
-                    sysReqQueue(SR_SAVE_IO_ERROR);
-                    goto writeErrorMOD;
+                    fclose(f);
+                    okBoxThreadSafe(0, "System message", "Error saving module: general I/O error!");
+                    return (false);
                 }
             }
 
@@ -528,25 +528,10 @@ static int8_t saveMOD(UNICHAR *filenameU)
     fclose(f);
     removeSongModifiedFlag();
 
-    /* show warnings */
-    if (linearFrqTab)  sysReqQueue(SR_SAVE_LINEAR_FREQ);
-    if (songTooLong)   sysReqQueue(SR_SAVE_WARN_SONGLEN);
-    if (tooManyPatts)  sysReqQueue(SR_SAVE_WARN_PATTS);
-    if (tooManyInstr)  sysReqQueue(SR_SAVE_WARN_INSTR);
-    if (noteUnderflow) sysReqQueue(SR_SAVE_NOTE_UNDERFLOW);
-    if (incompatInstr) sysReqQueue(SR_SAVE_INCOMPAT_INSTR);
-    if (incompatEfx)   sysReqQueue(SR_SAVE_INCOMPAT_EFX);
-
     editor.diskOpReadDir = true; /* force diskop re-read */
 
     setMouseBusy(false);
     return (true);
-
-writeErrorMOD:
-    fclose(f);
-
-    setMouseBusy(false);
-    return (false);
 }
 
 static int32_t SDLCALL saveMusicThread(void *ptr)
@@ -555,15 +540,9 @@ static int32_t SDLCALL saveMusicThread(void *ptr)
 
     (void)(ptr);
 
+    MY_ASSERT(editor.tmpFilenameU != NULL);
     if (editor.tmpFilenameU == NULL)
-    {
-#ifdef _DEBUG
-        __debugbreak();
-#endif
-        setMouseBusy(false);
-        sysReqQueue(SR_SAVE_IO_ERROR);
         return (false);
-    }
 
     pauseAudio();
 
@@ -581,12 +560,11 @@ void saveMusic(UNICHAR *filenameU)
 {
     UNICHAR_STRCPY(editor.tmpFilenameU, filenameU);
 
-    setMouseBusy(true);
+    mouseAnimOn();
     thread = SDL_CreateThread(saveMusicThread, "FT2 Clone Module Saving Thread", NULL);
     if (thread == NULL)
     {
-        setMouseBusy(false);
-        sysReqQueue(SR_THREAD_ERROR);
+        okBoxThreadSafe(0, "System message", "Error creating module saving thread!");
         return;
     }
 

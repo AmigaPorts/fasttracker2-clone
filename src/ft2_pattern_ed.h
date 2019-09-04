@@ -139,7 +139,6 @@ void pbEditPattUp(void);
 void pbEditPattDown(void);
 void pbPattLenUp(void);
 void pbPattLenDown(void);
-void pbShrinkPattern(void);
 
 void drawPosEdNums(int16_t songPos);
 void drawSongLength(void);
@@ -178,9 +177,6 @@ void setNewInstr(int8_t ins);
 void sampleListScrollUp(void);
 void sampleListScrollDown(void);
 void pbZap(void);
-void pbZapAll(void);
-void pbZapSong(void);
-void pbZapInstr(void);
 void sbSmpBankPos(int32_t pos);
 void pbToggleLogo(void);
 void pbToggleBadge(void);

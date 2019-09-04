@@ -2,62 +2,14 @@
 #define __FT2_SYSREQS_H
 
 #include <stdint.h>
-#include <SDL2/SDL.h>
 
 enum /* SYSREQS */
 {
-    SR_ZAP,
-    SR_TRANSP_DELETE_WARN,
-    SR_CONFIG_RESET,
-    SR_EXIT_SONG_MODIFIED,
-    SR_EXIT,
-    SR_SHRINK_PATT,
-    SR_PASTEPATT_LEN,
-    SR_INSTR_CLEAR,
-
-    SR_NIB_RESTART,
-    SR_NIB_QUIT,
-    SR_NIB_NO_HELP,
-    SR_NIB_NO_HIGHS,
-    SR_NIB_PLAYER1_DIED,
-    SR_NIB_PLAYER2_DIED,
-    SR_NIB_BOTH_PLAYERS_DIED,
-    SR_NIB_GAME_OVER,
-    SR_NIB_STAGE_FINISHED,
-    SR_NIB_P1_NAME,
-    SR_NIB_P2_NAME,
-    SR_NIB_CHEAT_ON,
-    SR_NIB_CHEAT_OFF,
-    SR_NIB_SURR_1PLAYER,
-
-    SR_SAMP_CLEAR,
-    SR_SAMP_CONV_8BIT,
-    SR_SAMP_CONV_16BIT,
-    SR_SAMP_MINIMIZE,
-    SR_SAMP_LOAD_STEREO,
-    SR_SAMP_VOLUME,
-    SR_SAMP_RESAMPLE,
-    SR_SAMP_MIX_SAMPLE,
-    SR_SAMP_ECHO,
-    SR_SAMP_SAVERANGE,
-
-    SR_DISKOP_DELETE,
-    SR_DISKOP_RENAME_DIR,
-    SR_DISKOP_RENAME_FILE,
-    SR_DISKOP_MAKEDIR,
-    SR_DISKOP_SETPATH,
-    SR_DISKOP_OVERWRITE,
     SR_WAV_OVERWRITE,
-    SR_DISKOP_LOADMOD_DISCARD,
-    SR_DROP_LOADMOD_DISCARD,
-    SR_SCALE_FADE_VOL,
-    SR_TRIM,
-    SR_SAMPLING,
 
     /* ERROR/NOTICE/WARN MESSAGES (with OK button) */
     ERROR_MSGS_START,
 
-    SR_SCALE_FADE_VOL_ERROR,
     SR_SAMP_MINIMIZE_NOT_NEEDED,
     SR_WAV_WRITE_ERROR,
     SR_AUDIO_MODE_ERROR,
@@ -65,17 +17,11 @@ enum /* SYSREQS */
     SR_EMPTY_FILENAME,
     SR_ILLEGAL_FILENAME_DOT,
     SR_ILLEGAL_FILENAME,
-    SR_FILE_DELETE_ERROR,
-    SR_DIR_DELETE_ERROR,
-    SR_FILE_RENAME_ERROR,
-    SR_DIR_RENAME_ERROR,
     SR_MAKE_DIR_ERROR,
     SR_SET_PATH_ERROR,
     SR_LOAD_INCOMPAT_INSTR,
     SR_LOAD_WRONG_VERSION,
     SR_LOAD_INSTR0_ERROR,
-    SR_OPEN_IO_ERROR,
-    SR_SET_DRIVE_ERROR,
     SR_SETTING_NOT_APPLIED_YET,
     SR_FILTERING_NOT_APPLIED_YET,
     SR_CANT_CHANGE_SETTING_FULLSCREEN,
@@ -118,10 +64,6 @@ enum /* SYSREQS */
     SR_SAMP_LOAD_AIFC_ERROR,
     SR_SAMP_SAVE_EMPTY,
     SR_INST_SAVE_EMPTY,
-    SR_EMPTY_PASTE_ERROR,
-    SR_NO_PATT_MARK,
-    SR_SAMPLING_NOT_SUPPORTED,
-    SR_SAMPLING_AUDIO_DEV_ERROR,
     SR_AUD_OUT_DEV_ERROR,
     SR_THREAD_ERROR,
     SR_HELP_SUBJECT_NOT_FOUND,
@@ -150,32 +92,17 @@ enum
     SYSREQ_SAVERANGE    = 12,
 };
 
-#define SYSTEM_REQUEST_H 67
-#define SYSTEM_REQUEST_Y 249
+int16_t okBoxThreadSafe(int16_t typ, char *headline, char *text);
+int16_t okBox(int16_t typ, char *headline, char *text);
+int16_t quitBox(uint8_t skipQuitMsg);
+int16_t inputBox(int16_t typ, char *headline, char *edText, uint16_t maxStrLen);
 
-typedef struct sysReq_t /* DO NOT TOUCH!!! */
+/* for thread-safe version of okBox() */
+struct
 {
-    uint16_t w;
-    char *text;
-    uint16_t buttonIDs[8];
-    uint8_t numButtons, type;
-} sysReq_t;
-
-typedef struct sysReqKeys_t /* DO NOT TOUCH!!! */
-{
-    uint8_t numKeys;
-    SDL_Keycode keys[4];
-    void (*callbackFunc1)(void);
-    void (*callbackFunc2)(void);
-    void (*callbackFunc3)(void);
-    void (*callbackFunc4)(void);
-    void (*callbackFuncEnter)(void);
-    void (*callbackFuncEsc)(void);
-} sysReqKeys_t;
-
-void drawSystemRequest(void); /* render */
-void sysReqQueue(uint16_t sysReqID);
-void hideSystemRequest(void);
-void checkSysReqKeys(SDL_Keycode keycode);
+    volatile uint8_t active;
+    int16_t typ, returnData;
+    char *headline, *text;
+} okBoxData;
 
 #endif

@@ -114,10 +114,8 @@ int main(int argc, char *argv[])
 
     SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 
-#ifdef _WIN32
     /* this is mostly needed for situations without vsync */
     SDL_SetThreadPriority(SDL_THREAD_PRIORITY_HIGH);
-#endif
 
 #ifdef __APPLE__
     osxSetDirToProgramDirFromArgs(argv);
@@ -166,7 +164,6 @@ int main(int argc, char *argv[])
     }
 
     setupPerfFreq();
-    editor.programRunning = true;
 
     if (!initScopes()) /* must be called at this point */
     {
@@ -201,17 +198,11 @@ int main(int argc, char *argv[])
     setupWaitVBL();
     while (editor.programRunning)
     {
-        readMouseXY();
-        readKeyModifiers();
-
-        setSyncedReplayerVars();
-        handleInput();
+        handleThreadEvents();
+        readInput();
         handleEvents();
         handleRedrawing();
-
         flipFrame();
-        waitVBL();
-        editor.framesPassed++;
     }
 
     if (config.cfg_AutoSave)
@@ -237,7 +228,6 @@ static void initializeVars(void)
     audio.locked = true;
     audio.rescanAudioDevicesSupported = true;
 
-    strcpy(editor.scaleFadeVolText, "1.00,1.00");
     strcpy(editor.ui.fullscreenButtonText, "Go fullscreen");
 
     /* set non-zero values */
@@ -248,7 +238,6 @@ static void initializeVars(void)
     editor.moduleSaveMode = MOD_SAVE_MODE_XM;
     editor.sampleSaveMode = SMP_SAVE_MODE_WAV;
 
-    editor.scaleFadeVolumeMode     = -1;
     editor.ui.sampleDataOrLoopDrag = -1;
 
     mouse.lastUsedObjectID = OBJECT_ID_NONE;
@@ -267,9 +256,10 @@ static void initializeVars(void)
     memset(editor.copyMask,  1, sizeof (editor.copyMask));
     memset(editor.pasteMask, 1, sizeof (editor.pasteMask));
 
-    editor.diskOpReadOnOpen = true;
-
     midi.enable = true;
+
+    editor.diskOpReadOnOpen = true;
+    editor.programRunning   = true;
 }
 
 void quitProgram(void) /* called from sys. req. */

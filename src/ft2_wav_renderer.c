@@ -48,16 +48,16 @@ static void updateWavRenderer(void)
     fillRect(209, 116, 41, 51, PAL_DESKTOP);
 
     freq = WDFrequency;
-    charOutFast(209 + (5 * 7), 116, PAL_FORGRND, '0' + (freq % 10)); freq /= 10;
-    charOutFast(209 + (4 * 7), 116, PAL_FORGRND, '0' + (freq % 10)); freq /= 10;
-    charOutFast(209 + (3 * 7), 116, PAL_FORGRND, '0' + (freq % 10)); freq /= 10;
-    charOutFast(209 + (2 * 7), 116, PAL_FORGRND, '0' + (freq % 10)); freq /= 10;
-    charOutFast(209 + (1 * 7), 116, PAL_FORGRND, '0' + (freq % 10)); freq /= 10;
-    charOutFast(209 + (0 * 7), 116, PAL_FORGRND, '0' + (freq % 10));
+    charOut(209 + (5 * 7), 116, PAL_FORGRND, '0' + (freq % 10)); freq /= 10;
+    charOut(209 + (4 * 7), 116, PAL_FORGRND, '0' + (freq % 10)); freq /= 10;
+    charOut(209 + (3 * 7), 116, PAL_FORGRND, '0' + (freq % 10)); freq /= 10;
+    charOut(209 + (2 * 7), 116, PAL_FORGRND, '0' + (freq % 10)); freq /= 10;
+    charOut(209 + (1 * 7), 116, PAL_FORGRND, '0' + (freq % 10)); freq /= 10;
+    charOut(209 + (0 * 7), 116, PAL_FORGRND, '0' + (freq % 10));
 
     amp = (uint8_t)(WDAmp);
-    charOutFast(237 + (0 * 7), 130, PAL_FORGRND, '0' + (amp / 10));
-    charOutFast(237 + (1 * 7), 130, PAL_FORGRND, '0' + (amp % 10));
+    charOut(237 + (0 * 7), 130, PAL_FORGRND, '0' + (amp / 10));
+    charOut(237 + (1 * 7), 130, PAL_FORGRND, '0' + (amp % 10));
 
     hexOut(237, 144, PAL_FORGRND, WDStartPos, 2);
     hexOut(237, 158, PAL_FORGRND, WDStopPos,  2);
@@ -204,7 +204,7 @@ static uint8_t dump_Init(uint32_t frq, int16_t amp, int16_t songPos)
 
 static void dump_Close(FILE *f, uint32_t totalSamples)
 {
-    uint32_t tmpLen, progNameLen, songNameLen, totalBytes;
+    uint32_t tmpLen, totalBytes;
     wavHeader_t wavHeader;
 
     if (wavRenderBuffer != NULL)
@@ -220,45 +220,6 @@ static void dump_Close(FILE *f, uint32_t totalSamples)
 
     if (totalBytes & 1)
         fputc(0, f); /* write pad byte */
-
-    /* write LIST->INFO->INAM chunk */
-    songNameLen = 0;
-    while (songNameLen < 21)
-    {
-        if (song.name[songNameLen] == '\0')
-            break;
-
-        songNameLen++;
-    }
-
-    progNameLen = sizeof (PROG_NAME_STR) - 1;
-
-    tmpLen = 4 + (4 + 4) + (progNameLen + 1 + ((progNameLen + 1) & 1));
-    if (songNameLen > 0)
-        tmpLen += ((4 + 4) + (songNameLen + 1 + ((songNameLen + 1) & 1)));
-
-    fwrite("LIST",  sizeof (int32_t), 1, f);
-    fwrite(&tmpLen, sizeof (int32_t), 1, f);
-    fwrite("INFO",  sizeof (int32_t), 1, f);
-
-    if (songNameLen > 0)
-    {
-        tmpLen = songNameLen + 1;
-        fwrite("INAM",  sizeof (int32_t), 1, f);
-        fwrite(&tmpLen, sizeof (int32_t), 1, f);
-        fwrite(song.name, 1, songNameLen, f);
-        fputc(0, f); /* null termination */
-        if (tmpLen & 1)
-            fputc(0, f); /* pad byte */
-    }
-
-    tmpLen = progNameLen + 1;
-    fwrite("ISFT",  sizeof (int32_t), 1, f);
-    fwrite(&tmpLen, sizeof (int32_t), 1, f);
-    fwrite(PROG_NAME_STR, 1, progNameLen, f);
-    fputc(0, f); /* null termination */
-    if (tmpLen & 1)
-        fputc(0, f); /* pad byte */
 
     tmpLen = ftell(f) - 8;
 
@@ -365,8 +326,7 @@ static int32_t SDLCALL renderWavThread(void *ptr)
     if (!dump_Init(WDFrequency, WDAmp, WDStartPos))
     {
         resumeAudio();
-        setMouseBusy(false);
-        sysReqQueue(SR_OOM_ERROR); /* out of memory */
+        okBoxThreadSafe(0, "System message", "Not enough memory!");
         return (true);
     }
 
@@ -443,14 +403,11 @@ static void createOverwriteText(char *name)
     trimEntryName(nameTmp, false);
 
     sprintf(WAV_SysReqText, "Overwrite file \"%s\"?", nameTmp);
-    sysReqs[SR_WAV_OVERWRITE].text = WAV_SysReqText;
 }
 
 void wavRender(uint8_t checkOverwrite)
 {
     char *filename;
-
-    hideSystemRequest();
 
     WDStartPos = (uint8_t)(MAX(0, MIN(WDStartPos, song.len - 1)));
     WDStopPos  = (uint8_t)(MAX(0, MIN(MAX(WDStartPos, WDStopPos), song.len - 1)));
@@ -463,34 +420,28 @@ void wavRender(uint8_t checkOverwrite)
     if (checkOverwrite && fileExistsAnsi(filename))
     {
         createOverwriteText(filename);
-        sysReqQueue(SR_WAV_OVERWRITE);
-        return;
+        if (okBox(2, "System request", WAV_SysReqText) != 1)
+            return;
     }
 
     editor.wavRendererFileHandle = fopen(filename, "wb");
     if (editor.wavRendererFileHandle == NULL)
     {
-        sysReqQueue(SR_WAV_WRITE_ERROR);
+        okBox(0, "System message", "General I/O error while writing to WAV (is the file in use)?");
         return;
     }
 
-    setMouseBusy(true);
+    mouseAnimOn();
     thread = SDL_CreateThread(renderWavThread, "FT2 Clone Wav Renderer Thread", NULL);
     if (thread == NULL)
     {
         fclose((FILE *)(editor.wavRendererFileHandle));
-        setMouseBusy(false);
-        sysReqQueue(SR_THREAD_ERROR);
+        okBox(0, "System message", "Couldn't create WAV rendering thread!");
         return;
     }
 
     /* don't let thread wait for this thread, let it clean up on its own when done */
     SDL_DetachThread(thread);
-}
-
-void wavRenderOverwrite(void) /* from sys req. */
-{
-    wavRender(false);
 }
 
 void pbWavRender(void)

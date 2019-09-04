@@ -144,7 +144,7 @@
     <PostBuildEvent />
     <Manifest />
     <Manifest>
-      <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
+      <EnableDpiAwareness>true</EnableDpiAwareness>
     </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
@@ -218,7 +218,7 @@
     </ResourceCompile>
     <Manifest />
     <Manifest>
-      <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
+      <EnableDpiAwareness>true</EnableDpiAwareness>
     </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -264,7 +264,7 @@
       </Command>
     </PreBuildEvent>
     <Manifest>
-      <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
+      <EnableDpiAwareness>true</EnableDpiAwareness>
     </Manifest>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">
@@ -320,7 +320,7 @@
       <PreprocessorDefinitions>_WIN64</PreprocessorDefinitions>
     </ResourceCompile>
     <Manifest>
-      <EnableDpiAwareness>PerMonitorHighDPIAware</EnableDpiAwareness>
+      <EnableDpiAwareness>true</EnableDpiAwareness>
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
@@ -354,6 +354,7 @@
     <ClCompile Include="..\..\src\ft2_pattern_draw.c" />
     <ClCompile Include="..\..\src\ft2_pushbuttons.c" />
     <ClCompile Include="..\..\src\ft2_radiobuttons.c" />
+    <ClCompile Include="..\..\src\ft2_sample_ed_features.c" />
     <ClCompile Include="..\..\src\ft2_sampling.c" />
     <ClCompile Include="..\..\src\ft2_replayer.c" />
     <ClCompile Include="..\..\src\ft2_sample_ed.c" />
@@ -419,6 +420,7 @@
     <ClInclude Include="..\..\src\ft2_pattern_draw.h" />
     <ClInclude Include="..\..\src\ft2_pushbuttons.h" />
     <ClInclude Include="..\..\src\ft2_radiobuttons.h" />
+    <ClInclude Include="..\..\src\ft2_sample_ed_features.h" />
     <ClInclude Include="..\..\src\ft2_sampling.h" />
     <ClInclude Include="..\..\src\ft2_replayer.h" />
     <ClInclude Include="..\..\src\ft2_sample_ed.h" />

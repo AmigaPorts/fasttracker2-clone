@@ -238,12 +238,12 @@ void showAboutScreen(void) /* called once when About screen is opened */
     blit(91, 31, ft2Logo, FT2_LOGO_W, FT2_LOGO_H);
 
     strcpy(infoString, "Clone by Olav \"8bitbubsy\" S\025rensen - https://16-bits.org");
-    x = 5 + (SCREEN_W - getTextWidth(infoString, FONT_TYPE1)) / 2;
+    x = 5 + (SCREEN_W - textWidth(infoString)) / 2;
     y = 151;
     textOut(x, y, PAL_FORGRND, infoString);
 
     sprintf(betaText, "beta v.%d", BETA_VERSION);
-    x = (3 + ABOUT_SCREEN_W) - (getTextWidth(betaText, FONT_TYPE1) + 3);
+    x = (3 + ABOUT_SCREEN_W) - (textWidth(betaText) + 3);
     y = (3 + ABOUT_SCREEN_H) - ((FONT1_CHAR_H - 2) + 2);
     textOut(x, y, PAL_FORGRND, betaText);
 

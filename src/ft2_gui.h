@@ -10,12 +10,14 @@
 #include "ft2_textboxes.h"
 #include "ft2_palette.h"
 
+#define FONT_CHARS 154
+
 #define FONT1_CHAR_W 8
 #define FONT1_CHAR_H 10
-#define FONT1_WIDTH 1024
+#define FONT1_WIDTH 1232
 #define FONT2_CHAR_W 16
 #define FONT2_CHAR_H 20
-#define FONT2_WIDTH 2048
+#define FONT2_WIDTH 2464
 #define FONT3_CHAR_W 4
 #define FONT3_CHAR_H 8
 #define FONT3_WIDTH 172
@@ -47,7 +49,7 @@ enum
 
     OBJECT_ID_NONE = -1,
 
-    OBJECT_NONE        =  0, /* none */
+    OBJECT_NONE        =  0,
     OBJECT_PUSHBUTTON  =  1,
     OBJECT_RADIOBUTTON =  2,
     OBJECT_CHECKBOX    =  3,
@@ -66,11 +68,9 @@ extern pushButton_t pushButtons[NUM_PUSHBUTTONS];
 extern radioButton_t radioButtons[NUM_RADIOBUTTONS];
 extern checkBox_t checkBoxes[NUM_CHECKBOXES];
 extern scrollBar_t scrollBars[NUM_SCROLLBARS];
-extern sysReq_t sysReqs[NUM_SYSREQS];
 extern textBox_t textBoxes[NUM_TEXTBOXES];
 
-char relocateChars(char ch, int8_t fontType);
-int8_t getCharWidth(char ch, int8_t fontType);
+void unstuckAllGUIElements(void);
 int8_t setupGUI(void);
 void hLine(uint16_t x, uint16_t y, uint16_t width, uint8_t paletteIndex);
 void vLine(uint16_t x, uint16_t y, uint16_t h, uint8_t paletteIndex);
@@ -83,21 +83,20 @@ void blitFast(uint16_t xPos, uint16_t yPos, const uint8_t *srcPtr, uint16_t w, u
 void hexOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint32_t val, uint8_t numDigits);
 void hexOutShadow(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint8_t shadowPaletteIndex, uint32_t val, uint8_t numDigits);
 void charOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr);
-void charOutFast(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr);
-void charOutFastOutlined(uint16_t x, uint16_t y, uint8_t paletteIndex, char chr);
-void charOutClipped(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr, uint16_t clipX);
-void charBigOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr);
-void charBigOutFast(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr);
+void charOutShadow(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint8_t shadowPaletteIndex, char chr);
+void charOutClipX(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr, uint16_t clipX);
+void bigCharOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr);
 void charOutShadow(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shadowPaletteIndex, char chr);
+void charOutOutlined(uint16_t x, uint16_t y, uint8_t paletteIndex, char chr);
 void textOut(uint16_t x, uint16_t y, uint8_t paletteIndex, char *textPtr);
-void textBigOut(uint16_t x, uint16_t y, uint8_t paletteIndex, char *textPtr);
-void textBigOutShadow(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shadowPaletteIndex, char *textPtr);
-void textOutClipped(uint16_t x, uint16_t y, uint8_t paletteIndex, char *textPtr, uint16_t clipX);
-void textOutShadowClipped(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shadowPaletteIndex, char *textPtr, uint16_t clipX);
+void bigTextOut(uint16_t x, uint16_t y, uint8_t paletteIndex, char *textPtr);
+void bigTextOutShadow(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shadowPaletteIndex, char *textPtr);
+void textOutClipX(uint16_t x, uint16_t y, uint8_t paletteIndex, char *textPtr, uint16_t clipX);
 void textOutShadow(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shadowPaletteIndex, char *textPtr);
-void drawSmallHex(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint8_t val);
-void drawSmallHexBg(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint8_t bgPaletteIndex, uint8_t val);
-uint16_t getTextWidth(char *text, uint8_t fontType);
+uint8_t charWidth(char ch);
+uint8_t bigCharWidth(char ch);
+uint16_t textWidth(char *textPtr);
+uint16_t textBigWidth(char *textPtr);
 void drawGUIOnRunTime(void);
 void showTopLeftMainScreen(uint8_t restoreScreens);
 void hideTopLeftMainScreen(void);

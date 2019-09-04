@@ -5,6 +5,10 @@
 
 enum /* SCROLLBARS */
 {
+    SB_RES_1, /* RESERVED */
+    SB_RES_2, /* RESERVED */
+    SB_RES_3, /* RESERVED */
+
     SB_POS_ED,
     SB_SAMPLE_LIST,
     SB_CHAN_SCROLL,
@@ -46,21 +50,6 @@ enum /* SCROLLBARS */
     /* Disk Op. */
     SB_DISKOP_LIST,
 
-    /* Sample volume box */
-    SB_SAMPVOL_START,
-    SB_SAMPVOL_END,
-
-    /* Sample resample box */
-    SB_RESAMPLE_HTONES,
-
-    /* Sample mix sample box */
-    SB_MIX_BALANCE,
-
-    /* Sample echo box */
-    SB_ECHO_NUM,
-    SB_ECHO_DISTANCE,
-    SB_ECHO_FADEOUT,
-
     NUM_SCROLLBARS
 };
 
@@ -77,11 +66,12 @@ enum
 typedef struct scrollBar_t /* DO NOT TOUCH!!! */
 {
     uint16_t x, y, w, h;
-    uint8_t visible, type, state;
-    int64_t pos, page, end;
-    uint16_t thumbX, thumbY, thumbW, thumbH;
-    uint8_t thumbType;
+    uint8_t type, thumbType;
     void (*callbackFunc)(int32_t pos);
+
+    uint8_t visible, state;
+    int64_t pos, page, end;
+    uint16_t thumbX, thumbY, thumbW, thumbH; 
 } scrollBar_t;
 
 void drawScrollBar(uint16_t scrollBarID);

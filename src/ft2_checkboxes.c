@@ -16,106 +16,99 @@
 
 checkBox_t checkBoxes[NUM_CHECKBOXES] =
 {
-    // ------ SYSTEM REQUEST CHECKBOXES ------
-    //x,   y,   w,   h,   initial state,      checked,            visible, funcOnUp
-    {   0, 299, 116,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   configToggleS3MLoadWarning },
-    {   0, 299, 116,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   configToggleNotYetAppliedWarning },
-    { 176, 268, 146,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbEchoAddMemory },
+    // ------ RESERVED CHECKBOX ------
+    { 0 },
+
+    /*
+    ** -- STRUCT INFO: --
+    **  x        = x position
+    **  y        = y position
+    **  w        = clickable width space, relative to x
+    **  h        = clickable height space, relative to y
+    **  funcOnUp = function to call when released
+    */
 
     // ------ NIBBLES CHECKBOXES ------
-    //x,   y,   w,   h,   initial state,      checked,            visible, funcOnUp
-    {   3, 133,  70,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   nibblesToggleSurround },
-    {   3, 146,  40,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   nibblesToggleGrid },
-    {   3, 159,  45,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   nibblesToggleWrap },
+    //x, y,   w,  h,  funcOnUp
+    { 3, 133, 70, 12, nibblesToggleSurround },
+    { 3, 146, 40, 12, nibblesToggleGrid },
+    { 3, 159, 45, 12, nibblesToggleWrap },
 
     // ------ ADVANCED EDIT CHECKBOXES ------
-    //x,   y,   w,   h,   initial state,      checked,            visible, funcOnUp
-    { 113,  94, 105,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   toggleCopyMaskEnable },
-    { 237, 107,  13,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   toggleCopyMask0 },
-    { 237, 120,  13,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   toggleCopyMask1 },
-    { 237, 133,  13,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   toggleCopyMask2 },
-    { 237, 146,  13,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   toggleCopyMask3 },
-    { 237, 159,  13,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   toggleCopyMask4 },
-    { 256, 107,  13,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   togglePasteMask0 },
-    { 256, 120,  13,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   togglePasteMask1 },
-    { 256, 133,  13,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   togglePasteMask2 },
-    { 256, 146,  13,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   togglePasteMask3 },
-    { 256, 159,  13,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   togglePasteMask4 },
-    { 275, 107,  13,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   toggleTranspMask0 },
-    { 275, 120,  13,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   toggleTranspMask1 },
-    { 275, 133,  13,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   toggleTranspMask2 },
-    { 275, 146,  13,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   toggleTranspMask3 },
-    { 275, 159,  13,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   toggleTranspMask4 },
+    //x,   y,   w,   h,  funcOnUp
+    { 113,  94, 105, 12, toggleCopyMaskEnable },
+    { 237, 107,  13, 12, toggleCopyMask0 },
+    { 237, 120,  13, 12, toggleCopyMask1 },
+    { 237, 133,  13, 12, toggleCopyMask2 },
+    { 237, 146,  13, 12, toggleCopyMask3 },
+    { 237, 159,  13, 12, toggleCopyMask4 },
+    { 256, 107,  13, 12, togglePasteMask0 },
+    { 256, 120,  13, 12, togglePasteMask1 },
+    { 256, 133,  13, 12, togglePasteMask2 },
+    { 256, 146,  13, 12, togglePasteMask3 },
+    { 256, 159,  13, 12, togglePasteMask4 },
+    { 275, 107,  13, 12, toggleTranspMask0 },
+    { 275, 120,  13, 12, toggleTranspMask1 },
+    { 275, 133,  13, 12, toggleTranspMask2 },
+    { 275, 146,  13, 12, toggleTranspMask3 },
+    { 275, 159,  13, 12, toggleTranspMask4 },
 
     // ------ INSTRUMENT EDITOR CHECKBOXES ------
-    //x,   y,   w,   h,   initial state,      checked,            visible, funcOnUp
-    {   3, 175, 118,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbVEnv },
-    { 341, 192,  64,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbVEnvSus },
-    { 341, 217,  70,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbVEnvLoop },
-    {   3, 262, 123,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbPEnv },
-    { 341, 279,  64,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbPEnvSus },
-    { 341, 304,  70,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbPEnvLoop },
+    //x,   y,   w,   h,  funcOnUp
+    {   3, 175, 118, 12, cbVEnv },
+    { 341, 192,  64, 12, cbVEnvSus },
+    { 341, 217,  70, 12, cbVEnvLoop },
+    {   3, 262, 123, 12, cbPEnv },
+    { 341, 279,  64, 12, cbPEnvSus },
+    { 341, 304,  70, 12, cbPEnvLoop },
 
     // ------ INSTRUMENT EDITOR EXTENSION CHECKBOXES ------
-    //x,   y,   w,   h,   initial state,      checked,            visible, funcOnUp
-    {   3, 112, 148,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbInstMidiEnable },
-    { 172, 112, 103,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbInstMuteComputer },
+    //x,   y,   w,   h,  funcOnUp
+    {   3, 112, 148, 12, cbInstMidiEnable },
+    { 172, 112, 103, 12, cbInstMuteComputer },
 
     // ------ TRIM SCREEN CHECKBOXES ------
-    //x,   y,   w,   h,   initial state,      checked,            visible, funcOnUp
-    {   3, 107, 113,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbTrimUnusedPatt    },
-    {   3, 120, 132,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbTrimUnusedInst    },
-    {   3, 133, 110,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbTrimUnusedSamp    },
-    {   3, 146, 115,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbTrimUnusedChans   },
-    {   3, 159, 130,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbTrimUnusedSmpData },
-    { 139,  94, 149,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbTrimSmpsTo8Bit    },
+    //x,   y,   w,   h,  funcOnUp
+    {   3, 107, 113, 12, cbTrimUnusedPatt },
+    {   3, 120, 132, 12, cbTrimUnusedInst },
+    {   3, 133, 110, 12, cbTrimUnusedSamp },
+    {   3, 146, 115, 12, cbTrimUnusedChans },
+    {   3, 159, 130, 12, cbTrimUnusedSmpData },
+    { 139,  94, 149, 12, cbTrimSmpsTo8Bit },
 
     // ------ CONFIG CHECKBOXES ------
-    //x,   y,   w,   h,   initial state,      checked,            visible, funcOnUp
-    {   3,  91,  76,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbToggleAutoSaveConfig },
-
-    // ------ CONFIG AUDIO CHECKBOXES ------
-    //x,   y,   w,   h,   initial state,      checked,            visible, funcOnUp
-    { 389, 132,  90,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbConfigInterpolation },
-    { 389, 145, 107,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbConfigVolRamp },
-    { 389, 158 , 94,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbConfigDither },
-
-    // ------ CONFIG LAYOUT CHECKBOXES  ------
-    //x,   y,   w,   h,   initial state,      checked,            visible, funcOnUp
-    { 113,  14, 108,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbConfigPattStretch },
-    { 113,  27,  77,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbConfigHexCount },
-    { 113,  40,  81,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbConfigAccidential },
-    { 113,  53,  92,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbConfigShowZeroes },
-    { 113,  66,  81,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbConfigFramework },
-    { 113,  79, 128,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbConfigLineColors },
-    { 113,  92, 126,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbConfigChanNums },
-    { 255,  14, 136,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbConfigShowVolCol },
-
-    // ------ CONFIG MISCELLANEOUS CHECKBOXES  ------
-    //x,   y,   w,   h,   initial state,      checked,            visible, funcOnUp
-    { 212,   2, 142,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbSampCutToBuff },
-    { 212,  15, 145,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbPattCutToBuff },
-    { 212,  28, 153,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbKillNotesAtStop },
-    { 212,  41, 149,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbFileOverwriteWarn },
-
-    { 212,  69, 130,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbMultiChanRec },
-    { 212,  82, 153,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbMultiChanKeyJazz },
-    { 212,  95, 114,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbMultiChanEdit },
-
-    { 212, 108, 162,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbRecKeyOff },
-    { 212, 121,  77,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbQuantisize },
-    { 212, 134, 180,  25, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbChangePattLenInsDel },
-    { 212, 159, 187,  25, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbMIDIAllowPC },
-
-    { 411,  93,  83,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbMIDIEnable },
-    { 530, 106,  30,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbMIDIRecAllChn },
-    { 411, 119, 121,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbMIDIRecTransp },
-    { 411, 132, 109,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbMIDIRecVelosity },
-    { 411, 145, 124,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbMIDIRecAftert },
-
-    { 113, 115,  74,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbVsyncOff },
-    { 113, 128,  78,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbFullScreen },
-    { 113, 141,  78,  12, CHECKBOX_UNPRESSED, CHECKBOX_UNCHECKED, false,   cbPixelFilter }
+    //x,   y,   w,   h,  funcOnUp
+    {   3,  91,  76, 12, cbToggleAutoSaveConfig },
+    { 389, 132,  90, 12, cbConfigInterpolation },
+    { 389, 145, 107, 12, cbConfigVolRamp },
+    { 389, 158 , 94, 12, cbConfigDither },
+    { 113,  14, 108, 12, cbConfigPattStretch },
+    { 113,  27,  77, 12, cbConfigHexCount },
+    { 113,  40,  81, 12, cbConfigAccidential },
+    { 113,  53,  92, 12, cbConfigShowZeroes },
+    { 113,  66,  81, 12, cbConfigFramework },
+    { 113,  79, 128, 12, cbConfigLineColors },
+    { 113,  92, 126, 12, cbConfigChanNums },
+    { 255,  14, 136, 12, cbConfigShowVolCol },
+    { 212,   2, 142, 12, cbSampCutToBuff },
+    { 212,  15, 145, 12, cbPattCutToBuff },
+    { 212,  28, 153, 12, cbKillNotesAtStop },
+    { 212,  41, 149, 12, cbFileOverwriteWarn },
+    { 212,  69, 130, 12, cbMultiChanRec },
+    { 212,  82, 153, 12, cbMultiChanKeyJazz },
+    { 212,  95, 114, 12, cbMultiChanEdit },
+    { 212, 108, 162, 12, cbRecKeyOff },
+    { 212, 121,  77, 12, cbQuantisize },
+    { 212, 134, 180, 25, cbChangePattLenInsDel },
+    { 212, 159, 187, 12, cbMIDIAllowPC },
+    { 411,  93,  83, 12, cbMIDIEnable },
+    { 530, 106,  30, 12, cbMIDIRecAllChn },
+    { 411, 119, 121, 12, cbMIDIRecTransp },
+    { 411, 132, 109, 12, cbMIDIRecVelosity },
+    { 411, 145, 124, 12, cbMIDIRecAftert },
+    { 113, 115,  74, 12, cbVsyncOff },
+    { 113, 128,  78, 12, cbFullScreen },
+    { 113, 141,  78, 12, cbPixelFilter }
 };
 
 /* these are defined at the bottom of this file */
@@ -215,6 +208,7 @@ void hideCheckBox(uint16_t checkBoxID)
 {
     MY_ASSERT(checkBoxID < NUM_CHECKBOXES)
 
+    checkBoxes[checkBoxID].state   = 0;
     checkBoxes[checkBoxID].visible = false;
 }
 
@@ -246,40 +240,38 @@ void handleCheckBoxesWhileMouseDown(void)
 
 int8_t testCheckBoxMouseDown(void)
 {
-    uint16_t i;
+    uint16_t i, start, end;
     checkBox_t *checkBox;
 
-    for (i = 0; i < NUM_CHECKBOXES; ++i)
+    if (editor.ui.systemRequestShown)
+    {
+        /* if a system request is open, only test the first three checkboxes (reserved) */
+        start = 0;
+        end   = 1;
+    }
+    else
+    {
+        start = 1;
+        end   = NUM_CHECKBOXES;
+    }
+
+    for (i = start; i < end; ++i)
     {
         checkBox = &checkBoxes[i];
-        if (checkBox->visible)
+        if (!checkBox->visible)
+            continue;
+
+        if ((mouse.x >= checkBox->x) && (mouse.x < (checkBox->x + checkBox->clickAreaWidth)))
         {
-            /* if sys req. is shown, only allow certain checkboxes */
-            if (editor.ui.systemRequestShown)
+            if ((mouse.y >= checkBox->y) && (mouse.y < (checkBox->y + checkBox->clickAreaHeight)))
             {
-                switch (i)
-                {
-                    default: continue;
+                mouse.lastUsedObjectID   = i;
+                mouse.lastUsedObjectType = OBJECT_CHECKBOX;
 
-                    case CB_SR_S3M_DONT_SHOW:
-                    case CB_SR_NOT_YET_APPLIED_DONT_SHOW:
-                    case CB_SAMP_ECHO_ADD_MEMORY:
-                        break;
-                }
-            }
+                checkBox->state = CHECKBOX_PRESSED;
+                drawCheckBox(mouse.lastUsedObjectID);
 
-            if ((mouse.x >= checkBox->x) && (mouse.x < (checkBox->x + checkBox->clickAreaWidth)))
-            {
-                if ((mouse.y >= checkBox->y) && (mouse.y < (checkBox->y + checkBox->clickAreaHeight)))
-                {
-                    mouse.lastUsedObjectID   = i;
-                    mouse.lastUsedObjectType = OBJECT_CHECKBOX;
-
-                    checkBox->state = CHECKBOX_PRESSED;
-                    drawCheckBox(mouse.lastUsedObjectID);
-
-                    return (true);
-                }
+                return (true);
             }
         }
     }
