@@ -10,16 +10,11 @@
 void helpScrollUp(void);
 void helpScrollDown(void);
 void helpScrollSetPos(uint32_t pos);
-
 void showHelpScreen(void);
 void hideHelpScreen(void);
 void exitHelpScreen(void);
-
 void initFTHelp(void);
 void windUpFTHelp(void);
-
-/* RADIO BUTTONS */
-
 void rbHelpFeatures(void);
 void rbHelpEffects(void);
 void rbHelpKeyboard(void);

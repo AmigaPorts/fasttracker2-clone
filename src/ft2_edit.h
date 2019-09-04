@@ -7,19 +7,15 @@
 bool handleEditKeys(SDL_Keycode keycode, SDL_Scancode scancode);
 void recordNote(uint8_t note, int8_t vol);
 void testNoteKeysRelease(SDL_Scancode scancode);
-
 void writeToMacroSlot(uint8_t slot);
 void writeFromMacroSlot(uint8_t slot);
-
 void insertPatternNote(void);
 void insertPatternLine(void);
 void deletePatternNote(void);
 void deletePatternLine(void);
-
 void scaleFadeVolumeTrack(void);
 void scaleFadeVolumePattern(void);
 void scaleFadeVolumeBlock(void);
-
 void toggleCopyMaskEnable(void);
 void toggleCopyMask0(void);
 void toggleCopyMask1(void);
@@ -36,7 +32,6 @@ void toggleTranspMask1(void);
 void toggleTranspMask2(void);
 void toggleTranspMask3(void);
 void toggleTranspMask4(void);
-
 void trackTranspCurInsUp(void);
 void trackTranspCurInsDn(void);
 void trackTranspCurIns12Up(void);
@@ -69,20 +64,16 @@ void blockTranspAllInsUp(void);
 void blockTranspAllInsDn(void);
 void blockTranspAllIns12Up(void);
 void blockTranspAllIns12Dn(void);
-
-void doTranspose(void); /* called from buttons above or specific sys req. */
-
+void doTranspose(void); // called from buttons above or specific sys req.
 void cutTrack(void);
 void copyTrack(void);
 void pasteTrack(void);
 void cutPattern(void);
 void copyPattern(void);
 void pastePattern(void);
-
 void cutBlock(void);
 void copyBlock(void);
 void pasteBlock(void);
-
 void remapBlock(void);
 void remapTrack(void);
 void remapPattern(void);

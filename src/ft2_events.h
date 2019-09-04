@@ -9,17 +9,16 @@
 
 enum
 {
-    EVENT_NONE                = 0,
-    EVENT_LOADMUSIC_ARGV      = 1,
-    EVENT_LOADMUSIC_DRAGNDROP = 2,
-    EVENT_LOADMUSIC_DISKOP    = 3,
+	EVENT_NONE                = 0,
+	EVENT_LOADMUSIC_ARGV      = 1,
+	EVENT_LOADMUSIC_DRAGNDROP = 2,
+	EVENT_LOADMUSIC_DISKOP    = 3,
 };
 
 void handleThreadEvents(void);
 void readInput(void);
 void handleEvents(void);
 void setupCrashHandler(void);
-
 #ifdef _WIN32
 bool handleSingleInstancing(int32_t argc, char **argv);
 void closeSingleInstancing(void);

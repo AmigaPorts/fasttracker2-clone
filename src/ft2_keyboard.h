@@ -7,10 +7,10 @@
 
 struct keyb_t
 {
-    uint8_t keyRepeat, keyPressed;
-    bool ignoreCurrKeyUp, ignoreTextEditKey, numPadPlusPressed;
-    bool keyModifierDown, commandPressed, leftCommandPressed;
-    bool leftShiftPressed, leftCtrlPressed, ctrlPressed, leftAltPressed;
+	uint8_t keyRepeat, keyPressed;
+	bool ignoreCurrKeyUp, ignoreTextEditKey, numPadPlusPressed;
+	bool keyModifierDown, commandPressed, leftCommandPressed;
+	bool leftShiftPressed, leftCtrlPressed, ctrlPressed, leftAltPressed;
 } keyb;
 
 int8_t scancodeKeyToNote(SDL_Scancode scancode);

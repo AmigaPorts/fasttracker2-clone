@@ -7,71 +7,66 @@
 
 enum
 {
-    VOLUME_COLUMN_HIDDEN =  0,
-    VOLUME_COLUMN_SHOWN  =  1,
+	VOLUME_COLUMN_HIDDEN =  0,
+	VOLUME_COLUMN_SHOWN  =  1,
 
-    TRANSP_ALL_INST = 0,
-    TRANSP_CUR_INST = 1,
+	TRANSP_ALL_INST = 0,
+	TRANSP_CUR_INST = 1,
 
-    TRANSP_TRACK = 0,
-    TRANSP_PATT  = 1,
-    TRANSP_SONG  = 2,
-    TRANSP_BLOCK = 3
+	TRANSP_TRACK = 0,
+	TRANSP_PATT  = 1,
+	TRANSP_SONG  = 2,
+	TRANSP_BLOCK = 3
 };
 
 typedef struct trackHeaderType_t
 {
-    uint16_t ver, len;
+	uint16_t ver, len;
 } trackHeaderType;
 
 typedef struct patternHeaderType_t
 {
-    uint16_t ver, len;
+	uint16_t ver, len;
 } patternHeaderType;
 
 typedef struct pattCoord_t
 {
-    uint16_t upperRowsY, lowerRowsY;
-    uint16_t upperRowsTextY, midRowTextY, lowerRowsTextY;
-    uint16_t numUpperRows, numLowerRows;
+	uint16_t upperRowsY, lowerRowsY;
+	uint16_t upperRowsTextY, midRowTextY, lowerRowsTextY;
+	uint16_t numUpperRows, numLowerRows;
 } pattCoord_t;
 
 typedef struct pattCoord2_t
 {
-    uint16_t upperRowsY, lowerRowsY;
-    uint16_t upperRowsH, lowerRowsH;
+	uint16_t upperRowsY, lowerRowsY;
+	uint16_t upperRowsH, lowerRowsH;
 } pattCoord2_t;
 
 typedef struct pattCoordsMouse_t
 {
-    uint16_t upperRowsY, midRowY, lowerRowsY;
-    uint16_t numUpperRows;
+	uint16_t upperRowsY, midRowY, lowerRowsY;
+	uint16_t numUpperRows;
 } pattCoordsMouse_t;
 
 typedef struct markCoord_t
 {
-    uint16_t upperRowsY, midRowY, lowerRowsY;
+	uint16_t upperRowsY, midRowY, lowerRowsY;
 } markCoord_t;
 
 struct pattMark_t
 {
-    int16_t markX1, markX2, markY1, markY2;
+	int16_t markX1, markX2, markY1, markY2;
 } pattMark;
 
 bool allocatePattern(uint16_t nr);
 void killPatternIfUnused(uint16_t nr);
-
 uint8_t getMaxVisibleChannels(void);
 void updatePatternWidth(void);
-
 void updateAdvEdit(void);
 void drawAdvEdit(void);
 void hideAdvEdit(void);
 void showAdvEdit(void);
 void toggleAdvEdit(void);
-
-/* called from GUI buttons */
-
 void cursorTabLeft(void);
 void cursorTabRight(void);
 void cursorChannelLeft(void);
@@ -86,37 +81,30 @@ void updateInstrumentSwitcher(void);
 void hidePatternEditor(void);
 void patternEditorExtended(void);
 void exitPatternEditorExtended(void);
-
 void clearPattMark(void);
 void checkMarkLimits(void);
 void handlePatternDataMouseDown(bool mouseButtonHeld);
-
 void togglePatternEditorExtended(void);
-
 void rowOneUpWrap(void);
 void rowOneDownWrap(void);
 void rowUp(uint16_t amount);
 void rowDown(uint16_t amount);
-
 void keybPattMarkUp(void);
 void keybPattMarkDown(void);
 void keybPattMarkLeft(void);
 void keybPattMarkRight(void);
-
 void drawTranspose(void);
 void showTranspose(void);
 void hideTranspose(void);
 void toggleTranspose(void);
-
 bool loadTrack(UNICHAR *filenameU);
 bool saveTrack(UNICHAR *filenameU);
 bool loadPattern(UNICHAR *filenameU);
 bool savePattern(UNICHAR *filenameU);
-
 void scrollChannelLeft(void);
 void scrollChannelRight(void);
 void setChannelScrollPos(uint32_t pos);
-void jumpToChannel(uint8_t channel); /* for ALT+q..i ALT+a..k */
+void jumpToChannel(uint8_t channel); // for ALT+q..i ALT+a..k
 void sbPosEdPos(uint32_t pos);
 void pbPosEdPosUp(void);
 void pbPosEdPosDown(void);
@@ -140,7 +128,6 @@ void pbEditPattUp(void);
 void pbEditPattDown(void);
 void pbPattLenUp(void);
 void pbPattLenDown(void);
-
 void drawPosEdNums(int16_t songPos);
 void drawSongLength(void);
 void drawSongRepS(void);
@@ -156,7 +143,9 @@ void showInstrumentSwitcher(void);
 void hideInstrumentSwitcher(void);
 void changeLogoType(uint8_t logoType);
 void changeBadgeType(uint8_t badgeType);
-
+void resetChannelOffset(void);
+void shrinkPattern(void);
+void expandPattern(void);
 void pbSwapInstrBank(void);
 void pbSetInstrBank1(void);
 void pbSetInstrBank2(void);
@@ -181,9 +170,5 @@ void pbZap(void);
 void sbSmpBankPos(uint32_t pos);
 void pbToggleLogo(void);
 void pbToggleBadge(void);
-
-void resetChannelOffset(void);
-void shrinkPattern(void);
-void expandPattern(void);
 
 #endif

@@ -16,37 +16,37 @@
 
 enum
 {
-    SPRITE_LEFT_LOOP_PIN  = 0,
-    SPRITE_RIGHT_LOOP_PIN = 1,
-    SPRITE_TEXT_CURSOR    = 2,
-    SPRITE_MOUSE_POINTER  = 3, /* priority above all other sprites */
+	SPRITE_LEFT_LOOP_PIN  = 0,
+	SPRITE_RIGHT_LOOP_PIN = 1,
+	SPRITE_TEXT_CURSOR    = 2,
+	SPRITE_MOUSE_POINTER  = 3, // priority above all other sprites
 
-    SPRITE_NUM
+	SPRITE_NUM
 };
 
 struct video_t
 {
-    uint8_t upscaleFactor, customPaletteContrasts[2];
-    bool fullscreen, vsync60HzPresent;
-    int32_t renderX, renderY, renderW, renderH, displayW, displayH;
-    uint32_t *frameBuffer, palette[PAL_NUM], vblankTimeLen, vblankTimeLenFrac;
-    uint32_t xScaleMul, yScaleMul;
+	uint8_t upscaleFactor, customPaletteContrasts[2];
+	bool fullscreen, vsync60HzPresent;
+	int32_t renderX, renderY, renderW, renderH, displayW, displayH;
+	uint32_t *frameBuffer, palette[PAL_NUM], vblankTimeLen, vblankTimeLenFrac;
+	uint32_t xScaleMul, yScaleMul;
 #ifdef _WIN32
-    HWND hWnd;
+	HWND hWnd;
 #endif
-    SDL_Window *window;
-    SDL_Renderer *renderer;
-    SDL_Texture *texture;
-    SDL_Surface *iconSurface;
+	SDL_Window *window;
+	SDL_Renderer *renderer;
+	SDL_Texture *texture;
+	SDL_Surface *iconSurface;
 } video;
 
 typedef struct
 {
-    uint32_t *refreshBuffer;
-    const uint8_t *data;
-    bool visible;
-    int16_t newX, newY, x, y;
-    uint16_t w, h;
+	uint32_t *refreshBuffer;
+	const uint8_t *data;
+	bool visible;
+	int16_t newX, newY, x, y;
+	uint16_t w, h;
 } sprite_t;
 
 void flipFrame(void);
@@ -55,7 +55,6 @@ void updateWindowTitle(bool forceUpdate);
 void setPalettePreset(int16_t palettePreset);
 void updatePaletteContrast(void);
 void handleScopesFromChQueue(chSyncData_t *chSyncData, uint8_t *scopeUpdateStatus);
-
 bool setupWindow(void);
 bool setupRenderer(void);
 void closeVideo(void);

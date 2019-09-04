@@ -16,8 +16,8 @@ Compiled Windows/macOS binaries are always available at 16-bits.org/ft2.php
 == COMPILING ON LINUX (Little-endian only!) ==
  1. Install the following packages:
     Ubuntu/Debian and similar: build-essential libsdl2-dev
-    Fedora: gcc gcc-g++ alsa-lib-devel SDL2-devel
-    Others: www.google.com (you want gcc, g++, alsa dev and SDL2 dev)
+    Fedora: gcc gcc-c++ alsa-lib-devel SDL2-devel
+    Others: www.google.com (you want gcc, g++ (or c++), alsa dev and SDL2 dev)
  2. Compile the FT2 clone:     (folder: "ft2-clone-code")
     chmod +x make-linux.sh     (only needed once)
     ./make-linux.sh

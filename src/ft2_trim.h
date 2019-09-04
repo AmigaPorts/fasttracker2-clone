@@ -8,7 +8,6 @@ void toggleTrimScreen(void);
 void setInitialTrimFlags(void);
 void trimThreadDone(void);
 void resetTrimSizes(void);
-
 void cbTrimUnusedPatt(void);
 void cbTrimUnusedInst(void);
 void cbTrimUnusedSamp(void);

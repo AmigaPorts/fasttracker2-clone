@@ -1,11 +1,11 @@
-#include <stdio.h> /* sprintf() */
+#include <stdio.h> // sprintf()
 #include "ft2_header.h"
 #include "ft2_gui.h"
 #include "ft2_pattern_ed.h"
 #include "ft2_gfxdata.h"
 #include "ft2_video.h"
 
-/* ported from original FT2 code */
+// ported from original FT2 code
 
 #define NUM_STARS      700
 #define ABOUT_SCREEN_W 626
@@ -15,20 +15,20 @@
 
 typedef struct
 {
-    int16_t x, y, z;
+	int16_t x, y, z;
 } vector_t;
 
 typedef struct
 {
-    uint16_t x, y, z;
+	uint16_t x, y, z;
 } rotate_t;
 
 typedef struct
 {
-    vector_t x, y, z;
+	vector_t x, y, z;
 } matrix_t;
 
-extern const uint16_t sinusTables[256 * 5]; /* defined at the bottom of this file */
+extern const uint16_t sinusTables[256 * 5]; // defined at the bottom of this file
 
 static const uint8_t starColConv[24] = { 2,2,2,2,2,2,2,2, 2,2,2,1,1,1,3,3, 3,3,3,3,3,3,3,3 };
 static const int16_t *sin32767 = (const int16_t *)(sinusTables), *cos32767 = (const int16_t *)(&sinusTables[256]);
@@ -41,227 +41,227 @@ static matrix_t starmat;
 
 void seedAboutScreenRandom(uint32_t newseed)
 {
-    randSeed = newseed;
+	randSeed = newseed;
 }
 
 static inline int32_t random32(int32_t l)
 {
-    int32_t r;
+	int32_t r;
 
-    randSeed *= 134775813;
-    randSeed += 1;
+	randSeed *= 134775813;
+	randSeed += 1;
 
-    r = (int32_t)(((int64_t)(randSeed) * l) >> 32);
-    return (r);
+	r = (int32_t)(((int64_t)(randSeed) * l) >> 32);
+	return (r);
 }
 
 static void fixaMatris(rotate_t a, matrix_t *mat)
 {
-    int16_t sa, sb, sc, ca, cb, cc;
+	int16_t sa, sb, sc, ca, cb, cc;
 
-    sa = sin32767[a.x >> 6]; sb = sin32767[a.y >> 6]; sc = sin32767[a.z >> 6];
-    ca = cos32767[a.x >> 6]; cb = cos32767[a.y >> 6]; cc = cos32767[a.z >> 6];
+	sa = sin32767[a.x >> 6]; sb = sin32767[a.y >> 6]; sc = sin32767[a.z >> 6];
+	ca = cos32767[a.x >> 6]; cb = cos32767[a.y >> 6]; cc = cos32767[a.z >> 6];
 
-    mat->x.x = ((ca * cc) >> 16) + (((sc * ((sa * sb) >> 16)) >> 16) << 1);
-    mat->y.x =  (sa * cb) >> 16;
-    mat->z.x = (((cc * ((sa * sb) >> 16)) >> 16) << 1) - ((ca * sc) >> 16);
+	mat->x.x = ((ca * cc) >> 16) + (((sc * ((sa * sb) >> 16)) >> 16) << 1);
+	mat->y.x =  (sa * cb) >> 16;
+	mat->z.x = (((cc * ((sa * sb) >> 16)) >> 16) << 1) - ((ca * sc) >> 16);
 
-    mat->x.y = (((sc * ((ca * sb) >> 16)) >> 16) << 1) - ((sa * cc) >> 16);
-    mat->y.y =  (ca * cb) >> 16;
-    mat->z.y = ((sa * sc) >> 16) + (((cc * ((ca * sb) >> 16)) >> 16) << 1);
+	mat->x.y = (((sc * ((ca * sb) >> 16)) >> 16) << 1) - ((sa * cc) >> 16);
+	mat->y.y =  (ca * cb) >> 16;
+	mat->z.y = ((sa * sc) >> 16) + (((cc * ((ca * sb) >> 16)) >> 16) << 1);
 
-    mat->x.z = (cb * sc) >> 16;
-    mat->y.z =   0 - (sb >> 1);
-    mat->z.z = (cb * cc) >> 16;
+	mat->x.z = (cb * sc) >> 16;
+	mat->y.z =   0 - (sb >> 1);
+	mat->z.z = (cb * cc) >> 16;
 }
 
 static int32_t sqr(int32_t x)
 {
-    return (x * x);
+	return (x * x);
 }
 
 static void aboutInit(void)
 {
-    uint8_t type;
-    int16_t i;
-    int32_t r, n, w, h;
-    float ww;
+	uint8_t type;
+	int16_t i;
+	int32_t r, n, w, h;
+	float ww;
 
-    type = (uint8_t)(random32(4));
-    switch (type)
-    {
-        case 0:
-        {
-            hastighet = 309;
-            for (i = 0; i < NUM_STARS; ++i)
-            {
-                starcrd[i].z = (int16_t)(random32(0xFFFF)) - 0x8000;
-                starcrd[i].y = (int16_t)(random32(0xFFFF)) - 0x8000;
-                starcrd[i].x = (int16_t)(random32(0xFFFF)) - 0x8000;
-            }
-        }
-        break;
+	type = (uint8_t)(random32(4));
+	switch (type)
+	{
+		case 0:
+		{
+			hastighet = 309;
+			for (i = 0; i < NUM_STARS; ++i)
+			{
+				starcrd[i].z = (int16_t)(random32(0xFFFF)) - 0x8000;
+				starcrd[i].y = (int16_t)(random32(0xFFFF)) - 0x8000;
+				starcrd[i].x = (int16_t)(random32(0xFFFF)) - 0x8000;
+			}
+		}
+		break;
 
-        case 1:
-        {
-            hastighet = 0;
-            for (i = 0; i < NUM_STARS; ++i)
-            {
-                if (i < (NUM_STARS / 4))
-                {
-                    starcrd[i].z = (int16_t)(random32(0xFFFF)) - 0x8000;
-                    starcrd[i].y = (int16_t)(random32(0xFFFF)) - 0x8000;
-                    starcrd[i].x = (int16_t)(random32(0xFFFF)) - 0x8000;
-                }
-                else
-                {
-                    r  = random32(30000);
-                    n  = random32(5);
-                    w  = ((2 * random32(2)) - 1) * sqr(random32(1000));
-                    ww = (((3.1415926f * 2.0f) / 5.0f) * n) + (r / 12000.0f) + (w / 3000000.0f);
-                    h  = ((sqr(r) / 30000) * (random32(10000) - 5000)) / 12000;
+		case 1:
+		{
+			hastighet = 0;
+			for (i = 0; i < NUM_STARS; ++i)
+			{
+				if (i < (NUM_STARS / 4))
+				{
+					starcrd[i].z = (int16_t)(random32(0xFFFF)) - 0x8000;
+					starcrd[i].y = (int16_t)(random32(0xFFFF)) - 0x8000;
+					starcrd[i].x = (int16_t)(random32(0xFFFF)) - 0x8000;
+				}
+				else
+				{
+					r  = random32(30000);
+					n  = random32(5);
+					w  = ((2 * random32(2)) - 1) * sqr(random32(1000));
+					ww = (((3.1415926f * 2.0f) / 5.0f) * n) + (r / 12000.0f) + (w / 3000000.0f);
+					h  = ((sqr(r) / 30000) * (random32(10000) - 5000)) / 12000;
 
-                    starcrd[i].x = (int16_t)(r * cosf(ww));
-                    starcrd[i].y = (int16_t)(r * sinf(ww));
-                    starcrd[i].z = (int16_t)(h);
-                }
-            }
-        }
-        break;
+					starcrd[i].x = (int16_t)(r * cosf(ww));
+					starcrd[i].y = (int16_t)(r * sinf(ww));
+					starcrd[i].z = (int16_t)(h);
+				}
+			}
+		}
+		break;
 
-        case 2:
-        case 3:
-        {
-            hastighet = 0;
-            for (i = 0; i < NUM_STARS; ++i)
-            {
-                ww = (float)(random32(500) * 500);
-                r  = (int32_t)(roundf(sqrtf(ww)));
-                w  = random32(3000);
-                h  = cos32767[(((w * 8) + r) / 16) & 1023] / 4;
+		case 2:
+		case 3:
+		{
+			hastighet = 0;
+			for (i = 0; i < NUM_STARS; ++i)
+			{
+				ww = (float)(random32(500) * 500);
+				r  = (int32_t)(roundf(sqrtf(ww)));
+				w  = random32(3000);
+				h  = cos32767[(((w * 8) + r) / 16) & 1023] / 4;
 
-                starcrd[i].z = (int16_t)((cos32767[w & 1023] * (w + r)) / 3500);
-                starcrd[i].y = (int16_t)((sin32767[w & 1023] * (w + r)) / 3500);
-                starcrd[i].x = (int16_t)((h * r) / 500);
-            }
-        }
-        break;
+				starcrd[i].z = (int16_t)((cos32767[w & 1023] * (w + r)) / 3500);
+				starcrd[i].y = (int16_t)((sin32767[w & 1023] * (w + r)) / 3500);
+				starcrd[i].x = (int16_t)((h * r) / 500);
+			}
+		}
+		break;
 
-        default:
-            break;
-    }
+		default:
+			break;
+	}
 
-    for (i = 0; i < NUM_STARS; ++i)
-        lastStarScreenPos[i] = -1;
+	for (i = 0; i < NUM_STARS; ++i)
+		lastStarScreenPos[i] = -1;
 }
 
 static void realStars(void)
 {
-    uint8_t col;
-    int16_t i, x, y, z, xx, xy, xz, yx, yy, yz, zx, zy, zz;
-    int32_t screenBufferPos;
-    vector_t *star;
+	uint8_t col;
+	int16_t i, x, y, z, xx, xy, xz, yx, yy, yz, zx, zy, zz;
+	int32_t screenBufferPos;
+	vector_t *star;
 
-    xx = starmat.x.x; xy = starmat.x.y; xz = starmat.x.z;
-    yx = starmat.y.x; yy = starmat.y.y; yz = starmat.y.z;
-    zx = starmat.z.x; zy = starmat.z.y; zz = starmat.z.z;
+	xx = starmat.x.x; xy = starmat.x.y; xz = starmat.x.z;
+	yx = starmat.y.x; yy = starmat.y.y; yz = starmat.y.z;
+	zx = starmat.z.x; zy = starmat.z.y; zz = starmat.z.z;
 
-    for (i = 0; i < NUM_STARS; ++i)
-    {
-        /* erase last star pixel */
-        screenBufferPos = lastStarScreenPos[i];
-        if (screenBufferPos >= 0)
-        {
-            if (!(video.frameBuffer[screenBufferPos] & 0xFF000000))
-                video.frameBuffer[screenBufferPos] = video.palette[PAL_BCKGRND];
+	for (i = 0; i < NUM_STARS; ++i)
+	{
+		// erase last star pixel
+		screenBufferPos = lastStarScreenPos[i];
+		if (screenBufferPos >= 0)
+		{
+			if (!(video.frameBuffer[screenBufferPos] & 0xFF000000))
+				video.frameBuffer[screenBufferPos] = video.palette[PAL_BCKGRND];
 
-            lastStarScreenPos[i] = -1;
-        }
+			lastStarScreenPos[i] = -1;
+		}
 
-        star = &starcrd[i];
-        star->z += hastighet;
+		star = &starcrd[i];
+		star->z += hastighet;
 
-        z = (((xz * star->x) >> 16) + ((yz * star->y) >> 16) + ((zz * star->z) >> 16)) + 9000;
-        if (z <= 100)
-            continue;
+		z = (((xz * star->x) >> 16) + ((yz * star->y) >> 16) + ((zz * star->z) >> 16)) + 9000;
+		if (z <= 100)
+			continue;
 
-        y = ((xy * star->x) >> 16) + ((yy * star->y) >> 16) + ((zy * star->z) >> 16);
-        y = (int16_t)((y << 7) / z) + 84;
-        if ((uint16_t)(y) >= (173 - 6))
-            continue;
+		y = ((xy * star->x) >> 16) + ((yy * star->y) >> 16) + ((zy * star->z) >> 16);
+		y = (int16_t)((y << 7) / z) + 84;
+		if ((uint16_t)(y) >= (173 - 6))
+			continue;
 
-        x = ((xx * star->x) >> 16) + ((yx * star->y) >> 16) + ((zx * star->z) >> 16);
-        x = (int16_t)((((x >> 2) + x) << 7) / z) + (320 - 8);
-        if ((uint16_t)(x) >= (640 - 16))
-            continue;
+		x = ((xx * star->x) >> 16) + ((yx * star->y) >> 16) + ((zx * star->z) >> 16);
+		x = (int16_t)((((x >> 2) + x) << 7) / z) + (320 - 8);
+		if ((uint16_t)(x) >= (640 - 16))
+			continue;
 
-        /* render star pixel if the pixel under it is the background */
-        screenBufferPos = ((y + 4) * SCREEN_W) + (x + 4);
-        if ((video.frameBuffer[screenBufferPos] >> 24) == PAL_BCKGRND)
-        {
-            col = ((uint8_t)(0 - (z >> 8)) >> 3) - (22 - 8);
-            if (col < 24)
-            {
-                video.frameBuffer[screenBufferPos] = video.palette[starColConv[col]] & 0x00FFFFFF;
-                lastStarScreenPos[i] = screenBufferPos;
-            }
-        }
-    }
+		// render star pixel if the pixel under it is the background
+		screenBufferPos = ((y + 4) * SCREEN_W) + (x + 4);
+		if ((video.frameBuffer[screenBufferPos] >> 24) == PAL_BCKGRND)
+		{
+			col = ((uint8_t)(0 - (z >> 8)) >> 3) - (22 - 8);
+			if (col < 24)
+			{
+				video.frameBuffer[screenBufferPos] = video.palette[starColConv[col]] & 0x00FFFFFF;
+				lastStarScreenPos[i] = screenBufferPos;
+			}
+		}
+	}
 }
 
 void aboutFrame(void)
 {
-    star_a.x += (3 * 64);
-    star_a.y += (2 * 64);
-    star_a.z -= (1 * 64);
+	star_a.x += (3 * 64);
+	star_a.y += (2 * 64);
+	star_a.z -= (1 * 64);
 
-    fixaMatris(star_a, &starmat);
+	fixaMatris(star_a, &starmat);
 
-    realStars();
+	realStars();
 }
 
-void showAboutScreen(void) /* called once when About screen is opened */
+void showAboutScreen(void) // called once when About screen is opened
 {
-    char *infoString = "Clone by Olav \"8bitbubsy\" S\025rensen - https://16-bits.org";
-    char betaText[32];
-    uint16_t x, y;
+	char *infoString = "Clone by Olav \"8bitbubsy\" S\025rensen - https://16-bits.org";
+	char betaText[32];
+	uint16_t x, y;
 
-    if (editor.ui.extended)
-        exitPatternEditorExtended();
+	if (editor.ui.extended)
+		exitPatternEditorExtended();
 
-    hideTopScreen();
+	hideTopScreen();
 
-    drawFramework(0, 0, 632, 173, FRAMEWORK_TYPE1);
-    drawFramework(2, 2, 628, 169, FRAMEWORK_TYPE2);
+	drawFramework(0, 0, 632, 173, FRAMEWORK_TYPE1);
+	drawFramework(2, 2, 628, 169, FRAMEWORK_TYPE2);
 
-    showPushButton(PB_EXIT_ABOUT);
+	showPushButton(PB_EXIT_ABOUT);
 
-    blit(91, 31, ft2Logo, FT2_LOGO_W, FT2_LOGO_H);
+	blit(91, 31, ft2Logo, FT2_LOGO_W, FT2_LOGO_H);
 
-    x = 5 + (SCREEN_W - textWidth(infoString)) / 2;
-    y = 151;
-    textOut(x, y, PAL_FORGRND, infoString);
+	x = 5 + (SCREEN_W - textWidth(infoString)) / 2;
+	y = 151;
+	textOut(x, y, PAL_FORGRND, infoString);
 
-    sprintf(betaText, "beta v.%d", BETA_VERSION);
-    x = (3 + ABOUT_SCREEN_W) - (textWidth(betaText) + 3);
-    y = (3 + ABOUT_SCREEN_H) - ((FONT1_CHAR_H - 2) + 2);
-    textOut(x, y, PAL_FORGRND, betaText);
+	sprintf(betaText, "beta v.%d", BETA_VERSION);
+	x = (3 + ABOUT_SCREEN_W) - (textWidth(betaText) + 3);
+	y = (3 + ABOUT_SCREEN_H) - ((FONT1_CHAR_H - 2) + 2);
+	textOut(x, y, PAL_FORGRND, betaText);
 
-    aboutInit();
+	aboutInit();
 
-    editor.ui.aboutScreenShown = true;
+	editor.ui.aboutScreenShown = true;
 }
 
 void hideAboutScreen(void)
 {
-    hidePushButton(PB_EXIT_ABOUT);
-    editor.ui.aboutScreenShown = false;
+	hidePushButton(PB_EXIT_ABOUT);
+	editor.ui.aboutScreenShown = false;
 }
 
 void exitAboutScreen(void)
 {
-    hideAboutScreen();
-    showTopScreen(true);
+	hideAboutScreen();
+	showTopScreen(true);
 }
 
 const uint16_t sinusTables[256 * 5] =

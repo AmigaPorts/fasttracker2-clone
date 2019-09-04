@@ -4,76 +4,77 @@
 #include <stdint.h>
 #include <stdbool.h>
 
-enum /* SCROLLBARS */
+enum // SCROLLBARS
 {
-    SB_RES_1, /* RESERVED */
-    SB_RES_2, /* RESERVED */
-    SB_RES_3, /* RESERVED */
+	// reserved
+	SB_RES_1,
+	SB_RES_2,
+	SB_RES_3,
 
-    SB_POS_ED,
-    SB_SAMPLE_LIST,
-    SB_CHAN_SCROLL,
-    SB_HELP_SCROLL,
-    SB_SAMP_SCROLL,
+	SB_POS_ED,
+	SB_SAMPLE_LIST,
+	SB_CHAN_SCROLL,
+	SB_HELP_SCROLL,
+	SB_SAMP_SCROLL,
 
-    /* Instrument Editor */
-    SB_INST_VOL,
-    SB_INST_PAN,
-    SB_INST_FTUNE,
-    SB_INST_FADEOUT,
-    SB_INST_VIBSPEED,
-    SB_INST_VIBDEPTH,
-    SB_INST_VIBSWEEP,
+	// Instrument Editor
+	SB_INST_VOL,
+	SB_INST_PAN,
+	SB_INST_FTUNE,
+	SB_INST_FADEOUT,
+	SB_INST_VIBSPEED,
+	SB_INST_VIBDEPTH,
+	SB_INST_VIBSWEEP,
 
-    /* Instrument Editor Extension */
-    SB_INST_EXT_MIDI_CH,
-    SB_INST_EXT_MIDI_PRG,
-    SB_INST_EXT_MIDI_BEND,
+	// Instrument Editor Extension
+	SB_INST_EXT_MIDI_CH,
+	SB_INST_EXT_MIDI_PRG,
+	SB_INST_EXT_MIDI_BEND,
 
-    /* Config Audio */
-    SB_AUDIO_OUTPUT_SCROLL,
-    SB_AUDIO_INPUT_SCROLL,
-    SB_AMP_SCROLL,
-    SB_MASTERVOL_SCROLL,
+	// Config I/O Devices
+	SB_AUDIO_OUTPUT_SCROLL,
+	SB_AUDIO_INPUT_SCROLL,
+	SB_AMP_SCROLL,
+	SB_MASTERVOL_SCROLL,
 
-    /* Config Layout */
-    SB_PAL_R,
-    SB_PAL_G,
-    SB_PAL_B,
-    SB_PAL_CONTRAST,
+	// Config Layout
+	SB_PAL_R,
+	SB_PAL_G,
+	SB_PAL_B,
+	SB_PAL_CONTRAST,
 
-    /* Config Miscellaneous */
-    SB_MIDI_SENS,
+	// Config Miscellaneous
+	SB_MIDI_SENS,
 
-    /* Config Midi */
-    SB_MIDI_INPUT_SCROLL,
+	// Config Midi
+	SB_MIDI_INPUT_SCROLL,
 
-    /* Disk Op. */
-    SB_DISKOP_LIST,
+	// Disk Op.
+	SB_DISKOP_LIST,
 
-    NUM_SCROLLBARS
+	NUM_SCROLLBARS
 };
 
 enum
 {
-    SCROLLBAR_UNPRESSED    = 0,
-    SCROLLBAR_PRESSED      = 1,
-    SCROLLBAR_HORIZONTAL   = 0,
-    SCROLLBAR_VERTICAL     = 1,
-    SCROLLBAR_THUMB_NOFLAT = 0,
-    SCROLLBAR_THUMB_FLAT   = 1
+	SCROLLBAR_UNPRESSED    = 0,
+	SCROLLBAR_PRESSED      = 1,
+	SCROLLBAR_HORIZONTAL   = 0,
+	SCROLLBAR_VERTICAL     = 1,
+	SCROLLBAR_THUMB_NOFLAT = 0,
+	SCROLLBAR_THUMB_FLAT   = 1
 };
 
-typedef struct scrollBar_t /* DO NOT TOUCH!!! */
+typedef struct scrollBar_t // DO NOT TOUCH!
 {
-    uint16_t x, y, w, h;
-    uint8_t type, thumbType;
-    void (*callbackFunc)(uint32_t pos);
+	uint16_t x, y, w, h;
+	uint8_t type, thumbType;
+	void (*callbackFunc)(uint32_t pos);
 
-    bool visible;
-    uint8_t state;
-    uint32_t pos, page, end;
-    uint16_t thumbX, thumbY, thumbW, thumbH; 
+	bool visible;
+	uint8_t state;
+	uint32_t pos, page, end;
+	uint16_t thumbX, thumbY, thumbW, thumbH; 
 } scrollBar_t;
 
 void drawScrollBar(uint16_t scrollBarID);

@@ -7,8 +7,8 @@
 
 enum
 {
-    SAVE_NORMAL = 0,
-    SAVE_RANGE  = 1
+	SAVE_NORMAL = 0,
+	SAVE_RANGE  = 1
 };
 
 void saveSample(UNICHAR *filenameU, bool saveAsRange);

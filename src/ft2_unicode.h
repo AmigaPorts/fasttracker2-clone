@@ -7,11 +7,11 @@
 #include <wchar.h>
 #endif
 
-/* unicode stuff for different platforms */
+// unicode stuff for different platforms
 
 #ifdef _WIN32
 
-/* Windows */
+// Windows
 typedef wchar_t UNICHAR;
 #define UNICHAR_STRCPY(a, b)     wcscpy(a, b)
 #define UNICHAR_STRNCPY(a, b, c) wcsncpy(a, b, c)
@@ -27,7 +27,7 @@ typedef wchar_t UNICHAR;
 #define UNICHAR_STRLEN(a)        wcslen(a)
 #else
 
-/* other OSes */
+// other OSes
 typedef char UNICHAR;
 #define UNICHAR_STRCPY(a, b)     strcpy(a, b)
 #define UNICHAR_STRNCPY(a, b, c) strncpy(a, b, c)
@@ -45,7 +45,6 @@ typedef char UNICHAR;
 
 char *cp437ToUtf8(char *src);
 char *utf8ToCp437(char *src, bool removeIllegalChars);
-
 #ifdef _WIN32
 UNICHAR *cp437ToUnichar(char *src);
 char *unicharToCp437(UNICHAR *src, bool removeIllegalChars);

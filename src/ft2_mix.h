@@ -6,6 +6,6 @@
 
 typedef void (*mixRoutine)(void *, int32_t);
 
-extern const mixRoutine mixRoutineTable[24]; /* ft2_mix.c */
+extern const mixRoutine mixRoutineTable[24]; // ft2_mix.c
 
 #endif

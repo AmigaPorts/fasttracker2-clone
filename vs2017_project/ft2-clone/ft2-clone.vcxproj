@@ -373,20 +373,20 @@
     <ClCompile Include="..\..\src\gfxdata\ft2_gfx_sampler.c" />
     <ClCompile Include="..\..\src\gfxdata\ft2_gfx_scopes.c" />
     <ClCompile Include="..\..\src\rtmidi\RtMidi.cpp">
+      <ExceptionHandling Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Sync</ExceptionHandling>
       <ExceptionHandling Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Sync</ExceptionHandling>
       <ExceptionHandling Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Sync</ExceptionHandling>
       <ExceptionHandling Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Sync</ExceptionHandling>
-      <ExceptionHandling Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Sync</ExceptionHandling>
     </ClCompile>
     <ClCompile Include="..\..\src\rtmidi\rtmidi_c.cpp">
-      <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4245;4996;4267</DisableSpecificWarnings>
-      <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4245;4996;4267</DisableSpecificWarnings>
-      <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">4245;4996;4267</DisableSpecificWarnings>
-      <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|x64'">4245;4996;4267</DisableSpecificWarnings>
-      <ExceptionHandling Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Sync</ExceptionHandling>
-      <ExceptionHandling Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Sync</ExceptionHandling>
       <ExceptionHandling Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Sync</ExceptionHandling>
+      <ExceptionHandling Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Sync</ExceptionHandling>
+      <ExceptionHandling Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Sync</ExceptionHandling>
       <ExceptionHandling Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Sync</ExceptionHandling>
+      <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">4245;4996;4267</DisableSpecificWarnings>
+      <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Release|x64'">4245;4996;4267</DisableSpecificWarnings>
+      <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">4245;4996;4267</DisableSpecificWarnings>
+      <DisableSpecificWarnings Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">4245;4996;4267</DisableSpecificWarnings>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
