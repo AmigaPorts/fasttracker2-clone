@@ -14,10 +14,19 @@
 #endif
 #include "ft2_replayer.h"
 
-#define BETA_VERSION 142
+#define BETA_VERSION 148
 
 // do NOT change these! It will only mess things up...
+
+/* "60Hz" ranges everywhere from 59..61Hz depending on the monitor, so with
+** no vsync we will get stuttering because the rate is not perfect... */
 #define VBLANK_HZ 60
+
+/* scopes are clocked at 64Hz instead of 60Hz to prevent +/- interference
+** from monitors not being exactly 60Hz (and unstable non-vsync mode). */
+#define SCOPE_HZ 64
+
+#define FT2_VBLANK_HZ 70
 #define SCREEN_W 632
 #define SCREEN_H 400
 
@@ -56,17 +65,31 @@
 	(((uint32_t)((value) & 0xFF000000)) >> 24)   \
 )
 
-// round and convert double/float to int32_t
-#if defined __APPLE__ || defined _WIN32 || defined __i386__ || defined __amd64__
-#define sse2_double2int32_round(i, d) (i = _mm_cvtsd_si32(_mm_load_sd(&d)))
-#define sse2_double2int32_trunc(i, d) (i = _mm_cvttsd_si32(_mm_load_sd(&d)))
-#define sse_float2int32_round(i, f)   (i = _mm_cvt_ss2si(_mm_load_ss(&f)))
-#define sse_float2int32_trunc(i, f)   (i = _mm_cvtt_ss2si(_mm_load_ss(&f)))
-#else
-#define sse2_double2int32_round(i, d) i = 0; (void)(d);
-#define sse2_double2int32_trunc(i, d) i = 0; (void)(d);
-#define sse_float2int32_round(i, f)   i = 0; (void)(f);
-#define sse_float2int32_trunc(i, f)   i = 0; (void)(f);
+// - float/double to int32_t intrinsics -
+
+#if defined __APPLE__ || defined __amd64__ || defined _WIN64 // guaranteed to have SSE2
+#define double2int32_round(i, d) (i = _mm_cvtsd_si32(_mm_load_sd(&d)))
+#define double2int32_trunc(i, d) (i = _mm_cvttsd_si32(_mm_load_sd(&d)))
+#define float2int32_round(i, f)  (i = _mm_cvt_ss2si(_mm_load_ss(&f)))
+#define float2int32_trunc(i, f)  (i = _mm_cvtt_ss2si(_mm_load_ss(&f)))
+#elif defined _WIN32 || defined __i386__ // has SSE, may have SSE2
+#define float2int32_round(i, f)  (i = _mm_cvt_ss2si(_mm_load_ss(&f)))
+#define float2int32_trunc(i, f)  (i = _mm_cvtt_ss2si(_mm_load_ss(&f)))
+#define double2int32_trunc(i, d) \
+	if (cpu.hasSSE2) \
+		i = _mm_cvttsd_si32(_mm_load_sd(&d)); \
+	else \
+		i = (int32_t)(d);
+#define double2int32_round(i, d) \
+	if (cpu.hasSSE2) \
+		i = _mm_cvtsd_si32(_mm_load_sd(&d)); \
+	else \
+		i = (int32_t)(round(d));
+#else // no SSE, let the compiler optimize
+#define double2int32_round(i, d) i = (int32_t)(round(d));
+#define double2int32_trunc(i, d) i = (int32_t)(d);
+#define float2int32_round(i, f)  i = (int32_t)(roundf(f));
+#define float2int32_trunc(i, f)  i = (int32_t)(f);
 #endif
 
 struct cpu_t
@@ -127,16 +150,16 @@ struct editor_t
 	bool copyMaskEnable, diskOpReadOnOpen, samplingAudioFlag;
 	bool instrBankSwapped, channelMute[MAX_VOICES], NI_Play;
 
-	uint8_t currPanEnvPoint, currVolEnvPoint, currPaletteEdit;
+	uint8_t curSmpChannel, currPanEnvPoint, currVolEnvPoint, currPaletteEdit;
 	uint8_t copyMask[5], pasteMask[5], transpMask[5], smpEd_NoteNr, instrBankOffset, sampleBankOffset;
 	uint8_t srcInstr, curInstr, srcSmp, curSmp, currHelpScreen, currConfigScreen, textCursorBlinkCounter;
-	uint8_t keyOnTab[MAX_VOICES], ID_Add, curOctave, curSmpChannel;
+	uint8_t keyOnTab[MAX_VOICES], ID_Add, curOctave;
 	uint8_t sampleSaveMode, moduleSaveMode, ptnJumpPos[4];
 	int16_t globalVol, songPos, pattPos;
 	uint16_t tmpPattern, editPattern, speed, tempo, timer, ptnCursorY;
-	int32_t samplePlayOffset, keyOffNr, keyOffTime[MAX_VOICES];
+	int32_t keyOffNr, keyOffTime[MAX_VOICES];
 	uint32_t framesPassed, *currPaletteEntry, wavRendererTime;
-	double dPerfFreq, dPerfFreqMulMicro;
+	double dPerfFreq, dPerfFreqMulMicro, dPerfFreqMulMs;
 } editor;
 
 #endif

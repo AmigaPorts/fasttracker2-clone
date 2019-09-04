@@ -410,6 +410,14 @@ static void handleInput(void)
 
 	while (SDL_PollEvent(&inputEvent))
 	{
+		if (video.vsync60HzPresent)
+		{
+			/* if we minimize the window and vsync is present, vsync is temporarily turned off.
+			** recalc waitVBL() vars so that it can sleep properly in said mode. */
+			if ((inputEvent.type == SDL_WINDOWEVENT) && (inputEvent.window.event == SDL_WINDOWEVENT_MINIMIZED))
+				setupWaitVBL();
+		}
+
 		if (editor.busy)
 		{
 			eventType = inputEvent.type;

@@ -218,6 +218,7 @@ int16_t okBox(int16_t typ, char *headline, char *text)
 	returnVal = 0;
 	while (editor.ui.sysReqShown)
 	{
+		beginFPSCounter();
 		readMouseXY();
 		setSyncedReplayerVars();
 
@@ -299,6 +300,7 @@ int16_t okBox(int16_t typ, char *headline, char *text)
 		}
 
 		flipFrame();
+		endFPSCounter();
 	}
 
 	for (i = 0; i < knp; ++i)
@@ -432,6 +434,7 @@ int16_t inputBox(int16_t typ, char *headline, char *edText, uint16_t maxStrLen)
 	returnVal = 0;
 	while (editor.ui.sysReqShown)
 	{
+		beginFPSCounter();
 		readMouseXY();
 		readKeyModifiers();
 		setSyncedReplayerVars();
@@ -538,6 +541,7 @@ int16_t inputBox(int16_t typ, char *headline, char *edText, uint16_t maxStrLen)
 		for (i = 0; i < knp; ++i) drawPushButton(i);
 
 		flipFrame();
+		endFPSCounter();
 	}
 
 	editor.editTextFlag = false;
@@ -562,7 +566,7 @@ int16_t inputBox(int16_t typ, char *headline, char *edText, uint16_t maxStrLen)
 int16_t okBoxThreadSafe(int16_t typ, char *headline, char *text)
 {
 	// block multiple calls before they are completed (for safety)
-	while (okBoxData.active) SDL_Delay(1000 / VBLANK_HZ);
+	while (okBoxData.active) SDL_Delay(1000 / (int32_t)(VBLANK_HZ));
 
 	okBoxData.typ = typ;
 	okBoxData.headline = headline;
@@ -570,7 +574,7 @@ int16_t okBoxThreadSafe(int16_t typ, char *headline, char *text)
 
 	okBoxData.active = true;
 	while (okBoxData.active)
-		SDL_Delay(1000 / VBLANK_HZ);
+		SDL_Delay(1000 / (int32_t)(VBLANK_HZ));
 
 	return (okBoxData.returnData);
 }

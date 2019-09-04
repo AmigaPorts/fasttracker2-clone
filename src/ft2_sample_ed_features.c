@@ -491,21 +491,13 @@ static int32_t SDLCALL createEchoThread(void *ptr)
 					tmp32 = readPtr[echoRead] << 8;
 
 				dTmp = (tmp32 * smpMul) / 32768.0;
-
-				if (cpu.hasSSE2)
-					sse2_double2int32_round(tmp32, dTmp);
-				else
-					tmp32 = (int32_t)(round(dTmp));
+				double2int32_round(tmp32, dTmp);
 
 				smpOut += tmp32;
 			}
 
 			dTmp = (echo_VolChange * smpMul) / 100.0;
-
-			if (cpu.hasSSE2)
-				sse2_double2int32_round(smpMul, dTmp);
-			else
-				smpMul = (int32_t)(round(dTmp));
+			double2int32_round(smpMul, dTmp);
 
 			echoRead -= distance;
 		}
@@ -886,12 +878,7 @@ static int32_t SDLCALL mixThread(void *ptr)
 		if (!(dstTyp & 16)) x2 <<= 8;
 
 		dSmp = ((x1 * mix_Balance) + (x2 * (100 - mix_Balance))) / 100.0;
-
-		if (cpu.hasSSE2)
-			sse2_double2int32_round(smp32, dSmp);
-		else
-			smp32 = (int32_t)(round(dSmp));
-
+		double2int32_round(smp32, dSmp);
 		CLAMP16(smp32);
 
 		if (!(dstTyp & 16))
@@ -1199,12 +1186,7 @@ static int32_t SDLCALL applyVolumeThread(void *ptr)
 		for (i = x1; i < x2; ++i)
 		{
 			dSmp = (ptr16[i] * (vol_StartVol + (((vol_EndVol - vol_StartVol) * (i - x1)) / (double)(len)))) / 100.0;
-
-			if (cpu.hasSSE2)
-				sse2_double2int32_round(smp, dSmp);
-			else
-				smp = (int32_t)(round(dSmp));
-
+			double2int32_round(smp, dSmp);
 			CLAMP16(smp);
 			ptr16[i] = (int16_t)(smp);
 		}
@@ -1215,12 +1197,7 @@ static int32_t SDLCALL applyVolumeThread(void *ptr)
 		for (i = x1; i < x2; ++i)
 		{
 			dSmp = (ptr8[i] * (vol_StartVol + (((vol_EndVol - vol_StartVol) * (i - x1)) / (double)(len)))) / 100.0;
-
-			if (cpu.hasSSE2)
-				sse2_double2int32_round(smp, dSmp);
-			else
-				smp = (int32_t)(round(dSmp));
-
+			double2int32_round(smp, dSmp);
 			CLAMP8(smp);
 			ptr8[i] = (int8_t)(smp);
 		}

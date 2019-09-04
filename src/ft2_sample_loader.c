@@ -1719,7 +1719,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
 			for (i = 0; i < len32; ++i)
 			{
 				fSmp = fAudioDataFloat[i];
-				sse_float2int32_round(smp32, fSmp);
+				float2int32_round(smp32, fSmp);
 				CLAMP16(smp32);
 				ptr16[i] = (int16_t)(smp32);
 			}
@@ -1805,24 +1805,12 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
 		ptr16 = (int16_t *)(tmpSmp.pek);
 		len32 = sampleLength / 2;
 
-		if (cpu.hasSSE2)
+		for (i = 0; i < len32; ++i)
 		{
-			for (i = 0; i < len32; ++i)
-			{
-				dSmp = dAudioDataDouble[i];
-				sse2_double2int32_round(smp32, dSmp);
-				CLAMP16(smp32);
-				ptr16[i] = (int16_t)(smp32);
-			}
-		}
-		else
-		{
-			for (i = 0; i < len32; ++i)
-			{
-				smp32 = (int32_t)(round(dAudioDataDouble[i]));
-				CLAMP16(smp32);
-				ptr16[i] = (int16_t)(smp32);
-			}
+			dSmp = dAudioDataDouble[i];
+			double2int32_round(smp32, dSmp);
+			CLAMP16(smp32);
+			ptr16[i] = (int16_t)(smp32);
 		}
 	}
 
@@ -2146,20 +2134,11 @@ static void normalize32bitSigned(int32_t *sampleData, uint32_t sampleLength)
 		sampleVolPeak = 1;
 
 	dGain = (double)(INT_MAX) / sampleVolPeak;
-
-	if (cpu.hasSSE2)
+	for (i = 0; i < sampleLength; ++i)
 	{
-		for (i = 0; i < sampleLength; ++i)
-		{
-			dSmp = sampleData[i] * dGain;
-			sse2_double2int32_trunc(smp32, dSmp);
-			sampleData[i] = smp32;
-		}
-	}
-	else
-	{
-		for (i = 0; i < sampleLength; ++i)
-			sampleData[i] = (int32_t)(sampleData[i] * dGain);
+		dSmp = sampleData[i] * dGain;
+		double2int32_trunc(smp32, dSmp);
+		sampleData[i] = smp32;
 	}
 }
 
@@ -2183,20 +2162,11 @@ static void normalize24bitSigned(int32_t *sampleData, uint32_t sampleLength)
 
 	// 8388607 = (2^24 / 2) - 1
 	dGain = 8388607.0 / sampleVolPeak;
-
-	if (cpu.hasSSE2)
+	for (i = 0; i < sampleLength; ++i)
 	{
-		for (i = 0; i < sampleLength; ++i)
-		{
-			dSmp = sampleData[i] * dGain;
-			sse2_double2int32_trunc(smp32, dSmp);
-			sampleData[i] = smp32;
-		}
-	}
-	else
-	{
-		for (i = 0; i < sampleLength; ++i)
-			sampleData[i] = (int32_t)(sampleData[i] * dGain);
+		dSmp = sampleData[i] * dGain;
+		double2int32_trunc(smp32, dSmp);
+		sampleData[i] = smp32;
 	}
 }
 

@@ -969,12 +969,7 @@ void setConfigIORadioButtonStates(void) // accessed by other .c files
 
 	// FREQUENCY TABLE
 	uncheckRadioButtonGroup(RB_GROUP_CONFIG_FREQ_TABLE);
-	switch (audio.freqTable)
-	{
-		default:
-		case FREQ_TABLE_LINEAR: tmpID = RB_CONFIG_FREQ_LINEAR; break;
-		case FREQ_TABLE_AMIGA:  tmpID = RB_CONFIG_FREQ_AMIGA;  break;
-	}
+	tmpID = audio.linearFreqTable ? RB_CONFIG_FREQ_LINEAR : RB_CONFIG_FREQ_AMIGA;
 	radioButtons[tmpID].state = RADIOBUTTON_CHECKED;
 
 	// show result
@@ -1427,7 +1422,7 @@ void showConfigScreen(void)
 			textOutShadow(130,  87, PAL_FORGRND, PAL_DSKTOP2, "2x");
 			textOutShadow(172,  87, PAL_FORGRND, PAL_DSKTOP2, "4x");
 			textOutShadow(114, 103, PAL_FORGRND, PAL_DSKTOP2, "Video settings:");
-			textOutShadow(130, 117, PAL_FORGRND, PAL_DSKTOP2, "Vsync off");
+			textOutShadow(130, 117, PAL_FORGRND, PAL_DSKTOP2, "VSync off");
 			textOutShadow(130, 130, PAL_FORGRND, PAL_DSKTOP2, "Fullscreen");
 			textOutShadow(130, 143, PAL_FORGRND, PAL_DSKTOP2, "Pixel filter");
 

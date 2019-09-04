@@ -42,6 +42,8 @@ enum
 	FORMAT_STM  = 4
 };
 
+#define AMIGA_CIA_PAL_CCK 709379.0
+
 // DO NOT TOUCH THESE STRUCTS!
 
 #ifdef _MSC_VER
@@ -146,7 +148,7 @@ static bool loadMusicMOD(FILE *f, uint32_t fileLength)
 	bool modIsUST, modIsFEST, modIsNT;
 	uint8_t bytes[4];
 	int16_t i, j, k, ai;
-	uint16_t a, b, period;
+	uint16_t a, b, period, ciaPeriod;
 	tonTyp *ton;
 	sampleTyp *s;
 	songMOD31HeaderTyp h_MOD31;
@@ -188,6 +190,7 @@ static bool loadMusicMOD(FILE *f, uint32_t fileLength)
 
 	modIsFEST = false;
 	modIsNT   = false;
+	modIsUST  = false;
 
 	if (!strncmp(h_MOD31.sig, "N.T.", 4))
 	{
@@ -349,6 +352,9 @@ static bool loadMusicMOD(FILE *f, uint32_t fileLength)
 			b = songTmp.songTab[a];
 	}
 
+	if (songTmp.len < 255)
+		memset(&songTmp.songTab[songTmp.len], 0, 256 - songTmp.len);
+
 	// sets the standard envelopes + pan + vol on temp instruments
 	for (i = 1; i < (1 + MAX_INST); ++i)
 		setStdEnvelopeTmp(i, 0, 3);
@@ -376,7 +382,7 @@ static bool loadMusicMOD(FILE *f, uint32_t fileLength)
 				{
 					freeTmpModule();
 					fclose(f);
-					okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
+					okBoxThreadSafe(0, "System message", "General I/O error during loading! Possibly corrupt module?");
 					moduleFailedToLoad = true;
 					return (false);
 				}
@@ -387,7 +393,7 @@ static bool loadMusicMOD(FILE *f, uint32_t fileLength)
 				{
 					if (period >= amigaPeriod[i])
 					{
-						ton->ton = (uint8_t)(1 + i);
+						ton->ton = (uint8_t)(i + 1);
 						break;
 					}
 				}
@@ -457,6 +463,7 @@ static bool loadMusicMOD(FILE *f, uint32_t fileLength)
 						}
 					}
 
+					// I don't remember why I did this. Probably heuristics...
 					if ((ton->effTyp == 0x0D) && (ton->eff > 0))
 						ton->effTyp = 0x0A;
 				}
@@ -498,7 +505,7 @@ static bool loadMusicMOD(FILE *f, uint32_t fileLength)
 			memcpy(s->name, songTmp.instrName[1 + a], 22);
 
 			if (modIsFEST)
-				h_MOD31.instr[a].fine = (32 - (h_MOD31.instr[a].fine & 0x1F)) / 2;
+				h_MOD31.instr[a].fine = (32 - (h_MOD31.instr[a].fine & 0x1F)) >> 1;
 
 			if (!modIsUST)
 				s->fine = 8 * ((2 * ((h_MOD31.instr[a].fine & 0x0F) ^ 8)) - 16);
@@ -541,73 +548,47 @@ static bool loadMusicMOD(FILE *f, uint32_t fileLength)
 			else
 				s->typ = 0;
 
-			if (!modIsUST)
+			if (modIsUST && ((s->repS > 2) && (s->repS < s->len)))
 			{
-				if (fread(s->pek, s->len, 1, f) != 1)
-				{
-					freeTmpModule();
-					fclose(f);
-					okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
-					moduleFailedToLoad = true;
-					return (false);
-				}
+				s->len -= s->repS;
+				fseek(f, s->repS, SEEK_CUR);
+				s->repS = 0;
 			}
-			else
+
+			if (fread(s->pek, s->len, 1, f) != 1)
 			{
-				if ((s->repS > 2) && (s->repS < s->len))
-				{
-					s->len -= s->repS;
-
-					fseek(f, s->repS, SEEK_CUR);
-
-					if (fread(s->pek, s->len, 1, f) != 1)
-					{
-						freeTmpModule();
-						fclose(f);
-						okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
-						moduleFailedToLoad = true;
-						return (false);
-					}
-
-					s->repS = 0;
-				}
-				else
-				{
-					if (fread(s->pek, s->len, 1, f) != 1)
-					{
-						freeTmpModule();
-						fclose(f);
-						okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
-						moduleFailedToLoad = true;
-						return (false);
-					}
-				}
+				freeTmpModule();
+				fclose(f);
+				okBoxThreadSafe(0, "System message", "General I/O error during loading! Possibly corrupt module?");
+				moduleFailedToLoad = true;
+				return (false);
 			}
 
 			fixSample(s);
 		}
 	}
 
+	songTmp.speed = 125;
+
 	if (modIsUST)
 	{
 		// repS is initialBPM in UST MODs
-		if (songTmp.repS == 120)
-		{
-			songTmp.speed = 125;
-		}
-		else
+
+		if (songTmp.repS != 120) // 120 is a special case and means 50Hz (125BPM)
 		{
 			if (songTmp.repS > 239)
 				songTmp.repS = 239;
 
-			songTmp.speed = (uint16_t)(1773447 / ((240 - songTmp.repS) * 122));
+			// convert UST tempo to BPM
+
+			ciaPeriod = (240 - songTmp.repS) * 122;
+			songTmp.speed = (uint16_t)(round((AMIGA_CIA_PAL_CCK / ciaPeriod) * (125.0 / 50.0)));
 		}
 
 		songTmp.repS = 0;
 	}
 	else
 	{
-		songTmp.speed = 125;
 		if (songTmp.repS >= songTmp.len)
 			songTmp.repS = 0;
 	}
@@ -656,7 +637,11 @@ static bool loadMusicSTM(FILE *f, uint32_t fileLength)
 	if (fread(&h_STM, 1, sizeof (h_STM), f) != sizeof (h_STM))
 		return (loadMusicMOD(f, fileLength));
 
-	if ((memcmp(h_STM.sig, "!Scream!", 8) != 0) && (memcmp(h_STM.sig, "BMOD2STM", 8) != 0) && (memcmp(h_STM.sig, "WUZAMOD!", 8) != 0))
+	if ((memcmp(h_STM.sig, "!Scream!", 8) != 0) &&
+		(memcmp(h_STM.sig, "BMOD2STM", 8) != 0) &&
+		(memcmp(h_STM.sig, "WUZAMOD!", 8) != 0) &&
+		(memcmp(h_STM.sig, "SWavePro", 8) != 0)
+		)
 		return (loadMusicMOD(f, fileLength));
 
 	loadedFormat = FORMAT_STM;
@@ -664,7 +649,7 @@ static bool loadMusicSTM(FILE *f, uint32_t fileLength)
 	if ((h_STM.verMinor == 0) || (h_STM.typ != 2))
 	{
 		fclose(f);
-		okBoxThreadSafe(0, "System message", "Error loading module: Not a valid XM/S3M/STM/MOD file!");
+		okBoxThreadSafe(0, "System message", "Error loading module: Not a supported .STM version!");
 		moduleFailedToLoad = true;
 		return (false);
 	}
@@ -673,9 +658,11 @@ static bool loadMusicSTM(FILE *f, uint32_t fileLength)
 	memcpy(songTmp.songTab, h_STM.songTab, 128);
 
 	i = 0;
-	while ((i < 128) && (songTmp.songTab[i] < 99))
-		++i;
+	while ((i < 128) && (songTmp.songTab[i] < 99)) i++;
 	songTmp.len = i + (i == 0);
+
+	if (songTmp.len < 255)
+		memset(&songTmp.songTab[songTmp.len], 0, 256 - songTmp.len);
 
 	// trim off spaces at end of name
 	for (i = 19; i >= 0; --i)
@@ -691,7 +678,7 @@ static bool loadMusicSTM(FILE *f, uint32_t fileLength)
 
 	tempo = h_STM.tempo;
 	if (h_STM.verMinor < 21)
-		tempo = ((tempo / 10) * 16) + (tempo % 10);
+		tempo = ((tempo / 10) << 4) + (tempo % 10);
 
 	if (tempo == 0)
 		tempo = 96;
@@ -700,7 +687,7 @@ static bool loadMusicSTM(FILE *f, uint32_t fileLength)
 	songTmp.speed = stmTempoToBPM(tempo);
 
 	if (h_STM.verMinor > 10)
-		songTmp.globVol = MAX(64, h_STM.vol);
+		songTmp.globVol = MIN(h_STM.vol, 64);
 
 	// sets the standard envelopes + pan + vol on temp instruments
 	for (i = 1; i < (1 + MAX_INST); ++i)
@@ -725,7 +712,7 @@ static bool loadMusicSTM(FILE *f, uint32_t fileLength)
 		{
 			freeTmpModule();
 			fclose(f);
-			okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
+			okBoxThreadSafe(0, "System message", "General I/O error during loading!");
 			moduleFailedToLoad = true;
 			return (false);
 		}
@@ -736,11 +723,15 @@ static bool loadMusicSTM(FILE *f, uint32_t fileLength)
 			for (k = 0; k < 4; ++k)
 			{
 				ton = &pattTmp[i][(j * MAX_VOICES) + k];
-
-				if (pattBuff[a] < 96)
+				
+				if (pattBuff[a] == 254)
+				{
+					ton->ton = 97;
+				}
+				else if (pattBuff[a] < 96)
 				{
 					ton->ton = (12 * (pattBuff[a] >> 4)) + (25 + (pattBuff[a] & 0x0F));
-					if (ton->ton > 97)
+					if (ton->ton > 96)
 						ton->ton = 0;
 				}
 				else
@@ -750,7 +741,7 @@ static bool loadMusicSTM(FILE *f, uint32_t fileLength)
 
 				ton->instr = pattBuff[a + 1] >> 3;
 				typ = (pattBuff[a + 1] & 7) + ((pattBuff[a + 2] & 0xF0) >> 1);
-				if (typ < 65)
+				if (typ <= 64)
 					ton->vol = typ + 0x10;
 
 				ton->eff = pattBuff[a + 3];
@@ -759,6 +750,10 @@ static bool loadMusicSTM(FILE *f, uint32_t fileLength)
 				if (tmp == 1)
 				{
 					ton->effTyp = 15;
+
+					if (h_STM.verMinor < 21)
+						ton->eff = ((ton->eff / 10) << 4) + (ton->eff % 10);
+					
 					ton->eff >>= 4;
 				}
 				else if (tmp == 3)
@@ -872,7 +867,7 @@ static bool loadMusicSTM(FILE *f, uint32_t fileLength)
 			{
 				freeTmpModule();
 				fclose(f);
-				okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
+				okBoxThreadSafe(0, "System message", "General I/O error during loading! Possibly corrupt module?");
 				moduleFailedToLoad = true;
 				return (false);
 			}
@@ -1037,15 +1032,13 @@ static bool loadMusicS3M(FILE *f, uint32_t dataLength)
 		return (false);
 	}
 
-	for (i = 0; i < 256; ++i)
-	{
-		if (songTmp.songTab[i] == 255)
-		{
-			songTmp.len = i;
-			break;
-		}
-	}
+	// count real song table entries
+	songTmp.len = 256;
+	while ((songTmp.len > 0) && (songTmp.songTab[songTmp.len - 1] == 255)) songTmp.len--;
+	if (songTmp.len == 256)
+		songTmp.len = 255;
 
+	// remove pattern separators (254)
 	k = 0;
 	j = 0;
 	for (i = 0; i < songTmp.len; ++i)
@@ -1056,13 +1049,25 @@ static bool loadMusicS3M(FILE *f, uint32_t dataLength)
 			++k;
 	}
 
-	songTmp.len -= k;
+	if (k <= songTmp.len)
+		songTmp.len -= k;
+	else
+		songTmp.len = 0;
+	
+	// clear unused song table entries
+	if (songTmp.len < 255)
+		memset(&songTmp.songTab[songTmp.len], 0, 256 - songTmp.len);
 
-	songTmp.speed = CLAMP(h_S3M.defTempo, 32, 255);
+	songTmp.speed = h_S3M.defTempo;
+	if (songTmp.speed < 32)
+		songTmp.speed = 32;
 
-	songTmp.tempo = CLAMP(h_S3M.defSpeed, 1, 31);
+	songTmp.tempo = h_S3M.defSpeed;
 	if (songTmp.tempo == 0)
 		songTmp.tempo = 6;
+
+	if (songTmp.tempo > 31)
+		songTmp.tempo = 31;
 
 	songTmp.initialTempo = songTmp.tempo;
 
@@ -1186,10 +1191,12 @@ static bool loadMusicS3M(FILE *f, uint32_t dataLength)
 
 							 if (ton.ton == 254) ton.ton = 97;
 						else if (ton.ton == 255) ton.ton = 0;
-						else                     ton.ton = 1 + (ton.ton & 15) + (ton.ton >> 4) * 12;
-
-						if (ton.ton > 97)
-							ton.ton = 0;
+						else
+						{
+							ton.ton = 1 + (ton.ton & 0xF) + (ton.ton >> 4) * 12;
+							if (ton.ton > 96)
+								ton.ton = 0;
+						}
 					}
 
 					// volume
@@ -1221,7 +1228,7 @@ static bool loadMusicS3M(FILE *f, uint32_t dataLength)
 							else if (ton.effTyp == 10) ton.eff = s3mLastJEff[ii];
 							else if (ton.effTyp == 19) ton.eff = s3mLastSEff[ii];
 						}
-
+						
 						if (ton.eff != 0)
 						{
 								 if (ton.effTyp ==  4) s3mLastDEff[ii] = ton.eff;
@@ -1280,14 +1287,14 @@ static bool loadMusicS3M(FILE *f, uint32_t dataLength)
 							case 5: // E
 							case 6: // F
 							{
-								if ((ton.eff & 240) >= 0xE0)
+								if ((ton.eff & 0xF0) >= 0xE0)
 								{
-									if ((ton.eff & 240) == 0xE0)
+									if ((ton.eff & 0xF0) == 0xE0)
 										tmp = 0x21;
 									else
 										tmp = 0xE;
 
-									ton.eff &= 15;
+									ton.eff &= 0x0F;
 
 									if (ton.effTyp == 0x05)
 										ton.eff |= 0x20;
@@ -1326,7 +1333,7 @@ static bool loadMusicS3M(FILE *f, uint32_t dataLength)
 							{
 								ton.effTyp = 0xE;
 								tmp = ton.eff >> 4;
-								ton.eff &= 15;
+								ton.eff &= 0x0F;
 
 									 if (tmp == 0x1) ton.eff |= 0x30;
 								else if (tmp == 0x2) ton.eff |= 0x50;
@@ -1617,11 +1624,8 @@ static bool loadMusicS3M(FILE *f, uint32_t dataLength)
 			{
 				pattTon = &pattTmp[i][(j * MAX_VOICES) + k];
 
-				if ((pattTon->ton > 0) && (pattTon->ton < 97) && (pattTon->effTyp != 0x3))
-					check3xx = true;
-
-				if ((pattTon->ton > 0) && (pattTon->ton < 97) && (pattTon->effTyp == 0x3))
-					check3xx = false;
+				if ((pattTon->ton > 0) && (pattTon->ton < 97))
+					check3xx = pattTon->effTyp != 0x3;
 
 				if (check3xx && (pattTon->effTyp == 0x3))
 				{

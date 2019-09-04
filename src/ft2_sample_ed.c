@@ -281,7 +281,7 @@ uint32_t getSampleMiddleCRate(sampleTyp *s)
 {
 	double dFTune;
 
-	// FT2 fix: get correct finetune value (replayer is shifting it to the right by 3)
+	// replayer is shifting the finetune to the right by 3
 	dFTune = (s->fine >> 3) / (128.0 / (double)(1 << 3));
 
 	return ((uint32_t)(round(8363.0 * pow(2.0, (s->relTon + dFTune) / 12.0))));
@@ -324,7 +324,7 @@ static int32_t smpPos2Scr(int32_t pos)
 	double dPos;
 
 	if (smpEd_ViewSize <= 0)
-		return (0);
+		return (-1);
 
 	assert(currSmp != NULL);
 	if (pos > currSmp->len)
@@ -334,11 +334,7 @@ static int32_t smpPos2Scr(int32_t pos)
 
 	// this is important, or else the result can mess up in some cases
 	dPos = CLAMP(dPos, INT32_MIN, INT32_MAX);
-
-	if (cpu.hasSSE2)
-		sse2_double2int32_trunc(pos, dPos);
-	else
-		pos = (int32_t)(dPos);
+	double2int32_trunc(pos, dPos);
 
 	return (pos);
 }
@@ -355,11 +351,7 @@ static int32_t scr2SmpPos(int32_t x)
 		x = 0;
 
 	dPos = (dScrPosScaled + x) * dScr2SmpPosMul;
-
-	if (cpu.hasSSE2)
-		sse2_double2int32_trunc(x, dPos);
-	else
-		x = (int32_t)(dPos);
+	double2int32_trunc(x, dPos);
 
 	assert(currSmp != NULL);
 	if (x > currSmp->len)
@@ -536,7 +528,7 @@ static void writeRange(void)
 	for (y = 0; y < SAMPLE_AREA_HEIGHT; ++y)
 	{
 		for (x = 0; x < rangeLen; ++x)
-			ptr32[x] = video.palette[(ptr32[x] >> 24) ^ 2]; // ">> 24" to get palette from pixel, XOR 2 to switch between mark/normal palette
+			ptr32[x] = video.palette[(ptr32[x] >> 24) ^ 2]; // ">> 24" to get palette, XOR 2 to switch between mark/normal palette
 
 		ptr32 += SCREEN_W;
 	}
@@ -1235,13 +1227,13 @@ void scrollSampleDataRight(void)
 	{
 		if (mouse.rightButtonPressed)
 		{
-			scrollAmount = smpEd_ViewSize / 14; // rounded from 16 (70Hz)
+			scrollAmount = smpEd_ViewSize / 14; // was 16 (70Hz->60Hz)
 			if (scrollAmount < 1)
 				scrollAmount = 1;
 		}
 		else
 		{
-			scrollAmount = smpEd_ViewSize / 27; // rounded from 32 (70Hz)
+			scrollAmount = smpEd_ViewSize / 27; // was 32 (70Hz->60Hz)
 			if (scrollAmount < 1)
 				scrollAmount = 1;
 		}
@@ -2733,54 +2725,44 @@ static void writeSmpXORLine(int32_t x)
 	ptr32 = &video.frameBuffer[(174 * SCREEN_W) + x];
 	for (y = 0; y < SAMPLE_AREA_HEIGHT; ++y)
 	{
-		*ptr32 = video.palette[(*ptr32 >> 24) ^ 1]; // ">> 24" to get palette from pixel, XOR 1 to switch between normal/inverted mode
+		*ptr32 = video.palette[(*ptr32 >> 24) ^ 1]; // ">> 24" to get palette, XOR 1 to switch between normal/inverted mode
 		ptr32 += SCREEN_W;
 	}
 }
 
 static void writeSamplePosLine(void)
 {
-	int32_t scrPos;
-	stmTyp *ch;
-
-	if (editor.curSmpChannel == 255) // is channel latching? (from user input in UI)
-	{
-		// remove old line
-		if (smpEd_OldSmpPosLine != -1)
-		{
-			writeSmpXORLine(smpEd_OldSmpPosLine);
-			smpEd_OldSmpPosLine = -1;
-		}
-
-		return; 
-	}
+	int32_t smpPos, scrPos;
+	lastChInstr_t *c;
 
 	assert(editor.curSmpChannel < MAX_VOICES);
 
-	ch = &stm[editor.curSmpChannel];
-	if ((ch->instrNr == editor.curInstr) && (ch->sampleNr == editor.curSmp))
+	c = &lastChInstr[editor.curSmpChannel];
+	if ((c->instrNr == (MAX_INST + 1)) || ((c->instrNr == editor.curInstr) && (c->sampleNr == editor.curSmp)))
 	{
-		scrPos = getSampleReadPos(editor.curSmpChannel);
-
-		// convert sample position to screen position
-		if (scrPos != -1)
-			scrPos = smpPos2Scr(scrPos);
-
-		if (scrPos != smpEd_OldSmpPosLine)
+		smpPos = getSamplePosition(editor.curSmpChannel);
+		if (smpPos != -1)
 		{
-			writeSmpXORLine(smpEd_OldSmpPosLine); // remove old line
-			writeSmpXORLine(scrPos);              // write new line
+			// convert sample position to screen position
+			scrPos = smpPos2Scr(smpPos);
+			if (scrPos != -1)
+			{
+				if (scrPos != smpEd_OldSmpPosLine)
+				{
+					writeSmpXORLine(smpEd_OldSmpPosLine); // remove old line
+					writeSmpXORLine(scrPos);              // write new line
+				}
+
+				smpEd_OldSmpPosLine = scrPos;
+				return;
+			}
 		}
 	}
-	else
-	{
-		if (smpEd_OldSmpPosLine != -1)
-			writeSmpXORLine(smpEd_OldSmpPosLine);
 
-		scrPos = -1;
-	}
+	if (smpEd_OldSmpPosLine != -1)
+		writeSmpXORLine(smpEd_OldSmpPosLine);
 
-	smpEd_OldSmpPosLine = scrPos;
+	smpEd_OldSmpPosLine = -1;
 }
 
 void handleSamplerRedrawing(void)

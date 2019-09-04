@@ -624,9 +624,9 @@ void updateLoopPinPalette(void)
 	g = RGB_G(pal);
 	b = RGB_B(pal);
 
-	r -= 58;
-	g -= 58;
-	b -= 58;
+	r -= 105;
+	g -= 105;
+	b -= 105;
 
 	if (r < 0) r = 0;
 	if (g < 0) g = 0;

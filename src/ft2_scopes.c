@@ -5,6 +5,7 @@
 
 #include <stdint.h>
 #include <stdbool.h>
+#include <math.h> // modf()
 #ifndef _WIN32
 #include <unistd.h> // usleep()
 #endif
@@ -27,7 +28,6 @@ enum
 };
 
 #define SCOPE_DATA_HEIGHT 36
-#define NUM_LATCH_BUFFERS 4 // 2^n
 
 // data to be read from main update thread during sample trigger
 typedef struct scopeState_t
@@ -40,22 +40,23 @@ typedef struct scopeState_t
 // actual scope data
 typedef struct scope_t
 {
-	volatile uint8_t latchOffset, nextLatchOffset;
-	volatile bool active, latchFlag;
+	volatile bool active;
 	const int8_t *sampleData8;
 	const int16_t *sampleData16;
 	int8_t SVol;
 	bool wasCleared, sample16Bit;
 	uint8_t loopType;
 	int32_t SRepS, SRepL, SLen, SPos;
-	uint32_t SFrq, drawSFrq, SPosDec, posXOR, drawPosXOR;
+	uint32_t SFrq, SPosDec, posXOR;
 } scope_t;
 
 static volatile bool scopesUpdatingFlag, scopesDisplayingFlag;
+static uint32_t oldVoiceDelta, oldSFrq, scopeTimeLen, scopeTimeLenFrac;
 static uint64_t timeNext64, timeNext64Frac;
-static scope_t scope[MAX_VOICES];
+static volatile scope_t scope[MAX_VOICES];
 static SDL_Thread *scopeThread;
-static volatile scopeState_t scopeNewState[MAX_VOICES][NUM_LATCH_BUFFERS];
+
+lastChInstr_t lastChInstr[MAX_VOICES]; // global
 
 static const uint8_t scopeMuteBMPWidths[16] =
 {
@@ -97,26 +98,36 @@ static const uint16_t scopeLenTab[16][32] =
 	/* 32 ch */ {15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15}
 };
 
-int32_t getSampleReadPos(uint8_t ch)
+void resetOldScopeRates(void)
 {
-	int32_t pos;
-	scope_t *sc;
+	oldVoiceDelta = 0;
+	oldSFrq = 0;
+}
+
+int32_t getSamplePosition(uint8_t ch)
+{
+	volatile bool active, sample16Bit;
+	volatile int32_t pos, len;
+	volatile scope_t *sc;
+
+	if (ch >= song.antChn)
+		return (-1);
 
 	sc = &scope[ch];
 
-	if (sc->latchFlag)
-		return (-1); // scope is latching at the moment, try again later
+	// cache some stuff
+	active = sc->active;
+	pos = sc->SPos;
+	len = sc->SLen;
+	sample16Bit = sc->sample16Bit;
 
-	pos = sc->SPos; // cache it
+	if (len == 0)
+		return (-1);
 
-	if (sc->active && (pos >= 0) && (pos < sc->SLen))
+	if (active && (pos >= 0) && (pos < len))
 	{
-		if (sc->sample16Bit)
+		if (sample16Bit)
 			pos <<= 1;
-
-		// do this check again here - check if scope is latching at the moment
-		if (sc->latchFlag)
-			return (-1);
 
 		return (pos);
 	}
@@ -127,18 +138,12 @@ int32_t getSampleReadPos(uint8_t ch)
 void stopAllScopes(void)
 {
 	uint8_t i;
-	scope_t *sc;
 
 	// wait for scopes to finish updating
 	while (scopesUpdatingFlag);
 
 	for (i = 0; i < MAX_VOICES; ++i)
-	{
-		sc = &scope[i];
-
-		sc->latchFlag = false;
-		sc->active    = false;
-	}
+		scope[i].active = false;
 
 	// wait for scope displaying to be done (safety)
 	while (scopesDisplayingFlag);
@@ -365,27 +370,19 @@ bool testScopesMouseDown(void)
 	return (false);
 }
 
-static void triggerScope(uint8_t ch)
+static void triggerScope(uint8_t ch, int8_t *pek, int32_t len, int32_t repS, int32_t repL, uint8_t typ, int32_t playOffset)
 {
-	int8_t *sampleData;
 	bool sampleIs16Bit;
 	uint8_t loopType;
-	int32_t sampleLength, sampleLoopBegin, sampleLoopLength, position;
-	scope_t *sc;
-	volatile scopeState_t *s;
+	volatile scope_t *sc;
+	scope_t tempState;
 
 	sc = &scope[ch];
-	s  = &scopeNewState[ch][sc->latchOffset];
 
-	sampleData       = s->pek;
-	sampleLength     = s->len;
-	sampleLoopBegin  = s->repS;
-	sampleLoopLength = s->repL;
-	loopType         = s->typ & 3;
-	sampleIs16Bit    = (s->typ & 16) >> 4;
-	position         = s->playOffset;
+	loopType = typ & 3;
+	sampleIs16Bit = (typ >> 4) & 1;
 
-	if ((sampleData == NULL) || (sampleLength < 1))
+	if ((pek == NULL) || (len < 1))
 	{
 		sc->active = false; // shut down scope (illegal parameters)
 		return;
@@ -393,120 +390,127 @@ static void triggerScope(uint8_t ch)
 
 	if (sampleIs16Bit)
 	{
-		assert(!(sampleLoopBegin  & 1));
-		assert(!(sampleLength     & 1));
-		assert(!(sampleLoopLength & 1));
+		assert(!(repS & 1));
+		assert(!(len  & 1));
+		assert(!(repL & 1));
 
-		sampleLoopBegin  >>= 1;
-		sampleLength     >>= 1;
-		sampleLoopLength >>= 1;
+		repS >>= 1;
+		len  >>= 1;
+		repL >>= 1;
 
-		sc->sampleData16 = (const int16_t *)(s->pek);
+		tempState.sampleData16 = (const int16_t *)(pek);
 	}
 	else
 	{
-		sc->sampleData8 = (const int8_t *)(s->pek);
+		tempState.sampleData8 = (const int8_t *)(pek);
 	}
 
-	if (sampleLoopLength < 1)
+	if (repL < 1)
 		loopType = 0;
 
-	sc->sample16Bit = sampleIs16Bit;
+	tempState.sample16Bit = sampleIs16Bit;
 
-	sc->posXOR   = 0; // forwards
-	sc->SLen     = (loopType > 0) ? (sampleLoopBegin + sampleLoopLength) : sampleLength;
-	sc->SRepS    = sampleLoopBegin;
-	sc->SRepL    = sampleLoopLength;
-	sc->SPos     = position;
-	sc->SPosDec  = 0; // position fraction
-	sc->loopType = loopType;
+	tempState.posXOR   = 0; // forwards
+	tempState.SLen     = (loopType > 0) ? (repS + repL) : len;
+	tempState.SRepS    = repS;
+	tempState.SRepL    = repL;
+	tempState.SPos     = playOffset;
+	tempState.SPosDec  = 0; // position fraction
+	tempState.loopType = loopType;
 
 	// if 9xx position overflows, shut down scopes (confirmed FT2 behavior)
-	if (sc->SPos >= sc->SLen)
+	if (tempState.SPos >= tempState.SLen)
 	{
 		sc->active = false;
 		return;
 	}
 
-	sc->active = true;
+	// these has to be read
+	tempState.active = true;
+	tempState.wasCleared = sc->wasCleared;
+	tempState.SFrq = sc->SFrq;
+	tempState.SVol = sc->SVol;
+
+	/* Update live scope now.
+	** In theory it -can- be written to in the middle of a cached read,
+    ** then the read thread writes its own non-updated cached copy back and
+	** the trigger never happens. So far I have never seen it happen,
+	** so it's probably very rare. */
+
+	*sc = tempState;
 }
 
 static void updateScopes(void)
 {
 	uint8_t i;
-	int32_t readPos, loopOverflowVal;
-	scope_t *sc;
+	int32_t loopOverflowVal;
+	volatile scope_t *sc;
+	scope_t tempState;
 
 	scopesUpdatingFlag = true;
 	for (i = 0; i < song.antChn; ++i)
 	{
 		sc = &scope[i];
+		tempState = *sc; // cache it
 
-		if (sc->latchFlag)
-		{
-			triggerScope(i);
-			sc->latchFlag = false; // we can now read sampling position from scopes in other threads
-
-			continue; // don't increase sampling position on trigger frame
-		}
+		if (!tempState.active)
+			continue; // scope is not active, no need
 
 		// scope position update
-		if (!sc->active)
-			continue;
 
-		sc->SPosDec += sc->SFrq;
-		if (sc->SPosDec >= 65536)
+		tempState.SPosDec += tempState.SFrq;
+		if (tempState.SPosDec >= 65536)
 		{
-			readPos = sc->SPos + (int32_t)((sc->SPosDec >> 16) ^ sc->posXOR);
-			sc->SPosDec &= 0xFFFF;
+			tempState.SPos += ((tempState.SPosDec >> 16) ^ tempState.posXOR);
+			tempState.SPosDec &= 0xFFFF;
 
 			// handle loop wrapping or sample end
 
-			if (sc->posXOR == 0xFFFFFFFF) // sampling backwards (definitely pingpong loop)
+			if (tempState.posXOR == 0xFFFFFFFF) // sampling backwards (definitely pingpong loop)
 			{
-				if (readPos < sc->SRepS)
+				if (tempState.SPos < tempState.SRepS)
 				{
-					sc->posXOR = 0; // change direction to forwards
+					tempState.posXOR = 0; // change direction to forwards
 
-					if (sc->SRepL < 2)
-						readPos = sc->SRepS;
+					if (tempState.SRepL < 2)
+						tempState.SPos = tempState.SRepS;
 					else
-						readPos = sc->SRepS + ((sc->SRepS - readPos - 1) % sc->SRepL);
+						tempState.SPos = tempState.SRepS + ((tempState.SRepS - tempState.SPos - 1) % tempState.SRepL);
 
-					assert((readPos >= sc->SRepS) && (readPos < sc->SLen));
+					assert((tempState.SPos >= tempState.SRepS) && (tempState.SPos < tempState.SLen));
 				}
 			}
-			else if (sc->loopType == LOOP_NONE) // no loop
+			else if (tempState.loopType == LOOP_NONE) // no loop
 			{
-				if (readPos >= sc->SLen)
+				if (tempState.SPos >= tempState.SLen)
 				{
-					sc->active = false;
-					continue;
+					tempState.SPos = tempState.SLen - 1;
+					tempState.active = false;
 				}
 			}
-			else if (readPos >= sc->SLen) // forward or pingpong loop
+			else if (tempState.SPos >= tempState.SLen) // forward or pingpong loop
 			{
-				if (sc->SRepL < 2)
+				if (tempState.SRepL < 2)
 					loopOverflowVal = 0;
 				else
-					loopOverflowVal = (readPos - sc->SLen) % sc->SRepL;
+					loopOverflowVal = (tempState.SPos - tempState.SLen) % tempState.SRepL;
 
-				if (sc->loopType == LOOP_PINGPONG)
+				if (tempState.loopType == LOOP_PINGPONG)
 				{
-					sc->posXOR = 0xFFFFFFFF; // change direction to backwards
-					readPos = (sc->SLen - 1) - loopOverflowVal;
+					tempState.posXOR = 0xFFFFFFFF; // change direction to backwards
+					tempState.SPos = (tempState.SLen - 1) - loopOverflowVal;
 				}
 				else // forward loop
 				{
-					readPos = sc->SRepS + loopOverflowVal;
+					tempState.SPos = tempState.SRepS + loopOverflowVal;
 				}
 
-				assert((readPos >= sc->SRepS) && (readPos < sc->SLen));
+				assert((tempState.SPos >= tempState.SRepS) && (tempState.SPos < tempState.SLen));
 			}
 
-			assert((readPos >= 0) && (readPos < sc->SLen));
+			assert((tempState.SPos >= 0) && (tempState.SPos < tempState.SLen));
 
-			sc->SPos = readPos; // update it
+			*sc = tempState; // update it
 		}
 	}
 	scopesUpdatingFlag = false;
@@ -576,49 +580,49 @@ static inline int8_t getScaledScopeSample16(scope_t *sc, int32_t drawPos)
 }
 
 #define SCOPE_UPDATE_POS \
-	scopeDrawFrac += sc->drawSFrq; \
+	scopeDrawFrac += (s.SFrq >> 6); \
 	if (scopeDrawFrac >= 65536) \
 	{ \
-		scopeDrawPos  += (int32_t)((scopeDrawFrac >> 16) ^ sc->drawPosXOR); \
+		scopeDrawPos  += (int32_t)((scopeDrawFrac >> 16) ^ drawPosXOR); \
 		scopeDrawFrac &= 0xFFFF; \
 		\
-		if (sc->loopType == LOOP_NONE) \
+		if (s.loopType == LOOP_NONE) \
 		{ \
-			if (scopeDrawPos >= sc->SLen) \
-				sc->active = false; \
+			if (scopeDrawPos >= s.SLen) \
+				s.active = false; \
 		} \
-		else if (sc->drawPosXOR == 0xFFFFFFFF) /* sampling backwards (definitely pingpong loop) */ \
+		else if (drawPosXOR == 0xFFFFFFFF) /* sampling backwards (definitely pingpong loop) */ \
 		{ \
-			if (scopeDrawPos < sc->SRepS) \
+			if (scopeDrawPos < s.SRepS) \
 			{ \
-				sc->drawPosXOR = 0; /* change direction to forwards */ \
+				drawPosXOR = 0; /* change direction to forwards */ \
 				\
-				if (sc->SRepL < 2) \
-					scopeDrawPos = sc->SRepS; \
+				if (s.SRepL < 2) \
+					scopeDrawPos = s.SRepS; \
 				else \
-					scopeDrawPos = sc->SRepS + ((sc->SRepS - scopeDrawPos - 1) % sc->SRepL); \
+					scopeDrawPos = s.SRepS + ((s.SRepS - scopeDrawPos - 1) % s.SRepL); \
 				\
-				assert((scopeDrawPos >= sc->SRepS) && (scopeDrawPos < sc->SLen)); \
+				assert((scopeDrawPos >= s.SRepS) && (scopeDrawPos < s.SLen)); \
 			} \
 		} \
-		else if (scopeDrawPos >= sc->SLen) /* forward or pingpong loop */ \
+		else if (scopeDrawPos >= s.SLen) /* forward or pingpong loop */ \
 		{ \
-			if (sc->SRepL < 2) \
+			if (s.SRepL < 2) \
 				loopOverflowVal = 0; \
 			else \
-				loopOverflowVal = (scopeDrawPos - sc->SLen) % sc->SRepL; \
+				loopOverflowVal = (scopeDrawPos - s.SLen) % s.SRepL; \
 			\
-			if (sc->loopType == LOOP_PINGPONG) \
+			if (s.loopType == LOOP_PINGPONG) \
 			{ \
-				sc->drawPosXOR = 0xFFFFFFFF; /* change direction to backwards */ \
-				scopeDrawPos = (sc->SLen - 1) - loopOverflowVal; \
+				drawPosXOR = 0xFFFFFFFF; /* change direction to backwards */ \
+				scopeDrawPos = (s.SLen - 1) - loopOverflowVal; \
 			} \
 			else /* forward loop */ \
 			{ \
-				scopeDrawPos = sc->SRepS + loopOverflowVal; \
+				scopeDrawPos = s.SRepS + loopOverflowVal; \
 			} \
 			\
-			assert((scopeDrawPos >= sc->SRepS) && (scopeDrawPos < sc->SLen)); \
+			assert((scopeDrawPos >= s.SRepS) && (scopeDrawPos < s.SLen)); \
 		} \
 	} \
 
@@ -629,8 +633,9 @@ void drawScopes(void)
 	const uint16_t *scopeLens;
 	uint16_t x16, scopeXOffs, scopeYOffs, scopeDrawLen;
 	int32_t scopeDrawPos, loopOverflowVal;
-	uint32_t x, len, scopeDrawFrac, scopePixelColor;
-	scope_t cachedScope, *sc;
+	uint32_t x, len, drawPosXOR, scopeDrawFrac, scopePixelColor;
+	volatile scope_t *sc;
+	scope_t s;
 
 	scopesDisplayingFlag = true;
 
@@ -653,13 +658,9 @@ void drawScopes(void)
 
 		if (!editor.channelMute[i])
 		{
-			sc = &scope[i];
+			s = scope[i]; // cache scope to lower thread race condition issues
 
-			// cache scope channel to lower thread race condition issues
-			memcpy(&cachedScope, sc, sizeof (scope_t));
-			sc = &cachedScope;
-
-			if (sc->active && (sc->SVol > 0) && !audio.locked)
+			if (s.active && (s.SVol > 0) && !audio.locked)
 			{
 				// scope is active
 
@@ -668,18 +669,18 @@ void drawScopes(void)
 				// clear scope background
 				clearRect(scopeXOffs, scopeYOffs, scopeDrawLen, SCOPE_DATA_HEIGHT);
 
-				scopeDrawPos   = sc->SPos;
-				scopeDrawFrac  = 0;
-				sc->drawPosXOR = sc->posXOR;
+				scopeDrawPos  = s.SPos;
+				scopeDrawFrac = 0;
+				drawPosXOR    = s.posXOR;
 
 				// draw current scope
 				if (config.specialFlags & LINED_SCOPES)
 				{
 					// LINE SCOPE
 
-					if (sc->sample16Bit)
+					if (s.sample16Bit)
 					{
-						y1 = scopeLineY - getScaledScopeSample16(sc, scopeDrawPos);
+						y1 = scopeLineY - getScaledScopeSample16(&s, scopeDrawPos);
 						SCOPE_UPDATE_POS
 
 						x16 = scopeXOffs;
@@ -687,7 +688,7 @@ void drawScopes(void)
 
 						for (; x16 < len; ++x16)
 						{
-							y2 = scopeLineY - getScaledScopeSample16(sc, scopeDrawPos);
+							y2 = scopeLineY - getScaledScopeSample16(&s, scopeDrawPos);
 							scopeLine(x16, y1, y2);
 							y1 = y2;
 
@@ -696,7 +697,7 @@ void drawScopes(void)
 					}
 					else
 					{
-						y1 = scopeLineY - getScaledScopeSample8(sc, scopeDrawPos);
+						y1 = scopeLineY - getScaledScopeSample8(&s, scopeDrawPos);
 						SCOPE_UPDATE_POS
 
 						x16 = scopeXOffs;
@@ -704,7 +705,7 @@ void drawScopes(void)
 
 						for (; x16 < len; ++x16)
 						{
-							y2 = scopeLineY - getScaledScopeSample8(sc, scopeDrawPos);
+							y2 = scopeLineY - getScaledScopeSample8(&s, scopeDrawPos);
 							scopeLine(x16, y1, y2);
 							y1 = y2;
 
@@ -721,11 +722,11 @@ void drawScopes(void)
 					x   = scopeXOffs;
 					len = scopeXOffs + scopeDrawLen;
 
-					if (sc->sample16Bit)
+					if (s.sample16Bit)
 					{
 						for (; x < len; ++x)
 						{
-							sample = getScaledScopeSample16(sc, scopeDrawPos);
+							sample = getScaledScopeSample16(&s, scopeDrawPos);
 							video.frameBuffer[((scopeLineY - sample) * SCREEN_W) + x] = scopePixelColor;
 
 							SCOPE_UPDATE_POS
@@ -735,7 +736,7 @@ void drawScopes(void)
 					{
 						for (; x < len; ++x)
 						{
-							sample = getScaledScopeSample8(sc, scopeDrawPos);
+							sample = getScaledScopeSample8(&s, scopeDrawPos);
 							video.frameBuffer[((scopeLineY - sample) * SCREEN_W) + x] = scopePixelColor;
 
 							SCOPE_UPDATE_POS
@@ -785,35 +786,13 @@ void drawScopeFramework(void)
 		redrawScope(i);
 }
 
-static void latchScope(uint8_t ch, int8_t *pek, int32_t len, int32_t repS, int32_t repL, uint8_t typ, int32_t playOffset)
-{
-	volatile scopeState_t *newState;
-	scope_t *s;
-
-	s = &scope[ch];
-
-	s->latchOffset = s->nextLatchOffset;
-	s->nextLatchOffset = (s->nextLatchOffset + 1) & (NUM_LATCH_BUFFERS - 1);
-
-	newState = &scopeNewState[ch][s->latchOffset];
-
-	newState->pek  = pek;
-	newState->len  = len;
-	newState->repS = repS;
-	newState->repL = repL;
-	newState->typ  = typ;
-	newState->playOffset = playOffset;
-
-	// XXX: let's hope the CPU does no reordering on this one...
-	s->latchFlag = true;
-}
-
 void handleScopesFromChQueue(chSyncData_t *chSyncData, uint8_t *scopeUpdateStatus)
 {
 	uint8_t i, status;
-	channel_t *ch;
+	double dFrq;
+	syncedChannel_t *ch;
 	sampleTyp *s;
-	scope_t *sc;
+	volatile scope_t *sc;
 
 	for (i = 0; i < song.antChn; ++i)
 	{
@@ -828,24 +807,29 @@ void handleScopesFromChQueue(chSyncData_t *chSyncData, uint8_t *scopeUpdateStatu
 		// set scope frequency
 		if (status & IS_Period)
 		{
-			// mixer 16.16 delta (44.1/48/96kHz) -> scope 16.16 delta (60Hz)
-			sc->SFrq = getVoiceRate(i) * audio.scopeFreqMul;
-			sc->drawSFrq = sc->SFrq >> 6;
+			if (ch->voiceDelta != oldVoiceDelta)
+			{
+				oldVoiceDelta = ch->voiceDelta;
+				dFrq = oldVoiceDelta * audio.dScopeFreqMul;
+				double2int32_round(oldSFrq, dFrq);
+			}
+
+			sc->SFrq = oldSFrq;
 		}
 
 		// start scope sample
 		if (status & IS_NyTon)
 		{
-			s = ch->smpPtr;
-			if (s != NULL)
-			{
-				latchScope(i, s->pek, s->len, s->repS, s->repL, s->typ, ch->smpStartPos + editor.samplePlayOffset);
-				editor.samplePlayOffset = 0;
+			s = &instr[ch->instrNr].samp[ch->sampleNr];
+			triggerScope(i, s->pek, s->len, s->repS, s->repL, s->typ, ch->smpStartPos);
 
-				// set curr. channel for getting sampling position line (sample editor)
-				if ((ch->instrNr == (MAX_INST + 1)) || ((editor.curInstr == ch->instrNr) && (editor.curSmp == ch->sampleNr)))
-					editor.curSmpChannel = i;
-			}
+			// set stuff used by Smp. Ed. for sampling position line
+
+			if ((ch->instrNr == (MAX_INST + 1)) || ((ch->instrNr == editor.curInstr) && (ch->sampleNr == editor.curSmp)))
+				editor.curSmpChannel = i;
+
+			lastChInstr[i].instrNr  = ch->instrNr;
+			lastChInstr[i].sampleNr = ch->sampleNr;
 		}
 	}
 }
@@ -857,12 +841,12 @@ static int32_t SDLCALL scopeThreadFunc(void *ptr)
 	uint64_t time64;
 	double dTime;
 
-	// this is needed for the scopes to stutter slightly less (confirmed)
+	// this is needed for scope stability (confirmed)
 	SDL_SetThreadPriority(SDL_THREAD_PRIORITY_HIGH);
 
 	// set next frame time
-	timeNext64     = SDL_GetPerformanceCounter() + video.vblankTimeLen;
-	timeNext64Frac = video.vblankTimeLenFrac;
+	timeNext64     = SDL_GetPerformanceCounter() + scopeTimeLen;
+	timeNext64Frac = scopeTimeLenFrac;
 
 	while (editor.programRunning)
 	{
@@ -876,13 +860,9 @@ static int32_t SDLCALL scopeThreadFunc(void *ptr)
 			assert((timeNext64 - time64) <= 0xFFFFFFFFULL);
 			diff32 = (uint32_t)(timeNext64 - time64);
 
-			// convert and round to microseconds
+			// convert to microseconds and round to integer
 			dTime = diff32 * editor.dPerfFreqMulMicro;
-
-			if (cpu.hasSSE2)
-				sse2_double2int32_round(time32, dTime);
-			else
-				time32 = (int32_t)(round(dTime));
+			double2int32_round(time32, dTime);
 
 			// delay until we have reached next tick
 			if (time32 > 0)
@@ -890,9 +870,9 @@ static int32_t SDLCALL scopeThreadFunc(void *ptr)
 		}
 
 		// update next tick time
-		timeNext64 += video.vblankTimeLen;
+		timeNext64 += scopeTimeLen;
 
-		timeNext64Frac += video.vblankTimeLenFrac;
+		timeNext64Frac += scopeTimeLenFrac;
 		if (timeNext64Frac >= (1ULL << 32))
 		{
 			timeNext64++;
@@ -907,6 +887,20 @@ static int32_t SDLCALL scopeThreadFunc(void *ptr)
 
 bool initScopes(void)
 {
+	double dInt, dFrac;
+
+	// calculate scope time for performance counters and split into int/frac
+	dFrac = modf(editor.dPerfFreq / SCOPE_HZ, &dInt);
+
+	// integer part
+	double2int32_trunc(scopeTimeLen, dInt);
+
+	// fractional part scaled to 0..2^32-1
+	dFrac *= (UINT32_MAX + 1.0);
+	if (dFrac > (double)(UINT32_MAX))
+		dFrac = (double)(UINT32_MAX);
+	double2int32_round(scopeTimeLenFrac, dFrac);
+
 	scopeThread = SDL_CreateThread(scopeThreadFunc, NULL, NULL);
 	if (scopeThread == NULL)
 	{

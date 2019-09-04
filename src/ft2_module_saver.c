@@ -22,7 +22,7 @@ static SDL_Thread *thread;
 static uint16_t packPatt(uint8_t *pattPtr, uint16_t numRows);
 
 // ft2_replayer.c
-extern const char modSig[16][5];
+extern const char modSig[32][5];
 extern const uint16_t amigaPeriod[12 * 8];
 
 bool saveXM(UNICHAR *filenameU)
@@ -153,9 +153,9 @@ bool saveXM(UNICHAR *filenameU)
 
 		if (a > 0)
 		{
-			ih.instrSize = INSTR_HEADER_SIZE;
-
 			memcpy(ih.ta, ins, INSTR_SIZE);
+			ih.instrSize = INSTR_HEADER_SIZE;
+			
 			for (k = 0; k < a; ++k)
 			{
 				srcSmp = &ins->samp[k];
@@ -216,10 +216,10 @@ bool saveXM(UNICHAR *filenameU)
 static bool saveMOD(UNICHAR *filenameU)
 {
 	bool test, tooManyInstr, incompatEfx, noteUnderflow;
-	int8_t smp8;
+	int8_t *srcPtr, *dstPtr;
 	uint8_t ton, inst, pattBuff[64 * 4 * 32];
-	int16_t a, i, ap, *ptr16;
-	int32_t j, k, l1, l2, l3;
+	int16_t a, i, ap;
+	int32_t j, k, l1, l2, l3, writeLen, bytesToWrite, bytesWritten;
 	FILE *f;
 	instrTyp *ins;
 	sampleTyp *smp;
@@ -316,24 +316,22 @@ static bool saveMOD(UNICHAR *filenameU)
 	if (incompatEfx)   okBoxThreadSafe(0, "System message", "Incompatible effect(s) was found in pattern data!");
 	if (noteUnderflow) okBoxThreadSafe(0, "System message", "Note(s) below A-0 was found in pattern data!");
 
-	// calculate number of patterns
-
-	ap = 0;
-	for (i = 0; i < 128; ++i)
-	{
-		if (song.songTab[i] > ap)
-			ap = song.songTab[i];
-	}
-
 	// setup header buffer
-
 	memset(&hm, 0, sizeof (hm));
 	memcpy(hm.name, song.name, sizeof (hm.name));
 	hm.len = (uint8_t)(song.len);
 	if (hm.len > 128) hm.len = 128;
 	hm.repS = (uint8_t)(song.repS);
 	if (hm.repS > 127) hm.repS = 0;
-	memcpy(hm.songTab, song.songTab, 128);
+	memcpy(hm.songTab, song.songTab, song.len);
+
+	// calculate number of patterns
+	ap = 0;
+	for (i = 0; i < song.len; ++i)
+	{
+		if (song.songTab[i] > ap)
+			ap = song.songTab[i];
+	}
 
 	if (song.antChn == 4)
 		memcpy(hm.sig, (ap > 64) ? "M!K!" : "M.K.", 4);
@@ -420,7 +418,7 @@ static bool saveMOD(UNICHAR *filenameU)
 		if (patt[i] == NULL)
 		{
 			// empty pattern
-			memset(pattBuff, 0, 64 * 4 * song.antChn);
+			memset(pattBuff, 0, song.antChn * (64 * 4));
 		}
 		else
 		{
@@ -434,15 +432,19 @@ static bool saveMOD(UNICHAR *filenameU)
 					inst = t->instr;
 					ton  = t->ton;
 
-					// FT2 bugfix: prevent
+					// FT2 bugfix: prevent overflow
 					if (inst > 31)
 						inst = 0;
+
+					// FT2 bugfix: convert note-off into no note
+					if (ton == 97)
+						ton = 0;
 
 					// FT2 bugfix: clamp notes below 10 (A-0) to prevent 12-bit period overflow
 					if ((ton > 0) && (ton < 10))
 						ton = 10;
 
-					if (t->ton == 0)
+					if (ton == 0)
 					{
 						pattBuff[a + 0] = inst & 0xF0;
 						pattBuff[a + 1] = 0;
@@ -470,7 +472,7 @@ static bool saveMOD(UNICHAR *filenameU)
 			}
 		}
 
-		if (fwrite(pattBuff, 1, 64 * 4 * song.antChn, f) != (size_t)(64 * 4 * song.antChn))
+		if (fwrite(pattBuff, 1, song.antChn * (64 * 4), f) != (size_t)(song.antChn * (64 * 4)))
 		{
 			fclose(f);
 			okBoxThreadSafe(0, "System message", "Error saving module: general I/O error!");
@@ -484,30 +486,41 @@ static bool saveMOD(UNICHAR *filenameU)
 		if (getRealUsedSamples(1 + i) != 0)
 		{
 		   smp = &instr[1 + i].samp[0];
-		   if (smp->len <= 0)
-			   continue;
+		   if ((smp->pek == NULL) || (smp->len <= 0))
+				continue;
 
 			restoreSample(smp);
 
 			l1 = smp->len / 2;
-			if (smp->typ & 16)
+			if (smp->typ & 16) // 16-bit sample (convert to 8-bit)
 			{
-				// 16-bit sample (convert to 8-bit)
-
 				if (l1 > 65534)
 					l1 = 65534;
 
-				ptr16 = (int16_t *)(smp->pek);
-				for (j = 0; j < l1; ++j)
+				// let's borrow "pattBuff" here
+				dstPtr = (int8_t *)(pattBuff);
+
+				writeLen = l1;
+				bytesWritten = 0;
+				while (bytesWritten < writeLen) // write in 8K blocks
 				{
-					smp8 = ptr16[j] >> 8;
-					if (fwrite(&smp8, 1, 1, f) != 1)
+	 				bytesToWrite = sizeof (pattBuff);
+					if ((bytesWritten + bytesToWrite) > writeLen)
+						bytesToWrite = writeLen - bytesWritten;
+
+					srcPtr = &smp->pek[(bytesWritten << 1) + 1]; // +1 to align to high byte
+					for (j = 0; j < bytesToWrite; ++j)
+						dstPtr[j] = srcPtr[j << 1];
+
+					if (fwrite(dstPtr, 1, bytesToWrite, f) != (size_t)(bytesToWrite))
 					{
 						fixSample(smp);
 						fclose(f);
 						okBoxThreadSafe(0, "System message", "Error saving module: general I/O error!");
 						return (false);
 					}
+
+					bytesWritten += bytesToWrite;
 				}
 			}
 			else

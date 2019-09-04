@@ -24,6 +24,22 @@ static bool mouseBusyGfxBackwards;
 static int16_t mouseShape;
 static int32_t mouseModeGfxOffs, mouseBusyGfxFrame;
 
+void setMousePosToCenter(void)
+{
+	if (video.fullscreen)
+	{
+		mouse.setPosX = video.displayW / 2;
+		mouse.setPosY = video.displayH / 2;
+	}
+	else
+	{
+		mouse.setPosX = video.renderW / 2;
+		mouse.setPosY = video.renderH / 2;
+	}
+
+	mouse.setPosFlag = true;
+}
+
 void animateBusyMouse(void)
 {
 	if (config.mouseAnimType == MOUSE_BUSY_SHAPE_CLOCK)
@@ -555,37 +571,29 @@ void handleLastGUIObjectDown(void)
 
 void updateMouseScaling(void)
 {
-	int32_t mx, my;
-	float fScaleX, fScaleY;
+	double dScaleX, dScaleY;
 
-	fScaleX = video.renderW / (float)(SCREEN_W);
-	fScaleY = video.renderH / (float)(SCREEN_H);
+	dScaleX = video.renderW / (double)(SCREEN_W);
+	dScaleY = video.renderH / (double)(SCREEN_H);
 
-	video.xScaleMul = (fScaleX == 0.0f) ? 65536 : (uint32_t)(65536.0f / fScaleX);
-	video.yScaleMul = (fScaleY == 0.0f) ? 65536 : (uint32_t)(65536.0f / fScaleY);
-
-	// put mouse cursor in center (because mouse would be displaced after scale change)
-	if (SDL_GetWindowFlags(video.window) & SDL_WINDOW_SHOWN)
-	{
-		if (video.fullscreen)
-		{
-			mx = video.displayW / 2;
-			my = video.displayH / 2;
-		}
-		else
-		{
-			mx = video.renderW / 2;
-			my = video.renderH / 2;
-		}
-
-		SDL_WarpMouseInWindow(video.window, mx, my);
-	}
+	video.xScaleMul = (dScaleX == 0.0) ? 65536 : (uint32_t)(round(65536.0 / dScaleX));
+	video.yScaleMul = (dScaleY == 0.0) ? 65536 : (uint32_t)(round(65536.0 / dScaleY));
 }
 
 void readMouseXY(void)
 {
 	int16_t x, y;
 	int32_t mx, my;
+
+	if (mouse.setPosFlag)
+	{
+		mouse.setPosFlag = false;
+
+		if (SDL_GetWindowFlags(video.window) & SDL_WINDOW_SHOWN)
+			SDL_WarpMouseInWindow(video.window, mouse.setPosX, mouse.setPosY);
+
+		return;
+	}
 
 	SDL_PumpEvents(); // gathers all pending input from devices into the event queue (less mouse lag)
 	SDL_GetMouseState(&mx, &my);
@@ -624,8 +632,8 @@ void readMouseXY(void)
 	if (my < 0) mx = 0;
 
 	// multiply coords by video scaling factors
-	mx = (int32_t)(((uint32_t)(mx) * video.xScaleMul) >> 16);
-	my = (int32_t)(((uint32_t)(my) * video.yScaleMul) >> 16);
+	mx = (int32_t)((((uint32_t)(mx) * video.xScaleMul) + (1 << (16 - 1))) >> 16);
+	my = (int32_t)((((uint32_t)(my) * video.yScaleMul) + (1 << (16 - 1))) >> 16);
 
 	if (mx >= SCREEN_W) mx = SCREEN_W - 1;
 	if (my >= SCREEN_H) my = SCREEN_H - 1;

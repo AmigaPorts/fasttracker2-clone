@@ -861,7 +861,14 @@ static bool checkModifiedKeys(SDL_Keycode keycode)
 
 		case SDLK_f:
 		{
-			if (keyb.leftAltPressed)
+			if (keyb.leftShiftPressed && keyb.leftCtrlPressed)
+			{
+				resetFPSCounter();
+				video.showFPSCounter ^= 1;
+				if (!video.showFPSCounter)
+					showBottomScreen();
+			}
+			else if (keyb.leftAltPressed)
 			{
 				jumpToChannel(11);
 				return (true);

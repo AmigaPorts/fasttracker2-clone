@@ -818,8 +818,8 @@ void nibblesPlay(void)
 	NI_CurSpeed = NI_Speeds[config.NI_Speed];
 
 	// adjust for 70Hz -> 60Hz frames
-	NI_CurSpeed60Hz = (uint8_t)(round(NI_CurSpeed  * (VBLANK_HZ / 70.0)));
-	NI_CurTick60Hz  = (uint8_t)(round(NI_Speeds[2] * (VBLANK_HZ / 70.0)));
+	NI_CurSpeed60Hz = (uint8_t)(round(NI_CurSpeed  * ((double)(VBLANK_HZ) / FT2_VBLANK_HZ)));
+	NI_CurTick60Hz  = (uint8_t)(round(NI_Speeds[2] * ((double)(VBLANK_HZ) / FT2_VBLANK_HZ)));
 
 	editor.NI_Play = true;
 	NI_P1Score = 0;

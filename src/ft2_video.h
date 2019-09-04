@@ -27,10 +27,11 @@ enum
 struct video_t
 {
 	uint8_t upscaleFactor, customPaletteContrasts[2];
-	bool fullscreen, vsync60HzPresent;
+	bool fullscreen, vsync60HzPresent, showFPSCounter;
 	int32_t renderX, renderY, renderW, renderH, displayW, displayH;
 	uint32_t *frameBuffer, palette[PAL_NUM], vblankTimeLen, vblankTimeLenFrac;
 	uint32_t xScaleMul, yScaleMul;
+	double dMonitorRefreshRate;
 #ifdef _WIN32
 	HWND hWnd;
 #endif
@@ -49,6 +50,9 @@ typedef struct
 	uint16_t w, h;
 } sprite_t;
 
+void resetFPSCounter(void);
+void beginFPSCounter(void);
+void endFPSCounter(void);
 void flipFrame(void);
 void showErrorMsgBox(const char *fmt, ...);
 void updateWindowTitle(bool forceUpdate);

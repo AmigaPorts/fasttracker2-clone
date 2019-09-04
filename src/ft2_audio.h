@@ -12,8 +12,8 @@ enum
 	FREQ_TABLE_AMIGA  = 1,
 };
 
-// for audio/video sync queue (must be 2^n-1 - don't mess with this! It's big enough as is.)
-#define SYNC_QUEUE_LEN 2047
+// for audio/video sync queue. (2^n-1 - don't change this! Queue buffer is already ~2.7MB in size)
+#define SYNC_QUEUE_LEN 4095
 
 #define MAX_AUDIO_DEVICES 99
 
@@ -25,14 +25,17 @@ struct audio_t
 {
 	char *currInputDevice, *currOutputDevice, *lastWorkingAudioDeviceName;
 	char *inputDeviceNames[MAX_AUDIO_DEVICES], *outputDeviceNames[MAX_AUDIO_DEVICES];
-	volatile bool locked;
-	bool volumeRampingFlag, interpolationFlag, rescanAudioDevicesSupported;
-	int8_t freqTable;
+	volatile bool locked, resetSyncTickTimeFlag, volumeRampingFlag, interpolationFlag;
+	bool linearFreqTable, rescanAudioDevicesSupported;
 	int32_t inputDeviceNum, outputDeviceNum, lastWorkingAudioFreq, lastWorkingAudioBits;
 	int32_t quickVolSizeVal, *mixBufferL, *mixBufferR;
-	uint32_t freq, scopeFreqMul;
-	uint64_t tickTime64;
+	uint32_t freq;
+	uint32_t audLatencyPerfValInt, audLatencyPerfValFrac;
+	uint64_t tickTime64, tickTime64Frac;
+	double dAudioLatencyMs, dSpeedValMul, dScopeFreqMul;
 	SDL_AudioDeviceID dev;
+
+	uint32_t wantFreq, haveFreq, wantSamples, haveSamples, wantChannels, haveChannels;
 } audio;
 
 typedef struct
@@ -48,27 +51,25 @@ typedef struct
 
 typedef struct pattSyncData_t
 {
-	// for pattern editor
-	int16_t pattern, patternPos, globalVol, songPos;
-	uint16_t timer, speed, tempo;
+	uint8_t pattern, globalVol, songPos, timer, speed, tempo, patternPos;
 	uint64_t timestamp;
 } pattSyncData_t;
 
 struct pattSync
 {
-	int32_t readPos, writePos;
+	volatile int32_t readPos, writePos;
 	pattSyncData_t data[SYNC_QUEUE_LEN + 1];
 } pattSync;
 
 typedef struct chSyncData_t
 {
-	channel_t channels[MAX_VOICES];
+	syncedChannel_t channels[MAX_VOICES];
 	uint64_t timestamp;
 } chSyncData_t;
 
 struct chSync
 {
-	int32_t readPos, writePos;
+	volatile int32_t readPos, writePos;
 	chSyncData_t data[SYNC_QUEUE_LEN + 1];
 } chSync;
 
@@ -84,7 +85,6 @@ bool chQueuePush(chSyncData_t t);
 bool chQueuePop(void);
 chSyncData_t *chQueuePeek(void);
 uint64_t getChQueueTimestamp(void);
-uint32_t getVoiceRate(uint8_t i);
 void setAudioAmp(int16_t ampFactor, int16_t master, bool bitDepth32Flag);
 void setNewAudioFreq(uint32_t freq);
 void setBackOldAudioFreq(void);
@@ -110,7 +110,9 @@ void mix_UpdateChannelVolPanFrq(void);
 uint32_t mixReplayerTickToBuffer(uint8_t *stream, uint8_t bitDepth);
 //void benchmarkAudioChannelMixer(void); // for development testing
 
-pattSyncData_t *pattSyncEntry;
-chSyncData_t *chSyncEntry;
+extern pattSyncData_t *pattSyncEntry;
+extern chSyncData_t *chSyncEntry;
+
+extern volatile bool pattQueueReading, pattQueueClearing, chQueueReading, chQueueClearing;
 
 #endif

@@ -210,7 +210,7 @@ typedef struct stmTyp_t
 {
 	volatile uint8_t status, tmpStatus;
 	int8_t relTonNr, fineTune;
-	uint8_t sampleNr, stOff, effTyp, eff, smpOffset, tremorSave, tremorPos;
+	uint8_t sampleNr, instrNr, stOff, effTyp, eff, smpOffset, tremorSave, tremorPos;
 	uint8_t globVolSlideSpeed, panningSlideSpeed, mute, waveCtrl, portaDir;
 	uint8_t glissFunk, vibPos, tremPos, vibSpeed, vibDepth, tremSpeed, tremDepth;
 	uint8_t pattPos, loopCnt, volSlideSpeed, fVolSlideUpSpeed, fVolSlideDownSpeed;
@@ -221,7 +221,7 @@ typedef struct stmTyp_t
 	bool envSustainActive;
 	int16_t midiCurChannel, midiCurTone, midiCurVibDepth, midiCurPeriod, midiCurPitch;
 	int16_t midiBend, midiPortaPeriod, midiPitch, realPeriod, envVIPValue, envPIPValue;
-	uint16_t finalVol, outPeriod, finalPeriod, instrNr, tonTyp, wantPeriod, portaSpeed;
+	uint16_t finalVol, outPeriod, finalPeriod, tonTyp, wantPeriod, portaSpeed;
 	uint16_t envVCnt, envVAmp, envPCnt, envPAmp, eVibAmp, eVibSweep;
 	uint16_t fadeOutAmp, fadeOutSpeed, midiVibDepth;
 	int32_t smpStartPos;
@@ -239,7 +239,7 @@ typedef struct songTyp_t
 	uint32_t musicTime;
 
 	// used for audio/video sync queue
-	int16_t curReplayerTimer, curReplayerPattPos, curReplayerSongPos, curReplayerPattNr;
+	uint8_t curReplayerTimer, curReplayerPattPos, curReplayerSongPos, curReplayerPattNr;
 } songTyp;
 
 typedef struct tonTyp_t
@@ -247,16 +247,15 @@ typedef struct tonTyp_t
 	uint8_t ton, instr, vol, effTyp, eff;
 } tonTyp;
 
-typedef struct channel_t
+typedef struct syncedChannel_t // used for audio/video sync queue
 {
-	int8_t fineTune, relTonNr;
-	uint8_t status, sampleNr, mute, effTyp, eff;
 	bool envSustainActive;
-	uint16_t instrNr, finalPeriod, finalVol;
+	int8_t fineTune, relTonNr;
+	uint8_t status, sampleNr, instrNr;
+	uint16_t finalPeriod, finalVol;
 	int32_t smpStartPos;
-	uint32_t rate;
-	sampleTyp *smpPtr;
-} channel_t;
+	uint32_t voiceDelta;
+} syncedChannel_t;
 
 void calcReplayRate(uint32_t rate);
 void resetOldRates(void);

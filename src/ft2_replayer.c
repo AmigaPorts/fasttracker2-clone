@@ -254,13 +254,13 @@ void setFrqTab(bool linear)
 
 	if (linearFrqTab)
 	{
-		audio.freqTable = FREQ_TABLE_LINEAR;
-		note2Period     = linearPeriods;
+		audio.linearFreqTable = true;
+		note2Period = linearPeriods;
 	}
 	else
 	{
-		audio.freqTable = FREQ_TABLE_AMIGA;
-		note2Period     = amigaPeriods;
+		audio.linearFreqTable = false;
+		note2Period = amigaPeriods;
 	}
 
 	// update frequency type radiobutton if it's shown
@@ -354,17 +354,19 @@ void keyOff(stmTyp *ch)
 // 100% FT2-accurate routine, do not touch!
 void calcReplayRate(uint32_t rate)
 {
-	assert(rate > 0);
+	if (rate > 0)
+	{
+		// for voice delta calculation
+		frequenceDivFactor  = (uint32_t)(round(65536.0 *  1712.0 / rate * 8363.0));
+		frequenceMulFactor  = (uint32_t)(round(256.0   * 65536.0 / rate * 8363.0));
+		audio.dScopeFreqMul = rate / (double)(SCOPE_HZ);
 
-	// for voice delta calculation
-	frequenceDivFactor = (uint32_t)(round(65536.0 *  1712.0  / rate * 8363.0));
-	frequenceMulFactor = (uint32_t)(round(  256.0 * 65536.0  / rate * 8363.0));
+		// for volume ramping (FT2 doesn't round here)
+		audio.quickVolSizeVal = rate / 200;
 
-	// 44100,48000,96000 / 60 = round number, so no need to use doubles here
-	audio.scopeFreqMul = audio.freq / VBLANK_HZ;
-
-	// for volume ramping
-	audio.quickVolSizeVal = rate / 200;
+		// for audio/video sync
+		audio.dSpeedValMul = (1.0 / rate) * editor.dPerfFreq;
+	}
 }
 
 // 100% FT2-accurate routine, do not touch!
@@ -405,6 +407,8 @@ void resetOldRates(void)
 {
 	oldPeriod = 0;
 	oldRate   = 0;
+
+	resetOldScopeRates();
 }
 
 static void startTone(uint8_t ton, uint8_t effTyp, uint8_t eff, stmTyp *ch)
@@ -1515,36 +1519,34 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 int16_t relocateTon(int16_t period, int8_t relativeNote, stmTyp *ch)
 {
 	int8_t i, fineTune;
-	int16_t *periodTable;
 	int32_t loPeriod, hiPeriod, tmpPeriod, tableIndex;
 
-	fineTune    = (ch->fineTune >> 3) + 16;
-	hiPeriod    = 8 * 12 * 16;
-	loPeriod    = 0;
-	periodTable = note2Period;
+	fineTune = (ch->fineTune >> 3) + 16;
+	hiPeriod = 8 * 12 * 16;
+	loPeriod = 0;
 
 	for (i = 0; i < 8; ++i)
 	{
-		tmpPeriod = (((loPeriod + hiPeriod) / 2) & ~15) + fineTune;
+		tmpPeriod = (((loPeriod + hiPeriod) >> 1) & 0xFFFFFFF0) + fineTune;
 
 		tableIndex = tmpPeriod - 8;
 		if (tableIndex < 0) // added security check
 			tableIndex = 0;
 
-		if (period >= periodTable[tableIndex])
+		if (period >= note2Period[tableIndex])
 			hiPeriod = tmpPeriod - fineTune;
 		else
 			loPeriod = tmpPeriod - fineTune;
 	}
 
-	tmpPeriod = loPeriod + fineTune + (relativeNote * 16);
+	tmpPeriod = loPeriod + fineTune + (relativeNote << 4);
 	if (tmpPeriod < 0) // added security check
 		tmpPeriod = 0;
 
 	if (tmpPeriod >= ((8 * 12 * 16) + 15) - 1) // FT2 bug: stupid off-by-one edge case
 		tmpPeriod  =  (8 * 12 * 16) + 15;
 
-	return (periodTable[tmpPeriod]);
+	return (note2Period[tmpPeriod]);
 }
 
 static void tonePorta(stmTyp *ch)
@@ -1738,17 +1740,11 @@ static void doEffects(stmTyp *ch)
 	if (ch->effTyp == 0)
 	{
 		tick = song.timer;
-		note = 0;
 
-		// FT2 'out of boundary' arp LUT simulation
-			 if (tick  > 16) tick  = 2;
+		// FT2 'out of boundary LUT read' arp simulation
+			 if (tick  < 16) tick %= 3;
 		else if (tick == 16) tick  = 0;
-		else                 tick %= 3;
-
-		/*
-		** this simulation doesn't work properly for >=128 tick arps,
-		** but you'd need to hexedit the initial speed to get >31
-		*/
+		else                 tick  = 2;
 
 		if (tick == 0)
 		{
@@ -1756,8 +1752,10 @@ static void doEffects(stmTyp *ch)
 		}
 		else
 		{
-				 if (tick == 1) note = ch->eff >> 4;
-			else if (tick >  1) note = ch->eff & 0x0F;
+			if (tick == 1)
+				note = ch->eff >> 4;
+			else
+				note = ch->eff & 0xF; // tick 2
 
 			ch->outPeriod = relocateTon(ch->realPeriod, note, ch);
 		}
@@ -2128,10 +2126,10 @@ void mainPlayer(void) // periodically called from audio callback
 		}
 
 		// for visuals
-		song.curReplayerTimer   = song.timer;
-		song.curReplayerPattPos = song.pattPos;
-		song.curReplayerPattNr  = song.pattNr;
-		song.curReplayerSongPos = song.songPos;
+		song.curReplayerTimer   = (uint8_t)(song.timer);
+		song.curReplayerPattPos = (uint8_t)(song.pattPos);
+		song.curReplayerPattNr  = (uint8_t)(song.pattNr);
+		song.curReplayerSongPos = (uint8_t)(song.songPos);
 
 		if (readNewNote)
 		{
@@ -2727,7 +2725,6 @@ bool setupReplayer(void)
 	song.initialTempo = song.tempo;
 
 	setFrqTab(true);
-	setSpeed(song.speed);
 	setPos(0, 0);
 
 	editor.tmpPattern = 65535; // pattern editor update/redraw kludge
@@ -2749,6 +2746,8 @@ void startPlaying(int8_t mode, int16_t row)
 	songPlaying = true;
 	song.globVol = 64;
 	song.musicTime = 0;
+	song.pattDelTime2 = 0;
+	song.pattDelTime  = 0;
 
 	// non-FT2 fix: If song speed was 0, set it back to initial speed on play
 	if (song.tempo == 0)
@@ -2810,8 +2809,6 @@ void playTone(uint8_t stmm, uint8_t inst, uint8_t ton, int8_t vol, uint16_t midi
 	stmTyp *ch;
 	instrTyp *ins;
 
-	editor.samplePlayOffset = 0;
-
 	assert((stmm < MAX_VOICES) && (inst < MAX_INST) && (ton <= 97));
 	ch = &stm[stmm];
 
@@ -2872,22 +2869,14 @@ void playTone(uint8_t stmm, uint8_t inst, uint8_t ton, int8_t vol, uint16_t midi
 void playSample(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t midiVibDepth, uint16_t midiPitch)
 {
 	uint8_t vol;
-	int16_t oldCurInstr;
 	stmTyp *ch;
 
 	assert((stmm < MAX_VOICES) && (inst < MAX_INST) && (smpNr < MAX_SMP_PER_INST) && (ton <= 97));
 	ch = &stm[stmm];
 
-	pauseMusic();
-	editor.curSmpChannel = 255;
 	memcpy(&instr[MAX_INST + 1].samp[0], &instr[inst].samp[smpNr], sizeof (sampleTyp));
 	vol = instr[inst].samp[smpNr].vol;
-	editor.samplePlayOffset = 0;
-	resumeMusic();
-
-	oldCurInstr = editor.curInstr;
-	editor.curInstr = MAX_INST + 1;
-
+	
 	lockAudio();
 
 	ch->tonTyp  = ((MAX_INST + 1) << 8) | ton;
@@ -2915,27 +2904,18 @@ void playSample(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t
 	unlockAudio();
 
 	while (ch->status & IS_NyTon); // wait for mixer to trigger voice
-
-	editor.curInstr = (uint8_t)(oldCurInstr);
-
-	pauseMusic();
-	ch->tonTyp  = (oldCurInstr << 8) | ton;
-	ch->instrNr = oldCurInstr;
-	resumeMusic();
+	ch->instrNr = MAX_INST + 1;
 }
 
 // smp. ed.
 void playRange(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t midiVibDepth, uint16_t midiPitch, int32_t offs, int32_t len)
 {
 	uint8_t vol;
-	int16_t oldCurInstr;
+	int32_t samplePlayOffset;
 	stmTyp *ch;
 	sampleTyp *s;
 
 	assert((stmm < MAX_VOICES) && (inst < MAX_INST) && (smpNr < MAX_SMP_PER_INST) && (ton <= 97));
-
-	pauseMusic();
-	editor.curSmpChannel = 255;
 
 	ch = &stm[stmm];
 	s  = &instr[MAX_INST + 1].samp[0];
@@ -2950,21 +2930,16 @@ void playRange(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t 
 		len  &= 0xFFFFFFFE;
 	}
 
+	lockAudio();
+
 	s->len  = offs + len;
 	s->repS = 0;
 	s->repL = 0;
 	s->typ &= 16; // only keep 8-bit/16-bit flag (disable loop)
 
-	editor.samplePlayOffset = offs;
+	samplePlayOffset = offs;
 	if (s->typ & 16)
-		editor.samplePlayOffset /= 2;
-
-	resumeMusic();
-
-	oldCurInstr = editor.curInstr;
-	editor.curInstr = MAX_INST + 1;
-
-	lockAudio();
+		samplePlayOffset >>= 1;
 
 	ch->tonTyp  = ((MAX_INST + 1) << 8) | ton;
 	ch->instrNr = MAX_INST + 1;
@@ -2972,6 +2947,8 @@ void playRange(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t 
 
 	startTone(ton, 0, 0, ch);
 	ch->sampleNr = smpNr;
+
+	ch->smpStartPos = samplePlayOffset;
 
 	if (ton != 97)
 	{
@@ -2991,13 +2968,7 @@ void playRange(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t 
 	unlockAudio();
 
 	while (ch->status & IS_NyTon); // wait for mixer to trigger voice
-
-	pauseMusic();
-	ch->tonTyp  = (oldCurInstr << 8) | ton;
-	ch->instrNr = oldCurInstr;
-	resumeMusic();
-
-	editor.curInstr = (uint8_t)(oldCurInstr);
+	ch->instrNr = MAX_INST + 1;
 }
 
 void stopVoices(void)
@@ -3013,6 +2984,9 @@ void stopVoices(void)
 	for (i = 0; i < MAX_VOICES; ++i)
 	{
 		ch = &stm[i];
+
+		lastChInstr[i].sampleNr = 0;
+		lastChInstr[i].instrNr  = 0;
 
 		ch->tonTyp       = 0;
 		ch->relTonNr     = 0;
@@ -3030,7 +3004,7 @@ void stopVoices(void)
 		ch->midiVibDepth = 0;
 		ch->midiPitch    = 0;
 		ch->smpPtr       = NULL;
-		ch->portaDir     = 0; // FT2 bugfix: Weird 3xx behavior if not used with note
+		ch->portaDir     = 0; // FT2 bugfix: weird 3xx behavior if not used with note
 
 		stopVoice(i);
 	}
@@ -3168,14 +3142,15 @@ void setSyncedReplayerVars(void)
 	pattSyncEntry = NULL;
 	chSyncEntry   = NULL;
 
-	// get pattern sync variables
-
 	memset(scopeUpdateStatus, 0, sizeof (scopeUpdateStatus)); // this is needed
 
 	frameTime64 = SDL_GetPerformanceCounter();
 
-	/* get channel sync variables
-	** handle channel sync queue (always, even if song isn't playing) */
+	// handle channel sync queue
+
+	while (chQueueClearing);
+
+	chQueueReading = true;
 	while (chQueueReadSize() > 0)
 	{
 		if (frameTime64 < getChQueueTimestamp())
@@ -3191,8 +3166,18 @@ void setSyncedReplayerVars(void)
 		if (!chQueuePop())
 			break;
 	}
+	chQueueReading = false;
 
-	// handle pattern sync queue (always, even if song isn't playing)
+	/* extra validation because of possible issues when the buffer is full
+	** and positions are being reset, which is not entirely thread safe. */
+	if ((chSyncEntry != NULL) && (chSyncEntry->timestamp == 0))
+		chSyncEntry = NULL;
+
+	// handle pattern sync queue
+
+	while (pattQueueClearing);
+
+	pattQueueReading = true;
 	while (pattQueueReadSize() > 0)
 	{
 		if (frameTime64 < getPattQueueTimestamp())
@@ -3205,6 +3190,12 @@ void setSyncedReplayerVars(void)
 		if (!pattQueuePop())
 			break;
 	}
+	pattQueueReading = false;
+
+	/* extra validation because of possible issues when the buffer is full
+	** and positions are being reset, which is not entirely thread safe. */
+	if ((pattSyncEntry != NULL) && (pattSyncEntry->timestamp == 0))
+		pattSyncEntry = NULL;
 
 	// do actual updates
 
@@ -3214,50 +3205,47 @@ void setSyncedReplayerVars(void)
 		editor.ui.drawReplayerPianoFlag = true;
 	}
 
-	if (songPlaying)
+	if (songPlaying && (pattSyncEntry != NULL))
 	{
-		if (pattSyncEntry != NULL)
+		// we have a new tick
+
+		editor.timer = pattSyncEntry->timer;
+
+		if (editor.speed != pattSyncEntry->speed)
 		{
-			// we have a new tick
+			editor.speed = pattSyncEntry->speed;
+			editor.ui.drawBPMFlag = true;
+		}
 
-			editor.timer = pattSyncEntry->timer;
+		if (editor.tempo != pattSyncEntry->tempo)
+		{
+			editor.tempo = pattSyncEntry->tempo;
+			editor.ui.drawSpeedFlag = true;
+		}
 
-			if (editor.speed != pattSyncEntry->speed)
-			{
-				editor.speed = pattSyncEntry->speed;
-				editor.ui.drawBPMFlag = true;
-			}
+		if (editor.globalVol != pattSyncEntry->globalVol)
+		{
+			editor.globalVol = pattSyncEntry->globalVol;
+			editor.ui.drawGlobVolFlag = true;
+		}
 
-			if (editor.tempo != pattSyncEntry->tempo)
-			{
-				editor.tempo = pattSyncEntry->tempo;
-				editor.ui.drawSpeedFlag = true;
-			}
+		if (editor.songPos != pattSyncEntry->songPos)
+		{
+			editor.songPos = pattSyncEntry->songPos;
+			editor.ui.drawPosEdFlag = true;
+		}
 
-			if (editor.globalVol != pattSyncEntry->globalVol)
-			{
-				editor.globalVol = pattSyncEntry->globalVol;
-				editor.ui.drawGlobVolFlag = true;
-			}
+		// somewhat of a kludge...
+		if ((editor.tmpPattern != pattSyncEntry->pattern) || (editor.pattPos != pattSyncEntry->patternPos))
+		{
+			// set pattern number
+			editor.editPattern = editor.tmpPattern = pattSyncEntry->pattern;
+			checkMarkLimits();
+			editor.ui.drawPattNumLenFlag = true;
 
-			if (editor.songPos != pattSyncEntry->songPos)
-			{
-				editor.songPos = pattSyncEntry->songPos;
-				editor.ui.drawPosEdFlag = true;
-			}
-
-			// somewhat of a kludge...
-			if ((editor.tmpPattern != pattSyncEntry->pattern) || (editor.pattPos != pattSyncEntry->patternPos))
-			{
-				// set pattern number
-				editor.editPattern = editor.tmpPattern = pattSyncEntry->pattern;
-				checkMarkLimits();
-				editor.ui.drawPattNumLenFlag = true;
-
-				// set row
-				editor.pattPos = (uint8_t)(pattSyncEntry->patternPos);
-				editor.ui.updatePatternEditor = true;
-			}
+			// set row
+			editor.pattPos = (uint8_t)(pattSyncEntry->patternPos);
+			editor.ui.updatePatternEditor = true;
 		}
 	}
 }

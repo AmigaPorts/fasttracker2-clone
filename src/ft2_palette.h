@@ -20,10 +20,8 @@ enum
 	PAL_BUTTON1 = 11,
 	PAL_MOUSEPT = 12,
 
-	/*
-	** There are three more palettes used for mouse XOR,
-	** but we don't need them in the clone.
-	*/
+	/* There are three more palettes used for mouse XOR,
+	** but we don't need them in the clone. */
 
 	// custom clone palettes
 	PAL_LOOPPIN = 13,

@@ -42,16 +42,125 @@ typedef struct pal16_t
 extern const uint8_t textCursorData[12];
 extern const pal16 palTable[12][13];
 
-static bool songIsModified;
-static uint32_t paletteTemp[PAL_NUM];
-static uint64_t timeNext64, timeNext64Frac;
-static sprite_t sprites[SPRITE_NUM];
+// for FPS counter
+#define FPS_SCAN_FRAMES 60
+#define FPS_RENDER_W 280
+#define FPS_RENDER_H (((FONT1_CHAR_H + 1) * 8) + 3)
+#define FPS_RENDER_X ((SCREEN_W - FPS_RENDER_W) / 2)
+#define FPS_RENDER_Y 229
 
+static bool songIsModified;
+static char buf[1024];
+static uint32_t paletteTemp[PAL_NUM];
+static uint64_t frameStartTime, timeNext64, timeNext64Frac;
+static sprite_t sprites[SPRITE_NUM];
+static double dRunningFPS, dFrameTime, dAvgFPS;
 static void drawReplayerData(void);
+
+void resetFPSCounter(void)
+{
+	editor.framesPassed = 0;
+	buf[0] = '\0';
+	dRunningFPS = VBLANK_HZ;
+	dFrameTime = 1000.0 / VBLANK_HZ;
+}
+
+void beginFPSCounter(void)
+{
+	if (video.showFPSCounter)
+		frameStartTime = SDL_GetPerformanceCounter();
+}
+
+static void drawFPSCounter(void)
+{
+	char *textPtr, ch;
+	uint16_t xPos, yPos;
+	double dRefreshRate, dAudLatency;
+
+	if (!video.showFPSCounter)
+		return;
+
+	if ((editor.framesPassed >= FPS_SCAN_FRAMES) && ((editor.framesPassed % FPS_SCAN_FRAMES) == 0))
+	{
+		dAvgFPS = dRunningFPS * (1.0 / FPS_SCAN_FRAMES);
+		if ((dAvgFPS < 0.0) || (dAvgFPS > 99999999.9999))
+			dAvgFPS = 99999999.9999; // prevent number from overflowing text box
+
+		dRunningFPS = 0.0;
+	}
+
+	drawFramework(FPS_RENDER_X-4, FPS_RENDER_Y-4, FPS_RENDER_W+4, FPS_RENDER_H+4, FRAMEWORK_TYPE1);
+	drawFramework(FPS_RENDER_X-2, FPS_RENDER_Y-2, FPS_RENDER_W+0, FPS_RENDER_H+0, FRAMEWORK_TYPE2);
+
+	// test if enough data is collected yet
+	if (editor.framesPassed < FPS_SCAN_FRAMES)
+	{
+		textOut(FPS_RENDER_X, FPS_RENDER_Y, PAL_FORGRND, "Collecting frame information...");
+		return;
+	}
+
+	dRefreshRate = video.dMonitorRefreshRate;
+	if ((dRefreshRate < 0.0) || (dRefreshRate > 9999.9))
+		dRefreshRate = 9999.9; // prevent number from overflowing text box
+
+	dAudLatency = audio.dAudioLatencyMs;
+	if ((dAudLatency < 0.0) || (dAudLatency > 999999999.9999))
+		dAudLatency = 999999999.9999; // prevent number from overflowing text box
+
+	sprintf(buf, "Frames per second: %.4f\n" \
+				 "Monitor refresh rate: %.1fHz (+/-)\n" \
+				 "59..61Hz GPU VSync used: %s\n" \
+				 "Audio frequency: %.1fkHz (expected %.1fkHz)\n" \
+				 "Audio buffer samples: %d (expected %d)\n" \
+				 "Audio channels: %d (expected %d)\n" \
+				 "Audio latency: %.1fms (expected %.1fms)\n" \
+				 "Press CTRL+SHIFT+F to close box.\n",
+				 dAvgFPS, dRefreshRate,
+				 video.vsync60HzPresent ? "yes" : "no",
+				 audio.haveFreq * (1.0 / 1000.0), audio.wantFreq * (1.0 / 1000.0),
+				 audio.haveSamples, audio.wantSamples,
+				 audio.haveChannels, audio.wantChannels,
+				 dAudLatency, ((audio.wantSamples * 1000.0) / audio.wantFreq));
+
+	// draw text
+
+	xPos = FPS_RENDER_X;
+	yPos = FPS_RENDER_Y;
+
+	textPtr = buf;
+	while (*textPtr != '\0')
+	{
+		ch = *textPtr++;
+		if (ch == '\n')
+		{
+			yPos += (FONT1_CHAR_H + 1);
+			xPos = FPS_RENDER_X;
+			continue;
+		}
+
+		charOut(xPos, yPos, PAL_FORGRND, ch);
+		xPos += charWidth(ch);
+	}
+}
+
+void endFPSCounter(void)
+{
+	uint64_t frameTimeDiff;
+	double dHz;
+
+	if (!video.showFPSCounter || (frameStartTime == 0))
+		return;
+
+	frameTimeDiff = SDL_GetPerformanceCounter() - frameStartTime;
+	dHz = 1000.0 / (frameTimeDiff * editor.dPerfFreqMulMs);
+	dRunningFPS += dHz;
+}
 
 void flipFrame(void)
 {
 	renderSprites();
+
+	drawFPSCounter();
 
 	SDL_UpdateTexture(video.texture, NULL, video.frameBuffer, SCREEN_W * sizeof (int32_t));
 
@@ -61,7 +170,17 @@ void flipFrame(void)
 
 	eraseSprites();
 
-	waitVBL();
+	/* vsync is disabled if the window is minimized. Not sure if it's SDL2's fault or just
+	** how it works in the DWM. Anyhow, this means we need to call WaitVB() if so.
+	** In Fedora Linux on my laptop w/ GNOME3, VSync just turns itself off in fake fullscreen mode. (WTF?) */
+#ifdef __unix__
+	if (!video.vsync60HzPresent || (SDL_GetWindowFlags(video.window) & SDL_WINDOW_MINIMIZED) || video.fullscreen)
+		waitVBL();
+#else
+	if (!video.vsync60HzPresent || (SDL_GetWindowFlags(video.window) & SDL_WINDOW_MINIMIZED))
+		waitVBL();
+#endif
+
 	editor.framesPassed++;
 }
 
@@ -84,21 +203,21 @@ void updateRenderSizeVars(void)
 	int32_t di;
 #ifdef __APPLE__
 	int32_t actualScreenW, actualScreenH;
-	float fXUpscale, fYUpscale;
+	double dXUpscale, dYUpscale;
 #endif
 	float fXScale, fYScale;
 	SDL_DisplayMode dm;
 
+	di = SDL_GetWindowDisplayIndex(video.window);
+	if (di < 0)
+		di = 0; // return display index 0 (default) on error
+
+	SDL_GetDesktopDisplayMode(di, &dm);
+	video.displayW = dm.w;
+	video.displayH = dm.h;
+
 	if (video.fullscreen)
 	{
-		di = SDL_GetWindowDisplayIndex(video.window);
-		if (di < 0)
-			di = 0; // return display index 0 (default) on error
-
-		SDL_GetDesktopDisplayMode(di, &dm);
-		video.displayW = dm.w;
-		video.displayH = dm.h;
-
 		if (config.windowFlags & FILTERING)
 		{
 			video.renderW = video.displayW;
@@ -117,12 +236,12 @@ void updateRenderSizeVars(void)
 			// retina high-DPI hackery (SDL2 is bad at reporting actual rendering sizes on macOS w/ high-DPI)
 			SDL_GL_GetDrawableSize(video.window, &actualScreenW, &actualScreenH);
 
-			fXUpscale = ((float)(actualScreenW) / video.displayW);
-			fYUpscale = ((float)(actualScreenH) / video.displayH);
+			dXUpscale = ((double)(actualScreenW) / video.displayW);
+			dYUpscale = ((double)(actualScreenH) / video.displayH);
 
 			// downscale back to correct sizes
-			if (fXUpscale != 0.0f) video.renderW = (int32_t)(video.renderW / fXUpscale);
-			if (fYUpscale != 0.0f) video.renderH = (int32_t)(video.renderH / fYUpscale);
+			if (dXUpscale != 0.0) video.renderW = (int32_t)(video.renderW / dXUpscale);
+			if (dYUpscale != 0.0) video.renderH = (int32_t)(video.renderH / dYUpscale);
 #endif
 			video.renderX = (video.displayW - video.renderW) / 2;
 			video.renderY = (video.displayH - video.renderH) / 2;
@@ -161,6 +280,7 @@ void enterFullscreen(void)
 
 	updateRenderSizeVars();
 	updateMouseScaling();
+	setMousePosToCenter();
 }
 
 void leaveFullScreen(void)
@@ -179,6 +299,7 @@ void leaveFullScreen(void)
 
 	updateRenderSizeVars();
 	updateMouseScaling();
+	setMousePosToCenter();
 }
 
 void toggleFullScreen(void)
@@ -766,11 +887,7 @@ void waitVBL(void)
 
 		// convert and round to microseconds
 		dTime = diff32 * editor.dPerfFreqMulMicro;
-
-		if (cpu.hasSSE2)
-			sse2_double2int32_round(time32, dTime);
-		else
-			time32 = (int32_t)(round(dTime));
+		double2int32_round(time32, dTime);
 
 		// delay until we have reached next frame
 		if (time32 > 0)
@@ -862,6 +979,7 @@ void setWindowSizeFromConfig(bool updateRenderer)
 
 		updateRenderSizeVars();
 		updateMouseScaling();
+		setMousePosToCenter();
 	}
 }
 
@@ -932,7 +1050,9 @@ bool setupWindow(void)
 #endif
 
 	SDL_GetDesktopDisplayMode(0, &dm);
-	if ((dm.refresh_rate == 59) || (dm.refresh_rate == 60)) // both are the same
+	video.dMonitorRefreshRate = (double)(dm.refresh_rate);
+
+	if ((dm.refresh_rate >= 59) && (dm.refresh_rate <= 61))
 		video.vsync60HzPresent = true;
 
 	if (config.windowFlags & FORCE_VSYNC_OFF)
@@ -1109,9 +1229,7 @@ static void drawReplayerData(void)
 
 			if (editor.ui.instEditorShown)
 			{
-				if (editor.wavIsRendering)
-					drawPiano();
-				else if (chSyncEntry != NULL)
+				if (chSyncEntry != NULL)
 					drawPianoReplayer(chSyncEntry);
 			}
 		}

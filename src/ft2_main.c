@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <math.h> // modf()
 #ifdef _WIN32
 #define WIN32_MEAN_AND_LEAN
 #include <windows.h>
@@ -203,11 +204,13 @@ int main(int argc, char *argv[])
 	setupWaitVBL();
 	while (editor.programRunning)
 	{
+		beginFPSCounter();
 		handleThreadEvents();
 		readInput();
 		handleEvents();
 		handleRedrawing();
 		flipFrame();
+		endFPSCounter();
 	}
 
 	if (config.cfg_AutoSave)
@@ -223,14 +226,15 @@ static void initializeVars(void)
 	cpu.hasSSE2 = SDL_HasSSE2();
 
 	// clear common structs
-	memset(&video,    0, sizeof (video));
-	memset(&keyb,     0, sizeof (keyb));
-	memset(&mouse,    0, sizeof (mouse));
-	memset(&editor,   0, sizeof (editor));
-	memset(&pattMark, 0, sizeof (pattMark));
-	memset(&pattSync, 0, sizeof (pattSync));
-	memset(&chSync,   0, sizeof (chSync));
-	memset(&song,     0, sizeof (song));
+	memset(&video,      0, sizeof (video));
+	memset(&keyb,       0, sizeof (keyb));
+	memset(&mouse,      0, sizeof (mouse));
+	memset(&editor,     0, sizeof (editor));
+	memset(&pattMark,   0, sizeof (pattMark));
+	memset(&pattSync,   0, sizeof (pattSync));
+	memset(&chSync,     0, sizeof (chSync));
+	memset(lastChInstr, 0, sizeof (lastChInstr));
+	memset(&song,       0, sizeof (song));
 
 	// now set data that must be initialized to non-zero values...
 
@@ -360,20 +364,24 @@ static void osxSetDirToProgramDirFromArgs(char **argv)
 static void setupPerfFreq(void)
 {
 	uint64_t perfFreq64;
-	double dVblankTimeLen, dVblankTimeLenFrac;
+	double dInt, dFrac;
 
-	perfFreq64 = SDL_GetPerformanceFrequency();
-	assert(perfFreq64 != 0);
+	perfFreq64 = SDL_GetPerformanceFrequency(); assert(perfFreq64 != 0);
 	editor.dPerfFreq = (double)(perfFreq64);
-
 	editor.dPerfFreqMulMicro = 1000000.0 / editor.dPerfFreq;
-	dVblankTimeLen = editor.dPerfFreq / VBLANK_HZ;
+	editor.dPerfFreqMulMs = 1.0 / (editor.dPerfFreq / 1000.0);
 
-	video.vblankTimeLen = (uint32_t)(dVblankTimeLen);
-	dVblankTimeLenFrac  = dVblankTimeLen - video.vblankTimeLen;
+	// calculate vblank time for performance counters and split into int/frac
+	dFrac = modf(editor.dPerfFreq / VBLANK_HZ, &dInt);
 
-	// fractional part of dVblankTimeLen scaled to 0..2^32-1
-	video.vblankTimeLenFrac = (uint32_t)((double)(1ULL << 32) * dVblankTimeLenFrac);
+	// integer part
+	double2int32_trunc(video.vblankTimeLen, dInt);
+
+	// fractional part scaled to 0..2^32-1
+	dFrac *= (UINT32_MAX + 1.0);
+	if (dFrac > (double)(UINT32_MAX))
+		dFrac = (double)(UINT32_MAX);
+	double2int32_round(video.vblankTimeLenFrac, dFrac);
 }
 
 #ifdef _WIN32

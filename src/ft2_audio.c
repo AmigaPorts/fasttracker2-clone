@@ -21,18 +21,17 @@
 static int8_t pmpCountDiv, pmpChannels = 2;
 static uint16_t smpBuffSize;
 static int32_t masterVol, amp, oldAudioFreq, speedVal, pmpLeft, randSeed = INITIAL_DITHER_SEED;
-static uint32_t tickTimeLen;
+static uint32_t tickTimeLen, tickTimeLenFrac;
 static float fAudioAmpMul;
 static voice_t voice[MAX_VOICES * 2];
 static void (*sendAudSamplesFunc)(uint8_t *, int32_t, uint8_t); // "send mixed samples" routines
 
-extern const uint32_t panningTab[257]; // defined at the bottom of this file
+pattSyncData_t *pattSyncEntry;
+chSyncData_t *chSyncEntry;
 
-uint32_t getVoiceRate(uint8_t i)
-{
-	assert(i < MAX_VOICES);
-	return (voice[i].SFrq);
-}
+volatile bool pattQueueReading, pattQueueClearing, chQueueReading, chQueueClearing;
+
+extern const uint32_t panningTab[257]; // defined at the bottom of this file
 
 void stopVoice(uint8_t i)
 {
@@ -150,7 +149,7 @@ void setBackOldAudioFreq(void) // for song to WAV rendering
 
 void setSpeed(uint16_t bpm)
 {
-	double dTickTimeLen;
+	double dInt, dFrac;
 
 	if (bpm > 0)
 	{
@@ -159,12 +158,17 @@ void setSpeed(uint16_t bpm)
 		// calculate tick time length for audio/video sync timestamp
 		if (speedVal > 0)
 		{
-			dTickTimeLen = ((double)(speedVal) / audio.freq) * editor.dPerfFreq;
+			// number of samples per tick -> tick length for performance counter
+			dFrac = modf(speedVal * audio.dSpeedValMul, &dInt);
 
-			if (cpu.hasSSE2)
-				sse2_double2int32_round(tickTimeLen, dTickTimeLen);
-			else
-				tickTimeLen = (uint32_t)(round(dTickTimeLen));
+			// integer part
+			double2int32_trunc(tickTimeLen, dInt);
+
+			// fractional part (scaled to 0..2^32-1)
+			dFrac *= (UINT32_MAX + 1.0);
+			if (dFrac > (double)(UINT32_MAX))
+				dFrac = (double)(UINT32_MAX);
+			double2int32_round(tickTimeLenFrac, dFrac);
 		}
 	}
 }
@@ -320,7 +324,6 @@ void mix_UpdateChannelVolPanFrq(void)
 {
 	uint8_t i, status;
 	uint16_t vol;
-	int32_t playOffset;
 	stmTyp *ch;
 	voice_t *v;
 	sampleTyp *s;
@@ -350,7 +353,7 @@ void mix_UpdateChannelVolPanFrq(void)
 				v->SPan = ch->finalPan;
 
 			// update mixing volumes if vol/pan change
-			if (status & (IS_Vol | IS_Pan))
+			if (status & (IS_Vol + IS_Pan))
 				voiceUpdateVolumes(i, status);
 
 			// frequency change
@@ -361,14 +364,7 @@ void mix_UpdateChannelVolPanFrq(void)
 			if (status & IS_NyTon)
 			{
 				s = ch->smpPtr;
-
-				playOffset = ch->smpStartPos;
-
-				// if we triggered from sample editor ("Wave, "Range", "Display"), add range/display offset
-				if (ch->instrNr == (MAX_INST + 1))
-					playOffset += editor.samplePlayOffset;
-
-				voiceTrigger(i, s->pek, s->len, s->repS, s->repL, s->typ & 3, (s->typ & 16) >> 4, playOffset);
+				voiceTrigger(i, s->pek, s->len, s->repS, s->repL, s->typ & 3, (s->typ >> 4) & 1, ch->smpStartPos);
 			}
 		}
 	}
@@ -382,7 +378,9 @@ void resetDitherSeed(void)
 // Delphi/Pascal LCG Random() (without limit). Suitable for 32-bit random numbers
 static inline uint32_t random32(void)
 {
-	randSeed = randSeed * 134775813 + 1;
+	randSeed *= 134775813;
+	randSeed++;
+
 	return (randSeed);
 }
 
@@ -392,17 +390,36 @@ static void sendSamples16BitStereo(uint8_t *stream, int32_t sampleBlockLength, u
 	int32_t i, out32;
 
 	streamPointer16 = (int16_t *)(stream);
-	for (i = 0; i < sampleBlockLength; ++i)
-	{
-		// left channel
-		out32 = ((audio.mixBufferL[i] >> 8) * masterVol) >> 8;
-		CLAMP16(out32);
-		*streamPointer16++ = (int16_t)(out32);
 
-		// right channel
-		out32 = ((audio.mixBufferR[i] >> 8) * masterVol) >> 8;
-		CLAMP16(out32);
-		*streamPointer16++ = (int16_t)(out32);
+	if (masterVol == 256)
+	{
+		for (i = 0; i < sampleBlockLength; ++i)
+		{
+			// left channel
+			out32 = audio.mixBufferL[i] >> 8;
+			CLAMP16(out32);
+			*streamPointer16++ = (int16_t)(out32);
+
+			// right channel
+			out32 = audio.mixBufferR[i] >> 8;
+			CLAMP16(out32);
+			*streamPointer16++ = (int16_t)(out32);
+		}
+	}
+	else
+	{
+		for (i = 0; i < sampleBlockLength; ++i)
+		{
+			// left channel
+			out32 = ((audio.mixBufferL[i] >> 8) * masterVol) >> 8;
+			CLAMP16(out32);
+			*streamPointer16++ = (int16_t)(out32);
+
+			// right channel
+			out32 = ((audio.mixBufferR[i] >> 8) * masterVol) >> 8;
+			CLAMP16(out32);
+			*streamPointer16++ = (int16_t)(out32);
+		}
 	}
 
 	(void)(numAudioChannels); // make compiler happy
@@ -414,20 +431,42 @@ static void sendSamples16BitMultiChan(uint8_t *stream, int32_t sampleBlockLength
 	int32_t i, j, out32;
 
 	streamPointer16 = (int16_t *)(stream);
-	for (i = 0; i < sampleBlockLength; ++i)
+
+	if (masterVol == 256)
 	{
-		// left channel
-		out32 = ((audio.mixBufferL[i] >> 8) * masterVol) >> 8;
-		CLAMP16(out32);
-		*streamPointer16++ = (int16_t)(out32);
+		for (i = 0; i < sampleBlockLength; ++i)
+		{
+			// left channel
+			out32 = audio.mixBufferL[i] >> 8;
+			CLAMP16(out32);
+			*streamPointer16++ = (int16_t)(out32);
 
-		// right channel
-		out32 = ((audio.mixBufferR[i] >> 8) * masterVol) >> 8;
-		CLAMP16(out32);
-		*streamPointer16++ = (int16_t)(out32);
+			// right channel
+			out32 = audio.mixBufferR[i] >> 8;
+			CLAMP16(out32);
+			*streamPointer16++ = (int16_t)(out32);
 
-		for (j = 2; j < numAudioChannels; ++j)
-			*streamPointer16++ = 0;
+			for (j = 2; j < numAudioChannels; ++j)
+				*streamPointer16++ = 0;
+		}
+	}
+	else
+	{
+		for (i = 0; i < sampleBlockLength; ++i)
+		{
+			// left channel
+			out32 = ((audio.mixBufferL[i] >> 8) * masterVol) >> 8;
+			CLAMP16(out32);
+			*streamPointer16++ = (int16_t)(out32);
+
+			// right channel
+			out32 = ((audio.mixBufferR[i] >> 8) * masterVol) >> 8;
+			CLAMP16(out32);
+			*streamPointer16++ = (int16_t)(out32);
+
+			for (j = 2; j < numAudioChannels; ++j)
+				*streamPointer16++ = 0;
+		}
 	}
 }
 
@@ -436,22 +475,45 @@ static void sendSamples16BitDitherStereo(uint8_t *stream, int32_t sampleBlockLen
 	int16_t *streamPointer16;
 	int32_t i, dither, out32;
 
-	streamPointer16 = (int16_t *)(stream);
-	for (i = 0; i < sampleBlockLength; ++i)
+	if (masterVol == 256)
 	{
-		// left channel
-		dither = (random32() % 3) - 1; // random 1.5-bit noise: -1, 0, 1
-		out32  = ((audio.mixBufferL[i] >> 8) * masterVol) >> 8;
-		out32 += dither;
-		CLAMP16(out32);
-		*streamPointer16++ = (int16_t)(out32);
+		streamPointer16 = (int16_t *)(stream);
+		for (i = 0; i < sampleBlockLength; ++i)
+		{
+			// left channel
+			dither = ((random32() % 3) - 1) << (8 - 1); // random 1.5-bit noise: -128, 0, 128
+			out32 = (audio.mixBufferL[i] + dither) >> 8;
+			CLAMP16(out32);
+			*streamPointer16++ = (int16_t)(out32);
 
-		// right channel
-		dither = (random32() % 3) - 1;
-		out32  = ((audio.mixBufferR[i] >> 8) * masterVol) >> 8;
-		out32 += dither;
-		CLAMP16(out32);
-		*streamPointer16++ = (int16_t)(out32);
+			// right channel
+			dither = ((random32() % 3) - 1) << (8 - 1);
+			out32 = (audio.mixBufferR[i] + dither) >> 8;
+			CLAMP16(out32);
+			*streamPointer16++ = (int16_t)(out32);
+		}
+	}
+	else
+	{
+		streamPointer16 = (int16_t *)(stream);
+		for (i = 0; i < sampleBlockLength; ++i)
+		{
+			// left channel
+			dither = ((random32() % 3) - 1) << (8 - 1); // random 1.5-bit noise: -128, 0, 128
+			out32 = (audio.mixBufferL[i] + dither) >> 8;
+			dither = ((random32() % 3) - 1) << (8 - 1);
+			out32 = ((out32 * masterVol) + dither) >> 8;
+			CLAMP16(out32);
+			*streamPointer16++ = (int16_t)(out32);
+
+			// right channel
+			dither = ((random32() % 3) - 1) << (8 - 1);
+			out32 = (audio.mixBufferR[i] + dither) >> 8;
+			dither = ((random32() % 3) - 1) << (8 - 1);
+			out32 = ((out32 * masterVol) + dither) >> 8;
+			CLAMP16(out32);
+			*streamPointer16++ = (int16_t)(out32);
+		}
 	}
 
 	(void)(numAudioChannels); // make compiler happy
@@ -463,24 +525,50 @@ static void sendSamples16BitDitherMultiChan(uint8_t *stream, int32_t sampleBlock
 	int32_t i, j, dither, out32;
 
 	streamPointer16 = (int16_t *)(stream);
-	for (i = 0; i < sampleBlockLength; ++i)
+
+	if (masterVol == 256)
 	{
-		// left channel
-		dither = (random32() % 3) - 1; // random 1.5-bit noise: -1, 0, 1
-		out32  = ((audio.mixBufferL[i] >> 8) * masterVol) >> 8;
-		out32 += dither;
-		CLAMP16(out32);
-		*streamPointer16++ = (int16_t)(out32);
+		for (i = 0; i < sampleBlockLength; ++i)
+		{
+			// left channel
+			dither = ((random32() % 3) - 1) << (8 - 1); // random 1.5-bit noise: -128, 0, 128
+			out32 = (audio.mixBufferL[i] + dither) >> 8;
+			CLAMP16(out32);
+			*streamPointer16++ = (int16_t)(out32);
 
-		// right channel
-		dither = (random32() % 3) - 1;
-		out32  = ((audio.mixBufferR[i] >> 8) * masterVol) >> 8;
-		out32 += dither;
-		CLAMP16(out32);
-		*streamPointer16++ = (int16_t)(out32);
+			// right channel
+			dither = ((random32() % 3) - 1) << (8 - 1);
+			out32 = (audio.mixBufferR[i] + dither) >> 8;
+			CLAMP16(out32);
+			*streamPointer16++ = (int16_t)(out32);
 
-		for (j = 2; j < numAudioChannels; ++j)
-			*streamPointer16++ = 0;
+			for (j = 2; j < numAudioChannels; ++j)
+				*streamPointer16++ = 0;
+		}
+	}
+	else
+	{
+		for (i = 0; i < sampleBlockLength; ++i)
+		{
+			// left channel
+			dither = ((random32() % 3) - 1) << (8 - 1); // random 1.5-bit noise: -128, 0, 128
+			out32 = (audio.mixBufferL[i] + dither) >> 8;
+			dither = ((random32() % 3) - 1) << (8 - 1);
+			out32 = ((out32 * masterVol) + dither) >> 8;
+			CLAMP16(out32);
+			*streamPointer16++ = (int16_t)(out32);
+
+			// right channel
+			dither = ((random32() % 3) - 1) << (8 - 1);
+			out32 = (audio.mixBufferR[i] + dither) >> 8;
+			dither = ((random32() % 3) - 1) << (8 - 1);
+			out32 = ((out32 * masterVol) + dither) >> 8;
+			CLAMP16(out32);
+			*streamPointer16++ = (int16_t)(out32);
+
+			for (j = 2; j < numAudioChannels; ++j)
+				*streamPointer16++ = 0;
+		}
 	}
 }
 
@@ -606,9 +694,11 @@ uint32_t mixReplayerTickToBuffer(uint8_t *stream, uint8_t bitDepth)
 
 int32_t pattQueueReadSize(void)
 {
+	while (pattQueueClearing);
+
 	if (pattSync.writePos > pattSync.readPos)
 		return (pattSync.writePos - pattSync.readPos);
-	else if (pattSync.writePos  < pattSync.readPos)
+	else if (pattSync.writePos < pattSync.readPos)
 		return (pattSync.writePos - pattSync.readPos + SYNC_QUEUE_LEN + 1);
 	else
 		return (0);
@@ -616,12 +706,36 @@ int32_t pattQueueReadSize(void)
 
 int32_t pattQueueWriteSize(void)
 {
+	int32_t size;
+
 	if (pattSync.writePos > pattSync.readPos)
-		return (pattSync.readPos - pattSync.writePos + SYNC_QUEUE_LEN);
+	{
+		size = pattSync.readPos - pattSync.writePos + SYNC_QUEUE_LEN;
+	}
 	else if (pattSync.writePos < pattSync.readPos)
-		return (pattSync.readPos - pattSync.writePos - 1);
+	{
+		pattQueueClearing = true;
+
+		/* Buffer is full, reset the read/write pos. This is actually really nasty since
+		** read/write are two different threads, but because of timestamp validation it
+		** shouldn't be that dangerous.
+		** It will also create a small visual stutter while the buffer is getting filled,
+		** though that is barely noticable on normal buffer sizes, and it takes several
+		** minutes between each time (when queue size is default, 16384) */
+		pattSync.data[0].timestamp = 0;
+		pattSync.readPos = 0;
+		pattSync.writePos = 0;
+
+		size = SYNC_QUEUE_LEN;
+
+		pattQueueClearing = false;
+	}
 	else
-		return (SYNC_QUEUE_LEN);
+	{
+		size = SYNC_QUEUE_LEN;
+	}
+
+	return (size);
 }
 
 bool pattQueuePush(pattSyncData_t t)
@@ -630,7 +744,6 @@ bool pattQueuePush(pattSyncData_t t)
 		return (false);
 
 	assert(pattSync.writePos <= SYNC_QUEUE_LEN);
-
 	pattSync.data[pattSync.writePos] = t;
 	pattSync.writePos = (pattSync.writePos + 1) & SYNC_QUEUE_LEN;
 
@@ -643,6 +756,8 @@ bool pattQueuePop(void)
 		return (false);
 
 	pattSync.readPos = (pattSync.readPos + 1) & SYNC_QUEUE_LEN;
+	assert(pattSync.readPos <= SYNC_QUEUE_LEN);
+
 	return (true);
 }
 
@@ -666,6 +781,8 @@ uint64_t getPattQueueTimestamp(void)
 
 int32_t chQueueReadSize(void)
 {
+	while (chQueueClearing);
+
 	if (chSync.writePos > chSync.readPos)
 		return (chSync.writePos - chSync.readPos);
 	else if (chSync.writePos < chSync.readPos)
@@ -676,12 +793,36 @@ int32_t chQueueReadSize(void)
 
 int32_t chQueueWriteSize(void)
 {
+	int32_t size;
+
 	if (chSync.writePos > chSync.readPos)
-		return (chSync.readPos - chSync.writePos + SYNC_QUEUE_LEN);
+	{
+		size = chSync.readPos - chSync.writePos + SYNC_QUEUE_LEN;
+	}
 	else if (chSync.writePos < chSync.readPos)
-		return (chSync.readPos - chSync.writePos - 1);
+	{
+		chQueueClearing = true;
+
+		/* Buffer is full, reset the read/write pos. This is actually really nasty since
+		** read/write are two different threads, but because of timestamp validation it
+		** shouldn't be that dangerous.
+		** It will also create a small visual stutter while the buffer is getting filled,
+		** though that is barely noticable on normal buffer sizes, and it takes several
+		** minutes between each time (when queue size is default, 16384) */
+		chSync.data[0].timestamp = 0;
+		chSync.readPos = 0;
+		chSync.writePos = 0;
+
+		size = SYNC_QUEUE_LEN;
+
+		chQueueClearing = false;
+	}
 	else
-		return (SYNC_QUEUE_LEN);
+	{
+		size = SYNC_QUEUE_LEN;
+	}
+
+	return (size);
 }
 
 bool chQueuePush(chSyncData_t t)
@@ -690,7 +831,6 @@ bool chQueuePush(chSyncData_t t)
 		return (false);
 
 	assert(chSync.writePos <= SYNC_QUEUE_LEN);
-
 	chSync.data[chSync.writePos] = t;
 	chSync.writePos = (chSync.writePos + 1) & SYNC_QUEUE_LEN;
 
@@ -702,9 +842,9 @@ bool chQueuePop(void)
 	if (!chQueueReadSize())
 		return (false);
 
+	chSync.readPos = (chSync.readPos + 1) & SYNC_QUEUE_LEN;
 	assert(chSync.readPos <= SYNC_QUEUE_LEN);
 
-	chSync.readPos = (chSync.readPos + 1) & SYNC_QUEUE_LEN;
 	return (true);
 }
 
@@ -744,19 +884,21 @@ void unlockAudio(void)
 
 static void resetSyncQueues(void)
 {
+	pattSync.data[0].timestamp = 0;
+	pattSync.readPos = 0;
 	pattSync.writePos = 0;
-	pattSync.readPos  = 0;
-	memset(&pattSync.data[pattSync.readPos], 0, sizeof (pattSyncData_t));
-
+	
+	chSync.data[0].timestamp = 0;
 	chSync.writePos = 0;
-	chSync.readPos  = 0;
-	memset(&chSync.data[chSync.readPos], 0, sizeof (chSyncData_t));
+	chSync.readPos = 0;
 }
 
 void lockMixerCallback(void) // lock audio + clear voices/scopes (for short operations)
 {
 	if (!audio.locked)
 		lockAudio();
+
+	audio.resetSyncTickTimeFlag = true;
 
 	stopVoices(); // VERY important! prevents potential crashes
 	// scopes, mixer and replayer are guaranteed to not be active at this point
@@ -767,7 +909,7 @@ void lockMixerCallback(void) // lock audio + clear voices/scopes (for short oper
 void unlockMixerCallback(void)
 {
 	stopVoices(); // VERY important! prevents potential crashes
-
+	
 	if (audio.locked)
 		unlockAudio();
 }
@@ -779,12 +921,14 @@ void pauseAudio(void) // lock audio + clear voices/scopes + render silence (for 
 		if (audio.dev > 0)
 			SDL_PauseAudioDevice(audio.dev, true);
 
-		audioPaused = true;
+		audio.resetSyncTickTimeFlag = true;
 
 		stopVoices(); // VERY important! prevents potential crashes
 		// scopes, mixer and replayer are guaranteed to not be active at this point
 
 		resetSyncQueues();
+
+		audioPaused = true;
 	}
 }
 
@@ -804,15 +948,13 @@ static void SDLCALL mixCallback(void *userdata, Uint8 *stream, int len)
 	int32_t a, b, i;
 	pattSyncData_t pattSyncData;
 	chSyncData_t chSyncData;
-	channel_t *c;
+	syncedChannel_t *c;
 	stmTyp *s;
 
 	assert(pmpCountDiv > 0);
 	a = len / pmpCountDiv;
 	if (a <= 0)
 		return;
-
-	audio.tickTime64 = SDL_GetPerformanceCounter();
 
 	while (a > 0)
 	{
@@ -830,6 +972,14 @@ static void SDLCALL mixCallback(void *userdata, Uint8 *stream, int len)
 
 			// AUDIO/VIDEO SYNC
 
+			if (audio.resetSyncTickTimeFlag)
+			{
+				audio.resetSyncTickTimeFlag = false;
+
+				audio.tickTime64 = SDL_GetPerformanceCounter() + audio.audLatencyPerfValInt;
+				audio.tickTime64Frac = audio.audLatencyPerfValFrac;
+			}
+
 			if (songPlaying)
 			{
 				// push pattern variables to sync queue
@@ -837,9 +987,9 @@ static void SDLCALL mixCallback(void *userdata, Uint8 *stream, int len)
 				pattSyncData.patternPos = song.curReplayerPattPos;
 				pattSyncData.pattern    = song.curReplayerPattNr;
 				pattSyncData.songPos    = song.curReplayerSongPos;
-				pattSyncData.speed      = song.speed;
-				pattSyncData.tempo      = song.tempo;
-				pattSyncData.globalVol  = song.globVol;
+				pattSyncData.speed      = (uint8_t)(song.speed);
+				pattSyncData.tempo      = (uint8_t)(song.tempo);
+				pattSyncData.globalVol  = (uint8_t)(song.globVol);
 				pattSyncData.timestamp  = audio.tickTime64;
 				pattQueuePush(pattSyncData);
 			}
@@ -850,26 +1000,29 @@ static void SDLCALL mixCallback(void *userdata, Uint8 *stream, int len)
 				c = &chSyncData.channels[i];
 				s = &stm[i];
 
-				c->rate             = voice[i].SFrq;
+				c->voiceDelta       = voice[i].SFrq;
 				c->finalPeriod      = s->finalPeriod;
 				c->fineTune         = s->fineTune;
+				c->relTonNr         = s->relTonNr;
 				c->instrNr          = s->instrNr;
 				c->sampleNr         = s->sampleNr;
 				c->envSustainActive = s->envSustainActive;
-				c->mute             = s->stOff | s->mute;
 				c->status           = s->tmpStatus;
 				c->finalVol         = s->finalVol;
 				c->smpStartPos      = s->smpStartPos;
-				c->smpPtr           = s->smpPtr;
-				c->effTyp           = s->effTyp;
-				c->eff              = s->eff;
-				c->relTonNr         = s->relTonNr;
 			}
 
 			chSyncData.timestamp = audio.tickTime64;
 			chQueuePush(chSyncData);
 
 			audio.tickTime64 += tickTimeLen;
+
+			audio.tickTime64Frac += tickTimeLenFrac;
+			if (audio.tickTime64Frac >= (1ULL << 32))
+			{
+				audio.tickTime64++;
+				audio.tickTime64Frac &= 0xFFFFFFFF;
+			}
 
 			pmpLeft = speedVal;
 			replayerBusy = false;
@@ -959,6 +1112,30 @@ void updateSendAudSamplesRoutine(bool lockMixer)
 		unlockMixerCallback();
 }
 
+static void calcAudioLatencyVars(uint16_t haveSamples, int32_t haveFreq)
+{
+	double dAudioLatencySecs, dInt, dFrac;
+
+	if (haveFreq == 0)
+		return; // panic!
+
+	dAudioLatencySecs = haveSamples / (double)(haveFreq);
+
+	// dear SDL2, haveSamples and haveFreq better not be bogus values...
+	dFrac = modf(dAudioLatencySecs * editor.dPerfFreq, &dInt);
+
+	// integer part
+	double2int32_trunc(audio.audLatencyPerfValInt, dInt);
+
+	// fractional part (scaled to 0..2^32-1)
+	dFrac *= (UINT32_MAX + 1.0);
+	if (dFrac > (double)(UINT32_MAX))
+		dFrac = (double)(UINT32_MAX);
+	double2int32_round(audio.audLatencyPerfValFrac, dFrac);
+
+	audio.dAudioLatencyMs = dAudioLatencySecs * 1000.0;
+}
+
 bool setupAudio(bool showErrorMsg)
 {
 	int8_t newBitDepth;
@@ -986,6 +1163,10 @@ bool setupAudio(bool showErrorMsg)
 	else if (config.specialFlags & BUFFSIZE_2048) configAudioBufSize = 2048;
 	else if (config.specialFlags & BUFFSIZE_4096) configAudioBufSize = 4096;
 
+	audio.wantFreq = config.audioFreq;
+	audio.wantSamples = configAudioBufSize;
+	audio.wantChannels = 2;
+
 	// set up audio device
 	memset(&want, 0, sizeof (want));
 
@@ -1001,7 +1182,7 @@ bool setupAudio(bool showErrorMsg)
 	if (audio.dev == 0)
 	{
 		if (showErrorMsg)
-			showErrorMsgBox("Couldn't open audio device:\n%s\n\nDo you have any audio device enabled and plugged in?", SDL_GetError());
+			showErrorMsgBox("Couldn't open audio device:\n\"%s\"\n\nDo you have any audio device enabled and plugged in?", SDL_GetError());
 
 		return (false);
 	}
@@ -1040,19 +1221,20 @@ bool setupAudio(bool showErrorMsg)
 		config.specialFlags |=  BITDEPTH_24;
 	}
 
+	audio.haveFreq = have.freq;
+	audio.haveSamples = have.samples;
+	audio.haveChannels = have.channels;
+
 	// set a few variables
 
 	config.audioFreq = have.freq;
 	audio.freq       = have.freq;
 	smpBuffSize      = have.samples;
 
+	calcAudioLatencyVars(have.samples, have.freq);
+
 	if (config.audioDither && (newBitDepth == 24))
 		config.audioDither = false;
-
-	if (song.speed == 0)
-		song.speed = 125;
-
-	setSpeed(song.speed);
 
 	pmpChannels = have.channels;
 	pmpCountDiv = pmpChannels * ((newBitDepth == 16) ? sizeof (int16_t) : sizeof (float));
@@ -1100,7 +1282,14 @@ bool setupAudio(bool showErrorMsg)
 
 	calcReplayRate(audio.freq);
 
+	if (song.speed == 0)
+		song.speed = 125;
+
+	setSpeed(song.speed); // this is important
+
 	updateSendAudSamplesRoutine(false);
+	audio.resetSyncTickTimeFlag = true;
+
 	return (true);
 }
 

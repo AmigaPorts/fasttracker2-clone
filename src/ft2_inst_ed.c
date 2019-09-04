@@ -1773,19 +1773,9 @@ static void writePianoNumber(uint8_t note)
 	x   = keyNumX[key] + ((note / 12) * 77);
 
 	if ((key == 1) || (key == 3) || (key == 6) || (key == 8) || (key == 10))
-	{
-		// black key
-		smallHexOutBg(x, 361, PAL_FORGRND, PAL_BCKGRND, number);
-	}
+		smallHexOutBg(x, 361, PAL_FORGRND, PAL_BCKGRND, number); // black key
 	else
-	{
-		// white key
-		smallHexOutBg(x, 385, PAL_BCKGRND, PAL_FORGRND, number);
-
-		// draw pixel next to C key (not sure if this was intentional or not...)
-		if (key == 0)
-			video.frameBuffer[(392 * SCREEN_W) + (x + 7)] = video.palette[PAL_DESKTOP];
-	}
+		smallHexOutBg(x, 385, PAL_BCKGRND, PAL_FORGRND, number); // white key
 }
 
 static void drawBlackPianoKey(uint8_t note, bool keyDown)
@@ -1906,27 +1896,25 @@ static uint8_t getNote(uint8_t i) // returns 1..96
 {
 	int8_t fineTune;
 	uint8_t note;
-	int16_t *periodTable;
 	int32_t period, loPeriod, hiPeriod, tmpPeriod, tableIndex;
 	stmTyp *ch;
 
 	ch = &stm[i];
 
-	fineTune    = (ch->fineTune >> 3) + 16;
-	hiPeriod    = 8 * 12 * 16;
-	loPeriod    = 0;
-	period      = ch->finalPeriod;
-	periodTable = note2Period;
+	fineTune = (ch->fineTune >> 3) + 16;
+	hiPeriod = 8 * 12 * 16;
+	loPeriod = 0;
+	period   = ch->finalPeriod;
 
 	for (i = 0; i < 8; ++i)
 	{
-		tmpPeriod = (((loPeriod + hiPeriod) / 2) & ~15) + fineTune;
+		tmpPeriod = (((loPeriod + hiPeriod) >> 1) & 0xFFFFFFF0) + fineTune;
 
 		tableIndex = tmpPeriod - 8;
 		if (tableIndex < 0) // added security check
 			tableIndex = 0;
 
-		if (period >= periodTable[tableIndex])
+		if (period >= note2Period[tableIndex])
 			hiPeriod = tmpPeriod - fineTune;
 		else
 			loPeriod = tmpPeriod - fineTune;
@@ -1935,7 +1923,7 @@ static uint8_t getNote(uint8_t i) // returns 1..96
 	if (loPeriod >= ((8 * 12 * 16) + 15) - 1) // FT2 bug: stupid off-by-one edge case
 		loPeriod  =  (8 * 12 * 16) + 15;
 
-	note = (uint8_t)(((loPeriod + 8) / 16) - ch->relTonNr) + 1;
+	note = (uint8_t)(((loPeriod + 8) >> 4) - ch->relTonNr) + 1;
 	return (note);
 }
 
@@ -1980,28 +1968,26 @@ void drawPiano(void) // draw piano in idle mode
 	}
 }
 
-static uint8_t getNoteReplayer(channel_t *ch) // returns 1..96
+static uint8_t getNoteReplayer(syncedChannel_t *ch) // returns 1..96
 {
 	int8_t fineTune;
 	uint8_t i, note;
-	int16_t *periodTable;
 	int32_t period, loPeriod, hiPeriod, tmpPeriod, tableIndex;
 
-	fineTune    = (ch->fineTune >> 3) + 16;
-	hiPeriod    = 8 * 12 * 16;
-	loPeriod    = 0;
-	period      = ch->finalPeriod;
-	periodTable = note2Period;
+	fineTune = (ch->fineTune >> 3) + 16;
+	hiPeriod = 8 * 12 * 16;
+	loPeriod = 0;
+	period   = ch->finalPeriod;
 
 	for (i = 0; i < 8; ++i)
 	{
-		tmpPeriod = (((loPeriod + hiPeriod) / 2) & ~15) + fineTune;
+		tmpPeriod = (((loPeriod + hiPeriod) >> 1) & 0xFFFFFFF0) + fineTune;
 
 		tableIndex = tmpPeriod - 8;
 		if (tableIndex < 0) // added security check
 			tableIndex = 0;
 
-		if (period >= periodTable[tableIndex])
+		if (period >= note2Period[tableIndex])
 			hiPeriod = tmpPeriod - fineTune;
 		else
 			loPeriod = tmpPeriod - fineTune;
@@ -2010,7 +1996,7 @@ static uint8_t getNoteReplayer(channel_t *ch) // returns 1..96
 	if (loPeriod >= ((8 * 12 * 16) + 15) - 1) // FT2 bug: stupid off-by-one edge case
 		loPeriod  =  (8 * 12 * 16) + 15;
 
-	note = (uint8_t)(((loPeriod + 8) / 16) - ch->relTonNr) + 1;
+	note = (uint8_t)(((loPeriod + 8) >> 4) - ch->relTonNr) + 1;
 	return (note);
 }
 
@@ -2018,7 +2004,7 @@ void drawPianoReplayer(chSyncData_t *chSyncData) // draw piano with synced repla
 {
 	uint8_t i, note;
 	bool keyDown, newStatus[96];
-	channel_t *ch;
+	syncedChannel_t *ch;
 
 	memset(newStatus, 0, sizeof (newStatus));
 
@@ -2212,7 +2198,7 @@ static void envelopeVertLine(int32_t nr, int16_t x, int16_t y, uint8_t col)
 
 static void writeEnvelope(int32_t nr)
 {
-	bool selected;
+	uint8_t selected;
 	int16_t i, x, y, lx, ly, nd, sp, ls, le, (*curEnvP)[2];
 	instrTyp *ins;
 

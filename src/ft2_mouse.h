@@ -16,11 +16,13 @@ enum
 
 struct mouse_t
 {
+	volatile bool setPosFlag;
 	bool leftButtonPressed, rightButtonPressed, leftButtonReleased, rightButtonReleased;
 	bool firstTimePressingButton, mouseOverTextBox;
 	int8_t buttonCounter, mode;
 	int16_t lastUsedObjectID, lastUsedObjectType, lastEditBox, x, y, lastX, lastY, xBias, yBias;
 	int16_t lastScrollX, lastScrollXTmp, lastScrollY, saveMouseX, saveMouseY;
+	int32_t setPosX, setPosY;
 } mouse;
 
 // do not change these!
@@ -29,6 +31,7 @@ struct mouse_t
 #define MOUSE_GLASS_ANI_FRAMES 22
 #define MOUSE_CLOCK_ANI_FRAMES 5
 
+void setMousePosToCenter(void);
 void setMouseShape(int16_t shape);
 void setMouseMode(uint8_t mode);
 void mouseWheelHandler(bool directionUp);
