@@ -35,8 +35,8 @@ extern const uint16_t amigaFinePeriod[12 * 8];
 extern const uint16_t amigaPeriod[12 * 8];
 
 static int8_t bxxOverflow;
-static int16_t *linearPeriods, *amigaPeriods;
-static uint32_t *logTabScope, *logTab, frequenceDivFactor, frequenceMulFactor;
+static int16_t *linearPeriods, *amigaPeriods, oldPeriod, oldScopePeriod;
+static uint32_t *logTabScope, *logTab, frequenceDivFactor, frequenceMulFactor, oldRate, oldScopeRate;
 static tonTyp nilPatternLine;
 
 /* globally accessed */
@@ -112,7 +112,7 @@ uint8_t setPatternLen(uint16_t nr, int16_t len)
 {
     uint8_t audioWasntLocked;
 
-    MY_ASSERT(nr < MAX_PATTERNS)
+    assert(nr < MAX_PATTERNS);
 
     len = CLAMP(len, 1, MAX_PATT_LEN);
     if (len == pattLens[nr])
@@ -139,8 +139,8 @@ uint8_t setPatternLen(uint16_t nr, int16_t len)
         if (audioWasntLocked)
             unlockAudio();
 
-        editor.updatePatternEditor = true;
-        editor.updatePosSections   = true;
+        editor.ui.updatePatternEditor = true;
+        editor.ui.updatePosSections   = true;
 
         return (true);
     }
@@ -181,8 +181,8 @@ uint8_t setPatternLen(uint16_t nr, int16_t len)
     if (audioWasntLocked)
         unlockAudio();
 
-    editor.updatePatternEditor = true;
-    editor.updatePosSections   = true;
+    editor.ui.updatePatternEditor = true;
+    editor.ui.updatePosSections   = true;
 
     return (true);
 }
@@ -261,7 +261,7 @@ void setFrqTab(uint8_t linear)
     }
 
     /* update frequency type radiobutton if it's shown */
-    if (editor.ui.configScreenShown && (editor.currentConfigScreen == CONFIG_SCREEN_IO_DEVICES))
+    if (editor.ui.configScreenShown && (editor.currConfigScreen == CONFIG_SCREEN_IO_DEVICES))
         setConfigIORadioButtonStates();
 }
 
@@ -286,7 +286,7 @@ static void retrigEnvelopeVibrato(stmTyp *ch)
     ch->envSustainActive = true;
 
     ins = ch->instrPtr;
-    MY_ASSERT(ins != NULL)
+    assert(ins != NULL);
 
     if (ins->envVTyp & 1)
     {
@@ -303,11 +303,11 @@ static void retrigEnvelopeVibrato(stmTyp *ch)
     ch->fadeOutSpeed = ins->fadeOut; /* FT2 doesn't check if fadeout is more than 4095 */
     ch->fadeOutAmp   = 32768;
 
-    if (ins->vibDepth != 0)
+    if (ins->vibDepth > 0)
     {
         ch->eVibPos = 0;
 
-        if (ins->vibSweep != 0)
+        if (ins->vibSweep > 0)
         {
             ch->eVibAmp   = 0;
             ch->eVibSweep = (ins->vibDepth << 8) / ins->vibSweep;
@@ -327,7 +327,7 @@ void keyOff(stmTyp *ch)
     ch->envSustainActive = false;
 
     ins = ch->instrPtr;
-    MY_ASSERT(ins != NULL)
+    assert(ins != NULL);
 
     if (!(ins->envPTyp & 1)) /* yes, FT2 does this (!) */
     {
@@ -351,7 +351,7 @@ void keyOff(stmTyp *ch)
 /* 100% FT2-accurate routine, do not touch! */
 void calcReplayRate(uint32_t rate)
 {
-    MY_ASSERT(rate > 0)
+    assert(rate > 0);
 
     /* for voice delta calculation */
     frequenceDivFactor = (uint32_t)(round(65536.0 *  1712.0 / rate * 8363.0));
@@ -369,7 +369,10 @@ uint32_t getFrequenceValue(uint16_t period)
     uint32_t rate;
 
     if (period == 0)
-        return (0); /* no need to waste cycles on 64-bit stuff if we know the result */
+        return (0);
+
+    if (period == oldPeriod)
+        return (oldRate); /* added check: prevent this calculation if it would yield the same */
 
     if (linearFrqTab)
     {
@@ -386,6 +389,9 @@ uint32_t getFrequenceValue(uint16_t period)
         rate = frequenceDivFactor / period;
     }
 
+    oldPeriod = period;
+    oldRate   = rate;
+
     return (rate);
 }
 
@@ -398,6 +404,9 @@ uint32_t getFrequenceValueScope(uint16_t period)
 
     if (period == 0)
         return (0);
+
+    if (period == oldScopePeriod)
+        return (oldScopeRate); /* prevent this calculation if it would yield the same */
 
     if (linearFrqTab)
     {
@@ -413,7 +422,16 @@ uint32_t getFrequenceValueScope(uint16_t period)
         rate = (1712 * 8363) / period;
     }
 
+    oldScopePeriod = period;
+    oldScopeRate   = rate;
+
     return (rate);
+}
+
+void resetOldRates(void)
+{
+    oldPeriod = oldScopePeriod = 0;
+    oldRate   = oldScopeRate   = 0;
 }
 
 static void startTone(uint8_t ton, uint8_t effTyp, uint8_t eff, stmTyp *ch)
@@ -423,32 +441,29 @@ static void startTone(uint8_t ton, uint8_t effTyp, uint8_t eff, stmTyp *ch)
     sampleTyp *s;
     instrTyp *ins;
 
-    /* no idea if this EVER triggers... */
     if (ton == 97)
     {
         keyOff(ch);
         return;
     }
-    /* -------------------------------- */
 
     /* if we came from Rxy (retrig), we didn't check note (Ton) yet */
     if (ton == 0)
     {
         ton = ch->tonNr;
-        if (ton == 0) return; /* if still no note, return. */
+        if (ton == 0)
+            return; /* if still no note, exit from routine */
     }
-    /* ------------------------------------------------------------ */
 
     ch->tonNr = ton;
 
-    MY_ASSERT(ch->instrNr < (1 + MAX_INST + 1))
+    assert(ch->instrNr < (1 + MAX_INST + 1));
 
     ins = &instr[ch->instrNr];
     ch->instrPtr = ins;
-
     ch->mute = ins->mute;
 
-    if (ton > 96) /* non-FT2 security check */
+    if (ton > 96) /* non-FT2 security (should never happen because I clamp in the patt loaders now) */
         ton = 96;
 
     smp = ins->ta[ton - 1] & 0x0F;
@@ -456,7 +471,6 @@ static void startTone(uint8_t ton, uint8_t effTyp, uint8_t eff, stmTyp *ch)
 
     s = &ins->samp[smp];
     ch->smpPtr = s;
-
     ch->relTonNr = s->relTon;
 
     ton += ch->relTonNr;
@@ -474,9 +488,9 @@ static void startTone(uint8_t ton, uint8_t effTyp, uint8_t eff, stmTyp *ch)
     if (ton > 0)
     {
         tmpTon = ((ton - 1) * 16) + (((ch->fineTune >> 3) + 16) & 0xFF);
-        if (tmpTon < MAX_NOTES) /* should never happen, but FT2 does this check */
+        if (tmpTon < MAX_NOTES) /* should always happen, but FT2 does this check */
         {
-            MY_ASSERT(note2Period != NULL)
+            assert(note2Period != NULL);
             ch->realPeriod = note2Period[tmpTon];
 
             ch->outPeriod       = ch->realPeriod;
@@ -502,7 +516,6 @@ static void startTone(uint8_t ton, uint8_t effTyp, uint8_t eff, stmTyp *ch)
 
 static void multiRetrig(stmTyp *ch)
 {
-    int8_t cmd;
     uint8_t cnt;
     int16_t vol;
 
@@ -516,78 +529,26 @@ static void multiRetrig(stmTyp *ch)
     ch->retrigCnt = 0;
 
     vol = ch->realVol;
-    cmd = ch->retrigVol;
-
-    /* 0x00 and 0x08 are not handled, ignore them */
-
-    if (cmd == 0x01)
+    switch (ch->retrigVol)
     {
-        vol -= 1;
-        if (vol < 0) vol = 0;
+        case 0x1: vol -= 1; break;
+        case 0x2: vol -= 2; break;
+        case 0x3: vol -= 4; break;
+        case 0x4: vol -= 8; break;
+        case 0x5: vol -= 16; break;
+        case 0x6: vol = (vol >> 1) + (vol >> 3) + (vol >> 4); break;
+        case 0x7: vol >>= 1; break;
+        case 0x8: break; /* does not change the volume */
+        case 0x9: vol += 1; break;
+        case 0xA: vol += 2; break;
+        case 0xB: vol += 4; break;
+        case 0xC: vol += 8; break;
+        case 0xD: vol += 16; break;
+        case 0xE: vol = (vol >> 1) + vol; break;
+        case 0xF: vol += vol; break;
+        default: break;
     }
-    else if (cmd == 0x02)
-    {
-        vol -= 2;
-        if (vol < 0) vol = 0;
-    }
-    else if (cmd == 0x03)
-    {
-        vol -= 4;
-        if (vol < 0) vol = 0;
-    }
-    else if (cmd == 0x04)
-    {
-        vol -= 8;
-        if (vol < 0) vol = 0;
-    }
-    else if (cmd == 0x05)
-    {
-        vol -= 16;
-        if (vol < 0) vol = 0;
-    }
-    else if (cmd == 0x06)
-    {
-        vol = (vol >> 1) + (vol >> 3) + (vol >> 4);
-    }
-    else if (cmd == 0x07)
-    {
-        vol >>= 1;
-    }
-    else if (cmd == 0x09)
-    {
-        vol += 1;
-        if (vol > 64) vol = 64;
-    }
-    else if (cmd == 0x0A)
-    {
-        vol += 2;
-        if (vol > 64) vol = 64;
-    }
-    else if (cmd == 0x0B)
-    {
-        vol += 4;
-        if (vol > 64) vol = 64;
-    }
-    else if (cmd == 0x0C)
-    {
-        vol += 8;
-        if (vol > 64) vol = 64;
-    }
-    else if (cmd == 0x0D)
-    {
-        vol += 16;
-        if (vol > 64) vol = 64;
-    }
-    else if (cmd == 0x0E)
-    {
-        vol = (vol >> 1) + vol;
-        if (vol > 64) vol = 64;
-    }
-    else if (cmd == 0x0F)
-    {
-        vol += vol;
-        if (vol > 64) vol = 64;
-    }
+    vol = CLAMP(vol, 0, 64);
 
     ch->realVol = (uint8_t)(vol);
     ch->outVol  = ch->realVol;
@@ -614,7 +575,7 @@ static void checkMoreEffects(stmTyp *ch) /* called even if channel is muted */
     instrTyp *ins;
 
     ins = ch->instrPtr;
-    MY_ASSERT(ins != NULL)
+    assert(ins != NULL);
 
     /* Bxx - position jump */
     if (ch->effTyp == 11)
@@ -657,19 +618,18 @@ static void checkMoreEffects(stmTyp *ch) /* called even if channel is muted */
                 }
                 else
                 {
-                    if (!ch->loopCnt)
+                    if (ch->loopCnt == 0)
                     {
                         ch->loopCnt = ch->eff & 0x0F;
 
-                        song.pBreakPos = ch->pattPos;
+                        song.pBreakPos  = ch->pattPos;
                         song.pBreakFlag = 1;
                     }
                     else
                     {
-                        ch->loopCnt--;
-                        if (ch->loopCnt)
+                        if (--ch->loopCnt > 0)
                         {
-                            song.pBreakPos = ch->pattPos;
+                            song.pBreakPos  = ch->pattPos;
                             song.pBreakFlag = 1;
                         }
                     }
@@ -679,7 +639,7 @@ static void checkMoreEffects(stmTyp *ch) /* called even if channel is muted */
             /* EEx - pattern delay */
             else if ((ch->eff & 0xF0) == 0xE0)
             {
-                if (!song.pattDelTime2)
+                if (song.pattDelTime2 == 0)
                     song.pattDelTime = (ch->eff & 0x0F) + 1;
             }
 
@@ -690,13 +650,14 @@ static void checkMoreEffects(stmTyp *ch) /* called even if channel is muted */
         if ((ch->eff & 0xF0) == 0x10)
         {
             tmpEff = ch->eff & 0x0F;
-            if (!tmpEff)
+            if (tmpEff == 0)
                 tmpEff = ch->fPortaUpSpeed;
 
             ch->fPortaUpSpeed = tmpEff;
 
             ch->realPeriod -= (tmpEff * 4);
-            if (ch->realPeriod < 1) ch->realPeriod = 1;
+            if (ch->realPeriod < 1)
+                ch->realPeriod = 1;
 
             ch->outPeriod = ch->realPeriod;
             ch->status |= IS_Period;
@@ -706,13 +667,14 @@ static void checkMoreEffects(stmTyp *ch) /* called even if channel is muted */
         else if ((ch->eff & 0xF0) == 0x20)
         {
             tmpEff = ch->eff & 0x0F;
-            if (!tmpEff)
+            if (tmpEff == 0)
                 tmpEff = ch->fPortaDownSpeed;
 
             ch->fPortaDownSpeed = tmpEff;
 
             ch->realPeriod += (tmpEff * 4);
-            if (ch->realPeriod > (32000 - 1)) ch->realPeriod = 32000 - 1;
+            if (ch->realPeriod > (32000 - 1))
+                ch->realPeriod =  32000 - 1;
 
             ch->outPeriod = ch->realPeriod;
             ch->status |= IS_Period;
@@ -731,11 +693,11 @@ static void checkMoreEffects(stmTyp *ch) /* called even if channel is muted */
         {
             if (ch->eff == 0x60) /* E60, empty param */
             {
-                ch->pattPos = song.pattPos & 0x00FF;
+                ch->pattPos = song.pattPos & 0xFF;
             }
             else
             {
-                if (!ch->loopCnt)
+                if (ch->loopCnt == 0)
                 {
                     ch->loopCnt = ch->eff & 0x0F;
 
@@ -744,7 +706,7 @@ static void checkMoreEffects(stmTyp *ch) /* called even if channel is muted */
                 }
                 else
                 {
-                    if (--ch->loopCnt)
+                    if (--ch->loopCnt > 0)
                     {
                         song.pBreakPos = ch->pattPos;
                         song.pBreakFlag = true;
@@ -760,7 +722,7 @@ static void checkMoreEffects(stmTyp *ch) /* called even if channel is muted */
         else if ((ch->eff & 0xF0) == 0xA0)
         {
             tmpEff = ch->eff & 0x0F;
-            if (!tmpEff)
+            if (tmpEff == 0)
                 tmpEff = ch->fVolSlideUpSpeed;
 
             ch->fVolSlideUpSpeed = tmpEff;
@@ -779,7 +741,7 @@ static void checkMoreEffects(stmTyp *ch) /* called even if channel is muted */
         else if ((ch->eff & 0xF0) == 0xB0)
         {
             tmpEff = ch->eff & 0x0F;
-            if (!tmpEff)
+            if (tmpEff == 0)
                 tmpEff = ch->fVolSlideDownSpeed;
 
             ch->fVolSlideDownSpeed = tmpEff;
@@ -808,7 +770,7 @@ static void checkMoreEffects(stmTyp *ch) /* called even if channel is muted */
         /* EEx - pattern delay */
         else if ((ch->eff & 0xF0) == 0xE0)
         {
-            if (!song.pattDelTime2)
+            if (song.pattDelTime2 == 0)
                 song.pattDelTime = (ch->eff & 0x0F) + 1;
         }
     }
@@ -832,7 +794,8 @@ static void checkMoreEffects(stmTyp *ch) /* called even if channel is muted */
     else if (ch->effTyp == 16)
     {
         song.globVol = ch->eff;
-        if (song.globVol > 64) song.globVol = 64;
+        if (song.globVol > 64)
+            song.globVol = 64;
 
         for (i = 0; i < song.antChn; ++i)
             stm[i].status |= IS_Vol;
@@ -853,7 +816,7 @@ static void checkMoreEffects(stmTyp *ch) /* called even if channel is muted */
             if (ins->envVPAnt > 1)
             {
                 envPos++;
-                for (i = 0; i < ins->envVPAnt - 1; ++i)
+                for (i = 0; i < (ins->envVPAnt - 1); ++i)
                 {
                     if (newEnvPos < ins->envVP[envPos][0])
                     {
@@ -886,7 +849,8 @@ static void checkMoreEffects(stmTyp *ch) /* called even if channel is muted */
                     envPos++;
                 }
 
-                if (envUpdate) envPos--;
+                if (envUpdate)
+                    envPos--;
             }
 
             if (envUpdate)
@@ -917,7 +881,7 @@ static void checkMoreEffects(stmTyp *ch) /* called even if channel is muted */
             if (ins->envPPAnt > 1)
             {
                 envPos++;
-                for (i = 0; i < ins->envPPAnt - 1; ++i)
+                for (i = 0; i < (ins->envPPAnt - 1); ++i)
                 {
                     if (newEnvPos < ins->envPP[envPos][0])
                     {
@@ -950,7 +914,8 @@ static void checkMoreEffects(stmTyp *ch) /* called even if channel is muted */
                     envPos++;
                 }
 
-                if (envUpdate) envPos--;
+                if (envUpdate)
+                    envPos--;
             }
 
             if (envUpdate)
@@ -1037,9 +1002,7 @@ static void checkEffects(stmTyp *ch)
         ch->status |= IS_Pan;
     }
 
-
     /* *** MAIN EFFECTS (TICK 0) *** */
-
 
     if ((ch->effTyp == 0) && (ch->eff == 0)) return;
 
@@ -1047,7 +1010,8 @@ static void checkEffects(stmTyp *ch)
     if (ch->effTyp == 12)
     {
         ch->realVol = ch->eff;
-        if (ch->realVol > 64) ch->realVol = 64;
+        if (ch->realVol > 64)
+            ch->realVol = 64;
 
         ch->outVol = ch->realVol;
         ch->status |= (IS_Vol + IS_QuickVol);
@@ -1068,13 +1032,13 @@ static void checkEffects(stmTyp *ch)
     else if (ch->effTyp == 27)
     {
         tmpEff = ch->eff & 0x0F;
-        if (!tmpEff)
+        if (tmpEff == 0)
             tmpEff = ch->retrigSpeed;
 
         ch->retrigSpeed = tmpEff;
 
         tmpEffHi = ch->eff >> 4;
-        if (!tmpEffHi)
+        if (tmpEffHi == 0)
             tmpEffHi = ch->retrigVol;
 
         ch->retrigVol = tmpEffHi;
@@ -1089,13 +1053,14 @@ static void checkEffects(stmTyp *ch)
     else if ((ch->effTyp == 33) && ((ch->eff & 0xF0) == 0x10))
     {
         tmpEff = ch->eff & 0x0F;
-        if (!tmpEff)
+        if (tmpEff == 0)
             tmpEff = ch->ePortaUpSpeed;
 
         ch->ePortaUpSpeed = tmpEff;
 
         ch->realPeriod -= tmpEff;
-        if (ch->realPeriod < 1) ch->realPeriod = 1;
+        if (ch->realPeriod < 1)
+            ch->realPeriod = 1;
 
         ch->outPeriod = ch->realPeriod;
         ch->status |= IS_Period;
@@ -1107,13 +1072,14 @@ static void checkEffects(stmTyp *ch)
     else if ((ch->effTyp == 33) && ((ch->eff & 0xF0) == 0x20))
     {
         tmpEff = ch->eff & 0x0F;
-        if (!tmpEff)
+        if (tmpEff == 0)
             tmpEff = ch->ePortaDownSpeed;
 
         ch->ePortaDownSpeed = tmpEff;
 
         ch->realPeriod += tmpEff;
-        if (ch->realPeriod > (32000 - 1)) ch->realPeriod = 32000 - 1;
+        if (ch->realPeriod > (32000 - 1))
+            ch->realPeriod =  32000 - 1;
 
         ch->outPeriod = ch->realPeriod;
         ch->status |= IS_Period;
@@ -1128,7 +1094,7 @@ static void fixTonePorta(stmTyp *ch, tonTyp *p, uint8_t inst)
 {
     uint16_t portaTmp;
 
-    if (p->ton)
+    if (p->ton > 0)
     {
         if (p->ton == 97)
         {
@@ -1136,12 +1102,10 @@ static void fixTonePorta(stmTyp *ch, tonTyp *p, uint8_t inst)
         }
         else
         {
-            portaTmp = ((((p->ton - 1) + ch->relTonNr) & 0x00FF) * 16) + (((ch->fineTune >> 3) + 16) & 0x00FF);
-
+            portaTmp = ((((p->ton - 1) + ch->relTonNr) & 0xFF) * 16) + (((ch->fineTune >> 3) + 16) & 0xFF);
             if (portaTmp < MAX_NOTES)
             {
-                MY_ASSERT(note2Period != NULL)
-
+                assert(note2Period != NULL);
                 ch->wantPeriod = note2Period[portaTmp];
 
                      if (ch->wantPeriod == ch->realPeriod) ch->portaDir = 0;
@@ -1151,7 +1115,7 @@ static void fixTonePorta(stmTyp *ch, tonTyp *p, uint8_t inst)
         }
     }
 
-    if (inst)
+    if (inst > 0)
     {
         retrigVolume(ch);
 
@@ -1168,9 +1132,9 @@ static void getNewNote(stmTyp *ch, tonTyp *p)
 
     ch->volKolVol = p->vol;
 
-    if (!ch->effTyp)
+    if (ch->effTyp == 0)
     {
-        if (ch->eff)
+        if (ch->eff > 0)
         {
             /* we have an arpeggio running, set period back */
             ch->outPeriod = ch->realPeriod;
@@ -1203,7 +1167,7 @@ static void getNewNote(stmTyp *ch, tonTyp *p)
 
     /* 'inst' var is used for later if checks... */
     inst = p->instr;
-    if (inst)
+    if (inst > 0)
     {
         if (inst <= 128)
             ch->instrNr = inst;
@@ -1224,11 +1188,10 @@ static void getNewNote(stmTyp *ch, tonTyp *p)
     {
         if ((ch->volKolVol & 0xF0) == 0xF0) /* gxx */
         {
-            if (ch->volKolVol & 0x0F)
+            if ((ch->volKolVol & 0x0F) > 0)
                 ch->portaSpeed = (ch->volKolVol & 0x0F) << 6;
 
             fixTonePorta(ch, p, inst);
-
             checkEffects(ch);
 
             return;
@@ -1240,7 +1203,6 @@ static void getNewNote(stmTyp *ch, tonTyp *p)
                 ch->portaSpeed = p->eff << 2;
 
             fixTonePorta(ch, p, inst);
-
             checkEffects(ch);
 
             return;
@@ -1257,9 +1219,9 @@ static void getNewNote(stmTyp *ch, tonTyp *p)
             return;
         }
 
-        if (!p->ton)
+        if (p->ton == 0)
         {
-            if (inst)
+            if (inst > 0)
             {
                 retrigVolume(ch);
                 retrigEnvelopeVibrato(ch);
@@ -1275,7 +1237,7 @@ static void getNewNote(stmTyp *ch, tonTyp *p)
     else
         startTone(p->ton, p->effTyp, p->eff, ch);
 
-    if (inst)
+    if (inst > 0)
     {
         retrigVolume(ch);
 
@@ -1297,7 +1259,7 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 
     ins = ch->instrPtr;
 
-    MY_ASSERT(ins != NULL)
+    assert(ins != NULL);
 
     /* *** FADEOUT *** */
     if (!ch->envSustainActive)
@@ -1500,7 +1462,8 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 
         /* panning calculated exactly like FT2 */
         panTmp = ch->outPan - 128;
-        if (panTmp > 0) panTmp = 0 - panTmp;
+        if (panTmp > 0)
+            panTmp = 0 - panTmp;
         panTmp += 128;
 
         envVal -= (32 * 256);
@@ -1514,9 +1477,9 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
     }
 
     /* *** AUTO VIBRATO *** */
-    if ((ch->midiVibDepth != 0) || (ins->vibDepth != 0))
+    if ((ch->midiVibDepth > 0) || (ins->vibDepth > 0))
     {
-        if (ch->eVibSweep != 0)
+        if (ch->eVibSweep > 0)
         {
             autoVibAmp = ch->eVibSweep;
             if (ch->envSustainActive)
@@ -1524,7 +1487,7 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
                 autoVibAmp += ch->eVibAmp;
                 if ((autoVibAmp >> 8) > ins->vibDepth)
                 {
-                    autoVibAmp    = ins->vibDepth << 8;
+                    autoVibAmp = ins->vibDepth << 8;
                     ch->eVibSweep = 0;
                 }
 
@@ -1537,7 +1500,7 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
         }
 
         /* non-FT2 hack to make modulation wheel work when auto vibrato rate is zero */
-        if ((ch->midiVibDepth != 0) && (ins->vibRate == 0))
+        if ((ch->midiVibDepth > 0) && (ins->vibRate == 0))
             ins->vibRate = 0x20;
 
         autoVibAmp += ch->midiVibDepth;
@@ -1564,16 +1527,15 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 
         tmp32 = ((autoVibVal * (signed)(autoVibAmp)) >> 16) & 0x8000FFFF;
         tmpPeriod = ch->outPeriod + (int16_t)(tmp32);
-        if (tmpPeriod > (32000 - 1)) tmpPeriod = 0; /* yes, FT2 zeroes it out */
-        tmpPeriod -= ch->midiPitch;
+        if (tmpPeriod > (32000 - 1))
+            tmpPeriod = 0;
 
-        ch->finalPeriod = tmpPeriod;
+        ch->finalPeriod = tmpPeriod - ch->midiPitch;
         ch->status |= IS_Period;
     }
     else
     {
         ch->finalPeriod = ch->outPeriod;
-
         if (midi.enable)
         {
             ch->finalPeriod -= ch->midiPitch;
@@ -1619,7 +1581,7 @@ int16_t relocateTon(int16_t period, int8_t relativeNote, stmTyp *ch)
 
 static void tonePorta(stmTyp *ch)
 {
-    if (ch->portaDir)
+    if (ch->portaDir > 0)
     {
         if (ch->portaDir > 1)
         {
@@ -1654,12 +1616,12 @@ static void volume(stmTyp *ch) /* actually volume slide */
     uint8_t tmpEff;
 
     tmpEff = ch->eff;
-    if (!tmpEff)
+    if (tmpEff == 0)
         tmpEff = ch->volSlideSpeed;
 
     ch->volSlideSpeed = tmpEff;
 
-    if (!(tmpEff & 0xF0))
+    if ((tmpEff & 0xF0) == 0)
     {
         /* unsigned clamp */
         if (ch->realVol >= tmpEff)
@@ -1689,11 +1651,7 @@ static void vibrato2(stmTyp *ch)
     switch (ch->waveCtrl & 0x03)
     {
         /* 0: sine */
-        case 0:
-        {
-            tmpVib = vibTab[tmpVib];
-        }
-        break;
+        case 0: tmpVib = vibTab[tmpVib]; break;
 
         /* 1: ramp */
         case 1:
@@ -1705,11 +1663,7 @@ static void vibrato2(stmTyp *ch)
         break;
 
         /* 2/3: square */
-        default:
-        {
-            tmpVib = 255;
-        }
-        break;
+        default: tmpVib = 255; break;
     }
 
     tmpVib = (tmpVib * ch->vibDepth) / 32;
@@ -1725,10 +1679,10 @@ static void vibrato2(stmTyp *ch)
 
 static void vibrato(stmTyp *ch)
 {
-    if (ch->eff)
+    if (ch->eff > 0)
     {
-        if (ch->eff & 0x0F) ch->vibDepth = ch->eff & 0x0F;
-        if (ch->eff & 0xF0) ch->vibSpeed = (ch->eff >> 4) * 4;
+        if ((ch->eff & 0x0F) > 0) ch->vibDepth = ch->eff & 0x0F;
+        if ((ch->eff & 0xF0) > 0) ch->vibSpeed = (ch->eff >> 4) * 4;
     }
 
     vibrato2(ch);
@@ -1828,7 +1782,7 @@ static void doEffects(stmTyp *ch)
         ** but you'd need to hexedit the initial speed to get >31
         */
 
-        if (!tick)
+        if (tick == 0)
         {
             ch->outPeriod = ch->realPeriod;
         }
@@ -1847,7 +1801,7 @@ static void doEffects(stmTyp *ch)
     else if (ch->effTyp == 1)
     {
         tmpEff = ch->eff;
-        if (!tmpEff)
+        if (tmpEff == 0)
             tmpEff = ch->portaUpSpeed;
 
         ch->portaUpSpeed = tmpEff;
@@ -1864,13 +1818,14 @@ static void doEffects(stmTyp *ch)
     else if (ch->effTyp == 2)
     {
         tmpEff = ch->eff;
-        if (!tmpEff)
+        if (tmpEff == 0)
             tmpEff = ch->portaDownSpeed;
 
         ch->portaDownSpeed = tmpEff;
 
         ch->realPeriod += (tmpEff * 4);
-        if (ch->realPeriod > (32000 - 1)) ch->realPeriod = 32000 - 1;
+        if (ch->realPeriod > (32000 - 1))
+            ch->realPeriod =  32000 - 1;
 
         ch->outPeriod = ch->realPeriod;
         ch->status   |= IS_Period;
@@ -1900,10 +1855,10 @@ static void doEffects(stmTyp *ch)
     else if (ch->effTyp == 7)
     {
         tmpEff = ch->eff;
-        if (tmpEff)
+        if (tmpEff > 0)
         {
-            if (tmpEff & 0x0F) ch->tremDepth = tmpEff & 0x0F;
-            if (tmpEff & 0xF0) ch->tremSpeed = (tmpEff >> 4) * 4;
+            if ((tmpEff & 0x0F) > 0) ch->tremDepth = tmpEff & 0x0F;
+            if ((tmpEff & 0xF0) > 0) ch->tremSpeed = (tmpEff >> 4) * 4;
         }
 
         tmpTrem = (ch->tremPos / 4) & 0x1F;
@@ -1911,11 +1866,7 @@ static void doEffects(stmTyp *ch)
         switch ((ch->waveCtrl >> 4) & 3)
         {
             /* 0: sine */
-            case 0:
-            {
-                tmpTrem = vibTab[tmpTrem];
-            }
-            break;
+            case 0: tmpTrem = vibTab[tmpTrem]; break;
 
             /* 1: ramp */
             case 1:
@@ -1926,11 +1877,7 @@ static void doEffects(stmTyp *ch)
             break;
 
             /* 2/3: square */
-            default:
-            {
-                tmpTrem = 255;
-            }
-            break;
+            default: tmpTrem = 255; break;
         }
 
         tmpTrem = (tmpTrem * ch->tremDepth) / 64;
@@ -1938,18 +1885,18 @@ static void doEffects(stmTyp *ch)
         if (ch->tremPos >= 128)
         {
             tremVol = ch->realVol - tmpTrem;
-            if (tremVol < 0) tremVol = 0;
+            if (tremVol < 0)
+                tremVol = 0;
         }
         else
         {
             tremVol = ch->realVol + tmpTrem;
-            if (tremVol > 64) tremVol = 64;
+            if (tremVol > 64)
+                tremVol = 64;
         }
 
-        ch->outVol = tremVol & 0x00FF;
-
+        ch->outVol = tremVol & 0xFF;
         ch->tremPos += ch->tremSpeed;
-
         ch->status |= IS_Vol;
     }
 
@@ -1964,7 +1911,7 @@ static void doEffects(stmTyp *ch)
         {
             if (ch->eff != 0x90) /* E90 is handled in getNewNote() */
             {
-                if (!((song.tempo - song.timer) % (ch->eff & 0x0F)))
+                if (((song.tempo - song.timer) % (ch->eff & 0x0F)) == 0)
                 {
                     startTone(0, 0, 0, ch);
                     retrigEnvelopeVibrato(ch);
@@ -1975,7 +1922,7 @@ static void doEffects(stmTyp *ch)
         /* ECx - note cut */
         else if ((ch->eff & 0xF0) == 0xC0)
         {
-            if (((song.tempo - song.timer) & 0x00FF) == (ch->eff & 0x0F))
+            if (((song.tempo - song.timer) & 0xFF) == (ch->eff & 0x0F))
             {
                 ch->outVol  = 0;
                 ch->realVol = 0;
@@ -1986,11 +1933,11 @@ static void doEffects(stmTyp *ch)
         /* EDx - note delay */
         else if ((ch->eff & 0xF0) == 0xD0)
         {
-            if (((song.tempo - song.timer) & 0x00FF) == (ch->eff & 0x0F))
+            if (((song.tempo - song.timer) & 0xFF) == (ch->eff & 0x0F))
             {
-                startTone(ch->tonTyp & 0x00FF, 0, 0, ch);
+                startTone(ch->tonTyp & 0xFF, 0, 0, ch);
 
-                if (ch->tonTyp & 0xFF00)
+                if ((ch->tonTyp & 0xFF00) > 0)
                     retrigVolume(ch);
 
                 retrigEnvelopeVibrato(ch);
@@ -2012,12 +1959,12 @@ static void doEffects(stmTyp *ch)
     else if (ch->effTyp == 17)
     {
         tmpEff = ch->eff;
-        if (!tmpEff)
+        if (tmpEff == 0)
             tmpEff = ch->globVolSlideSpeed;
 
         ch->globVolSlideSpeed = tmpEff;
 
-        if (!(tmpEff & 0xF0))
+        if ((tmpEff & 0xF0) == 0)
         {
             /* unsigned clamp */
             if (song.globVol >= tmpEff)
@@ -2049,7 +1996,7 @@ static void doEffects(stmTyp *ch)
     else if (ch->effTyp == 25)
     {
         tmpEff = ch->eff;
-        if (!tmpEff)
+        if (tmpEff == 0)
             tmpEff = ch->panningSlideSpeed;
 
         ch->panningSlideSpeed = tmpEff;
@@ -2083,7 +2030,7 @@ static void doEffects(stmTyp *ch)
     else if (ch->effTyp == 29)
     {
         tmpEff = ch->eff;
-        if (!tmpEff)
+        if (tmpEff == 0)
             tmpEff = ch->tremorSave;
 
         ch->tremorSave = tmpEff;
@@ -2092,7 +2039,7 @@ static void doEffects(stmTyp *ch)
         tremorData = ch->tremorPos & 0x7F;
 
         tremorData--;
-        if (tremorData & 0x80)
+        if ((tremorData & 0x80) > 0)
         {
             if (tremorSign == 0x80)
             {
@@ -2159,7 +2106,7 @@ static void getNextPos(void)
                     }
                 }
 
-                MY_ASSERT(song.songPos <= 255)
+                assert(song.songPos <= 255);
 
                 song.pattNr  = song.songTab[song.songPos & 0xFF];
                 song.pattLen = pattLens[song.pattNr & 0xFF];
@@ -2219,7 +2166,7 @@ void mainPlayer(void) /* periodically called from audio callback */
 
         if (readNewNote)
         {
-            if (!song.pattDelTime2)
+            if (song.pattDelTime2 == 0)
             {
                 for (i = 0; i < song.antChn; ++i)
                 {
@@ -2284,7 +2231,7 @@ void setPos(int16_t songPos, int16_t pattPos)
             song.songPos = song.len - 1;
 
         song.pattNr = song.songTab[songPos];
-        MY_ASSERT(song.pattNr < MAX_PATTERNS)
+        assert(song.pattNr < MAX_PATTERNS);
         song.pattLen = pattLens[song.pattNr];
 
         checkMarkLimits(); /* non-FT2 safety */
@@ -2303,14 +2250,14 @@ void setPos(int16_t songPos, int16_t pattPos)
         if (pattPos > -1)
         {
             editor.pattPos = (uint8_t)(pattPos);
-            editor.updatePatternEditor = true;
+            editor.ui.updatePatternEditor = true;
         }
 
         if (songPos > -1)
         {
             editor.editPattern = (uint8_t)(song.pattNr);
             editor.songPos = song.songPos;
-            editor.updatePosSections = true;
+            editor.ui.updatePosSections = true;
         }
     }
 
@@ -2479,7 +2426,7 @@ void setStdEnvelope(uint16_t nr, uint16_t i, uint8_t typ)
 
     pauseMusic();
 
-    MY_ASSERT((nr < (1 + MAX_INST + 1)) && (i <= 5))
+    assert((nr < (1 + MAX_INST + 1)) && (i <= 5));
 
     ins = &instr[nr];
 
@@ -2521,7 +2468,7 @@ void setStdEnvelope(uint16_t nr, uint16_t i, uint8_t typ)
 
 void clearInstr(uint8_t i)
 {
-    MY_ASSERT(i < (1 + MAX_INST + 1))
+    assert(i < (1 + MAX_INST + 1));
 
     freeSamples(i);
 
@@ -2567,7 +2514,7 @@ void updateChanNums(void)
 {
     uint8_t pageLen;
 
-    MY_ASSERT(!(song.antChn & 1))
+    assert(!(song.antChn & 1));
 
     pageLen = 8;
     if (config.ptnS3M)
@@ -2621,7 +2568,6 @@ void updateChanNums(void)
     }
 
     editor.ui.pattChanScrollShown = song.antChn > getMaxVisibleChannels();
-    editor.patternMode = (4 * editor.ui.extended) + (2 * config.ptnUnpressed) + editor.ui.pattChanScrollShown;
 
     if (editor.ui.patternEditorShown)
     {
@@ -2855,7 +2801,7 @@ void startPlaying(int8_t mode, int16_t row)
 {
     lockMixerCallback();
 
-    MY_ASSERT((mode != PLAYMODE_IDLE) && (mode != PLAYMODE_EDIT))
+    assert((mode != PLAYMODE_IDLE) && (mode != PLAYMODE_EDIT));
 
     if ((mode == PLAYMODE_PATT) || (mode == PLAYMODE_RECPATT))
         setPos(-1, row);
@@ -2873,8 +2819,8 @@ void startPlaying(int8_t mode, int16_t row)
 
     unlockMixerCallback();
 
-    editor.updatePosSections   = true;
-    editor.updatePatternEditor = true;
+    editor.ui.updatePosSections   = true;
+    editor.ui.updatePatternEditor = true;
 }
 
 void stopPlaying(void)
@@ -2910,13 +2856,13 @@ void stopPlaying(void)
 
     memset(editor.keyOnTab, 0, sizeof (editor.keyOnTab));
 
-    editor.updatePosSections   = true;
-    editor.updatePatternEditor = true;
+    editor.ui.updatePosSections   = true;
+    editor.ui.updatePatternEditor = true;
 
     /* certain non-FT2 fixes */
     song.timer = editor.timer = 1;
     song.globVol = editor.globalVol = 64;
-    editor.drawGlobVolFlag = true;
+    editor.ui.drawGlobVolFlag = true;
 }
 
 /* from keyboard/smp. ed. */
@@ -2928,7 +2874,7 @@ void playTone(uint8_t stmm, uint8_t inst, uint8_t ton, int8_t vol, uint16_t midi
 
     editor.samplePlayOffset = 0;
 
-    MY_ASSERT((stmm < MAX_VOICES) && (inst < MAX_INST) && (ton <= 97))
+    assert((stmm < MAX_VOICES) && (inst < MAX_INST) && (ton <= 97));
     ch = &stm[stmm];
 
     if (ton != 97)
@@ -2992,7 +2938,7 @@ void playSample(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t
     int16_t oldCurInstr;
     stmTyp *ch;
 
-    MY_ASSERT((stmm < MAX_VOICES) && (inst < MAX_INST) && (smpNr < MAX_SMP_PER_INST) && (ton <= 97))
+    assert((stmm < MAX_VOICES) && (inst < MAX_INST) && (smpNr < MAX_SMP_PER_INST) && (ton <= 97));
     ch = &stm[stmm];
 
     pauseMusic();
@@ -3049,7 +2995,7 @@ void playRange(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t 
     stmTyp *ch;
     sampleTyp *s;
 
-    MY_ASSERT((stmm < MAX_VOICES) && (inst < MAX_INST) && (smpNr < MAX_SMP_PER_INST) && (ton <= 97))
+    assert((stmm < MAX_VOICES) && (inst < MAX_INST) && (smpNr < MAX_SMP_PER_INST) && (ton <= 97));
 
     pauseMusic();
     editor.curSmpChannel = 255;
@@ -3154,6 +3100,7 @@ void stopVoices(void)
 
     stopAllScopes();
     resetDitherSeed();
+    resetOldRates();
 
     /* wait for scope thread to finish, so that we know pointers aren't deprecated */
     while (editor.scopeThreadMutex);
@@ -3327,7 +3274,7 @@ void setSyncedReplayerVars(void)
     if (chSyncEntry != NULL)
     {
         handleScopesFromChQueue(chSyncEntry, scopeUpdateStatus);
-        editor.drawReplayerPianoFlag = true;
+        editor.ui.drawReplayerPianoFlag = true;
     }
 
     if (songPlaying)
@@ -3341,25 +3288,25 @@ void setSyncedReplayerVars(void)
             if (editor.speed != pattSyncEntry->speed)
             {
                 editor.speed = pattSyncEntry->speed;
-                editor.drawBPMFlag = true;
+                editor.ui.drawBPMFlag = true;
             }
 
             if (editor.tempo != pattSyncEntry->tempo)
             {
                 editor.tempo = pattSyncEntry->tempo;
-                editor.drawSpeedFlag = true;
+                editor.ui.drawSpeedFlag = true;
             }
 
             if (editor.globalVol != pattSyncEntry->globalVol)
             {
                 editor.globalVol = pattSyncEntry->globalVol;
-                editor.drawGlobVolFlag = true;
+                editor.ui.drawGlobVolFlag = true;
             }
 
             if (editor.songPos != pattSyncEntry->songPos)
             {
                 editor.songPos = pattSyncEntry->songPos;
-                editor.drawPosEdFlag = true;
+                editor.ui.drawPosEdFlag = true;
             }
 
             /* somewhat of a kludge... */
@@ -3368,11 +3315,11 @@ void setSyncedReplayerVars(void)
                 /* set pattern number */
                 editor.editPattern = editor.tmpPattern = pattSyncEntry->pattern;
                 checkMarkLimits();
-                editor.drawPattNumLenFlag = true;
+                editor.ui.drawPattNumLenFlag = true;
 
                 /* set row */
                 editor.pattPos = (uint8_t)(pattSyncEntry->patternPos);
-                editor.updatePatternEditor = true;
+                editor.ui.updatePatternEditor = true;
             }
         }
     }

@@ -242,7 +242,7 @@ static void highScoreTextOutClipX(uint16_t x, uint16_t y, uint8_t paletteIndex, 
     char ch;
     uint16_t i, currX;
 
-    MY_ASSERT(textPtr != NULL)
+    assert(textPtr != NULL);
 
     currX = x;
     for (i = 0; i < 22; ++i)
@@ -365,7 +365,7 @@ static uint8_t nibblesInvalid(int16_t x, int16_t y, int16_t d)
         }
     }
 
-    MY_ASSERT((x >= 0) && (x < 51) && (y >= 0) && (y < 23))
+    assert((x >= 0) && (x < 51) && (y >= 0) && (y < 23));
     return (((NI_Screen[x][y] >= 1) && (NI_Screen[x][y] <= 15)));
 }
 
@@ -376,14 +376,14 @@ static void drawScoresLives(void)
     /* player 1 */
     hexOutBg(89, 27, PAL_FORGRND, PAL_DESKTOP, NI_P1Score, 8);
 
-    MY_ASSERT(NI_P1Lives < 100)
+    assert(NI_P1Lives < 100);
     sprintf(str, "%02d", NI_P1Lives);
     textOutFixed(131, 39, PAL_FORGRND, PAL_DESKTOP, str);
 
     /* player 2 */
     hexOutBg(89, 75, PAL_FORGRND, PAL_DESKTOP, NI_P2Score, 8);
 
-    MY_ASSERT(NI_P2Lives < 100)
+    assert(NI_P2Lives < 100);
     sprintf(str, "%02d", NI_P2Lives);
     textOutFixed(131, 87, PAL_FORGRND, PAL_DESKTOP, str);
 }
@@ -530,7 +530,7 @@ void moveNibblePlayers(void)
 {
     int16_t i, j;
 
-    if (editor.ui.systemRequestShown)
+    if (editor.ui.sysReqShown)
         return;
 
     if (--NI_CurTick60Hz != 0)
@@ -811,7 +811,7 @@ void nibblesPlay(void)
         return;
     }
 
-    MY_ASSERT(config.NI_Speed < 4)
+    assert(config.NI_Speed < 4);
     NI_CurSpeed = NI_Speeds[config.NI_Speed];
 
     /* adjust for 70Hz -> 60Hz frames */
@@ -969,7 +969,7 @@ uint8_t testNibblesCheatCodes(SDL_Keycode keycode)
     /* nibbles cheat codes can only be typed in while holding down left SHIFT+CTRL+ALT */
     if (keyb.leftShiftPressed && keyb.leftCtrlPressed && keyb.leftAltPressed)
     {
-        if (editor.ui.systemRequestShown)
+        if (editor.ui.sysReqShown)
             return (true); /* don't allow cheat input while a system request is shown */
 
         if (editor.NI_Play)

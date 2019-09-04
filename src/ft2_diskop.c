@@ -388,9 +388,6 @@ static void openDrive(char *str) /* Windows only */
 
     if ((str == NULL) || (*str == '\0'))
     {
-#ifdef _DEBUG
-        __debugbreak();
-#endif
         okBox(0, "System message", "Couldn't open drive!");
         return;
     }
@@ -503,9 +500,6 @@ static void openDirectory(UNICHAR *strU)
 {
     if ((strU == NULL) || (UNICHAR_STRLEN(strU) == 0))
     {
-#ifdef _DEBUG
-        __debugbreak();
-#endif
         okBox(0, "System message", "Couldn't open directory! No permission or in use?");
         return;
     }
@@ -1510,12 +1504,7 @@ static int8_t swapBufferEntry(int32_t a, int32_t b) /* used for sorting */
     DirRec tmpBuffer;
 
     if ((a >= FReq_FileCount) || (b >= FReq_FileCount))
-    {
-#ifdef _DEBUG
-        __debugbreak();
-#endif
         return (false);
-    }
 
     memcpy(&tmpBuffer,      &FReq_Buffer[a], sizeof (DirRec));
     memcpy(&FReq_Buffer[a], &FReq_Buffer[b], sizeof (DirRec));
@@ -1703,12 +1692,7 @@ static void displayCurrPath(void)
 
     pathLen = (uint32_t)(UNICHAR_STRLEN(FReq_CurPathU));
     if (pathLen == 0)
-    {
-#ifdef _DEBUG
-        __debugbreak();
-#endif
         return;
-    }
 
     asciiPath = unicharToCp437(FReq_CurPathU, true);
     if (asciiPath == NULL)
@@ -2204,11 +2188,11 @@ void toggleDiskOpScreen(void)
         showDiskOpScreen();
 }
 
-void sbDiskOpSetPos(int32_t pos)
+void sbDiskOpSetPos(uint32_t pos)
 {
-    if ((FReq_FileCount > DISKOP_ENTRY_NUM) && (FReq_DirPos != pos))
+    if ((FReq_FileCount > DISKOP_ENTRY_NUM) && ((int32_t)(pos) != FReq_DirPos))
     {
-        FReq_DirPos = pos;
+        FReq_DirPos = (int32_t)(pos);
         diskOp_DrawDirectory();
     }
 }

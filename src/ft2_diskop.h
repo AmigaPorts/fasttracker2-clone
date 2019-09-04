@@ -50,7 +50,7 @@ void hideDiskOpScreen(void);
 void exitDiskOpScreen(void);
 void toggleDiskOpScreen(void);
 
-void sbDiskOpSetPos(int32_t pos);
+void sbDiskOpSetPos(uint32_t pos);
 
 void pbDiskOpListUp(void);
 void pbDiskOpListDown(void);

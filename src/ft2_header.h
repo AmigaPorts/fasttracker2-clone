@@ -3,16 +3,18 @@
 
 #include <SDL2/SDL.h>
 #include <stdint.h>
+#include <stdbool.h>
+#include <assert.h>
 #ifdef _WIN32
 #define WIN32_MEAN_AND_LEAN
 #include <windows.h>
-#include <emmintrin.h>
+#include <emmintrin.h> /* for intrinsics */
 #else
 #include <limits.h> /* PATH_MAX */
 #endif
 #include "ft2_replayer.h"
 
-#define BETA_VERSION 132
+#define BETA_VERSION 135
 
 /* do NOT change these! It will only mess things up... */
 #define VBLANK_HZ 60
@@ -22,43 +24,11 @@
 #ifndef _WIN32
 #define _stricmp strcasecmp
 #define _strnicmp strncasecmp
-#endif
-
-#ifdef _MSC_VER
-#define inline __forceinline
-#endif
-
-#ifndef _MSC_VER
-#ifndef __debugbreak
-#define __debugbreak(x)
-#endif
-#endif
-
-/* assert macro for debugging (compiles into nothing in release mode) */
-#if defined (_DEBUG) && defined (_MSC_VER)
-#define MY_ASSERT(expr) if (!(expr)) __debugbreak();
-#else
-#define MY_ASSERT(expr)
-#endif
-
-#ifndef true
-#define true  1
-#define false 0
-#endif
-
-#ifdef _WIN32
-#define DIR_DELIMITER '\\'
-#else
 #define DIR_DELIMITER '/'
-#endif
-
-/* Windows, most likely */
-#ifndef PATH_MAX
+#else
+#define DIR_DELIMITER '\\'
 #define PATH_MAX 260
 #endif
-
-#define FP_INT(x) (int32_t)((x) >> 32)
-#define FP_FRAC(x) (uint32_t)((x))
 
 /* some of these may not be platform safe... */
 #define SGN(x) (((x) >= 0) ? 1 : -1)
@@ -100,27 +70,29 @@ struct editor_t
 {
     struct ui_t
     {
+        volatile uint8_t setMouseBusy, setMouseIdle;
         char fullscreenButtonText[24];
-        uint8_t updateLoadedSample, updateLoadedInstrument, setMouseBusy, setMouseIdle;
-        uint8_t maxVisibleChannels, throwExit, editTextFlag;
-        int16_t systemRequestID;
+        int8_t buttonContrast, desktopContrast;
 
         /* all screens */
-        uint8_t extended;
+        uint8_t extended, sysReqShown;
 
         /* top screens */
         uint8_t instrSwitcherShown, aboutScreenShown, helpScreenShown, configScreenShown;
         uint8_t scopesShown, diskOpShown, nibblesShown, transposeShown, instEditorExtShown;
         uint8_t sampleEditorExtShown, advEditShown, wavRendererShown, trimScreenShown, oldTopLeftScreen;
+        uint8_t drawBPMFlag, drawSpeedFlag, drawGlobVolFlag, drawPosEdFlag, drawPattNumLenFlag;
+        uint8_t updatePosSections;
 
         /* bottom screens */
-        uint8_t patternEditorShown, instEditorShown, sampleEditorShown, systemRequestShown;
+        uint8_t patternEditorShown, instEditorShown, sampleEditorShown;
         uint8_t channelOffset, numChannelsShown, pattChanScrollShown;
         uint8_t leftLoopPinMoving, rightLoopPinMoving, recordBoxShown;
+        uint8_t drawReplayerPianoFlag, drawPianoFlag, updatePatternEditor, maxVisibleChannels;
         uint16_t patternChannelWidth;
         int32_t sampleDataOrLoopDrag;
 
-        /* backup flag for when entering/exiting extended pattern editor */
+        /* backup flag for when entering/exiting extended pattern editor (TODO: this is lame and shouldn't be hardcoded) */
         uint8_t _aboutScreenShown, _helpScreenShown, _configScreenShown, _diskOpShown;
         uint8_t _nibblesShown, _transposeShown, _instEditorShown;
         uint8_t _instEditorExtShown,  _sampleEditorExtShown, _patternEditorShown;
@@ -137,24 +109,17 @@ struct editor_t
     UNICHAR *tmpFilenameU, *tmpInstrFilenameU; /* used by saving/loading threads */
     UNICHAR *configFileLocation, *audioDevConfigFileLocation, *midiConfigFileLocation;
 
-    volatile uint8_t busy;
-    volatile uint8_t loadMusicEvent;
-    volatile uint8_t scopeThreadMutex;
-    volatile uint8_t programRunning;
-    volatile uint8_t wavIsRendering;
-    volatile uint8_t wavReachedEndFlag;
+    volatile uint8_t busy, loadMusicEvent, scopeThreadMutex, programRunning, wavIsRendering, wavReachedEndFlag;
+    volatile uint8_t updateLoadedSample, updateLoadedInstrument;
     volatile FILE *wavRendererFileHandle;
 
-    int8_t buttonContrast, desktopContrast;
-    uint8_t autoPlayOnDrop, trimThreadWasDone, curSmpChannel;
-    uint8_t currPanEnvPoint, currVolEnvPoint, patternMode, currPaletteEdit, vsync60HzPresent;
+    uint8_t autoPlayOnDrop, trimThreadWasDone, curSmpChannel, throwExit, editTextFlag;
+    uint8_t currPanEnvPoint, currVolEnvPoint, currPaletteEdit;
     uint8_t copyMaskEnable, copyMask[5], pasteMask[5], transpMask[5], updateWindowTitle;
     uint8_t smpEd_NoteNr, instrBankSwapped, instrBankOffset, sampleBankOffset, channelMute[MAX_VOICES];
-    uint8_t srcInstr, curInstr, srcSmp, curSmp, currHelpScreen, currentConfigScreen, textCursorBlinkCounter, diskOpReadOnOpen;
-    uint8_t updatePosSections, updatePatternEditor, keyOnTab[MAX_VOICES], diskOpReadDir, diskOpReadDone;
-    uint8_t activeVoices, updateSongName, ID_Add, curOctave;
+    uint8_t srcInstr, curInstr, srcSmp, curSmp, currHelpScreen, currConfigScreen, textCursorBlinkCounter, diskOpReadOnOpen;
+    uint8_t keyOnTab[MAX_VOICES], diskOpReadDir, diskOpReadDone, ID_Add, curOctave;
     uint8_t sampleSaveMode, moduleSaveMode, samplingAudioFlag, NI_Play, ptnJumpPos[4];
-    uint8_t drawReplayerPianoFlag, drawPianoFlag, drawBPMFlag, drawSpeedFlag, drawGlobVolFlag, drawPosEdFlag, drawPattNumLenFlag;
     int16_t globalVol, songPos, pattPos;
     uint16_t tmpPattern, editPattern, speed, tempo, timer, ptnCursorY;
     int32_t samplePlayOffset, keyOffNr, keyOffTime[MAX_VOICES];
@@ -163,7 +128,5 @@ struct editor_t
 
     tonTyp *blkCopyBuff, *ptnCopyBuff, *trackCopyBuff, clearNote;
 } editor;
-
-void quitProgram(void);
 
 #endif

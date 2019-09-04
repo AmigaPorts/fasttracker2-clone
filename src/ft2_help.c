@@ -270,7 +270,7 @@ static void bigTextOutHalf(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, u
     uint16_t currX;
     uint32_t *dstPtr, pixVal;
 
-    MY_ASSERT(textPtr != NULL)
+    assert(textPtr != NULL);
 
     currX = xPos;
     while (true)
@@ -370,7 +370,7 @@ void helpScrollDown(void)
     }
 }
 
-void helpScrollSetPos(int32_t pos)
+void helpScrollSetPos(uint32_t pos)
 {
     if (fHlp_Line != (int16_t)(pos))
     {

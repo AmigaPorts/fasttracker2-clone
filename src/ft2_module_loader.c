@@ -1694,9 +1694,6 @@ static int32_t SDLCALL loadMusicThread(void *ptr)
 
     if (editor.tmpFilenameU == NULL)
     {
-#ifdef _DEBUG
-        __debugbreak();
-#endif
         okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
         moduleFailedToLoad = true;
         return (false);
@@ -2065,7 +2062,6 @@ static int8_t loadInstrHeader(FILE *f, uint16_t i)
             for (j = 0; j < ih.antSamp; ++j)
             {
                 s = &instrTmp[i].samp[j];
-
                 memcpy(s, &ih.samp[j], 12 + 4 + 24);
                 /* s->pek is set up later */
 
@@ -2079,7 +2075,9 @@ static int8_t loadInstrHeader(FILE *f, uint16_t i)
                 }
 
                 /* sanitize stuff for malicious modules */
-                if (s->vol > 64) s->vol = 64;
+                if (s->vol > 64)
+                    s->vol = 64;
+
                 s->relTon = CLAMP(s->relTon, -48, 71);
             }
         }
@@ -2354,7 +2352,7 @@ static void setStdEnvelopeTmp(uint16_t nr, uint16_t i, uint8_t typ)
     uint8_t j;
     instrTyp *ins;
 
-    MY_ASSERT((nr < (1 + MAX_INST)) && (i <= 5))
+    assert((nr < (1 + MAX_INST)) && (i <= 5));
 
     ins = &instrTmp[nr];
 
@@ -2575,7 +2573,7 @@ void loadDroppedFile(char *fullPathUTF8, uint8_t songModifiedCheck)
     int32_t fullPathLen;
     UNICHAR *fullPathU;
 
-    if (editor.ui.systemRequestShown || (fullPathUTF8 == NULL))
+    if (editor.ui.sysReqShown || (fullPathUTF8 == NULL))
         return;
 
     fullPathLen = (int32_t)(strlen(fullPathUTF8));

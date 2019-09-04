@@ -26,7 +26,7 @@ enum
     */
 
     /* custom clone palettes */
-    PAL_SCRLBAR = 13,
+    PAL_LOOPPIN = 13,
     PAL_TEXTMRK = 14,
 
     PAL_NUM

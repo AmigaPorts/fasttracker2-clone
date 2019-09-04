@@ -76,7 +76,7 @@ void keyUpHandler(SDL_Scancode scancode, SDL_Keycode keycode)
 {
     (void)(keycode);
 
-    if (editor.ui.editTextFlag || editor.ui.systemRequestShown)
+    if (editor.editTextFlag || editor.ui.sysReqShown)
         return; /* kludge: don't handle key up! */
 
     if (keyb.ignoreCurrKeyUp)
@@ -102,10 +102,10 @@ void keyDownHandler(SDL_Scancode scancode, SDL_Keycode keycode, uint8_t keyWasRe
     if (mouse.mode != MOUSE_MODE_NORMAL)
         setMouseMode(MOUSE_MODE_NORMAL);
 
-    if (editor.ui.systemRequestShown)
+    if (editor.ui.sysReqShown)
     {
         if (keycode == SDLK_ESCAPE)
-            editor.ui.systemRequestShown = false;
+            editor.ui.sysReqShown = false;
 
         return;
     }
@@ -122,7 +122,7 @@ void keyDownHandler(SDL_Scancode scancode, SDL_Keycode keycode, uint8_t keyWasRe
     keyb.keyRepeat = true;
 
     /* handle certain keys (home/end/left/right etc) when editing text */
-    if (editor.ui.editTextFlag)
+    if (editor.editTextFlag)
     {
         handleTextEditControl(keycode);
         return;
@@ -137,7 +137,7 @@ void keyDownHandler(SDL_Scancode scancode, SDL_Keycode keycode, uint8_t keyWasRe
     if (keycode == SDLK_ESCAPE)
     {
         if (quitBox(false) == 1)
-            editor.ui.throwExit = true;
+            editor.throwExit = true;
 
         return;
     }
@@ -346,7 +346,7 @@ void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
                 if ((playMode == PLAYMODE_EDIT) && (pattLen >= 1))
                     setPos(-1, (editor.pattPos + editor.ID_Add) % pattLen);
 
-                editor.updatePatternEditor = true;
+                editor.ui.updatePatternEditor = true;
                 setSongModifiedFlag();
             }
         }
@@ -375,7 +375,7 @@ void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
                 lockMixerCallback();
                 memset(editor.keyOnTab, 0, sizeof (editor.keyOnTab));
                 playMode = PLAYMODE_EDIT;
-                editor.updatePosSections = true; /* for updating mode text */
+                editor.ui.updatePosSections = true; /* for updating mode text */
                 unlockMixerCallback();
             }
             else
@@ -475,7 +475,7 @@ void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
             if (!songPlaying)
             {
                 editor.pattPos = (uint8_t)(song.pattPos);
-                editor.updatePatternEditor = true;
+                editor.ui.updatePatternEditor = true;
             }
 
             unlockAudio();
@@ -493,7 +493,7 @@ void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
             if (!songPlaying)
             {
                 editor.pattPos = (uint8_t)(song.pattPos);
-                editor.updatePatternEditor = true;
+                editor.ui.updatePatternEditor = true;
             }
 
             unlockAudio();
@@ -511,7 +511,7 @@ void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
             if (!songPlaying)
             {
                 editor.pattPos = (uint8_t)(song.pattPos);
-                editor.updatePatternEditor = true;
+                editor.ui.updatePatternEditor = true;
             }
 
             unlockAudio();
@@ -529,7 +529,7 @@ void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
             if (!songPlaying)
             {
                 editor.pattPos = (uint8_t)(song.pattPos);
-                editor.updatePatternEditor = true;
+                editor.ui.updatePatternEditor = true;
             }
 
             unlockAudio();
@@ -601,7 +601,7 @@ void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
             if (!songPlaying)
             {
                 editor.pattPos = (uint8_t)(song.pattPos);
-                editor.updatePatternEditor = true;
+                editor.ui.updatePatternEditor = true;
             }
 
             if (audioWasntLocked)
@@ -623,7 +623,7 @@ void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
             if (!songPlaying)
             {
                 editor.pattPos = (uint8_t)(song.pattPos);
-                editor.updatePatternEditor = true;
+                editor.ui.updatePatternEditor = true;
             }
 
             if (audioWasntLocked)
@@ -641,7 +641,7 @@ void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
             if (!songPlaying)
             {
                 editor.pattPos = (uint8_t)(song.pattPos);
-                editor.updatePatternEditor = true;
+                editor.ui.updatePatternEditor = true;
             }
 
             if (audioWasntLocked)
@@ -659,7 +659,7 @@ void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
             if (!songPlaying)
             {
                 editor.pattPos = (uint8_t)(song.pattPos);
-                editor.updatePatternEditor = true;
+                editor.ui.updatePatternEditor = true;
             }
 
             if (audioWasntLocked)
@@ -803,7 +803,7 @@ uint8_t checkModifiedKeys(SDL_Keycode keycode)
                     pattMark.markY1 = 0;
                     pattMark.markY2 = pattLens[editor.editPattern];
 
-                    editor.updatePatternEditor = true;
+                    editor.ui.updatePatternEditor = true;
                 }
 
                 return (true);
@@ -1165,7 +1165,7 @@ uint8_t checkModifiedKeys(SDL_Keycode keycode)
             }
             else if (keyb.leftCtrlPressed)
             {
-                editor.currentConfigScreen = 0;
+                editor.currConfigScreen = 0;
                 showConfigScreen();
                 checkRadioButton(RB_CONFIG_IO_DEVICES);
 
@@ -1187,7 +1187,7 @@ uint8_t checkModifiedKeys(SDL_Keycode keycode)
             }
             else if (keyb.leftCtrlPressed)
             {
-                editor.currentConfigScreen = 1;
+                editor.currConfigScreen = 1;
                 showConfigScreen();
                 checkRadioButton(RB_CONFIG_LAYOUT);
 
@@ -1209,7 +1209,7 @@ uint8_t checkModifiedKeys(SDL_Keycode keycode)
             }
             else if (keyb.leftCtrlPressed)
             {
-                editor.currentConfigScreen = 2;
+                editor.currConfigScreen = 2;
                 showConfigScreen();
                 checkRadioButton(RB_CONFIG_MISCELLANEOUS);
 
@@ -1231,7 +1231,7 @@ uint8_t checkModifiedKeys(SDL_Keycode keycode)
             }
             else if (keyb.leftCtrlPressed)
             {
-                editor.currentConfigScreen = 3;
+                editor.currConfigScreen = 3;
                 showConfigScreen();
                 checkRadioButton(RB_CONFIG_MIDI_INPUT);
 

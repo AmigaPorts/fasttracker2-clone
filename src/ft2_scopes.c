@@ -26,7 +26,7 @@ enum
 };
 
 #define SCOPE_DATA_HEIGHT 36
-#define NUM_LATCH_BUFFERS 4
+#define NUM_LATCH_BUFFERS 4 /* 2^n */
 
 /* data to be read from main update thread during sample trigger */
 typedef struct scopeState_t
@@ -49,6 +49,7 @@ typedef struct scope_t
 } scope_t;
 
 static volatile uint8_t scopesUpdating, scopesDisplaying;
+static uint32_t oldScopeRate, oldScopeSFrq;
 static uint64_t timeNext64, timeNext64Frac;
 static scope_t scope[MAX_VOICES];
 static SDL_Thread *scopeThread;
@@ -74,7 +75,7 @@ static const uint16_t scopeLenTab[16][32] =
     /* 32 ch */ {15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15,15}
 };
 
-int32_t getSamplePosition(uint8_t ch)
+int32_t getSampleReadPos(uint8_t ch)
 {
     int32_t pos;
     scope_t *sc;
@@ -319,7 +320,7 @@ int8_t testScopesMouseDown(void)
         if (mouse.y >= 134) /* second row of scopes? */
             chanToToggle += chansPerRow; /* yes, increase lookup offset */
 
-        MY_ASSERT(chanToToggle < song.antChn)
+        assert(chanToToggle < song.antChn);
 
         if (mouse.leftButtonPressed && mouse.rightButtonPressed)
         {
@@ -384,19 +385,19 @@ static void triggerScope(uint8_t ch)
 
     if ((sampleData == NULL) || (sampleLength < 1))
     {
-        sc->active = false; /* shut down scope */
+        sc->active = false; /* shut down scope (illegal parameters) */
         return;
     }
 
     if (sampleIs16Bit)
     {
-        MY_ASSERT(!(sampleLoopBegin  & 1))
-        MY_ASSERT(!(sampleLength     & 1))
-        MY_ASSERT(!(sampleLoopLength & 1))
+        assert(!(sampleLoopBegin  & 1));
+        assert(!(sampleLength     & 1));
+        assert(!(sampleLoopLength & 1));
 
-        sampleLoopBegin  /= 2;
-        sampleLength     /= 2;
-        sampleLoopLength /= 2;
+        sampleLoopBegin  >>= 1;
+        sampleLength     >>= 1;
+        sampleLoopLength >>= 1;
 
         sc->sampleData16 = (const int16_t *)(s->pek);
     }
@@ -418,10 +419,10 @@ static void triggerScope(uint8_t ch)
     sc->SPosDec  = 0; /* position fraction */
     sc->loopType = loopFlag;
 
-    /* test if 9xx position overflows */
+    /* if 9xx position overflows, shut down scopes (confirmed FT2 behavior) */
     if (sc->SPos >= sc->SLen)
     {
-        sc->active = false; /* shut down scope */
+        sc->active = false;
         return;
     }
 
@@ -455,7 +456,7 @@ static void updateScopes(void)
         if (sc->SPosDec >= 65536)
         {
             readPos = sc->SPos + (int32_t)((sc->SPosDec >> 16) ^ sc->posXOR);
-            sc->SPosDec &= 0xFFFF;
+            sc->SPosDec &= 0x0000FFFF;
 
             /* handle loop wrapping or sample end */
 
@@ -470,7 +471,7 @@ static void updateScopes(void)
                     else
                         readPos = sc->SRepS + ((sc->SRepS - readPos - 1) % sc->SRepL);
 
-                    MY_ASSERT((readPos >= sc->SRepS) && (readPos < sc->SLen))
+                    assert((readPos >= sc->SRepS) && (readPos < sc->SLen));
                 }
             }
             else if (sc->loopType == LOOP_NONE) /* no loop */
@@ -498,10 +499,10 @@ static void updateScopes(void)
                     readPos = sc->SRepS + loopOverflow;
                 }
 
-                MY_ASSERT((readPos >= sc->SRepS) && (readPos < sc->SLen))
+                assert((readPos >= sc->SRepS) && (readPos < sc->SLen));
             }
 
-            MY_ASSERT((readPos >= 0) && (readPos < sc->SLen))
+            assert((readPos >= 0) && (readPos < sc->SLen));
 
             sc->SPos = readPos; /* update it */
         }
@@ -560,7 +561,7 @@ static inline int8_t getScaledScopeSample8(scope_t *sc, int32_t drawPos)
     if (!sc->active)
         return (0);
 
-    MY_ASSERT((drawPos >= 0) && (drawPos < sc->SLen))
+    assert((drawPos >= 0) && (drawPos < sc->SLen));
     return ((int8_t)((sc->sampleData8[drawPos] * sc->SVol) >> 8));
 }
 
@@ -569,7 +570,7 @@ static inline int8_t getScaledScopeSample16(scope_t *sc, int32_t drawPos)
     if (!sc->active)
         return (0);
 
-    MY_ASSERT((drawPos >= 0) && (drawPos < sc->SLen))
+    assert((drawPos >= 0) && (drawPos < sc->SLen));
     return ((int8_t)((sc->sampleData16[drawPos] * sc->SVol) >> 16));
 }
 
@@ -578,7 +579,7 @@ static inline int8_t getScaledScopeSample16(scope_t *sc, int32_t drawPos)
     if (scopeDrawFrac >= 65536) \
     { \
         scopeDrawPos  += (int32_t)((scopeDrawFrac >> 16) ^ sc->drawPosXOR); \
-        scopeDrawFrac &= 0xFFFF; \
+        scopeDrawFrac &= 0x0000FFFF; \
         \
         if (sc->loopType == LOOP_NONE) \
         { \
@@ -596,7 +597,7 @@ static inline int8_t getScaledScopeSample16(scope_t *sc, int32_t drawPos)
                 else \
                     scopeDrawPos = sc->SRepS + ((sc->SRepS - scopeDrawPos - 1) % sc->SRepL); \
                 \
-                MY_ASSERT((scopeDrawPos >= sc->SRepS) && (scopeDrawPos < sc->SLen)) \
+                assert((scopeDrawPos >= sc->SRepS) && (scopeDrawPos < sc->SLen)); \
             } \
         } \
         else if (scopeDrawPos >= sc->SLen) /* forward or pingpong loop */ \
@@ -616,7 +617,7 @@ static inline int8_t getScaledScopeSample16(scope_t *sc, int32_t drawPos)
                 scopeDrawPos = sc->SRepS + loopOverflow; \
             } \
             \
-            MY_ASSERT((scopeDrawPos >= sc->SRepS) && (scopeDrawPos < sc->SLen)) \
+            assert((scopeDrawPos >= sc->SRepS) && (scopeDrawPos < sc->SLen)); \
         } \
     } \
 
@@ -791,7 +792,7 @@ static void latchScope(uint8_t ch, int8_t *pek, int32_t len, int32_t repS, int32
     s = &scope[ch];
 
     s->latchOffset = s->nextLatchOffset;
-    s->nextLatchOffset = (s->nextLatchOffset + 1) % NUM_LATCH_BUFFERS;
+    s->nextLatchOffset = (s->nextLatchOffset + 1) & (NUM_LATCH_BUFFERS - 1);
 
     newState = &scopeNewState[ch][s->latchOffset];
 
@@ -822,29 +823,33 @@ void handleScopesFromChQueue(chSyncData_t *chSyncData, uint8_t *scopeUpdateStatu
 
         /* set scope volume */
         if (status & IS_Vol)
-            sc->SVol = (int8_t)((ch->finalVol * SCOPE_DATA_HEIGHT) / 256);
+            sc->SVol = (int8_t)((ch->finalVol * SCOPE_DATA_HEIGHT) >> 8);
 
         /* set scope frequency */
         if (status & IS_Period)
         {
-            const uint32_t scopeRateMul = (uint32_t)((1ULL << 32) / VBLANK_HZ); /* for DIV->MUL trick */
+            const uint32_t scopeRateMul = 0xFFFFFFFF / VBLANK_HZ; /* for DIV->MUL trick */
 
             rate = getFrequenceValueScope(ch->finalPeriod);
-
-            /* since "(0..534749 (rate) << 16) / VBLANK_HZ" would overflow in 32-bit calculation, we need
-            ** to do a 64-bit DIV (or MUL using a trick, slightly faster) */
-
-            if (rate == 0)
+            if (rate == oldScopeRate)
             {
-                /* no need to waste cycles on 64-bit stuff if we know the result */
-                sc->SFrq = 0;
-                sc->drawSFrq = 0;
+                sc->SFrq = oldScopeSFrq;
             }
             else
             {
-                sc->SFrq = (uint32_t)(((uint64_t)(rate) * scopeRateMul) >> 16); /* fast code even on x86 (imul + shrd) */
-                sc->drawSFrq = rate << 4; /* sample data read delta (when drawing the samples) */
+                /* since "(0..534749 (rate) << 16) / VBLANK_HZ" would overflow in 32-bit calculation, we need
+                ** to do a 64-bit DIV (or MUL using a trick, slightly faster) */
+
+                if (rate == 0)
+                    sc->SFrq = 0;
+                else
+                    sc->SFrq = (uint32_t)(((uint64_t)(rate) * scopeRateMul) >> 16); /* fast code even on x86 (imul + shrd) */
+
+                oldScopeRate = rate;
+                oldScopeSFrq = sc->SFrq;
             }
+
+            sc->drawSFrq = rate << 4; /* sample data read delta (when drawing the samples) */
         }
 
         /* start scope sample */
@@ -900,7 +905,7 @@ static int32_t SDLCALL scopeThreadFunc(void *ptr)
         time64 = SDL_GetPerformanceCounter();
         if (time64 < timeNext64)
         {
-            MY_ASSERT((timeNext64 - time64) <= 0xFFFFFFFFULL)
+            assert((timeNext64 - time64) <= 0xFFFFFFFFULL);
             diff32 = (uint32_t)(timeNext64 - time64);
 
             /* convert and round to microseconds */

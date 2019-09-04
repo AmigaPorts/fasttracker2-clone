@@ -179,7 +179,7 @@ static void drawMIDICh(void)
     instrTyp *ins;
 
     ins = &instr[editor.curInstr];
-    MY_ASSERT(ins->midiChannel <= 15)
+    assert(ins->midiChannel <= 15);
 
     sprintf(str, "%02d", ins->midiChannel + 1);
     textOutFixed(156, 132, PAL_FORGRND, PAL_DESKTOP, str);
@@ -191,7 +191,7 @@ static void drawMIDIPrg(void)
     instrTyp *ins;
 
     ins = &instr[editor.curInstr];
-    MY_ASSERT(ins->midiProgram <= 127)
+    assert(ins->midiProgram <= 127);
 
     sprintf(str, "%03d", ins->midiProgram);
     textOutFixed(149, 146, PAL_FORGRND, PAL_DESKTOP, str);
@@ -203,7 +203,7 @@ static void drawMIDIBend(void)
     instrTyp *ins;
 
     ins = &instr[editor.curInstr];
-    MY_ASSERT(ins->midiBend <= 36)
+    assert(ins->midiBend <= 36);
 
     sprintf(str, "%02d", ins->midiBend );
     textOutFixed(156, 160, PAL_FORGRND, PAL_DESKTOP, str);
@@ -299,13 +299,13 @@ void midiBendUp(void)
     }
 }
 
-void sbMidiChPos(int32_t pos)
+void sbMidiChPos(uint32_t pos)
 {
     instrTyp *ins;
 
     ins = &instr[editor.curInstr];
 
-    if (pos != ins->midiChannel)
+    if ((uint8_t)(pos) != ins->midiChannel)
     {
         ins->midiChannel = (uint8_t)(pos);
         drawMIDICh();
@@ -313,29 +313,29 @@ void sbMidiChPos(int32_t pos)
     }
 }
 
-void sbMidiPrgPos(int32_t pos)
+void sbMidiPrgPos(uint32_t pos)
 {
     instrTyp *ins;
 
     ins = &instr[editor.curInstr];
 
-    if (pos != ins->midiProgram)
+    if ((int16_t)(pos) != ins->midiProgram)
     {
-        ins->midiProgram = (uint16_t)(pos);
+        ins->midiProgram = (int16_t)(pos);
         drawMIDIPrg();
         setSongModifiedFlag();
     }
 }
 
-void sbMidiBendPos(int32_t pos)
+void sbMidiBendPos(uint32_t pos)
 {
     instrTyp *ins;
 
     ins = &instr[editor.curInstr];
 
-    if (pos != ins->midiBend)
+    if ((int16_t)(pos) != ins->midiBend)
     {
-        ins->midiBend = (uint16_t)(pos);
+        ins->midiBend = (int16_t)(pos);
         drawMIDIBend();
         setSongModifiedFlag();
     }
@@ -1440,7 +1440,7 @@ void vibSweepUp(void)
     }
 }
 
-void setVolumeScroll(int32_t pos)
+void setVolumeScroll(uint32_t pos)
 {
     sampleTyp *s;
 
@@ -1459,7 +1459,7 @@ void setVolumeScroll(int32_t pos)
     }
 }
 
-void setPanningScroll(int32_t pos)
+void setPanningScroll(uint32_t pos)
 {
     sampleTyp *s;
 
@@ -1478,7 +1478,7 @@ void setPanningScroll(int32_t pos)
     }
 }
 
-void setFinetuneScroll(int32_t pos)
+void setFinetuneScroll(uint32_t pos)
 {
     sampleTyp *s;
 
@@ -1497,7 +1497,7 @@ void setFinetuneScroll(int32_t pos)
     }
 }
 
-void setFadeoutScroll(int32_t pos)
+void setFadeoutScroll(uint32_t pos)
 {
     instrTyp *i;
 
@@ -1516,7 +1516,7 @@ void setFadeoutScroll(int32_t pos)
     }
 }
 
-void setVibSpeedScroll(int32_t pos)
+void setVibSpeedScroll(uint32_t pos)
 {
     instrTyp *i;
 
@@ -1535,7 +1535,7 @@ void setVibSpeedScroll(int32_t pos)
     }
 }
 
-void setVibDepthScroll(int32_t pos)
+void setVibDepthScroll(uint32_t pos)
 {
     instrTyp *i;
 
@@ -1554,7 +1554,7 @@ void setVibDepthScroll(int32_t pos)
     }
 }
 
-void setVibSweepScroll(int32_t pos)
+void setVibSweepScroll(uint32_t pos)
 {
     instrTyp *i;
 
@@ -1720,7 +1720,7 @@ static void smallHexOutBg(uint16_t xPos, uint16_t yPos, uint8_t fgPalette, uint8
     const uint8_t *srcPtr;
     uint32_t x, y, *dstPtr, fg, bg;
 
-    MY_ASSERT(val <= 0xF)
+    assert(val <= 0xF);
 
     fg     = video.palette[fgPalette];
     bg     = video.palette[bgPalette];
@@ -2081,7 +2081,7 @@ static void envelopeLine(int32_t nr, int16_t x1, int16_t y1, int16_t x2, int16_t
 
         while (true)
         {
-            MY_ASSERT((x < SCREEN_W) && (y < SCREEN_H))
+            assert((x < SCREEN_W) && (y < SCREEN_H));
 
             /* invert certain colors */
             if (*dst32 != pal2)
@@ -2115,7 +2115,7 @@ static void envelopeLine(int32_t nr, int16_t x1, int16_t y1, int16_t x2, int16_t
 
         while (true)
         {
-            MY_ASSERT((x < SCREEN_W) && (y < SCREEN_H))
+            assert((x < SCREEN_W) && (y < SCREEN_H));
 
             /* invert certain colors */
             if (*dst32 != pal2)
@@ -3157,9 +3157,6 @@ static int32_t SDLCALL saveInstrThread(void *ptr)
 
     if (editor.tmpFilenameU == NULL)
     {
-#ifdef _DEBUG
-        __debugbreak();
-#endif
         okBoxThreadSafe(0, "System message", "General I/O error during saving! Is the file in use?");
         return (false);
     }
@@ -3288,9 +3285,6 @@ static int32_t SDLCALL loadInstrThread(void *ptr)
 
     if (editor.tmpInstrFilenameU == NULL)
     {
-#ifdef _DEBUG
-        __debugbreak();
-#endif
         okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
         return (false);
     }
@@ -3585,7 +3579,7 @@ static int32_t SDLCALL loadInstrThread(void *ptr)
 loadDone:
     fclose(f);
 
-    editor.ui.updateLoadedInstrument = true; /* setMouseBusy(false) is called in the input/video thread when done */
+    editor.updateLoadedInstrument = true; /* setMouseBusy(false) is called in the input/video thread when done */
 
     if (stereoWarning)
         okBoxThreadSafe(0, "System message", "The instrument contains stereo samples! They were mixed to mono.");

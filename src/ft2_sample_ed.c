@@ -62,7 +62,9 @@ void fixSample(sampleTyp *s)
 
             /* write new values */
             ptr16[len + 0] = 0;
+#ifndef LERPMIX
             ptr16[len + 1] = 0;
+#endif
         }
         else
         {
@@ -71,7 +73,9 @@ void fixSample(sampleTyp *s)
 
             /* write new values */
             s->pek[len + 0] = 0;
+#ifndef LERPMIX
             s->pek[len + 1] = 0;
+#endif
         }
 
         return;
@@ -97,13 +101,16 @@ void fixSample(sampleTyp *s)
 
             /* store old values and old fix positions */
             s->fixedSmp1 = ptr16[loopEnd + 0];
-            s->fixedSmp2 = ptr16[loopEnd + 1];
             s->fixedPos1 = s->repS + s->repL;
+#ifndef LERPMIX
+            s->fixedSmp2 = ptr16[loopEnd + 1];
             s->fixedPos2 = s->repS + s->repL + 2;
-
+#endif
             /* write new values */
             ptr16[loopEnd + 0] = ptr16[loopStart + 0];
+#ifndef LERPMIX
             ptr16[loopEnd + 1] = ptr16[loopStart + 1];
+#endif
         }
         else
         {
@@ -117,13 +124,16 @@ void fixSample(sampleTyp *s)
 
             /* store old values and old fix positions */
             s->fixedSmp1 = s->pek[loopEnd + 0];
-            s->fixedSmp2 = s->pek[loopEnd + 1];
             s->fixedPos1 = loopEnd + 0;
+#ifndef LERPMIX
+            s->fixedSmp2 = s->pek[loopEnd + 1];
             s->fixedPos2 = loopEnd + 1;
-
+#endif
             /* write new values */
             s->pek[loopEnd + 0] = s->pek[loopStart + 0];
+#ifndef LERPMIX
             s->pek[loopEnd + 1] = s->pek[loopStart + 1];
+#endif
         }
     }
     else
@@ -142,13 +152,16 @@ void fixSample(sampleTyp *s)
 
             /* store old values and old fix positions */
             s->fixedSmp1 = ptr16[loopEnd + 0];
-            s->fixedSmp2 = ptr16[loopEnd + 1];
             s->fixedPos1 = s->repS + s->repL;
+#ifndef LERPMIX
+            s->fixedSmp2 = ptr16[loopEnd + 1];
             s->fixedPos2 = s->repS + s->repL + 2;
-
+#endif
             /* write new values */
             ptr16[loopEnd + 0] = ptr16[loopEnd - 1];
+#ifndef LERPMIX
             ptr16[loopEnd + 1] = ptr16[loopEnd - 2];
+#endif
         }
         else
         {
@@ -161,13 +174,16 @@ void fixSample(sampleTyp *s)
 
             /* store old values and old fix positions */
             s->fixedSmp1 = s->pek[loopEnd + 0];
-            s->fixedSmp2 = s->pek[loopEnd + 1];
             s->fixedPos1 = loopEnd + 0;
+#ifndef LERPMIX
+            s->fixedSmp2 = s->pek[loopEnd + 1];
             s->fixedPos2 = loopEnd + 1;
-
+#endif
             /* write new values */
             s->pek[loopEnd + 0] = s->pek[loopEnd - 1];
+#ifndef LERPMIX
             s->pek[loopEnd + 1] = s->pek[loopEnd - 2];
+#endif
         }
     }
 
@@ -188,30 +204,36 @@ void restoreSample(sampleTyp *s)
     {
         /* 16-bit sample */
 
-        MY_ASSERT((s->len >= 4) && (s->fixedPos1 < (s->len + 4)) && !(s->fixedPos1 & 1) && (s->fixedPos2 < (s->len + 4)) && !(s->fixedPos2 & 1))
-
+        assert((s->len >= 4) && (s->fixedPos1 < (s->len + 4)) && !(s->fixedPos1 & 1));
         ptr16 = (int16_t *)(s->pek);
         ptr16[s->fixedPos1 / 2] = s->fixedSmp1;
+
+#ifndef LERPMIX
+        assert((s->fixedPos2 < (s->len + 4)) && !(s->fixedPos2 & 1));
         ptr16[s->fixedPos2 / 2] = s->fixedSmp2;
+#endif
     }
     else
     {
         /* 8-bit sample */
 
-        MY_ASSERT((s->len >= 2) && (s->fixedPos1 < (s->len + 4)) && (s->fixedPos2 < (s->len + 4)))
-
+        assert((s->len >= 2) && (s->fixedPos1 < (s->len + 4)));
         s->pek[s->fixedPos1] = (int8_t)(s->fixedSmp1);
+
+#ifndef LERPMIX
+        assert((s->fixedPos2 < (s->len + 4)));
         s->pek[s->fixedPos2] = (int8_t)(s->fixedSmp2);
+#endif
     }
 }
 
 int16_t getSampleValueNr(int8_t *ptr, uint8_t typ, int32_t pos)
 {
-    MY_ASSERT((ptr != NULL) && (pos > 0))
+    assert((ptr != NULL) && (pos > 0));
 
     if (typ & 16)
     {
-        MY_ASSERT(!(pos & 1))
+        assert(!(pos & 1));
         return (*((int16_t *)(&ptr[pos])));
     }
     else
@@ -222,11 +244,11 @@ int16_t getSampleValueNr(int8_t *ptr, uint8_t typ, int32_t pos)
 
 void putSampleValueNr(int8_t *ptr, uint8_t typ, int32_t pos, int16_t val)
 {
-    MY_ASSERT((ptr != NULL) && (pos > 0))
+    assert((ptr != NULL) && (pos > 0));
 
     if (typ & 16)
     {
-        MY_ASSERT(!(pos & 1))
+        assert(!(pos & 1));
         *((int16_t *)(&ptr[pos])) = val;
     }
     else
@@ -292,7 +314,7 @@ static int32_t smpPos2Scr(int32_t pos) /* sample pos -> screen x pos (result can
 {
     double dPos;
 
-    MY_ASSERT(currSmp != NULL)
+    assert(currSmp != NULL);
     if (smpEd_ViewSize <= 0)
         return (0);
 
@@ -310,7 +332,7 @@ static int32_t smpPos2Scr(int32_t pos) /* sample pos -> screen x pos (result can
 /* this one is for the sampling line */
 static int32_t smpPos2ScrNoRound(int32_t pos) /* sample pos -> screen x pos (result can and will overflow) */
 {
-    MY_ASSERT(currSmp != NULL)
+    assert(currSmp != NULL);
     if (smpEd_ViewSize <= 0)
         return (0);
 
@@ -325,7 +347,7 @@ static int32_t smpPos2ScrNoRound(int32_t pos) /* sample pos -> screen x pos (res
 
 int32_t scr2SmpPos(int32_t x) /* screen x pos -> sample pos */
 {
-    MY_ASSERT(currSmp != NULL)
+    assert(currSmp != NULL);
     if (smpEd_ViewSize <= 0)
         return (0);
 
@@ -482,7 +504,7 @@ void writeRange(void)
     end      = CLAMP(end,   0, SAMPLE_AREA_WIDTH - 1);
     rangeLen = (end + 1) - start;
 
-    MY_ASSERT((start + rangeLen) <= SCREEN_W)
+    assert((start + rangeLen) <= SCREEN_W);
 
     ptr32 = &video.frameBuffer[(174 * SCREEN_W) + start];
     for (y = 0; y < SAMPLE_AREA_HEIGHT; ++y)
@@ -507,15 +529,17 @@ int8_t getScaledSample(int32_t index)
     {
         ptr16 = (int16_t *)(currSmp->pek);
 
-        MY_ASSERT(!(index & 1))
+        assert(!(index & 1));
 
-        /* restore fixed mixer interpolation samples */
+        /* restore fixed mixer interpolation sample(s) */
         if (currSmp->fixed)
         {
             if (index == currSmp->fixedPos1)
                 tmp32 = currSmp->fixedSmp1 * SAMPLE_AREA_HEIGHT;
+#ifndef LERPMIX
             else if (index == currSmp->fixedPos2)
                 tmp32 = currSmp->fixedSmp2 * SAMPLE_AREA_HEIGHT;
+#endif
             else
                 tmp32 = ptr16[index / 2] * SAMPLE_AREA_HEIGHT;
         }
@@ -530,13 +554,15 @@ int8_t getScaledSample(int32_t index)
     {
         ptr8 = currSmp->pek;
 
-        /* restore fixed mixer interpolation samples */
+        /* restore fixed mixer interpolation sample(s) */
         if (currSmp->fixed)
         {
             if (index == currSmp->fixedPos1)
                 tmp32 = (int8_t)(currSmp->fixedSmp1) * SAMPLE_AREA_HEIGHT;
+#ifndef LERPMIX
             else if (index == currSmp->fixedPos2)
                 tmp32 = (int8_t)(currSmp->fixedSmp2) * SAMPLE_AREA_HEIGHT;
+#endif
             else
                 tmp32 = ptr8[index] * SAMPLE_AREA_HEIGHT;
         }
@@ -831,7 +857,7 @@ void getSampleDataPeak(int32_t index, int32_t numBytes, int16_t *outMin, int16_t
     {
         /* 16-bit sample */
 
-        MY_ASSERT(!(index & 1))
+        assert(!(index & 1));
 
         getMinMax16((int16_t *)(&currSmp->pek[index]), numBytes / 2, &min16, &max16);
 
@@ -1045,9 +1071,9 @@ void setSampleRange(int32_t start, int32_t end)
 
 void updateSampleEditorSample(void)
 {
-    MY_ASSERT(editor.curSmp <= 0x0F)
+    assert(editor.curSmp <= 0x0F);
     currSmp = &instr[editor.curInstr].samp[editor.curSmp];
-    MY_ASSERT(currSmp != NULL)
+    assert(currSmp != NULL);
 
     smpEd_Rx1 = 0;
     smpEd_Rx2 = 0;
@@ -1073,7 +1099,7 @@ void updateSampleEditor(void)
     if (!editor.ui.sampleEditorShown)
         return;
 
-    MY_ASSERT(currSmp != NULL)
+    assert(currSmp != NULL);
 
     /* sample bit depth radio buttons */
     uncheckRadioButtonGroup(RB_GROUP_SAMPLE_DEPTH);
@@ -1202,11 +1228,11 @@ void scrollSampleDataRight(void)
     }
 }
 
-void scrollSampleData(int32_t pos)
+void scrollSampleData(uint32_t pos)
 {
     if ((smpEd_ViewSize > 0) && (smpEd_ViewSize != currSmp->len))
     {
-        smpEd_ScrPos = pos;
+        smpEd_ScrPos = (int32_t)(pos);
         updateScrPos();
     }
 }
@@ -1451,7 +1477,7 @@ int8_t cutRange(void)
     if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len == 0))
         return (false);
 
-    MY_ASSERT(!(currSmp->typ & 16) || (!(smpEd_Rx1 & 1) && !(smpEd_Rx2 & 1) && !(currSmp->len & 1)))
+    assert(!(currSmp->typ & 16) || (!(smpEd_Rx1 & 1) && !(smpEd_Rx2 & 1) && !(currSmp->len & 1)));
 
     pauseAudio();
     restoreSample(currSmp);
@@ -1557,7 +1583,7 @@ void sampCopy(void)
     if ((editor.curInstr == 0) || (smpEd_Rx2 == 0) || (smpEd_Rx2 < smpEd_Rx1) || (currSmp->pek == NULL) || (currSmp->len == 0))
         return;
 
-    MY_ASSERT(!(currSmp->typ & 16) || (!(smpEd_Rx1 & 1) && !(smpEd_Rx2 & 1)))
+    assert(!(currSmp->typ & 16) || (!(smpEd_Rx1 & 1) && !(smpEd_Rx2 & 1)));
 
     if (!getCopyBuffer(smpEd_Rx2 - smpEd_Rx1))
     {
@@ -1618,7 +1644,7 @@ void sampPaste(void)
         return;
     }
 
-    MY_ASSERT(!(currSmp->typ & 16) || (!(smpEd_Rx1 & 1) && !(smpEd_Rx2 & 1) && !(currSmp->len & 1)))
+    assert(!(currSmp->typ & 16) || (!(smpEd_Rx1 & 1) && !(smpEd_Rx2 & 1) && !(currSmp->len & 1)));
 
     realCopyLen = smpCopySize;
     if (currSmp->pek != NULL)
@@ -1782,7 +1808,7 @@ void sampCrop(void)
     if ((smpEd_Rx1 >= smpEd_Rx2) || (editor.curInstr == 0) || (currSmp->pek == NULL))
         return;
 
-    MY_ASSERT(!(currSmp->typ & 16) || (!(smpEd_Rx1 & 1) && !(smpEd_Rx2 & 1) && !(currSmp->len & 1)))
+    assert(!(currSmp->typ & 16) || (!(smpEd_Rx1 & 1) && !(smpEd_Rx2 & 1) && !(currSmp->len & 1)));
 
     r1 = smpEd_Rx1;
     r2 = smpEd_Rx2;
@@ -1834,7 +1860,7 @@ void sampXFade(void)
     if ((editor.curInstr == 0) || (currSmp->pek == NULL))
         return;
 
-    MY_ASSERT(!(currSmp->typ & 16) || (!(smpEd_Rx1 & 1) && !(smpEd_Rx2 & 1) && !(currSmp->len & 1)))
+    assert(!(currSmp->typ & 16) || (!(smpEd_Rx1 & 1) && !(smpEd_Rx2 & 1) && !(currSmp->len & 1)));
 
     t = currSmp->typ;
 
@@ -2344,7 +2370,7 @@ void sampRepeatUp(void)
     repS = curSmpRepS;
     repL = curSmpRepL;
 
-    loopLen = mouse.rightButtonPressed ? 16 : 1;
+    loopLen = 1;
     for (i = 0; i < loopLen; ++i)
     {
         if (repS < (currSmp->len - lenSub))
@@ -2368,7 +2394,7 @@ void sampRepeatDown(void)
     if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len == 0))
         return;
 
-    delta = mouse.rightButtonPressed ? 16 : 1;
+    delta = 1;
     if (currSmp->typ & 16)
         delta *= 2;
 
@@ -2389,7 +2415,7 @@ void sampReplenUp(void)
     if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len == 0))
         return;
 
-    delta = mouse.rightButtonPressed ? 16 : 1;
+    delta = 1;
     if (currSmp->typ & 16)
         delta *= 2;
 
@@ -2410,7 +2436,7 @@ void sampReplenDown(void)
     if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len == 0))
         return;
 
-    delta = mouse.rightButtonPressed ? 16 : 1;
+    delta = 1;
     if (currSmp->typ & 16)
         delta *= 2;
 
@@ -2593,12 +2619,12 @@ static void writeSamplePosLine(void)
         return; 
     }
 
-    MY_ASSERT(editor.curSmpChannel < MAX_VOICES)
+    assert(editor.curSmpChannel < MAX_VOICES);
 
     ch = &stm[editor.curSmpChannel];
     if ((ch->instrNr == editor.curInstr) && (ch->sampleNr == editor.curSmp))
     {
-        scrPos = getSamplePosition(editor.curSmpChannel);
+        scrPos = getSampleReadPos(editor.curSmpChannel);
 
         /* convert sample position to screen position */
         if (scrPos != -1)
@@ -3181,15 +3207,15 @@ void fixDC(void)
     {
         if (smpEd_Rx1 >= smpEd_Rx2)
         {
-            MY_ASSERT(!(currSmp->len & 1))
+            assert(!(currSmp->len & 1));
 
             ptr16 = (int16_t *)(currSmp->pek);
             len   = currSmp->len / 2;
         }
         else
         {
-            MY_ASSERT(!(smpEd_Rx1 & 1))
-            MY_ASSERT(!(smpEd_Rx2 & 1))
+            assert(!(smpEd_Rx1 & 1));
+            assert(!(smpEd_Rx2 & 1));
 
             ptr16 = (int16_t *)(&currSmp->pek[smpEd_Rx1]);
             len   = (smpEd_Rx2 - smpEd_Rx1) / 2;

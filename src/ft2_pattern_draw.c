@@ -173,8 +173,7 @@ static void writeCursor(void)
     xPos  = pattCursorXTab[tabOffset];
     width = pattCursorWTab[tabOffset];
 
-    MY_ASSERT((editor.ptnCursorY > 0) && (xPos > 0) && (width > 0))
-
+    assert((editor.ptnCursorY > 0) && (xPos > 0) && (width > 0));
     xPos += ((editor.cursor.ch - editor.ui.channelOffset) * editor.ui.patternChannelWidth);
 
     dstPtr = &video.frameBuffer[(editor.ptnCursorY * SCREEN_W) + xPos];
@@ -276,15 +275,15 @@ static void writePatternBlockMark(int16_t currRow, uint16_t rowHeight, const pat
             return;
     }
 
-    MY_ASSERT((x1 > 0) && (x1 < SCREEN_W) && (x2 > 0) && (x2 < SCREEN_W) &&
-              (y1 > 0) && (y1 < SCREEN_H) && (y2 > 0) && (y2 < SCREEN_H))
+    assert((x1 > 0) && (x1 < SCREEN_W) && (x2 > 0) && (x2 < SCREEN_W) &&
+           (y1 > 0) && (y1 < SCREEN_H) && (y2 > 0) && (y2 < SCREEN_H));
 
     /* pattern mark drawing */
 
     w = x2 - x1;
     h = y2 - y1;
 
-    MY_ASSERT(((x1 + w) <= SCREEN_W) && ((y1 + h) <= SCREEN_H))
+    assert(((x1 + w) <= SCREEN_W) && ((y1 + h) <= SCREEN_H));
 
     ptr32 = &video.frameBuffer[(y1 * SCREEN_W) + x1];
     for (y = 0; y < h; ++y)
@@ -975,7 +974,7 @@ static void drawNoteSmall(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, in
     uint8_t note;
     uint32_t x, y, *dstPtr, pixVal, char1, char2, char3;
 
-    MY_ASSERT((ton >= 0) && (ton <= 97))
+    assert((ton >= 0) && (ton <= 97));
 
     note = --ton % 12;
     if (config.ptnAcc == 0)
@@ -1067,7 +1066,7 @@ static void drawNoteMedium(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, i
     uint8_t note;
     uint32_t x, y, *dstPtr, pixVal, fontOffset, char1, char2, char3;
 
-    MY_ASSERT((ton >= 0) && (ton <= 97))
+    assert((ton >= 0) && (ton <= 97));
 
     note = --ton % 12;
     if (config.ptnAcc == 0)
@@ -1160,7 +1159,7 @@ static void drawNoteBig(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, int1
     uint8_t note;
     uint32_t x, y, *dstPtr, pixVal, fontOffset, char1, char2, char3;
 
-    MY_ASSERT((ton >= 0) && (ton <= 97))
+    assert((ton >= 0) && (ton <= 97));
 
     note = --ton % 12;
     if (config.ptnAcc == 0)

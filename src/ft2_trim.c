@@ -56,7 +56,7 @@ static void remapInstrInSong(uint8_t src, uint8_t dst, int16_t ap)
 
 static int8_t tempInstrIsEmpty(uint16_t nr)
 {
-    MY_ASSERT((nr != 0) && (nr < (1 + MAX_INST)))
+    assert((nr != 0) && (nr < (1 + MAX_INST)));
 
     /* test if name is not empty */
     if (tmpInstrName[nr][0] != '\0')
@@ -809,7 +809,7 @@ static int64_t calculateTrimSize(void)
                 newPattDataLen += getPackedPattSize(tmpPatt[i], tmpPattLens[i], antChn);
         }
 
-        MY_ASSERT(pattDataLen >= newPattDataLen)
+        assert(pattDataLen >= newPattDataLen);
 
         if (pattDataLen > newPattDataLen)
             bytes64 += (pattDataLen - newPattDataLen);
@@ -823,7 +823,7 @@ static int64_t calculateTrimSize(void)
     {
         newInstrSize64 = getTempInsAndSmpSize();
 
-        MY_ASSERT(oldInstrSize64 >= newInstrSize64)
+        assert(oldInstrSize64 >= newInstrSize64);
 
         if (oldInstrSize64 > newInstrSize64)
             bytes64 += (oldInstrSize64 - newInstrSize64);

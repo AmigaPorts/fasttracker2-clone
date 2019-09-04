@@ -499,9 +499,6 @@ static int32_t SDLCALL saveSampleThread(void *ptr)
 
     if (editor.tmpFilenameU == NULL)
     {
-#ifdef _DEBUG
-        __debugbreak();
-#endif
         okBoxThreadSafe(0, "System message", "General I/O error during saving! Is the file in use?");
         return (false);
     }

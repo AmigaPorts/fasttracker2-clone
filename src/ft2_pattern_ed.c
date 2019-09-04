@@ -414,28 +414,28 @@ void cursorTabLeft(void)
         cursorChannelLeft();
 
     editor.cursor.object = CURSOR_NOTE;
-    editor.updatePatternEditor = true;
+    editor.ui.updatePatternEditor = true;
 }
 
 void cursorTabRight(void)
 {
     cursorChannelRight();
     editor.cursor.object = CURSOR_NOTE;
-    editor.updatePatternEditor = true;
+    editor.ui.updatePatternEditor = true;
 }
 
 void chanLeft(void)
 {
     cursorChannelLeft();
     editor.cursor.object = CURSOR_NOTE;
-    editor.updatePatternEditor = true;
+    editor.ui.updatePatternEditor = true;
 }
 
 void chanRight(void)
 {
     cursorChannelRight();
     editor.cursor.object = CURSOR_NOTE;
-    editor.updatePatternEditor = true;
+    editor.ui.updatePatternEditor = true;
 }
 
 void cursorLeft(void)
@@ -454,7 +454,7 @@ void cursorLeft(void)
         cursorChannelLeft();
     }
 
-    editor.updatePatternEditor = true;
+    editor.ui.updatePatternEditor = true;
 }
 
 void cursorRight(void)
@@ -473,7 +473,7 @@ void cursorRight(void)
         cursorChannelRight();
     }
 
-    editor.updatePatternEditor = true;
+    editor.ui.updatePatternEditor = true;
 }
 
 void showPatternEditor(void)
@@ -481,7 +481,7 @@ void showPatternEditor(void)
     editor.ui.patternEditorShown = true;
     updateChanNums();
     drawPatternBorders();
-    editor.updatePatternEditor = true;
+    editor.ui.updatePatternEditor = true;
 }
 
 void hidePatternEditor(void)
@@ -647,7 +647,7 @@ void patternEditorExtended(void)
     editor.ui.extended = true;
     editor.ui.patternEditorShown = true;
     updatePatternEditorGUI(); /* change pattern editor layout (based on ui.extended flag) */
-    editor.updatePatternEditor = true; /* redraw pattern editor */
+    editor.ui.updatePatternEditor = true; /* redraw pattern editor */
 
     drawFramework(0,    0, 112, 53, FRAMEWORK_TYPE1);
     drawFramework(112,  0, 106, 33, FRAMEWORK_TYPE1);
@@ -691,7 +691,7 @@ void patternEditorExtended(void)
     drawEditPattern(editor.editPattern);
     drawPatternLength(editor.editPattern);
     drawPosEdNums(editor.songPos);
-    editor.updatePosSections = true;
+    editor.ui.updatePosSections = true;
 
     /* kludge to fix scrollbar thumb when the scrollbar height changes during playback */
     if (songPlaying)
@@ -765,7 +765,7 @@ static int8_t mouseXToCh(void) /* used to get channel num from mouse x (for patt
     int8_t ch, chEnd;
     int32_t mouseX;
 
-    MY_ASSERT(editor.ui.patternChannelWidth > 0)
+    assert(editor.ui.patternChannelWidth > 0);
     if (editor.ui.patternChannelWidth == 0)
         return (0);
 
@@ -844,7 +844,7 @@ void handlePatternDataMouseDown(int8_t mouseButtonHeld)
     if (mouse.rightButtonPressed)
     {
         clearPattMark();
-        editor.updatePatternEditor = true;
+        editor.ui.updatePatternEditor = true;
         return;
     }
 
@@ -867,7 +867,7 @@ void handlePatternDataMouseDown(int8_t mouseButtonHeld)
 
         checkMarkLimits();
 
-        editor.updatePatternEditor = true;
+        editor.ui.updatePatternEditor = true;
         return;
     }
 
@@ -908,7 +908,7 @@ void handlePatternDataMouseDown(int8_t mouseButtonHeld)
         }
 
         checkMarkLimits();
-        editor.updatePatternEditor = true;
+        editor.ui.updatePatternEditor = true;
     }
 
     /* scroll down/up with mouse (if song is not playing) */
@@ -924,7 +924,7 @@ void handlePatternDataMouseDown(int8_t mouseButtonHeld)
                 setPos(-1, editor.pattPos - 1);
 
             forceMarking = true;
-            editor.updatePatternEditor = true;
+            editor.ui.updatePatternEditor = true;
         }
         else if (mouse.y > y2)
         {
@@ -933,7 +933,7 @@ void handlePatternDataMouseDown(int8_t mouseButtonHeld)
                 setPos(-1, editor.pattPos + 1);
 
             forceMarking = true;
-            editor.updatePatternEditor = true;
+            editor.ui.updatePatternEditor = true;
         }
     }
 
@@ -955,7 +955,7 @@ void handlePatternDataMouseDown(int8_t mouseButtonHeld)
         }
 
         checkMarkLimits();
-        editor.updatePatternEditor = true;
+        editor.ui.updatePatternEditor = true;
     }
 }
 
@@ -971,7 +971,7 @@ void rowOneUpWrap(void)
     if (!songPlaying)
     {
         editor.pattPos = (uint8_t)(song.pattPos);
-        editor.updatePatternEditor = true;
+        editor.ui.updatePatternEditor = true;
     }
 
     if (audioWasntLocked)
@@ -994,7 +994,7 @@ void rowOneDownWrap(void)
     {
         song.pattPos = (song.pattPos + 1 + song.pattLen) % song.pattLen;
         editor.pattPos = (uint8_t)(song.pattPos);
-        editor.updatePatternEditor = true;
+        editor.ui.updatePatternEditor = true;
     }
 
     if (audioWasntLocked)
@@ -1016,7 +1016,7 @@ void rowUp(uint16_t amount)
     if (!songPlaying)
     {
         editor.pattPos = (uint8_t)(song.pattPos);
-        editor.updatePatternEditor = true;
+        editor.ui.updatePatternEditor = true;
     }
 
     if (audioWasntLocked)
@@ -1038,7 +1038,7 @@ void rowDown(uint16_t amount)
     if (!songPlaying)
     {
         editor.pattPos = (uint8_t)(song.pattPos);
-        editor.updatePatternEditor = true;
+        editor.ui.updatePatternEditor = true;
     }
 
     if (audioWasntLocked)
@@ -1264,8 +1264,8 @@ int8_t loadTrack(UNICHAR *filenameU)
 
     fclose(f);
 
-    editor.updatePatternEditor = true;
-    editor.updatePosSections   = true;
+    editor.ui.updatePatternEditor = true;
+    editor.ui.updatePosSections   = true;
 
     diskOpSetFilename(DISKOP_ITEM_TRACK, filenameU);
     setSongModifiedFlag();
@@ -1403,8 +1403,8 @@ int8_t loadPattern(UNICHAR *filenameU)
 
     fclose(f);
 
-    editor.updatePatternEditor = true;
-    editor.updatePosSections   = true;
+    editor.ui.updatePatternEditor = true;
+    editor.ui.updatePosSections   = true;
 
     diskOpSetFilename(DISKOP_ITEM_PATTERN, filenameU);
     setSongModifiedFlag();
@@ -1470,7 +1470,7 @@ void scrollChannelRight(void)
     scrollBarScrollDown(SB_CHAN_SCROLL, 1);
 }
 
-void setChannelScrollPos(int32_t pos)
+void setChannelScrollPos(uint32_t pos)
 {
     if (editor.ui.channelOffset != pos)
     {
@@ -1499,7 +1499,7 @@ void setChannelScrollPos(int32_t pos)
                 editor.cursor.ch++;
             }
 
-            editor.updatePatternEditor = true;
+            editor.ui.updatePatternEditor = true;
         }
     }
 }
@@ -1527,11 +1527,11 @@ void jumpToChannel(uint8_t channel)
         }
 
         editor.cursor.ch = channel; /* set it here since scrollBarScrollX() changes it... */
-        editor.updatePatternEditor = true;
+        editor.ui.updatePatternEditor = true;
     }
 }
 
-void sbPosEdPos(int32_t pos)
+void sbPosEdPos(uint32_t pos)
 {
     uint8_t audioWasntLocked;
 
@@ -1539,7 +1539,7 @@ void sbPosEdPos(int32_t pos)
     if (audioWasntLocked)
         lockAudio();
 
-    if (song.songPos != pos)
+    if (song.songPos != (int32_t)(pos))
         setPos((int16_t)(pos), 0);
 
     if (audioWasntLocked)
@@ -1595,7 +1595,7 @@ void pbPosEdIns(void)
         drawPosEdNums(song.songPos);
         drawSongLength();
 
-        editor.updatePosSections = true;
+        editor.ui.updatePosSections = true;
         setSongModifiedFlag();
     }
     unlockMixerCallback();
@@ -1651,7 +1651,7 @@ void pbPosEdPattUp(void)
         drawEditPattern(editor.editPattern);
         drawPatternLength(editor.editPattern);
 
-        editor.updatePatternEditor = true;
+        editor.ui.updatePatternEditor = true;
         setSongModifiedFlag();
     }
     unlockMixerCallback();
@@ -1671,7 +1671,7 @@ void pbPosEdPattDown(void)
         drawEditPattern(editor.editPattern);
         drawPatternLength(editor.editPattern);
 
-        editor.updatePatternEditor = true;
+        editor.ui.updatePatternEditor = true;
         setSongModifiedFlag();
     }
     unlockMixerCallback();
@@ -1968,7 +1968,7 @@ void pbEditPattUp(void)
             drawPatternLength(editor.editPattern);
         }
 
-        editor.updatePatternEditor = true;
+        editor.ui.updatePatternEditor = true;
     }
 
     if (audioWasntLocked)
@@ -1998,7 +1998,7 @@ void pbEditPattDown(void)
             drawPatternLength(editor.editPattern);
         }
 
-        editor.updatePatternEditor = true;
+        editor.ui.updatePatternEditor = true;
     }
 
     if (audioWasntLocked)
@@ -2021,7 +2021,7 @@ void pbPattLenUp(void)
         checkMarkLimits();
 
         drawPatternLength(editor.editPattern);
-        editor.updatePatternEditor = true;
+        editor.ui.updatePatternEditor = true;
         setSongModifiedFlag();
     }
 
@@ -2049,7 +2049,7 @@ void pbPattLenDown(void)
         if (song.pattPos >= song.pattLen)
             song.pattPos--;
 
-        editor.updatePatternEditor = true;
+        editor.ui.updatePatternEditor = true;
         setSongModifiedFlag();
     }
 
@@ -2083,7 +2083,7 @@ void drawPosEdNums(int16_t songPos)
     {
         if ((songPos - (2 - y)) >= 0)
         {
-            MY_ASSERT((songPos - (2 - y)) < 256)
+            assert((songPos - (2 - y)) < 256);
 
             if (editor.ui.extended)
             {
@@ -2098,7 +2098,7 @@ void drawPosEdNums(int16_t songPos)
         }
     }
 
-    MY_ASSERT(songPos < 256)
+    assert(songPos < 256);
 
     /* middle */
     if (editor.ui.extended)
@@ -2232,7 +2232,7 @@ void drawGlobalVol(int16_t globalVol)
     if (editor.ui.extended)
         return;
 
-    MY_ASSERT((globalVol >= 0) && (globalVol <= 64))
+    assert((globalVol >= 0) && (globalVol <= 64));
     sprintf(str, "%02d", globalVol);
     textOutFixed(87, 80, PAL_FORGRND, PAL_DESKTOP, str);
 }
@@ -2241,7 +2241,7 @@ void drawIDAdd(void)
 {
     char str[8];
 
-    MY_ASSERT(editor.ID_Add <= 16);
+    assert(editor.ID_Add <= 16);;
     sprintf(str, "%02d", editor.ID_Add);
     textOutFixed(152, 64, PAL_FORGRND, PAL_DESKTOP, str);
 }
@@ -2782,7 +2782,7 @@ void pbZap(void)
     }
 }
 
-void sbSmpBankPos(int32_t pos)
+void sbSmpBankPos(uint32_t pos)
 {
     if (editor.sampleBankOffset != pos)
     {
@@ -2849,8 +2849,8 @@ void shrinkPattern(void)
 
         editor.pattPos = song.pattPos;
 
-        editor.updatePatternEditor = true;
-        editor.updatePosSections   = true;
+        editor.ui.updatePatternEditor = true;
+        editor.ui.updatePosSections   = true;
 
         unlockMixerCallback();
         setSongModifiedFlag();
@@ -2906,8 +2906,8 @@ void expandPattern(void)
 
         editor.pattPos = song.pattPos;
 
-        editor.updatePatternEditor = true;
-        editor.updatePosSections   = true;
+        editor.ui.updatePatternEditor = true;
+        editor.ui.updatePosSections   = true;
 
         unlockMixerCallback();
         setSongModifiedFlag();

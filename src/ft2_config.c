@@ -189,7 +189,7 @@ static void drawCurrentPaletteColor(void)
 {
     uint8_t palIndex;
 
-    if (editor.ui.configScreenShown && (editor.currentConfigScreen == CONFIG_SCREEN_LAYOUT))
+    if (editor.ui.configScreenShown && (editor.currConfigScreen == CONFIG_SCREEN_LAYOUT))
     {
         palIndex = getCurrentPaletteEntry();
 
@@ -208,9 +208,9 @@ static void drawContrastText(void)
     if (config.cfg_StdPalNr == PAL_USER_DEFINED)
     {
         if (editor.currPaletteEdit == 4)
-            percent = editor.desktopContrast;
+            percent = editor.ui.desktopContrast;
         else
-            percent = editor.buttonContrast;
+            percent = editor.ui.buttonContrast;
 
         sprintf(str, "%3d", percent);
         textOutFixed(599, 59, PAL_FORGRND, PAL_DESKTOP, str);
@@ -242,9 +242,9 @@ static void showPaletteEditor(void)
             textOutShadow(516, 59, PAL_FORGRND, PAL_DSKTOP2, "Contrast:");
 
             if (editor.currPaletteEdit == 4)
-                setScrollBarPos(SB_PAL_CONTRAST, editor.desktopContrast, false);
+                setScrollBarPos(SB_PAL_CONTRAST, editor.ui.desktopContrast, false);
             else if (editor.currPaletteEdit == 5)
-                setScrollBarPos(SB_PAL_CONTRAST, editor.buttonContrast, false);
+                setScrollBarPos(SB_PAL_CONTRAST, editor.ui.buttonContrast, false);
 
             showScrollBar(SB_PAL_CONTRAST);
             showPushButton(PB_CONFIG_PAL_CONT_DOWN);
@@ -361,7 +361,7 @@ uint8_t loadConfig(uint8_t showErrorFlag)
     if (midi.initThreadDone)
     {
         setMidiInputDeviceFromConfig();
-        if (editor.ui.configScreenShown && (editor.currentConfigScreen == CONFIG_SCREEN_MIDI_INPUT))
+        if (editor.ui.configScreenShown && (editor.currConfigScreen == CONFIG_SCREEN_MIDI_INPUT))
             drawMidiInputList();
     }
 
@@ -851,13 +851,13 @@ static void updatePaletteSelection(void)
 
     if (editor.currPaletteEdit == 4)
     {
-        editor.desktopContrast = video.customContrasts[0];
-        setScrollBarPos(SB_PAL_CONTRAST, editor.desktopContrast, false);
+        editor.ui.desktopContrast = video.customContrasts[0];
+        setScrollBarPos(SB_PAL_CONTRAST, editor.ui.desktopContrast, false);
     }
     else if (editor.currPaletteEdit == 5)
     {
-        editor.buttonContrast = video.customContrasts[1];
-        setScrollBarPos(SB_PAL_CONTRAST, editor.buttonContrast, false);
+        editor.ui.buttonContrast = video.customContrasts[1];
+        setScrollBarPos(SB_PAL_CONTRAST, editor.ui.buttonContrast, false);
     }
 }
 
@@ -915,7 +915,7 @@ static void setConfigRadioButtonStates(void)
     uint16_t tmpID;
 
     uncheckRadioButtonGroup(RB_GROUP_CONFIG_SELECT);
-    switch (editor.currentConfigScreen)
+    switch (editor.currConfigScreen)
     {
         default:
         case CONFIG_SCREEN_IO_DEVICES:    tmpID = RB_CONFIG_IO_DEVICES;    break;
@@ -1223,7 +1223,7 @@ void showConfigScreen(void)
 
     textOutShadow(19,  92, PAL_FORGRND, PAL_DSKTOP2, "Auto save");
 
-    switch (editor.currentConfigScreen)
+    switch (editor.currConfigScreen)
     {
         default:
         case CONFIG_SCREEN_IO_DEVICES:
@@ -1637,7 +1637,7 @@ void configToggleNotYetAppliedWarning(void)
 void rbConfigIODevices(void)
 {
     checkRadioButton(RB_CONFIG_IO_DEVICES);
-    editor.currentConfigScreen = CONFIG_SCREEN_IO_DEVICES;
+    editor.currConfigScreen = CONFIG_SCREEN_IO_DEVICES;
 
     hideConfigScreen();
     showConfigScreen();
@@ -1646,7 +1646,7 @@ void rbConfigIODevices(void)
 void rbConfigLayout(void)
 {
     checkRadioButton(RB_CONFIG_LAYOUT);
-    editor.currentConfigScreen = CONFIG_SCREEN_LAYOUT;
+    editor.currConfigScreen = CONFIG_SCREEN_LAYOUT;
 
     hideConfigScreen();
     showConfigScreen();
@@ -1655,7 +1655,7 @@ void rbConfigLayout(void)
 void rbConfigMiscellaneous(void)
 {
     checkRadioButton(RB_CONFIG_MISCELLANEOUS);
-    editor.currentConfigScreen = CONFIG_SCREEN_MISCELLANEOUS;
+    editor.currConfigScreen = CONFIG_SCREEN_MISCELLANEOUS;
 
     hideConfigScreen();
     showConfigScreen();
@@ -1664,7 +1664,7 @@ void rbConfigMiscellaneous(void)
 void rbConfigMidiInput(void)
 {
     checkRadioButton(RB_CONFIG_MIDI_INPUT);
-    editor.currentConfigScreen = CONFIG_SCREEN_MIDI_INPUT;
+    editor.currConfigScreen = CONFIG_SCREEN_MIDI_INPUT;
 
     hideConfigScreen();
     showConfigScreen();
@@ -1719,7 +1719,7 @@ void rbConfigAudio24bit(void)
     config.audioDither = 0;
 
     checkBoxes[CB_CONF_DITHER].checked = false;
-    if (editor.currentConfigScreen == CONFIG_SCREEN_IO_DEVICES)
+    if (editor.currConfigScreen == CONFIG_SCREEN_IO_DEVICES)
         drawCheckBox(CB_CONF_DITHER);
 
     setNewAudioSettings();
@@ -1787,7 +1787,7 @@ void cbConfigDither(void)
         config.audioDither = 0;
 
         checkBoxes[CB_CONF_DITHER].checked = false;
-        if (editor.currentConfigScreen == CONFIG_SCREEN_IO_DEVICES)
+        if (editor.currConfigScreen == CONFIG_SCREEN_IO_DEVICES)
             drawCheckBox(CB_CONF_DITHER);
     }
     else
@@ -1806,14 +1806,12 @@ static void redrawPatternEditor(void) /* called after changing some pattern edit
         editor.cursor.object = CURSOR_EFX0;
 
     updateChanNums();
-    editor.updatePatternEditor = true;
+    editor.ui.updatePatternEditor = true;
 }
 
 void cbConfigPattStretch(void)
 {
     config.ptnUnpressed ^= 1;
-    editor.patternMode = (4 * editor.ui.extended) + (2 * config.ptnUnpressed) + editor.ui.pattChanScrollShown;
-
     redrawPatternEditor();
 }
 
@@ -2024,7 +2022,7 @@ void rbConfigPalDesktop(void)
     editor.currPaletteEntry = &video.palette[PAL_DESKTOP];
     checkRadioButton(RB_CONFIG_PAL_DESKTOP);
 
-    setScrollBarPos(SB_PAL_CONTRAST, editor.desktopContrast, false);
+    setScrollBarPos(SB_PAL_CONTRAST, editor.ui.desktopContrast, false);
     showPaletteEditor();
     updatePaletteSelection();
 }
@@ -2035,7 +2033,7 @@ void rbConfigPalButttons(void)
     editor.currPaletteEntry = &video.palette[PAL_BUTTONS];
     checkRadioButton(RB_CONFIG_PAL_BUTTONS);
 
-    setScrollBarPos(SB_PAL_CONTRAST, editor.buttonContrast, false);
+    setScrollBarPos(SB_PAL_CONTRAST, editor.ui.buttonContrast, false);
     showPaletteEditor();
     updatePaletteSelection();
 }
@@ -2237,10 +2235,10 @@ void rbWinSize4x(void)
     checkRadioButton(RB_CONFIG_WIN_SIZE_4X);
 }
 
-void sbPalRPos(int32_t pos)
+void sbPalRPos(uint32_t pos)
 {
     uint8_t paletteEntry;
-    int16_t r;
+    uint16_t r;
     uint32_t *pixel;
 
     if (config.cfg_StdPalNr != PAL_USER_DEFINED)
@@ -2259,7 +2257,7 @@ void sbPalRPos(int32_t pos)
 
         switch (paletteEntry)
         {
-            case PAL_PATTEXT: config.palPattTextR    = (uint8_t)(r); updateScrollBarPalette(); break;
+            case PAL_PATTEXT: config.palPattTextR    = (uint8_t)(r); updateLoopPinPalette(); break;
             case PAL_BLCKMRK: config.palBlockMarkR   = (uint8_t)(r); break;
             case PAL_BLCKTXT: config.palTextOnBlockR = (uint8_t)(r); break;
             case PAL_MOUSEPT: config.palMouseR       = (uint8_t)(r); break;
@@ -2277,10 +2275,10 @@ void sbPalRPos(int32_t pos)
     }
 }
 
-void sbPalGPos(int32_t pos)
+void sbPalGPos(uint32_t pos)
 {
     uint8_t paletteEntry;
-    int16_t g;
+    uint16_t g;
     uint32_t *pixel;
 
     if (config.cfg_StdPalNr != PAL_USER_DEFINED)
@@ -2299,7 +2297,7 @@ void sbPalGPos(int32_t pos)
 
         switch (paletteEntry)
         {
-            case PAL_PATTEXT: config.palPattTextG    = (uint8_t)(g); updateScrollBarPalette(); break;
+            case PAL_PATTEXT: config.palPattTextG    = (uint8_t)(g); updateLoopPinPalette(); break;
             case PAL_BLCKMRK: config.palBlockMarkG   = (uint8_t)(g); break;
             case PAL_BLCKTXT: config.palTextOnBlockG = (uint8_t)(g); break;
             case PAL_MOUSEPT: config.palMouseG       = (uint8_t)(g); break;
@@ -2317,10 +2315,10 @@ void sbPalGPos(int32_t pos)
     }
 }
 
-void sbPalBPos(int32_t pos)
+void sbPalBPos(uint32_t pos)
 {
     uint8_t paletteEntry;
-    int16_t b;
+    uint16_t b;
     uint32_t *pixel;
 
     if (config.cfg_StdPalNr != PAL_USER_DEFINED)
@@ -2339,7 +2337,7 @@ void sbPalBPos(int32_t pos)
 
         switch (paletteEntry)
         {
-            case PAL_PATTEXT: config.palPattTextB    = (uint8_t)(b); updateScrollBarPalette(); break;
+            case PAL_PATTEXT: config.palPattTextB    = (uint8_t)(b); updateLoopPinPalette(); break;
             case PAL_BLCKMRK: config.palBlockMarkB   = (uint8_t)(b); break;
             case PAL_BLCKTXT: config.palTextOnBlockB = (uint8_t)(b); break;
             case PAL_MOUSEPT: config.palMouseB       = (uint8_t)(b); break;
@@ -2357,7 +2355,7 @@ void sbPalBPos(int32_t pos)
     }
 }
 
-void sbPalContrastPos(int32_t pos)
+void sbPalContrastPos(uint32_t pos)
 {
     uint8_t paletteEntry, update;
 
@@ -2369,17 +2367,17 @@ void sbPalContrastPos(int32_t pos)
     paletteEntry = getCurrentPaletteEntry();
     if (paletteEntry == PAL_DESKTOP)
     {
-        if (pos != editor.desktopContrast)
+        if ((int8_t)(pos) != editor.ui.desktopContrast)
         {
-            editor.desktopContrast = (int8_t)(pos);
+            editor.ui.desktopContrast = (int8_t)(pos);
             update = true;
         }
     }
     else if (paletteEntry == PAL_BUTTONS)
     {
-        if (pos != editor.buttonContrast)
+        if ((int8_t)(pos) != editor.ui.buttonContrast)
         {
-            editor.buttonContrast = (int8_t)(pos);
+            editor.ui.buttonContrast = (int8_t)(pos);
             update = true;
         }
     }
@@ -2412,7 +2410,7 @@ void configPalRDown(void)
 
         switch (paletteEntry)
         {
-            case PAL_PATTEXT: config.palPattTextR    = (uint8_t)(r); updateScrollBarPalette(); break;
+            case PAL_PATTEXT: config.palPattTextR    = (uint8_t)(r); updateLoopPinPalette(); break;
             case PAL_BLCKMRK: config.palBlockMarkR   = (uint8_t)(r); break;
             case PAL_BLCKTXT: config.palTextOnBlockR = (uint8_t)(r); break;
             case PAL_MOUSEPT: config.palMouseR       = (uint8_t)(r); break;
@@ -2449,7 +2447,7 @@ void configPalRUp(void)
 
         switch (paletteEntry)
         {
-            case PAL_PATTEXT: config.palPattTextR    = (uint8_t)(r); updateScrollBarPalette(); break;
+            case PAL_PATTEXT: config.palPattTextR    = (uint8_t)(r); updateLoopPinPalette(); break;
             case PAL_BLCKMRK: config.palBlockMarkR   = (uint8_t)(r); break;
             case PAL_BLCKTXT: config.palTextOnBlockR = (uint8_t)(r); break;
             case PAL_MOUSEPT: config.palMouseR       = (uint8_t)(r); break;
@@ -2486,7 +2484,7 @@ void configPalGDown(void)
 
         switch (paletteEntry)
         {
-            case PAL_PATTEXT: config.palPattTextG    = (uint8_t)(g); updateScrollBarPalette(); break;
+            case PAL_PATTEXT: config.palPattTextG    = (uint8_t)(g); updateLoopPinPalette(); break;
             case PAL_BLCKMRK: config.palBlockMarkG   = (uint8_t)(g); break;
             case PAL_BLCKTXT: config.palTextOnBlockG = (uint8_t)(g); break;
             case PAL_MOUSEPT: config.palMouseG       = (uint8_t)(g); break;
@@ -2523,7 +2521,7 @@ void configPalGUp(void)
 
         switch (paletteEntry)
         {
-            case PAL_PATTEXT: config.palPattTextG    = (uint8_t)(g); updateScrollBarPalette(); break;
+            case PAL_PATTEXT: config.palPattTextG    = (uint8_t)(g); updateLoopPinPalette(); break;
             case PAL_BLCKMRK: config.palBlockMarkG   = (uint8_t)(g); break;
             case PAL_BLCKTXT: config.palTextOnBlockG = (uint8_t)(g); break;
             case PAL_MOUSEPT: config.palMouseG       = (uint8_t)(g); break;
@@ -2560,7 +2558,7 @@ void configPalBDown(void)
 
         switch (paletteEntry)
         {
-            case PAL_PATTEXT: config.palPattTextB    = (uint8_t)(b); updateScrollBarPalette(); break;
+            case PAL_PATTEXT: config.palPattTextB    = (uint8_t)(b); updateLoopPinPalette(); break;
             case PAL_BLCKMRK: config.palBlockMarkB   = (uint8_t)(b); break;
             case PAL_BLCKTXT: config.palTextOnBlockB = (uint8_t)(b); break;
             case PAL_MOUSEPT: config.palMouseB       = (uint8_t)(b); break;
@@ -2597,7 +2595,7 @@ void configPalBUp(void)
 
         switch (paletteEntry)
         {
-            case PAL_PATTEXT: config.palPattTextB    = (uint8_t)(b); updateScrollBarPalette(); break;
+            case PAL_PATTEXT: config.palPattTextB    = (uint8_t)(b); updateLoopPinPalette(); break;
             case PAL_BLCKMRK: config.palBlockMarkB   = (uint8_t)(b); break;
             case PAL_BLCKTXT: config.palTextOnBlockB = (uint8_t)(b); break;
             case PAL_MOUSEPT: config.palMouseB       = (uint8_t)(b); break;
@@ -2623,17 +2621,17 @@ void configPalContDown(void)
 
     if (editor.currPaletteEdit == 4)
     {
-        if (editor.desktopContrast > 0)
+        if (editor.ui.desktopContrast > 0)
         {
-            editor.desktopContrast--;
+            editor.ui.desktopContrast--;
             update = true;
         }
     }
     else if (editor.currPaletteEdit == 5)
     {
-        if (editor.buttonContrast > 0)
+        if (editor.ui.buttonContrast > 0)
         {
-            editor.buttonContrast--;
+            editor.ui.buttonContrast--;
             update = true;
         }
     }
@@ -2655,17 +2653,17 @@ void configPalContUp(void)
 
     if (editor.currPaletteEdit == 4)
     {
-        if (editor.desktopContrast < 100)
+        if (editor.ui.desktopContrast < 100)
         {
-            editor.desktopContrast++;
+            editor.ui.desktopContrast++;
             update = true;
         }
     }
     else if (editor.currPaletteEdit == 5)
     {
-        if (editor.buttonContrast < 100)
+        if (editor.ui.buttonContrast < 100)
         {
-            editor.buttonContrast++;
+            editor.ui.buttonContrast++;
             update = true;
         }
     }
@@ -2849,16 +2847,16 @@ void configMIDISensUp(void)
     scrollBarScrollDown(SB_MIDI_SENS, 1);
 }
 
-void sbMIDISens(int32_t pos)
+void sbMIDISens(uint32_t pos)
 {
-    if (config.recMIDIVolSens != pos)
+    if ((int16_t)(pos) != config.recMIDIVolSens)
     {
-        config.recMIDIVolSens = (uint8_t)(pos);
+        config.recMIDIVolSens = (int16_t)(pos);
         drawMIDISens();
     }
 }
 
-void sbAmp(int32_t pos)
+void sbAmp(uint32_t pos)
 {
     config.boostLevel = 1 + (int8_t)(pos);
     setAudioAmp(config.boostLevel, config.masterVol, config.specialFlags & BITDEPTH_24);
@@ -2884,7 +2882,7 @@ void configAmpUp(void)
     }
 }
 
-void sbMasterVol(int32_t pos)
+void sbMasterVol(uint32_t pos)
 {
     config.masterVol = (int16_t)(pos);
     setAudioAmp(config.boostLevel, config.masterVol, config.specialFlags & BITDEPTH_24);

@@ -105,7 +105,7 @@ void handleEvents(void)
         midi.rescanDevicesFlag = false;
 
         rescanMidiInputDevices();
-        if (editor.ui.configScreenShown && (editor.currentConfigScreen == CONFIG_SCREEN_MIDI_INPUT))
+        if (editor.ui.configScreenShown && (editor.currConfigScreen == CONFIG_SCREEN_MIDI_INPUT))
             drawMidiInputList();
     }
 
@@ -117,9 +117,9 @@ void handleEvents(void)
     }
 
     /* this flag is set from the sample/instrument loader threads (and make echo thread) */
-    if (editor.ui.updateLoadedSample)
+    if (editor.updateLoadedSample)
     {
-        editor.ui.updateLoadedSample = false;
+        editor.updateLoadedSample = false;
 
         updateNewInstrument();
         updateNewSample();
@@ -131,9 +131,9 @@ void handleEvents(void)
     }
 
     /* called after loading an instrument */
-    if (editor.ui.updateLoadedInstrument)
+    if (editor.updateLoadedInstrument)
     {
-        editor.ui.updateLoadedInstrument = false;
+        editor.updateLoadedInstrument = false;
 
         updateNewInstrument();
         updateNewSample();
@@ -436,7 +436,7 @@ static void handleInput(void)
         /* text input when editing texts */
         if (inputEvent.type == SDL_TEXTINPUT)
         {
-            if (editor.ui.editTextFlag)
+            if (editor.editTextFlag)
             {
                 if (keyb.ignoreTextEditKey)
                 {
@@ -467,15 +467,15 @@ static void handleInput(void)
         }
         else if (inputEvent.type == SDL_QUIT)
         {
-            if (editor.ui.systemRequestShown)
+            if (editor.ui.sysReqShown)
                 continue;
 
-            if (editor.ui.editTextFlag)
+            if (editor.editTextFlag)
                 exitTextEditing();
 
             if (!song.isModified)
             {
-                editor.ui.throwExit = true;
+                editor.throwExit = true;
             }
             else
             {
@@ -487,7 +487,7 @@ static void handleInput(void)
                 }
 
                 if (quitBox(true) == 1)
-                    editor.ui.throwExit = true;
+                    editor.throwExit = true;
             }
         }
         else if (inputEvent.type == SDL_KEYUP)
@@ -507,7 +507,7 @@ static void handleInput(void)
             mouseButtonDownHandler(inputEvent.button.button);
         }
 
-        if (editor.ui.throwExit)
+        if (editor.throwExit)
             editor.programRunning = false;
     }
 

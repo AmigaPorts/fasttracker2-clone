@@ -26,9 +26,10 @@ enum
 struct video_t
 {
     uint8_t customContrasts[2]; /* for palette */
-    uint8_t upscaleFactor, fullscreen;
+    uint8_t upscaleFactor, fullscreen, vsync60HzPresent;
+    int32_t renderW, renderH;
     uint32_t *frameBuffer, palette[PAL_NUM], vblankTimeLen, vblankTimeLenFrac;
-    float fXScale, fYScale, fXScaleMul, fYScaleMul;
+    uint32_t xScaleMul, yScaleMul;
 #ifdef _WIN32
     HWND hWnd;
 #endif

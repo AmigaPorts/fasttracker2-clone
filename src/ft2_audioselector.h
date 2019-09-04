@@ -16,8 +16,8 @@ void scrollAudInputDevListUp(void);
 void scrollAudInputDevListDown(void);
 void scrollAudOutputDevListUp(void);
 void scrollAudOutputDevListDown(void);
-void sbAudOutputSetPos(int32_t pos);
-void sbAudInputSetPos(int32_t pos);
+void sbAudOutputSetPos(uint32_t pos);
+void sbAudInputSetPos(uint32_t pos);
 void freeAudioDeviceLists(void);
 void freeAudioDeviceSelectorBuffers(void);
 

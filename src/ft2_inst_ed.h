@@ -30,9 +30,9 @@ void midiPrgDown(void);
 void midiPrgUp(void);
 void midiBendDown(void);
 void midiBendUp(void);
-void sbMidiChPos(int32_t pos);
-void sbMidiPrgPos(int32_t pos);
-void sbMidiBendPos(int32_t pos);
+void sbMidiChPos(uint32_t pos);
+void sbMidiPrgPos(uint32_t pos);
+void sbMidiBendPos(uint32_t pos);
 
 void volPreDef1(void);
 void volPreDef2(void);
@@ -82,13 +82,13 @@ void vibDepthUp(void);
 void vibSweepDown(void);
 void vibSweepUp(void);
 
-void setVolumeScroll(int32_t pos);
-void setPanningScroll(int32_t pos);
-void setFinetuneScroll(int32_t pos);
-void setFadeoutScroll(int32_t pos);
-void setVibSpeedScroll(int32_t pos);
-void setVibDepthScroll(int32_t pos);
-void setVibSweepScroll(int32_t pos);
+void setVolumeScroll(uint32_t pos);
+void setPanningScroll(uint32_t pos);
+void setFinetuneScroll(uint32_t pos);
+void setFadeoutScroll(uint32_t pos);
+void setVibSpeedScroll(uint32_t pos);
+void setVibDepthScroll(uint32_t pos);
+void setVibSweepScroll(uint32_t pos);
 
 void rbVibWaveSine(void);
 void rbVibWaveSquare(void);

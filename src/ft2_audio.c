@@ -76,7 +76,7 @@ int8_t setNewAudioSettings(void) /* only call this from the main input/video thr
         }
 
         /* also update config audio radio buttons if we're on that screen at the moment */
-        if (editor.ui.configScreenShown && (editor.currentConfigScreen == CONFIG_SCREEN_IO_DEVICES))
+        if (editor.ui.configScreenShown && (editor.currConfigScreen == CONFIG_SCREEN_IO_DEVICES))
             setConfigIORadioButtonStates();
 
         /* if it didn't work to use the old settings again, then something is seriously wrong... */
@@ -99,7 +99,7 @@ void setAudioAmp(int16_t ampFactor, int16_t master, uint8_t bitDepth32Flag)
     /* voiceVolume = (vol(0..255) * pan(0..65536) * amp(0..256)) >> 4 */
     const float fAudioNorm = 1.0f / (float)(((255UL * 65536 * 256) / 16) / MAX_VOICES);
 
-    MY_ASSERT((ampFactor >= 0) && (ampFactor <= 32) && (master >= 0) && (master <= 256))
+    assert((ampFactor >= 0) && (ampFactor <= 32) && (master >= 0) && (master <= 256));
 
     if (bitDepth32Flag)
     {
@@ -182,8 +182,9 @@ static inline void voiceUpdateVolumes(uint8_t i, uint8_t status)
 
     volL = v->SVol * amp;
 
-    volR = (volL * panningTab[      v->SPan]) >> (32 - 28); /* 0..267386880 */
-    volL = (volL * panningTab[256 - v->SPan]) >> (32 - 28); /* 0..267386880 */
+    /* 0..267386880 */
+    volR = (volL * panningTab[      v->SPan]) >> (32 - 28);
+    volL = (volL * panningTab[256 - v->SPan]) >> (32 - 28);
 
     if (!audio.volumeRampingFlag)
     {
@@ -205,9 +206,10 @@ static inline void voiceUpdateVolumes(uint8_t i, uint8_t status)
                 f = &voice[MAX_VOICES + i];
                 memcpy(f, v, sizeof (voice_t));
 
-                f->SVolIPLen      = audio.quickVolSizeVal;
-                f->SLVolIP        = -f->SLVol2 / f->SVolIPLen;
-                f->SRVolIP        = -f->SRVol2 / f->SVolIPLen;
+                f->SVolIPLen = audio.quickVolSizeVal;
+                f->SLVolIP   = -f->SLVol2 / f->SVolIPLen;
+                f->SRVolIP   = -f->SRVol2 / f->SVolIPLen;
+
                 f->isFadeOutVoice = true;
             }
 
@@ -247,19 +249,19 @@ static void voiceTrigger(uint8_t i, const int8_t *sampleData,
 
     if ((sampleData == NULL) || (sampleLength < 1))
     {
-        v->mixRoutine = NULL; /* shut down voice */
+        v->mixRoutine = NULL; /* shut down voice (illegal parameters) */
         return;
     }
 
     if (sampleIs16Bit)
     {
-        MY_ASSERT(!(sampleLoopBegin  & 1))
-        MY_ASSERT(!(sampleLength     & 1))
-        MY_ASSERT(!(sampleLoopLength & 1))
+        assert(!(sampleLoopBegin  & 1));
+        assert(!(sampleLength     & 1));
+        assert(!(sampleLoopLength & 1));
 
-        sampleLoopBegin  /= 2;
-        sampleLength     /= 2;
-        sampleLoopLength /= 2;
+        sampleLoopBegin  >>= 1;
+        sampleLength     >>= 1;
+        sampleLoopLength >>= 1;
 
         v->sampleData16 = (const int16_t *)(sampleData);
     }
@@ -278,14 +280,14 @@ static void voiceTrigger(uint8_t i, const int8_t *sampleData,
     v->SPos      = position;
     v->SPosDec   = 0; /* position fraction */
 
-    /* test if 9xx position overflows */
+    /* if 9xx position overflows, shut down voice (confirmed FT2 behavior) */
     if (v->SPos >= v->SLen)
     {
-        v->mixRoutine = NULL; /* shut down voice */
+        v->mixRoutine = NULL;
         return;
     }
 
-    /* XXX: let's hope the CPU does no reordering on this one... */
+    /* XXX: let's hope the CPU does no reordering optimization on this one... */
     v->mixRoutine = mixRoutineTable[(sampleIs16Bit * 12) + (audio.volumeRampingFlag * 6) + (audio.interpolationFlag * 3) + loopFlag];
 }
 
@@ -526,7 +528,7 @@ static void mixAudio(uint8_t *stream, int32_t sampleBlockLength, uint8_t numAudi
     int32_t i;
     voice_t *v;
 
-    MY_ASSERT(sampleBlockLength <= MAX_SAMPLES_PER_TICK)
+    assert(sampleBlockLength <= MAX_SAMPLES_PER_TICK);
 
     memset(audio.mixBufferL, 0, sampleBlockLength * sizeof (int32_t));
     memset(audio.mixBufferR, 0, sampleBlockLength * sizeof (int32_t));
@@ -621,10 +623,10 @@ int8_t pattQueuePush(pattSyncData_t t)
     if (!pattQueueWriteSize())
         return (false);
 
-    MY_ASSERT(pattSync.writePos <= SYNC_QUEUE_LEN)
+    assert(pattSync.writePos <= SYNC_QUEUE_LEN);
 
     pattSync.data[pattSync.writePos] = t;
-    pattSync.writePos = (pattSync.writePos + 1) % (SYNC_QUEUE_LEN + 1);
+    pattSync.writePos = (pattSync.writePos + 1) & SYNC_QUEUE_LEN;
 
     return (true);
 }
@@ -634,7 +636,7 @@ int8_t pattQueuePop(void)
     if (!pattQueueReadSize())
         return (false);
 
-    pattSync.readPos = (pattSync.readPos + 1) % (SYNC_QUEUE_LEN + 1);
+    pattSync.readPos = (pattSync.readPos + 1) & SYNC_QUEUE_LEN;
     return (true);
 }
 
@@ -643,7 +645,7 @@ pattSyncData_t *pattQueuePeek(void)
     if (!pattQueueReadSize())
         return (NULL);
 
-    MY_ASSERT(pattSync.readPos <= SYNC_QUEUE_LEN)
+    assert(pattSync.readPos <= SYNC_QUEUE_LEN);
     return (&pattSync.data[pattSync.readPos]);
 }
 
@@ -652,7 +654,7 @@ uint64_t getPattQueueTimestamp(void)
     if (!pattQueueReadSize())
         return (0);
 
-    MY_ASSERT(pattSync.readPos <= SYNC_QUEUE_LEN);
+    assert(pattSync.readPos <= SYNC_QUEUE_LEN);;
     return (pattSync.data[pattSync.readPos].timestamp);
 }
 
@@ -681,10 +683,10 @@ int8_t chQueuePush(chSyncData_t t)
     if (!chQueueWriteSize())
         return (false);
 
-    MY_ASSERT(chSync.writePos <= SYNC_QUEUE_LEN)
+    assert(chSync.writePos <= SYNC_QUEUE_LEN);
 
     chSync.data[chSync.writePos] = t;
-    chSync.writePos = (chSync.writePos + 1) % (SYNC_QUEUE_LEN + 1);
+    chSync.writePos = (chSync.writePos + 1) & SYNC_QUEUE_LEN;
 
     return (true);
 }
@@ -694,9 +696,9 @@ int8_t chQueuePop(void)
     if (!chQueueReadSize())
         return (false);
 
-    MY_ASSERT(chSync.readPos <= SYNC_QUEUE_LEN)
+    assert(chSync.readPos <= SYNC_QUEUE_LEN);
 
-    chSync.readPos = (chSync.readPos + 1) % (SYNC_QUEUE_LEN + 1);
+    chSync.readPos = (chSync.readPos + 1) & SYNC_QUEUE_LEN;
     return (true);
 }
 
@@ -705,7 +707,7 @@ chSyncData_t *chQueuePeek(void)
     if (!chQueueReadSize())
         return (NULL);
 
-    MY_ASSERT(chSync.readPos <= SYNC_QUEUE_LEN)
+    assert(chSync.readPos <= SYNC_QUEUE_LEN);
     return (&chSync.data[chSync.readPos]);
 }
 
@@ -714,7 +716,7 @@ uint64_t getChQueueTimestamp(void)
     if (!chQueueReadSize())
         return (0);
 
-    MY_ASSERT(chSync.readPos <= SYNC_QUEUE_LEN)
+    assert(chSync.readPos <= SYNC_QUEUE_LEN);
     return (chSync.data[chSync.readPos].timestamp);
 }
 
@@ -806,7 +808,7 @@ static void SDLCALL mixCallback(void *userdata, Uint8 *stream, int len)
     channel_t *c;
     stmTyp *s;
 
-    MY_ASSERT(pmpCountDiv > 0)
+    assert(pmpCountDiv > 0);
     a = len / pmpCountDiv;
     if (a <= 0)
         return;
@@ -1076,7 +1078,7 @@ int8_t setupAudio(int8_t showErrorMsg)
     }
 
     /* update config audio radio buttons if we're on that screen at the moment */
-    if (editor.ui.configScreenShown && (editor.currentConfigScreen == CONFIG_SCREEN_IO_DEVICES))
+    if (editor.ui.configScreenShown && (editor.currConfigScreen == CONFIG_SCREEN_IO_DEVICES))
         showConfigScreen();
 
     updateWavRendererSettings();

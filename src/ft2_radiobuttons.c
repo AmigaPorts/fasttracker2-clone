@@ -216,13 +216,13 @@ void drawRadioButton(uint16_t radioButtonID)
     uint8_t state;
     radioButton_t *radioButton;
 
-    MY_ASSERT(radioButtonID < NUM_RADIOBUTTONS)
+    assert(radioButtonID < NUM_RADIOBUTTONS);
 
     radioButton = &radioButtons[radioButtonID];
     if (!radioButton->visible)
         return;
 
-    MY_ASSERT((radioButton->x < SCREEN_W) && (radioButton->y < SCREEN_H))
+    assert((radioButton->x < SCREEN_W) && (radioButton->y < SCREEN_H));
 
     state = radioButton->state;
     if (state <= (RADIOBUTTON_STATES - 1))
@@ -231,7 +231,7 @@ void drawRadioButton(uint16_t radioButtonID)
 
 void showRadioButton(uint16_t radioButtonID)
 {
-    MY_ASSERT(radioButtonID < NUM_RADIOBUTTONS)
+    assert(radioButtonID < NUM_RADIOBUTTONS);
 
     radioButtons[radioButtonID].visible = true;
     drawRadioButton(radioButtonID);
@@ -239,7 +239,7 @@ void showRadioButton(uint16_t radioButtonID)
 
 void hideRadioButton(uint16_t radioButtonID)
 {
-    MY_ASSERT(radioButtonID < NUM_RADIOBUTTONS)
+    assert(radioButtonID < NUM_RADIOBUTTONS);
 
     radioButtons[radioButtonID].state   = 0;
     radioButtons[radioButtonID].visible = false;
@@ -250,7 +250,7 @@ void checkRadioButton(uint16_t radioButtonID)
     uint16_t i;
     radioButton_t *radioButton;
 
-    MY_ASSERT(radioButtonID < NUM_RADIOBUTTONS)
+    assert(radioButtonID < NUM_RADIOBUTTONS);
 
     radioButton = &radioButtons[radioButtonID];
 
@@ -267,7 +267,7 @@ void checkRadioButton(uint16_t radioButtonID)
         }
     }
 
-    MY_ASSERT(i < NUM_RADIOBUTTONS)
+    assert(i < NUM_RADIOBUTTONS);
 
     radioButtons[radioButtonID].state = RADIOBUTTON_CHECKED;
     drawRadioButton(radioButtonID);
@@ -310,7 +310,7 @@ void handleRadioButtonsWhileMouseDown(void)
 {
     radioButton_t *radioButton;
 
-    MY_ASSERT((mouse.lastUsedObjectID >= 0) && (mouse.lastUsedObjectID < NUM_RADIOBUTTONS))
+    assert((mouse.lastUsedObjectID >= 0) && (mouse.lastUsedObjectID < NUM_RADIOBUTTONS));
 
     radioButton = &radioButtons[mouse.lastUsedObjectID];
     if (!radioButton->visible)
@@ -340,7 +340,7 @@ int8_t testRadioButtonMouseDown(void)
     uint16_t i;
     radioButton_t *radioButton;
 
-    if (editor.ui.systemRequestShown)
+    if (editor.ui.sysReqShown)
         return (false);
 
     for (i = 0; i < NUM_RADIOBUTTONS; ++i)
@@ -372,7 +372,7 @@ void testRadioButtonMouseRelease(void)
     {
         if (mouse.lastUsedObjectID != OBJECT_ID_NONE)
         {
-            MY_ASSERT(mouse.lastUsedObjectID < NUM_RADIOBUTTONS)
+            assert(mouse.lastUsedObjectID < NUM_RADIOBUTTONS);
 
             radioButton = &radioButtons[mouse.lastUsedObjectID];
             if (radioButton->visible && (radioButton->state != RADIOBUTTON_CHECKED))

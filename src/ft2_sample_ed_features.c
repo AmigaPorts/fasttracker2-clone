@@ -31,13 +31,13 @@ static SDL_Thread *echoThread;
 
 static void pbExit(void)
 {
-    editor.ui.systemRequestShown = false;
+    editor.ui.sysReqShown = false;
     exitFlag = true;
 }
 
 static void windowOpen(void)
 {
-    editor.ui.systemRequestShown = true;
+    editor.ui.sysReqShown = true;
 
 #ifndef __APPLE__
     if (!video.fullscreen) /* release mouse button trap */
@@ -70,7 +70,7 @@ static void windowClose(uint8_t rewriteSample)
     mouseAnimOff();
 }
 
-static void sbSetResampleTones(int32_t pos)
+static void sbSetResampleTones(uint32_t pos)
 {
     int8_t val;
 
@@ -185,7 +185,7 @@ static void pbDoResampling(void)
     resumeAudio();
 
     setSongModifiedFlag();
-    editor.ui.systemRequestShown = false;
+    editor.ui.sysReqShown = false;
 }
 
 static void drawResampleBox(void)
@@ -278,7 +278,7 @@ static void setupResampleBoxWidgets(void)
     p->y = 234;
     p->w = 23;
     p->h = 13;
-    p->preDelayFlag = true;
+    p->preDelay = 1;
     p->delayFrames = 3;
     p->callbackFuncOnDown = pbResampleTonesDown;
     p->visible = true;
@@ -290,7 +290,7 @@ static void setupResampleBoxWidgets(void)
     p->y = 234;
     p->w = 23;
     p->h = 13;
-    p->preDelayFlag = true;
+    p->preDelay = 1;
     p->delayFrames = 3;
     p->callbackFuncOnDown = pbResampleTonesUp;
     p->visible = true;
@@ -319,7 +319,7 @@ void pbSampleResample(void)
     windowOpen();
 
     exitFlag = false;
-    while (editor.ui.systemRequestShown)
+    while (editor.ui.sysReqShown)
     {
         readInput();
         setSyncedReplayerVars();
@@ -345,21 +345,21 @@ static void cbEchoAddMemory(void)
     echo_AddMemory ^= 1;
 }
 
-static void sbSetEchoNumPos(int32_t pos)
+static void sbSetEchoNumPos(uint32_t pos)
 {
-    if (echo_nEcho != pos)
+    if (echo_nEcho != (int32_t)(pos))
         echo_nEcho = (int16_t)(pos);
 }
 
-static void sbSetEchoDistPos(int32_t pos)
+static void sbSetEchoDistPos(uint32_t pos)
 {
-    if (echo_Distance != pos)
+    if (echo_Distance != (int32_t)(pos))
         echo_Distance = (int32_t)(pos);
 }
 
-static void sbSetEchoFadeoutPos(int32_t pos)
+static void sbSetEchoFadeoutPos(uint32_t pos)
 {
-    if (echo_VolChange != pos)
+    if (echo_VolChange != (int32_t)(pos))
         echo_VolChange = (int16_t)(pos);
 }
 
@@ -492,7 +492,7 @@ static int32_t SDLCALL createEchoThread(void *ptr)
     resumeAudio();
 
     setSongModifiedFlag();
-    editor.ui.systemRequestShown = false;
+    editor.ui.sysReqShown = false;
 
     (void)(ptr); /* prevent compiler warning */
     return (true);
@@ -539,18 +539,18 @@ static void drawEchoBox(void)
     textOutShadow(177, 253, PAL_FORGRND, PAL_BUTTON2, "Fade out");
     textOutShadow(192, 270, PAL_FORGRND, PAL_BUTTON2, "Add memory to sample");
 
-    MY_ASSERT(echo_nEcho <= 1024)
+    assert(echo_nEcho <= 1024);
 
     charOut(315 + (0 * 7), 226, PAL_FORGRND, '0' + (echo_nEcho / 1000) % 10);
     charOut(315 + (1 * 7), 226, PAL_FORGRND, '0' + (echo_nEcho / 100) % 10);
     charOut(315 + (2 * 7), 226, PAL_FORGRND, '0' + (echo_nEcho / 10) % 10);
     charOut(315 + (3 * 7), 226, PAL_FORGRND, '0' + (echo_nEcho % 10));
 
-    MY_ASSERT((echo_Distance * 16) <= 262144)
+    assert((echo_Distance * 16) <= 262144);
 
     hexOut(308, 240, PAL_FORGRND, echo_Distance * 16, 5);
 
-    MY_ASSERT(echo_VolChange <= 100)
+    assert(echo_VolChange <= 100);
 
     charOut(312 + (0 * 7), 254, PAL_FORGRND, '0' + (echo_VolChange / 100) % 10);
     charOut(312 + (1 * 7), 254, PAL_FORGRND, '0' + (echo_VolChange / 10) % 10);
@@ -606,7 +606,7 @@ static void setupEchoBoxWidgets(void)
     p->y = 224;
     p->w = 23;
     p->h = 13;
-    p->preDelayFlag = true;
+    p->preDelay = 1;
     p->delayFrames = 3;
     p->callbackFuncOnDown = pbEchoNumDown;
     p->visible = true;
@@ -618,7 +618,7 @@ static void setupEchoBoxWidgets(void)
     p->y = 224;
     p->w = 23;
     p->h = 13;
-    p->preDelayFlag = true;
+    p->preDelay = 1;
     p->delayFrames = 3;
     p->callbackFuncOnDown = pbEchoNumUp;
     p->visible = true;
@@ -630,7 +630,7 @@ static void setupEchoBoxWidgets(void)
     p->y = 238;
     p->w = 23;
     p->h = 13;
-    p->preDelayFlag = true;
+    p->preDelay = 1;
     p->delayFrames = 3;
     p->callbackFuncOnDown = pbEchoDistDown;
     p->visible = true;
@@ -642,7 +642,7 @@ static void setupEchoBoxWidgets(void)
     p->y = 238;
     p->w = 23;
     p->h = 13;
-    p->preDelayFlag = true;
+    p->preDelay = 1;
     p->delayFrames = 3;
     p->callbackFuncOnDown = pbEchoDistUp;
     p->visible = true;
@@ -654,7 +654,7 @@ static void setupEchoBoxWidgets(void)
     p->y = 252;
     p->w = 23;
     p->h = 13;
-    p->preDelayFlag = true;
+    p->preDelay = 1;
     p->delayFrames = 3;
     p->callbackFuncOnDown = pbEchoFadeoutDown;
     p->visible = true;
@@ -666,7 +666,7 @@ static void setupEchoBoxWidgets(void)
     p->y = 252;
     p->w = 23;
     p->h = 13;
-    p->preDelayFlag = true;
+    p->preDelay = 1;
     p->delayFrames = 3;
     p->callbackFuncOnDown = pbEchoFadeoutUp;
     p->visible = true;
@@ -719,7 +719,7 @@ void pbSampleEcho(void)
     windowOpen();
 
     exitFlag = false;
-    while (editor.ui.systemRequestShown)
+    while (editor.ui.sysReqShown)
     {
         readInput();
         setSyncedReplayerVars();
@@ -754,7 +754,7 @@ static void pbMix(void)
 
     if ((editor.curInstr == editor.srcInstr) && (editor.curSmp == editor.srcSmp))
     {
-        editor.ui.systemRequestShown = false;
+        editor.ui.sysReqShown = false;
         return;
     }
 
@@ -793,7 +793,7 @@ static void pbMix(void)
     maxLen = (dstTyp & 16) ? (max8Size * 2) : max8Size;
     if (maxLen <= 0)
     {
-        editor.ui.systemRequestShown = false;
+        editor.ui.sysReqShown = false;
         return;
     }
 
@@ -845,12 +845,12 @@ static void pbMix(void)
     resumeAudio();
 
     setSongModifiedFlag();
-    editor.ui.systemRequestShown = false;
+    editor.ui.sysReqShown = false;
 }
 
-static void sbSetMixBalancePos(int32_t pos)
+static void sbSetMixBalancePos(uint32_t pos)
 {
-    if (pos != mix_Balance)
+    if ((int32_t)(pos) != mix_Balance)
         mix_Balance = (int8_t)(pos);
 }
 
@@ -890,7 +890,7 @@ static void drawMixSampleBox(void)
 
     textOutShadow(198, 246, PAL_FORGRND, PAL_BUTTON2, "Mixing balance");
 
-    MY_ASSERT((mix_Balance >= 0) && (mix_Balance <= 100))
+    assert((mix_Balance >= 0) && (mix_Balance <= 100));
 
     charOut(299 + (0 * 7), 246, PAL_FORGRND, '0' + ((mix_Balance / 100) % 10));
     charOut(299 + (1 * 7), 246, PAL_FORGRND, '0' + ((mix_Balance / 10) % 10));
@@ -933,7 +933,7 @@ static void setupMixBoxWidgets(void)
     p->y = 244;
     p->w = 23;
     p->h = 13;
-    p->preDelayFlag = true;
+    p->preDelay = 1;
     p->delayFrames = 3;
     p->callbackFuncOnDown = pbMixBalanceDown;
     p->visible = true;
@@ -945,7 +945,7 @@ static void setupMixBoxWidgets(void)
     p->y = 244;
     p->w = 23;
     p->h = 13;
-    p->preDelayFlag = true;
+    p->preDelay = 1;
     p->delayFrames = 3;
     p->callbackFuncOnDown = pbMixBalanceUp;
     p->visible = true;
@@ -974,7 +974,7 @@ void pbSampleMix(void)
     windowOpen();
 
     exitFlag = false;
-    while (editor.ui.systemRequestShown)
+    while (editor.ui.sysReqShown)
     {
         readInput();
         setSyncedReplayerVars();
@@ -994,7 +994,7 @@ void pbSampleMix(void)
     windowClose(false);
 }
 
-static void sbSetStartVolPos(int32_t pos)
+static void sbSetStartVolPos(uint32_t pos)
 {
     int16_t val;
 
@@ -1009,7 +1009,7 @@ static void sbSetStartVolPos(int32_t pos)
     }
 }
 
-static void sbSetEndVolPos(int32_t pos)
+static void sbSetEndVolPos(uint32_t pos)
 {
     int16_t val;
 
@@ -1058,7 +1058,7 @@ static void pbApplyVolume(void)
     /* test if we actually need to do anything */
     if ((vol_StartVol == 100) && (vol_EndVol == 100))
     {
-        editor.ui.systemRequestShown = false;
+        editor.ui.sysReqShown = false;
         return;
     }
 
@@ -1075,7 +1075,7 @@ static void pbApplyVolume(void)
 
         if (x2 <= x1)
         {
-            editor.ui.systemRequestShown = false;
+            editor.ui.sysReqShown = false;
             return;
         }
     }
@@ -1121,7 +1121,7 @@ static void pbApplyVolume(void)
     fixSample(currSmp);
 
     setSongModifiedFlag();
-    editor.ui.systemRequestShown = false;
+    editor.ui.sysReqShown = false;
 }
 
 static void pbGetMaxScale(void)
@@ -1331,7 +1331,7 @@ static void setupVolumeBoxWidgets(void)
     p->y = 234;
     p->w = 23;
     p->h = 13;
-    p->preDelayFlag = true;
+    p->preDelay = 1;
     p->delayFrames = 3;
     p->callbackFuncOnDown = pbSampStartVolDown;
     p->visible = true;
@@ -1343,7 +1343,7 @@ static void setupVolumeBoxWidgets(void)
     p->y = 234;
     p->w = 23;
     p->h = 13;
-    p->preDelayFlag = true;
+    p->preDelay = 1;
     p->delayFrames = 3;
     p->callbackFuncOnDown = pbSampStartVolUp;
     p->visible = true;
@@ -1355,7 +1355,7 @@ static void setupVolumeBoxWidgets(void)
     p->y = 248;
     p->w = 23;
     p->h = 13;
-    p->preDelayFlag = true;
+    p->preDelay = 1;
     p->delayFrames = 3;
     p->callbackFuncOnDown = pbSampEndVolDown;
     p->visible = true;
@@ -1367,7 +1367,7 @@ static void setupVolumeBoxWidgets(void)
     p->y = 248;
     p->w = 23;
     p->h = 13;
-    p->preDelayFlag = true;
+    p->preDelay = 1;
     p->delayFrames = 3;
     p->callbackFuncOnDown = pbSampEndVolUp;
     p->visible = true;
@@ -1410,7 +1410,7 @@ void pbSampleVolume(void)
     windowOpen();
 
     exitFlag = false;
-    while (editor.ui.systemRequestShown)
+    while (editor.ui.sysReqShown)
     {
         readInput();
         setSyncedReplayerVars();

@@ -258,7 +258,7 @@ static uint8_t testEditKeys(SDL_Scancode scancode, SDL_Keycode keycode)
     if (i == 0) /* if we inserted a zero, check if pattern is empty, for killing */
         killPatternIfUnused(editor.editPattern);
 
-    editor.updatePatternEditor = true;
+    editor.ui.updatePatternEditor = true;
 
     return (true);
 }
@@ -474,7 +474,7 @@ void recordNote(uint8_t note, int8_t vol)
                     }
                 }
 
-                editor.updatePatternEditor = true;
+                editor.ui.updatePatternEditor = true;
                 setSongModifiedFlag();
             }
         }
@@ -539,7 +539,7 @@ void recordNote(uint8_t note, int8_t vol)
                     }
                 }
 
-                editor.updatePatternEditor = true;
+                editor.ui.updatePatternEditor = true;
                 setSongModifiedFlag();
             }
         }
@@ -602,7 +602,7 @@ int8_t handleEditKeys(SDL_Keycode keycode, SDL_Scancode scancode)
         if ((playMode == PLAYMODE_EDIT) && (pattLen >= 1))
             setPos(-1, (editor.pattPos + editor.ID_Add) % pattLen);
 
-        editor.updatePatternEditor = true;
+        editor.ui.updatePatternEditor = true;
         setSongModifiedFlag();
 
         return (true);
@@ -676,7 +676,7 @@ void writeFromMacroSlot(uint8_t slot)
 
     killPatternIfUnused(editor.editPattern);
 
-    editor.updatePatternEditor = true;
+    editor.ui.updatePatternEditor = true;
     setSongModifiedFlag();
 }
 
@@ -708,7 +708,7 @@ void insertPatternNote(void)
 
     killPatternIfUnused(nr);
 
-    editor.updatePatternEditor = true;
+    editor.ui.updatePatternEditor = true;
     setSongModifiedFlag();
 }
 
@@ -744,7 +744,7 @@ void insertPatternLine(void)
             killPatternIfUnused(nr);
         }
 
-        editor.updatePatternEditor = true;
+        editor.ui.updatePatternEditor = true;
         setSongModifiedFlag();
     }
     else
@@ -791,7 +791,7 @@ void deletePatternNote(void)
 
     killPatternIfUnused(nr);
 
-    editor.updatePatternEditor = true;
+    editor.ui.updatePatternEditor = true;
     setSongModifiedFlag();
 }
 
@@ -839,7 +839,7 @@ void deletePatternLine(void)
 
     killPatternIfUnused(nr);
 
-    editor.updatePatternEditor = true;
+    editor.ui.updatePatternEditor = true;
     setSongModifiedFlag();
 }
 
@@ -1109,7 +1109,7 @@ void doTranspose(void)
         default: break;
     }
 
-    editor.updatePatternEditor = true;
+    editor.ui.updatePatternEditor = true;
     setSongModifiedFlag();
 }
 
@@ -1428,7 +1428,7 @@ void cutTrack(void)
 
     killPatternIfUnused(editor.editPattern);
 
-    editor.updatePatternEditor = true;
+    editor.ui.updatePatternEditor = true;
     setSongModifiedFlag();
 }
 
@@ -1468,7 +1468,7 @@ void pasteTrack(void)
 
     killPatternIfUnused(editor.editPattern);
 
-    editor.updatePatternEditor = true;
+    editor.ui.updatePatternEditor = true;
     setSongModifiedFlag();
 }
 
@@ -1505,7 +1505,7 @@ void cutPattern(void)
 
     killPatternIfUnused(editor.editPattern);
 
-    editor.updatePatternEditor = true;
+    editor.ui.updatePatternEditor = true;
     setSongModifiedFlag();
 }
 
@@ -1529,7 +1529,7 @@ void copyPattern(void)
 
     ptnBufLen = pattLen;
 
-    editor.updatePatternEditor = true;
+    editor.ui.updatePatternEditor = true;
 }
 
 void pastePattern(void)
@@ -1562,7 +1562,7 @@ void pastePattern(void)
 
     killPatternIfUnused(editor.editPattern);
 
-    editor.updatePatternEditor = true;
+    editor.ui.updatePatternEditor = true;
     setSongModifiedFlag();
 }
 
@@ -1584,7 +1584,7 @@ void cutBlock(void)
         {
             for (y = pattMark.markY1; y < pattMark.markY2; ++y)
             {
-                MY_ASSERT((x < song.antChn) && (y < pattLens[editor.editPattern]))
+                assert((x < song.antChn) && (y < pattLens[editor.editPattern]));
 
                 copyNote(&pattPtr[(y * MAX_VOICES) + x],
                          &editor.blkCopyBuff[((y - pattMark.markY1) * MAX_VOICES) + (x - pattMark.markX1)]);
@@ -1606,7 +1606,7 @@ void cutBlock(void)
 
     killPatternIfUnused(editor.editPattern);
 
-    editor.updatePatternEditor = true;
+    editor.ui.updatePatternEditor = true;
     setSongModifiedFlag();
 }
 
@@ -1626,7 +1626,7 @@ void copyBlock(void)
     {
         for (y = pattMark.markY1; y < pattMark.markY2; ++y)
         {
-            MY_ASSERT((x < song.antChn) && (y < pattLens[editor.editPattern]))
+            assert((x < song.antChn) && (y < pattLens[editor.editPattern]));
 
             copyNote(&pattPtr[(y * MAX_VOICES) + x],
                      &editor.blkCopyBuff[((y - pattMark.markY1) * MAX_VOICES) + (x - pattMark.markX1)]);
@@ -1666,7 +1666,7 @@ void pasteBlock(void)
     {
         for (y = ypos; y < (ypos + k); ++y)
         {
-            MY_ASSERT((x < song.antChn) && (y < pattLen))
+            assert((x < song.antChn) && (y < pattLen));
             pasteNote(&editor.blkCopyBuff[((y - ypos) * MAX_VOICES) + (x - xpos)], &pattPtr[(y * MAX_VOICES) + x]);
         }
     }
@@ -1674,7 +1674,7 @@ void pasteBlock(void)
 
     killPatternIfUnused(editor.editPattern);
 
-    editor.updatePatternEditor = true;
+    editor.ui.updatePatternEditor = true;
     setSongModifiedFlag();
 }
 
@@ -1697,7 +1697,7 @@ static void remapInstrXY(uint16_t nr, uint16_t x1, uint16_t y1, uint16_t x2, uin
     {
         for (x = x1; x <= x2; ++x)
         {
-            MY_ASSERT((x < song.antChn) && (y < pattLens[nr]))
+            assert((x < song.antChn) && (y < pattLens[nr]));
 
             if (note->instr == src)
                 note->instr = dst;
@@ -1721,7 +1721,7 @@ void remapBlock(void)
                  editor.srcInstr, editor.curInstr);
     resumeMusic();
 
-    editor.updatePatternEditor = true;
+    editor.ui.updatePatternEditor = true;
     setSongModifiedFlag();
 }
 
@@ -1737,7 +1737,7 @@ void remapTrack(void)
                  editor.srcInstr, editor.curInstr);
     resumeMusic();
 
-    editor.updatePatternEditor = true;
+    editor.ui.updatePatternEditor = true;
     setSongModifiedFlag();
 }
 
@@ -1753,7 +1753,7 @@ void remapPattern(void)
                  editor.srcInstr, editor.curInstr);
     resumeMusic();
 
-    editor.updatePatternEditor = true;
+    editor.ui.updatePatternEditor = true;
     setSongModifiedFlag();
 }
 
@@ -1777,7 +1777,7 @@ void remapSong(void)
     }
     resumeMusic();
 
-    editor.updatePatternEditor = true;
+    editor.ui.updatePatternEditor = true;
     setSongModifiedFlag();
 }
 

@@ -271,11 +271,6 @@ static void initializeVars(void)
     editor.programRunning   = true;
 }
 
-void quitProgram(void) /* called from sys. req. */
-{
-    editor.ui.throwExit = true;
-}
-
 static void cleanUpAndExit(void) /* never call this inside the main loop! */
 {
     if (midi.closeMidiOnExit)
@@ -370,7 +365,7 @@ static void setupPerfFreq(void)
     double dVblankTimeLen, dVblankTimeLenFrac;
 
     perfFreq64 = SDL_GetPerformanceFrequency();
-    MY_ASSERT(perfFreq64 != 0)
+    assert(perfFreq64 != 0);
     editor.dPerfFreq = (double)(perfFreq64);
 
     editor.dPerfFreqMulMicro = 1.0 / (editor.dPerfFreq / 1000000.0);

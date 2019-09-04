@@ -128,18 +128,18 @@ int16_t okBox(int16_t typ, char *headline, char *text)
         SDL_SetWindowGrab(video.window, false);
 #endif
 
-    if (editor.ui.editTextFlag)
+    if (editor.editTextFlag)
         exitTextEditing();
 
     if (mouse.mode != MOUSE_MODE_NORMAL)
         setMouseMode(MOUSE_MODE_NORMAL);
 
-    if (editor.ui.systemRequestShown)
+    if (editor.ui.sysReqShown)
         return (0);
 
     SDL_EventState(SDL_DROPFILE, SDL_DISABLE);
 
-    editor.ui.systemRequestShown = true;
+    editor.ui.sysReqShown = true;
     unstuckAllGUIElements();
     mouseAnimOff();
 
@@ -214,7 +214,7 @@ int16_t okBox(int16_t typ, char *headline, char *text)
 
     /* input/rendering loop */
     returnVal = 0;
-    while (editor.ui.systemRequestShown)
+    while (editor.ui.sysReqShown)
     {
         readMouseXY();
         setSyncedReplayerVars();
@@ -234,12 +234,12 @@ int16_t okBox(int16_t typ, char *headline, char *text)
                 if (inputEvent.key.keysym.sym == SDLK_ESCAPE)
                 {
                     returnVal = 0;
-                    editor.ui.systemRequestShown = false;
+                    editor.ui.sysReqShown = false;
                 }
                 else if (inputEvent.key.keysym.sym == SDLK_RETURN)
                 {
                     returnVal = 1;
-                    editor.ui.systemRequestShown = false;
+                    editor.ui.sysReqShown = false;
                 }
 
                 for (i = 0; i < knp; ++i)
@@ -247,7 +247,7 @@ int16_t okBox(int16_t typ, char *headline, char *text)
                     if (shortCut[typ][i] == inputEvent.key.keysym.sym)
                     {
                         returnVal = i + 1;
-                        editor.ui.systemRequestShown = false;
+                        editor.ui.sysReqShown = false;
                         break;
                     }
                 }
@@ -261,7 +261,7 @@ int16_t okBox(int16_t typ, char *headline, char *text)
 
                     returnVal = testPushButtonMouseRelease(false) + 1;
                     if (returnVal > 0)
-                        editor.ui.systemRequestShown = false;
+                        editor.ui.sysReqShown = false;
 
                     mouse.lastUsedObjectID   = OBJECT_ID_NONE;
                     mouse.lastUsedObjectType = OBJECT_NONE;
@@ -276,11 +276,11 @@ int16_t okBox(int16_t typ, char *headline, char *text)
                 }
             }
 
-            if (!editor.ui.systemRequestShown)
+            if (!editor.ui.sysReqShown)
                 break;
         }
 
-        if (!editor.ui.systemRequestShown)
+        if (!editor.ui.sysReqShown)
             break;
 
         handleRedrawing();
@@ -331,13 +331,13 @@ int16_t inputBox(int16_t typ, char *headline, char *edText, uint16_t maxStrLen)
     pushButton_t *p;
     textBox_t *t;
 
-    if (editor.ui.editTextFlag)
+    if (editor.editTextFlag)
         exitTextEditing();
 
     if (mouse.mode != MOUSE_MODE_NORMAL)
         setMouseMode(MOUSE_MODE_NORMAL);
 
-    if (editor.ui.systemRequestShown)
+    if (editor.ui.sysReqShown)
         return (0);
 
     t = &textBoxes[0];
@@ -369,7 +369,7 @@ int16_t inputBox(int16_t typ, char *headline, char *edText, uint16_t maxStrLen)
 
     SDL_EventState(SDL_DROPFILE, SDL_DISABLE);
 
-    editor.ui.systemRequestShown = true;
+    editor.ui.sysReqShown = true;
     unstuckAllGUIElements();
     mouseAnimOff();
 
@@ -418,7 +418,7 @@ int16_t inputBox(int16_t typ, char *headline, char *edText, uint16_t maxStrLen)
     setTextCursorToEnd(t);
 
     mouse.lastEditBox = 0;
-    editor.ui.editTextFlag = true;
+    editor.editTextFlag = true;
     SDL_StartTextInput();
 
     mouse.lastUsedObjectType = OBJECT_NONE;
@@ -428,7 +428,7 @@ int16_t inputBox(int16_t typ, char *headline, char *edText, uint16_t maxStrLen)
 
     /* input/rendering loop */
     returnVal = 0;
-    while (editor.ui.systemRequestShown)
+    while (editor.ui.sysReqShown)
     {
         readMouseXY();
         readKeyModifiers();
@@ -446,7 +446,7 @@ int16_t inputBox(int16_t typ, char *headline, char *edText, uint16_t maxStrLen)
         {
             if (inputEvent.type == SDL_TEXTINPUT)
             {
-                if (editor.ui.editTextFlag)
+                if (editor.editTextFlag)
                 {
                     if (keyb.ignoreTextEditKey)
                     {
@@ -469,15 +469,15 @@ int16_t inputBox(int16_t typ, char *headline, char *edText, uint16_t maxStrLen)
                 if (inputEvent.key.keysym.sym == SDLK_ESCAPE)
                 {
                     returnVal = 0;
-                    editor.ui.systemRequestShown = false;
+                    editor.ui.sysReqShown = false;
                 }
                 else if (inputEvent.key.keysym.sym == SDLK_RETURN)
                 {
                     returnVal = 1;
-                    editor.ui.systemRequestShown = false;
+                    editor.ui.sysReqShown = false;
                 }
 
-                if (editor.ui.editTextFlag)
+                if (editor.editTextFlag)
                 {
                     handleTextEditControl(inputEvent.key.keysym.sym);
                 }
@@ -488,7 +488,7 @@ int16_t inputBox(int16_t typ, char *headline, char *edText, uint16_t maxStrLen)
                         if (shortCut[1][i] == inputEvent.key.keysym.sym)
                         {
                             returnVal = i + 1;
-                            editor.ui.systemRequestShown = false;
+                            editor.ui.sysReqShown = false;
                             break;
                         }
                     }
@@ -500,7 +500,7 @@ int16_t inputBox(int16_t typ, char *headline, char *edText, uint16_t maxStrLen)
                 {
                     returnVal = testPushButtonMouseRelease(false) + 1;
                     if (returnVal > 0)
-                        editor.ui.systemRequestShown = false;
+                        editor.ui.sysReqShown = false;
 
                     mouse.lastUsedObjectID   = OBJECT_ID_NONE;
                     mouse.lastUsedObjectType = OBJECT_NONE;
@@ -515,11 +515,11 @@ int16_t inputBox(int16_t typ, char *headline, char *edText, uint16_t maxStrLen)
                 }
             }
 
-            if (!editor.ui.systemRequestShown)
+            if (!editor.ui.sysReqShown)
                 break;
         }
 
-        if (!editor.ui.systemRequestShown)
+        if (!editor.ui.sysReqShown)
             break;
 
         handleRedrawing();
@@ -538,7 +538,7 @@ int16_t inputBox(int16_t typ, char *headline, char *edText, uint16_t maxStrLen)
         flipFrame();
     }
 
-    editor.ui.editTextFlag = false;
+    editor.editTextFlag = false;
     SDL_StopTextInput();
 
     for (i = 0; i < knp; ++i)
@@ -577,7 +577,7 @@ int16_t quitBox(uint8_t skipQuitMsg)
 {
     char *text;
 
-    if (editor.ui.systemRequestShown)
+    if (editor.ui.sysReqShown)
         return (0);
 
     if (!song.isModified && skipQuitMsg)

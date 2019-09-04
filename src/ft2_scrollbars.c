@@ -101,13 +101,13 @@ void drawScrollBar(uint16_t scrollBarID)
     int16_t thumbX, thumbY, thumbW, thumbH;
     scrollBar_t *scrollBar;
 
-    MY_ASSERT(scrollBarID < NUM_SCROLLBARS)
+    assert(scrollBarID < NUM_SCROLLBARS);
 
     scrollBar = &scrollBars[scrollBarID];
     if (!scrollBar->visible)
         return;
 
-    MY_ASSERT((scrollBar->x < SCREEN_W) && (scrollBar->y < SCREEN_H) && (scrollBar->w >= 3) && (scrollBar->h >= 3))
+    assert((scrollBar->x < SCREEN_W) && (scrollBar->y < SCREEN_H) && (scrollBar->w >= 3) && (scrollBar->h >= 3));
 
     thumbX = scrollBar->thumbX;
     thumbY = scrollBar->thumbY;
@@ -121,10 +121,7 @@ void drawScrollBar(uint16_t scrollBarID)
     if (scrollBar->thumbType == SCROLLBAR_THUMB_FLAT)
     {
         /* flat */
-        if (scrollBar->state == SCROLLBAR_UNPRESSED)
-            fillRect(thumbX, thumbY, thumbW, thumbH, PAL_PATTEXT);
-        else
-            fillRect(thumbX, thumbY, thumbW, thumbH, PAL_SCRLBAR);
+        fillRect(thumbX, thumbY, thumbW, thumbH, PAL_PATTEXT);
     }
     else
     {
@@ -152,16 +149,14 @@ void drawScrollBar(uint16_t scrollBarID)
 
 void showScrollBar(uint16_t scrollBarID)
 {
-    MY_ASSERT(scrollBarID < NUM_SCROLLBARS)
-
+    assert(scrollBarID < NUM_SCROLLBARS);
     scrollBars[scrollBarID].visible = true;
     drawScrollBar(scrollBarID);
 }
 
 void hideScrollBar(uint16_t scrollBarID)
 {
-    MY_ASSERT(scrollBarID < NUM_SCROLLBARS);
-
+    assert(scrollBarID < NUM_SCROLLBARS);;
     scrollBars[scrollBarID].state   = 0;
     scrollBars[scrollBarID].visible = false;
 }
@@ -173,11 +168,10 @@ static void setScrollBarThumbCoords(uint16_t scrollBarID)
     double dTmp;
     scrollBar_t *scrollBar;
 
-    MY_ASSERT(scrollBarID < NUM_SCROLLBARS)
-
+    assert(scrollBarID < NUM_SCROLLBARS);
     scrollBar = &scrollBars[scrollBarID];
 
-    MY_ASSERT(scrollBar->page > 0)
+    assert(scrollBar->page > 0);
 
     /* uninitialized scrollbar, set full thumb length/height */
     if (scrollBar->end == 0)
@@ -289,11 +283,10 @@ void scrollBarScrollUp(uint16_t scrollBarID, uint32_t amount)
 {
     scrollBar_t *scrollBar;
 
-    MY_ASSERT(scrollBarID < NUM_SCROLLBARS)
-
+    assert(scrollBarID < NUM_SCROLLBARS);
     scrollBar = &scrollBars[scrollBarID];
 
-    MY_ASSERT((scrollBar->page > 0) && (scrollBar->end > 0))
+    assert((scrollBar->page > 0) && (scrollBar->end > 0));
 
     /* check if there is anything to scroll at all... */
     if (scrollBar->end < scrollBar->page)
@@ -303,27 +296,27 @@ void scrollBarScrollUp(uint16_t scrollBarID, uint32_t amount)
     if (scrollBar->pos == 0)
         return;
 
-    scrollBar->pos -= amount;
-    if (scrollBar->pos < 0)
+    if (scrollBar->pos >= amount)
+        scrollBar->pos -= amount;
+    else
         scrollBar->pos = 0;
 
     setScrollBarThumbCoords(scrollBarID);
     drawScrollBar(scrollBarID);
 
     if (scrollBar->callbackFunc != NULL)
-        scrollBar->callbackFunc((int32_t)(scrollBar->pos));
+        scrollBar->callbackFunc(scrollBar->pos);
 }
 
 void scrollBarScrollDown(uint16_t scrollBarID, uint32_t amount)
 {
-    int64_t endPos;
+    uint32_t endPos;
     scrollBar_t *scrollBar;
 
-    MY_ASSERT(scrollBarID < NUM_SCROLLBARS)
-
+    assert(scrollBarID < NUM_SCROLLBARS);
     scrollBar = &scrollBars[scrollBarID];
 
-    MY_ASSERT((scrollBar->page > 0) && (scrollBar->end > 0))
+    assert((scrollBar->page > 0) && (scrollBar->end > 0));
 
     /* check if there is anything to scroll at all... */
     if (scrollBar->end < scrollBar->page)
@@ -331,7 +324,12 @@ void scrollBarScrollDown(uint16_t scrollBarID, uint32_t amount)
 
     endPos = scrollBar->end;
     if (scrollBar->thumbType == SCROLLBAR_THUMB_FLAT)
-        endPos -= scrollBar->page;
+    {
+        if (endPos >= scrollBar->page)
+            endPos -= scrollBar->page;
+        else
+            endPos = 0;
+    }
 
     /* check if we're already at the end */
     if (scrollBar->pos == endPos)
@@ -345,26 +343,22 @@ void scrollBarScrollDown(uint16_t scrollBarID, uint32_t amount)
     drawScrollBar(scrollBarID);
 
     if (scrollBar->callbackFunc != NULL)
-        scrollBar->callbackFunc((int32_t)(scrollBar->pos));
+        scrollBar->callbackFunc(scrollBar->pos);
 }
 
-void setScrollBarPos(uint16_t scrollBarID, int64_t pos, int8_t triggerCallBack)
+void setScrollBarPos(uint16_t scrollBarID, uint32_t pos, int8_t triggerCallBack)
 {
-    int64_t endPos;
+    uint32_t endPos;
     scrollBar_t *scrollBar;
 
-    MY_ASSERT(scrollBarID < NUM_SCROLLBARS)
-
+    assert(scrollBarID < NUM_SCROLLBARS);
     scrollBar = &scrollBars[scrollBarID];
 
-    if (scrollBar->page <= 0)
+    if (scrollBar->page == 0)
     {
         scrollBar->pos = 0;
         return;
     }
-
-    if (pos < 0)
-        pos = 0;
 
     /* check if there is anything to scroll at all... */
     if (scrollBar->end < scrollBar->page)
@@ -384,7 +378,12 @@ void setScrollBarPos(uint16_t scrollBarID, int64_t pos, int8_t triggerCallBack)
 
     endPos = scrollBar->end;
     if (scrollBar->thumbType == SCROLLBAR_THUMB_FLAT)
-        endPos -= scrollBar->page;
+    {
+        if (endPos >= scrollBar->page)
+            endPos -= scrollBar->page;
+        else
+            endPos = 0;
+    }
 
     scrollBar->pos = pos;
     if (scrollBar->pos > endPos)
@@ -394,23 +393,21 @@ void setScrollBarPos(uint16_t scrollBarID, int64_t pos, int8_t triggerCallBack)
     drawScrollBar(scrollBarID);
 
     if (triggerCallBack && (scrollBar->callbackFunc != NULL))
-        scrollBar->callbackFunc((int32_t)(scrollBar->pos));
+        scrollBar->callbackFunc(scrollBar->pos);
 }
 
 uint32_t getScrollBarPos(uint16_t scrollBarID)
 {
-    MY_ASSERT(scrollBarID < NUM_SCROLLBARS)
-
-    return ((uint32_t)(scrollBars[scrollBarID].pos));
+    assert(scrollBarID < NUM_SCROLLBARS);
+    return (scrollBars[scrollBarID].pos);
 }
 
-void setScrollBarEnd(uint16_t scrollBarID, int64_t end)
+void setScrollBarEnd(uint16_t scrollBarID, uint32_t end)
 {
     uint8_t setPos;
     scrollBar_t *scrollBar;
 
-    MY_ASSERT(scrollBarID < NUM_SCROLLBARS)
-
+    assert(scrollBarID < NUM_SCROLLBARS);
     scrollBar = &scrollBars[scrollBarID];
 
     if (end < 1)
@@ -421,7 +418,7 @@ void setScrollBarEnd(uint16_t scrollBarID, int64_t end)
     setPos = false;
     if (scrollBar->pos >= end)
     {
-        scrollBar->pos  = end - 1;
+        scrollBar->pos = end - 1;
         setPos = true;
     }
 
@@ -440,16 +437,15 @@ void setScrollBarEnd(uint16_t scrollBarID, int64_t end)
     }
 }
 
-void setScrollBarPageLength(uint16_t scrollBarID, int64_t pageLength)
+void setScrollBarPageLength(uint16_t scrollBarID, uint32_t pageLength)
 {
     scrollBar_t *scrollBar;
 
-    MY_ASSERT(scrollBarID < NUM_SCROLLBARS)
+    assert(scrollBarID < NUM_SCROLLBARS);
+    scrollBar = &scrollBars[scrollBarID];
 
     if (pageLength < 1)
         pageLength = 1;
-
-    scrollBar = &scrollBars[scrollBarID];
 
     scrollBar->page = pageLength;
     if (scrollBar->end > 0)
@@ -467,7 +463,7 @@ int8_t testScrollBarMouseDown(void)
     double dTmp;
     scrollBar_t *scrollBar;
 
-    if (editor.ui.systemRequestShown)
+    if (editor.ui.sysReqShown)
     {
         /* if a system request is open, only test the first three scrollbars (reserved) */
         start = 0;
@@ -514,10 +510,10 @@ int8_t testScrollBarMouseDown(void)
 
                         scrollPos = CLAMP(scrollPos, 0, scrollBar->w);
 
-                        MY_ASSERT(scrollBar->w > 0)
+                        assert(scrollBar->w > 0);
 
                         dTmp = ((scrollPos * scrollBar->end) / (double)(scrollBar->w)) + 0.5;
-                        setScrollBarPos(mouse.lastUsedObjectID, (int64_t)(dTmp), true);
+                        setScrollBarPos(mouse.lastUsedObjectID, (int32_t)(dTmp), true);
                     }
                 }
                 else
@@ -534,15 +530,16 @@ int8_t testScrollBarMouseDown(void)
                         scrollPos = mouse.lastScrollY - scrollBar->y - mouse.saveMouseY;
                         scrollPos = CLAMP(scrollPos, 0, scrollBar->h);
 
-                        MY_ASSERT(scrollBar->h > 0)
+                        assert(scrollBar->h > 0);
 
                         dTmp = ((scrollPos * scrollBar->end) / (double)(scrollBar->h)) + 0.5;
-                        setScrollBarPos(mouse.lastUsedObjectID, (int64_t)(dTmp), true);
+                        setScrollBarPos(mouse.lastUsedObjectID, (int32_t)(dTmp), true);
                     }
                 }
 
                 scrollBar->state = SCROLLBAR_PRESSED;
-                drawScrollBar(mouse.lastUsedObjectID);
+                if (scrollBar->thumbType == SCROLLBAR_THUMB_NOFLAT)
+                    drawScrollBar(mouse.lastUsedObjectID);
 
                 return (true);
             }
@@ -560,7 +557,7 @@ void testScrollBarMouseRelease(void)
     {
         if (mouse.lastUsedObjectID != OBJECT_ID_NONE)
         {
-            MY_ASSERT(mouse.lastUsedObjectID < NUM_SCROLLBARS)
+            assert(mouse.lastUsedObjectID < NUM_SCROLLBARS);
 
             scrollBar = &scrollBars[mouse.lastUsedObjectID];
             if (scrollBar->visible)
@@ -578,7 +575,7 @@ void handleScrollBarsWhileMouseDown(void)
     double dTmp;
     scrollBar_t *scrollBar;
 
-    MY_ASSERT((mouse.lastUsedObjectID >= 0) && (mouse.lastUsedObjectID < NUM_SCROLLBARS))
+    assert((mouse.lastUsedObjectID >= 0) && (mouse.lastUsedObjectID < NUM_SCROLLBARS));
 
     scrollBar = &scrollBars[mouse.lastUsedObjectID];
     if (!scrollBar->visible)
@@ -593,7 +590,7 @@ void handleScrollBarsWhileMouseDown(void)
 
             if (scrollBar->thumbType == SCROLLBAR_THUMB_NOFLAT)
             {
-                MY_ASSERT(scrollBar->w >= 16)
+                assert(scrollBar->w >= 16);
 
                 dTmp = scrollX * (scrollBar->w / (double)(scrollBar->w - 15));
                 double2int32_round(scrollX, dTmp);
@@ -601,10 +598,10 @@ void handleScrollBarsWhileMouseDown(void)
 
             scrollX = CLAMP(scrollX, 0, scrollBar->w);
 
-            MY_ASSERT(scrollBar->w > 0)
+            assert(scrollBar->w > 0);
 
             dTmp = ((scrollX * scrollBar->end) / (double)(scrollBar->w)) + 0.5;
-            setScrollBarPos(mouse.lastUsedObjectID, (int64_t)(dTmp), true);
+            setScrollBarPos(mouse.lastUsedObjectID, (int32_t)(dTmp), true);
             drawScrollBar(mouse.lastUsedObjectID);
         }
     }
@@ -617,17 +614,17 @@ void handleScrollBarsWhileMouseDown(void)
             scrollY = mouse.lastScrollY - mouse.saveMouseY - scrollBar->y;
             scrollY = CLAMP(scrollY, 0, scrollBar->h);
 
-            MY_ASSERT(scrollBar->h > 0)
+            assert(scrollBar->h > 0);
 
             dTmp = ((scrollY * scrollBar->end) / (double)(scrollBar->h)) + 0.5;
-            setScrollBarPos(mouse.lastUsedObjectID, (int64_t)(dTmp), true);
+            setScrollBarPos(mouse.lastUsedObjectID, (int32_t)(dTmp), true);
             drawScrollBar(mouse.lastUsedObjectID);
         }
     }
 }
 
-/* used to create a darker color used when holding the scrollbar thumb down */
-void updateScrollBarPalette(void)
+/* used to create a darker color for the loop pins in sample editor */
+void updateLoopPinPalette(void)
 {
     uint32_t pal;
     int16_t r, g, b;
@@ -646,7 +643,7 @@ void updateScrollBarPalette(void)
     if (g < 0) g = 0;
     if (b < 0) b = 0;
 
-    video.palette[PAL_SCRLBAR] = TO_RGB(r, g, b);
+    video.palette[PAL_LOOPPIN] = TO_RGB(r, g, b);
 }
 
 void initializeScrollBars(void)

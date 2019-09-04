@@ -78,12 +78,22 @@ void showErrorMsgBox(const char *fmt, ...)
     SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Error", strBuf, video.window);
 }
 
+void updateRenderSizeVars(void)
+{
+    float fScaleX, fScaleY;
+
+    SDL_RenderGetScale(video.renderer, &fScaleX, &fScaleY);
+
+    video.renderW = (int32_t)(SCREEN_W * fScaleX);
+    video.renderH = (int32_t)(SCREEN_H * fScaleY);
+}
+
 void enterFullscreen(void)
 {
     SDL_DisplayMode dm;
 
     strcpy(editor.ui.fullscreenButtonText, "Go windowed");
-    if (editor.ui.configScreenShown && (editor.currentConfigScreen == CONFIG_SCREEN_MISCELLANEOUS))
+    if (editor.ui.configScreenShown && (editor.currConfigScreen == CONFIG_SCREEN_MISCELLANEOUS))
         showConfigScreen(); /* redraw so that we can see the new button text */
 
     if (config.windowFlags & FILTERING)
@@ -95,19 +105,21 @@ void enterFullscreen(void)
     SDL_SetWindowSize(video.window, SCREEN_W, SCREEN_H);
     SDL_SetWindowFullscreen(video.window, SDL_WINDOW_FULLSCREEN_DESKTOP);
     SDL_SetWindowGrab(video.window, true);
+
+    updateRenderSizeVars();
     updateMouseScaling();
 }
 
 void leaveFullScreen(void)
 {
     strcpy(editor.ui.fullscreenButtonText, "Go fullscreen");
-    if (editor.ui.configScreenShown && (editor.currentConfigScreen == CONFIG_SCREEN_MISCELLANEOUS))
+    if (editor.ui.configScreenShown && (editor.currConfigScreen == CONFIG_SCREEN_MISCELLANEOUS))
         showConfigScreen(); /* redraw so that we can see the new button text */
 
     SDL_SetWindowFullscreen(video.window, 0);
     SDL_RenderSetLogicalSize(video.renderer, SCREEN_W, SCREEN_H);
 
-    setWindowSizeFromConfig(true); /* also updates mouse scaling */
+    setWindowSizeFromConfig(true); /* also updates mouse scaling and render size vars */
     SDL_SetWindowSize(video.window, SCREEN_W * video.upscaleFactor, SCREEN_H * video.upscaleFactor);
     SDL_SetWindowPosition(video.window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
     SDL_SetWindowGrab(video.window, false);
@@ -154,7 +166,7 @@ void updatePaletteContrast(void)
         g = P8_TO_P6(RGB_G(video.palette[PAL_DESKTOP]));
         b = P8_TO_P6(RGB_B(video.palette[PAL_DESKTOP]));
 
-        fContrast = editor.desktopContrast / 40.0f;
+        fContrast = editor.ui.desktopContrast / 40.0f;
 
         /* generate shade */
         newR = palMax(roundf(r * palPow(0.5f, fContrast)));
@@ -178,7 +190,7 @@ void updatePaletteContrast(void)
 
         /* convert 6-bit RGB values to 24-bit RGB */
         video.palette[PAL_DSKTOP1] = (PAL_DSKTOP1 << 24) | TO_RGB(P6_TO_P8(newR), P6_TO_P8(newG), P6_TO_P8(newB));
-        video.customContrasts[0] = editor.desktopContrast;
+        video.customContrasts[0] = editor.ui.desktopContrast;
     }
     else if (editor.currPaletteEdit == 5)
     {
@@ -187,7 +199,7 @@ void updatePaletteContrast(void)
         g = P8_TO_P6(RGB_G(video.palette[PAL_BUTTONS]));
         b = P8_TO_P6(RGB_B(video.palette[PAL_BUTTONS]));
 
-        fContrast = editor.buttonContrast / 40.0f;
+        fContrast = editor.ui.buttonContrast / 40.0f;
 
         /* generate shade */
         newR = palMax(roundf(r * palPow(0.5f, fContrast)));
@@ -210,13 +222,13 @@ void updatePaletteContrast(void)
 
         /* convert 6-bit RGB values to 24-bit RGB */
         video.palette[PAL_BUTTON1] = (PAL_BUTTON1 << 24) | TO_RGB(P6_TO_P8(newR), P6_TO_P8(newG), P6_TO_P8(newB));
-        video.customContrasts[1] = editor.buttonContrast;
+        video.customContrasts[1] = editor.ui.buttonContrast;
     }
 }
 
 static void changePaletteTempEntry(uint8_t paletteEntry, uint8_t r6, uint8_t g6, uint8_t b6)
 {
-    MY_ASSERT(paletteEntry < PAL_NUM)
+    assert(paletteEntry < PAL_NUM);
 
     if (r6 > 0x3F) r6 = 0x3F;
     if (g6 > 0x3F) g6 = 0x3F;
@@ -251,8 +263,8 @@ void setPalettePreset(int16_t palNum)
         palButtons1R    = config.palButtons1R;    palButtons1G    = config.palButtons1G;    palButtons1B    = config.palButtons1B;
         palMouseR       = config.palMouseR;       palMouseG       = config.palMouseG;       palMouseB       = config.palMouseB;
 
-        editor.desktopContrast = video.customContrasts[0];
-        editor.buttonContrast  = video.customContrasts[1];
+        editor.ui.desktopContrast = video.customContrasts[0];
+        editor.ui.buttonContrast  = video.customContrasts[1];
     }
     else
     {
@@ -287,7 +299,7 @@ void setPalettePreset(int16_t palNum)
 
     /* set new palette */
     memcpy(video.palette, paletteTemp, sizeof (video.palette));
-    updateScrollBarPalette();
+    updateLoopPinPalette();
 
     if (video.frameBuffer != NULL) /* this routine may be called before video is up */
     {
@@ -400,7 +412,7 @@ void eraseSprites(void)
         if (s->x >= SCREEN_W) /* sprite is hidden, don't erase */
             continue;
 
-        MY_ASSERT((s->y >= 0) && (s->refreshBuffer != NULL))
+        assert((s->y >= 0) && (s->refreshBuffer != NULL));
 
         sw = s->w;
         sh = s->h;
@@ -449,7 +461,7 @@ void renderSprites(void)
         /* don't render the text edit cursor if window is inactive */
         if (i == SPRITE_TEXT_CURSOR)
         {
-            MY_ASSERT(video.window != NULL)
+            assert(video.window != NULL);
 
             windowFlags = SDL_GetWindowFlags(video.window);
             if (!(windowFlags & SDL_WINDOW_INPUT_FOCUS))
@@ -465,7 +477,7 @@ void renderSprites(void)
         if (s->x >= SCREEN_W) /* sprite is hidden, don't draw nor fill clear buffer */
             continue;
 
-        MY_ASSERT((s->x >= 0) && (s->y >= 0) && (s->data != NULL) && (s->refreshBuffer != NULL))
+        assert((s->x >= 0) && (s->y >= 0) && (s->data != NULL) && (s->refreshBuffer != NULL));
 
         sw    = s->w;
         sh    = s->h;
@@ -519,7 +531,7 @@ void renderSprites(void)
 
                     if (*src8 != PAL_TRANSPR)
                     {
-                        MY_ASSERT(*src8 < PAL_NUM)
+                        assert(*src8 < PAL_NUM);
                         *dst32 = video.palette[*src8];
                     }
 
@@ -547,13 +559,13 @@ void renderLoopPins(void)
     /* left loop pin */
 
     s = &sprites[SPRITE_LEFT_LOOP_PIN];
-    MY_ASSERT((s->data != NULL) && (s->refreshBuffer != NULL))
+    assert((s->data != NULL) && (s->refreshBuffer != NULL));
 
     /* set new sprite position */
     s->x = s->newX;
     s->y = s->newY;
 
-    if (s->x < SCREEN_W)
+    if (s->x < SCREEN_W) /* loop pin shown? */
     {
         sw = s->w;
         sh = s->h;
@@ -586,7 +598,7 @@ void renderLoopPins(void)
 
                 if (*src8 != PAL_TRANSPR)
                 {
-                    MY_ASSERT(*src8 < PAL_NUM)
+                    assert(*src8 < PAL_NUM);
                     *dst32 = video.palette[*src8];
                 }
 
@@ -603,13 +615,13 @@ void renderLoopPins(void)
     /* right loop pin */
 
     s = &sprites[SPRITE_RIGHT_LOOP_PIN];
-    MY_ASSERT((s->data != NULL) && (s->refreshBuffer != NULL))
+    assert((s->data != NULL) && (s->refreshBuffer != NULL));
 
     /* set new sprite position */
     s->x = s->newX;
     s->y = s->newY;
 
-    if (s->x < SCREEN_W)
+    if (s->x < SCREEN_W) /* loop pin shown? */
     {
         s->x = s->newX;
         s->y = s->newY;
@@ -645,20 +657,20 @@ void renderLoopPins(void)
 
                 if (*src8 != PAL_TRANSPR)
                 {
-                    if ((y < 9) && (*src8 == PAL_SCRLBAR))
+                    if ((y < 9) && (*src8 == PAL_LOOPPIN))
                     {
                         /* don't draw marker line on top of left loop pin's thumb graphics */
 
                         pal = *dst32 >> 24;
                         if ((pal != PAL_DESKTOP) && (pal != PAL_DSKTOP1) && (pal != PAL_DSKTOP2))
                         {
-                            MY_ASSERT(*src8 < PAL_NUM)
+                            assert(*src8 < PAL_NUM);
                             *dst32 = video.palette[*src8];
                         }
                     }
                     else
                     {
-                        MY_ASSERT(*src8 < PAL_NUM)
+                        assert(*src8 < PAL_NUM);
                         *dst32 = video.palette[*src8];
                     }
                 }
@@ -693,7 +705,7 @@ void waitVBL(void)
     time64 = SDL_GetPerformanceCounter();
     if (time64 < timeNext64)
     {
-        MY_ASSERT((timeNext64 - time64) <= 0xFFFFFFFFULL)
+        assert((timeNext64 - time64) <= 0xFFFFFFFFULL);
         diff32 = (uint32_t)(timeNext64 - time64);
 
         /* convert and round to microseconds */
@@ -788,6 +800,7 @@ void setWindowSizeFromConfig(uint8_t updateRenderer)
         if (oldUpscaleFactor != video.upscaleFactor)
             SDL_SetWindowPosition(video.window, SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED);
 
+        updateRenderSizeVars();
         updateMouseScaling();
     }
 }
@@ -849,7 +862,7 @@ int8_t setupWindow(void)
     uint32_t windowFlags;
     SDL_DisplayMode dm;
 
-    editor.vsync60HzPresent = false;
+    video.vsync60HzPresent = false;
     windowFlags = SDL_WINDOW_HIDDEN | SDL_WINDOW_ALLOW_HIGHDPI;
 
     setWindowSizeFromConfig(false);
@@ -860,10 +873,10 @@ int8_t setupWindow(void)
 
     SDL_GetDesktopDisplayMode(0, &dm);
     if ((dm.refresh_rate == 59) || (dm.refresh_rate == 60)) /* both are the same */
-        editor.vsync60HzPresent = true;
+        video.vsync60HzPresent = true;
 
     if (config.windowFlags & FORCE_VSYNC_OFF)
-        editor.vsync60HzPresent = false;
+        video.vsync60HzPresent = false;
 
     video.window = SDL_CreateWindow("", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
                        SCREEN_W * video.upscaleFactor, SCREEN_H * video.upscaleFactor,
@@ -884,16 +897,16 @@ int8_t setupRenderer(void)
     uint32_t rendererFlags;
 
     rendererFlags = 0;
-    if (editor.vsync60HzPresent)
+    if (video.vsync60HzPresent)
         rendererFlags |= SDL_RENDERER_PRESENTVSYNC;
 
     video.renderer = SDL_CreateRenderer(video.window, -1, rendererFlags);
     if (video.renderer == NULL)
     {
-        if (editor.vsync60HzPresent)
+        if (video.vsync60HzPresent)
         {
             /* try again without vsync flag */
-            editor.vsync60HzPresent = false;
+            video.vsync60HzPresent = false;
 
             rendererFlags &= ~SDL_RENDERER_PRESENTVSYNC;
             video.renderer = SDL_CreateRenderer(video.window, -1, rendererFlags);
@@ -933,9 +946,10 @@ int8_t setupRenderer(void)
     if (!setupSprites())
         return (false);
 
-    SDL_ShowCursor(SDL_DISABLE);
+    updateRenderSizeVars();
     updateMouseScaling();
 
+    SDL_ShowCursor(SDL_DISABLE);
     return (true);
 }
 
@@ -956,9 +970,9 @@ void handleRedrawing(void)
         }
         else
         {
-            if (editor.updatePosSections)
+            if (editor.ui.updatePosSections)
             {
-                editor.updatePosSections = false;
+                editor.ui.updatePosSections = false;
 
                 if (!editor.ui.diskOpShown)
                 {
@@ -992,31 +1006,21 @@ void handleRedrawing(void)
                 if (!editor.ui.diskOpShown)
                     drawPlaybackTime();
 
-                if (editor.updateSongName)
-                {
-                    editor.updateSongName = false;
-                    drawSongName();
-                }
-
-                if (editor.ui.sampleEditorExtShown)
-                    handleSampleEditorExtRedrawing();
-                else if (editor.ui.scopesShown)
-                    drawScopes();
+                     if (editor.ui.sampleEditorExtShown) handleSampleEditorExtRedrawing();
+                else if (editor.ui.scopesShown)          drawScopes();
             }
         }
     }
 
     drawReplayerData();
 
-    if (editor.ui.instEditorShown)
-        handleInstEditorRedrawing();
-    else if (editor.ui.sampleEditorShown)
-        handleSamplerRedrawing();
+         if (editor.ui.instEditorShown)   handleInstEditorRedrawing();
+    else if (editor.ui.sampleEditorShown) handleSamplerRedrawing();
 
     /* blink text edit cursor */
-    if (editor.ui.editTextFlag && (mouse.lastEditBox != -1))
+    if (editor.editTextFlag && (mouse.lastEditBox != -1))
     {
-        MY_ASSERT((mouse.lastEditBox >= 0) && (mouse.lastEditBox < NUM_TEXTBOXES))
+        assert((mouse.lastEditBox >= 0) && (mouse.lastEditBox < NUM_TEXTBOXES));
 
         txt = &textBoxes[mouse.lastEditBox];
         if ((editor.textCursorBlinkCounter < (256 / 2)) && !textIsMarked() && !(mouse.leftButtonPressed | mouse.rightButtonPressed))
@@ -1039,9 +1043,9 @@ static void drawReplayerData(void)
 
     if (songPlaying)
     {
-        if (editor.drawReplayerPianoFlag)
+        if (editor.ui.drawReplayerPianoFlag)
         {
-            editor.drawReplayerPianoFlag = false;
+            editor.ui.drawReplayerPianoFlag = false;
 
             if (editor.ui.instEditorShown)
             {
@@ -1062,34 +1066,34 @@ static void drawReplayerData(void)
 
         if (drawPosText)
         {
-            if (editor.drawBPMFlag)
+            if (editor.ui.drawBPMFlag)
             {
-                editor.drawBPMFlag = false;
+                editor.ui.drawBPMFlag = false;
                 drawSongBPM(editor.speed);
             }
             
-            if (editor.drawSpeedFlag)
+            if (editor.ui.drawSpeedFlag)
             {
-                editor.drawSpeedFlag = false;
+                editor.ui.drawSpeedFlag = false;
                 drawSongSpeed(editor.tempo);
             }
 
-            if (editor.drawGlobVolFlag)
+            if (editor.ui.drawGlobVolFlag)
             {
-                editor.drawGlobVolFlag = false;
+                editor.ui.drawGlobVolFlag = false;
                 drawGlobalVol(editor.globalVol);
             }
 
-            if (editor.drawPosEdFlag)
+            if (editor.ui.drawPosEdFlag)
             {
-                editor.drawPosEdFlag = false;
+                editor.ui.drawPosEdFlag = false;
                 drawPosEdNums(editor.songPos);
                 setScrollBarPos(SB_POS_ED, editor.songPos, false);
             }
 
-            if (editor.drawPattNumLenFlag)
+            if (editor.ui.drawPattNumLenFlag)
             {
-                editor.drawPattNumLenFlag = false;
+                editor.ui.drawPattNumLenFlag = false;
                 drawEditPattern(editor.editPattern);
                 drawPatternLength(editor.editPattern);
             }
@@ -1101,9 +1105,9 @@ static void drawReplayerData(void)
     }
 
     /* handle pattern data updates */
-    if (editor.updatePatternEditor)
+    if (editor.ui.updatePatternEditor)
     {
-        editor.updatePatternEditor = false;
+        editor.ui.updatePatternEditor = false;
         if (editor.ui.patternEditorShown)
             writePattern(editor.pattPos, editor.editPattern);
     }

@@ -207,10 +207,6 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 
     if (editor.tmpFilenameU == NULL)
     {
-#ifdef _DEBUG
-        __debugbreak();
-#endif
-
         okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
         goto aiffLoadError;
     }
@@ -710,7 +706,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
     stereoSampleLoadMode = -1;
 
     /* also sets mouse busy to false when done */
-    editor.ui.updateLoadedSample = true;
+    editor.updateLoadedSample = true;
 
     (void)(ptr); /* prevent compiler warning */
     return (true);
@@ -743,9 +739,6 @@ static int32_t SDLCALL loadIFFSample(void *ptr)
 
     if (editor.tmpFilenameU == NULL)
     {
-#ifdef _DEBUG
-        __debugbreak();
-#endif
         okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
         goto iffLoadError;
     }
@@ -976,7 +969,7 @@ static int32_t SDLCALL loadIFFSample(void *ptr)
     stereoSampleLoadMode = -1;
 
     /* also sets mouse busy to false when done */
-    editor.ui.updateLoadedSample = true;
+    editor.updateLoadedSample = true;
 
     return (true);
 
@@ -1007,9 +1000,6 @@ static int32_t SDLCALL loadRawSample(void *ptr)
 
     if (editor.tmpFilenameU == NULL)
     {
-#ifdef _DEBUG
-        __debugbreak();
-#endif
         okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
         goto rawLoadError;
     }
@@ -1099,7 +1089,7 @@ static int32_t SDLCALL loadRawSample(void *ptr)
     stereoSampleLoadMode = -1;
 
     /* also sets mouse busy to false when done */
-    editor.ui.updateLoadedSample = true;
+    editor.updateLoadedSample = true;
 
     return (true);
 
@@ -1152,9 +1142,6 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
 
     if (editor.tmpFilenameU == NULL)
     {
-#ifdef _DEBUG
-        __debugbreak();
-#endif
         okBoxThreadSafe(0, "System message", "General I/O error during loading! Is the file in use?");
         goto wavLoadError;
     }
@@ -1905,7 +1892,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
     stereoSampleLoadMode = -1;
 
     /* also sets mouse busy to false when done */
-    editor.ui.updateLoadedSample = true;
+    editor.updateLoadedSample = true;
 
     (void)(ptr); /* prevent compiler warning */
     return (true);

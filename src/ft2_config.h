@@ -354,12 +354,12 @@ void cbPixelFilter(void);
 
 /* SCROLLBARS */
 
-void sbAmp(int32_t pos);
-void sbMasterVol(int32_t pos);
-void sbPalRPos(int32_t pos);
-void sbPalGPos(int32_t pos);
-void sbPalBPos(int32_t pos);
-void sbPalContrastPos(int32_t pos);
-void sbMIDISens(int32_t pos);
+void sbAmp(uint32_t pos);
+void sbMasterVol(uint32_t pos);
+void sbPalRPos(uint32_t pos);
+void sbPalGPos(uint32_t pos);
+void sbPalBPos(uint32_t pos);
+void sbPalContrastPos(uint32_t pos);
+void sbMIDISens(uint32_t pos);
 
 #endif

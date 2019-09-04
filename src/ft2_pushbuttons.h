@@ -344,7 +344,7 @@ enum
 #define RADIOBUTTON_STATES 3
 
 /* amount of frames to wait */
-#define BUTTON_DOWN_DELAY 15
+#define BUTTON_DOWN_DELAY 8
 
 /* font #1/#2 special characters (used for buttons) */
 #define ARROW_UP_STRING    "\x05"
@@ -361,7 +361,7 @@ enum
 typedef struct pushButton_t /* DO NOT TOUCH!!! */
 {
     uint16_t x, y, w, h;
-    uint8_t preDelayFlag, delayFrames;
+    uint8_t preDelay, delayFrames;
     char *caption, *caption2;
     void (*callbackFuncOnDown)(void);
     void (*callbackFuncOnUp)(void);

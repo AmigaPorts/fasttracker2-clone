@@ -67,10 +67,10 @@ typedef struct scrollBar_t /* DO NOT TOUCH!!! */
 {
     uint16_t x, y, w, h;
     uint8_t type, thumbType;
-    void (*callbackFunc)(int32_t pos);
+    void (*callbackFunc)(uint32_t pos);
 
     uint8_t visible, state;
-    int64_t pos, page, end;
+    uint32_t pos, page, end;
     uint16_t thumbX, thumbY, thumbW, thumbH; 
 } scrollBar_t;
 
@@ -80,14 +80,14 @@ void showScrollBar(uint16_t scrollBarID);
 void hideScrollBar(uint16_t scrollBarID);
 void scrollBarScrollUp(uint16_t scrollBarID, uint32_t amount);
 void scrollBarScrollDown(uint16_t scrollBarID, uint32_t amount);
-void setScrollBarPos(uint16_t scrollBarID, int64_t pos, int8_t triggerCallBack);
+void setScrollBarPos(uint16_t scrollBarID, uint32_t pos, int8_t triggerCallBack);
 uint32_t getScrollBarPos(uint16_t scrollBarID);
-void setScrollBarEnd(uint16_t scrollBarID, int64_t end);
-void setScrollBarPageLength(uint16_t scrollBarID, int64_t pageLength);
+void setScrollBarEnd(uint16_t scrollBarID, uint32_t end);
+void setScrollBarPageLength(uint16_t scrollBarID, uint32_t pageLength);
 int8_t testScrollBarMouseDown(void);
 void testScrollBarMouseRelease(void);
 void handleScrollBarsWhileMouseDown(void);
-void updateScrollBarPalette(void);
+void updateLoopPinPalette(void);
 void initializeScrollBars(void);
 
 #endif

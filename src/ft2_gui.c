@@ -172,7 +172,6 @@ int8_t setupGUI(void)
     drawGUIOnRunTime();
     updateSampleEditorSample();
     updatePatternWidth();
-    updateMouseScaling();
     initFTHelp();
 
     return (true);
@@ -213,7 +212,7 @@ uint16_t textWidth(char *textPtr)
 {
     uint16_t textWidth;
 
-    MY_ASSERT(textPtr != NULL)
+    assert(textPtr != NULL);
 
     textWidth = 0;
     while (*textPtr != '\0')
@@ -232,7 +231,7 @@ uint16_t textNWidth(char *textPtr, int32_t length)
     uint16_t textWidth;
     int32_t i;
 
-    MY_ASSERT(textPtr != NULL)
+    assert(textPtr != NULL);
 
     textWidth = 0;
     for (i = 0; i < length; ++i)
@@ -256,7 +255,7 @@ uint16_t textBigWidth(char *textPtr)
 {
     uint16_t textWidth;
 
-    MY_ASSERT(textPtr != NULL)
+    assert(textPtr != NULL);
 
     textWidth = 0;
     while (*textPtr != '\0')
@@ -275,7 +274,7 @@ void charOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr)
     uint8_t c, x, y;
     uint32_t *dstPtr, pixVal;
 
-    MY_ASSERT((xPos < SCREEN_W) && (yPos < SCREEN_H))
+    assert((xPos < SCREEN_W) && (yPos < SCREEN_H));
 
     c = (uint8_t)(chr);
     if ((c == ' ') || (c >= FONT_CHARS))
@@ -304,7 +303,7 @@ void charOutBg(uint16_t xPos, uint16_t yPos, uint8_t fgPalette, uint8_t bgPalett
     uint8_t c, x, y;
     uint32_t *dstPtr, fg, bg;
 
-    MY_ASSERT((xPos < SCREEN_W) && (yPos < SCREEN_H))
+    assert((xPos < SCREEN_W) && (yPos < SCREEN_H));
 
     c = (uint8_t)(chr);
     if ((c == ' ') || (c >= FONT_CHARS))
@@ -342,7 +341,7 @@ void charOutShadow(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint8_t s
     uint8_t c, x, y;
     uint32_t *dstPtr, pixVal1, pixVal2;
 
-    MY_ASSERT((xPos < SCREEN_W) && (yPos < SCREEN_H))
+    assert((xPos < SCREEN_W) && (yPos < SCREEN_H));
 
     c = (uint8_t)(chr);
     if ((c == ' ') || (c >= FONT_CHARS))
@@ -376,7 +375,7 @@ void charOutClipX(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr, 
     uint16_t x, y, width;
     uint32_t *dstPtr, pixVal;
 
-    MY_ASSERT((xPos < SCREEN_W) && (yPos < SCREEN_H))
+    assert((xPos < SCREEN_W) && (yPos < SCREEN_H));
 
     c = (uint8_t)(chr);
     if ((c == ' ') || (c >= FONT_CHARS) || (xPos > clipX))
@@ -410,7 +409,7 @@ void bigCharOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr)
     uint8_t c, x, y;
     uint32_t *dstPtr, pixVal;
 
-    MY_ASSERT((xPos < SCREEN_W) && (yPos < SCREEN_H))
+    assert((xPos < SCREEN_W) && (yPos < SCREEN_H));
 
     c = (uint8_t)(chr);
     if ((c == ' ') || (c >= FONT_CHARS))
@@ -439,7 +438,7 @@ static void bigCharOutShadow(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex,
     uint8_t c, x, y;
     uint32_t *dstPtr, pixVal1, pixVal2;
 
-    MY_ASSERT((xPos < SCREEN_W) && (yPos < SCREEN_H))
+    assert((xPos < SCREEN_W) && (yPos < SCREEN_H));
 
     c = (uint8_t)(chr);
     if ((c == ' ') || (c >= FONT_CHARS))
@@ -471,7 +470,7 @@ void textOut(uint16_t x, uint16_t y, uint8_t paletteIndex, char *textPtr)
     uint8_t c;
     uint16_t currX;
 
-    MY_ASSERT(textPtr != NULL)
+    assert(textPtr != NULL);
 
     currX = x;
     while (true)
@@ -491,7 +490,7 @@ void textOutFixed(uint16_t x, uint16_t y, uint8_t fgPaltete, uint8_t bgPalette, 
     uint8_t c;
     uint16_t currX;
 
-    MY_ASSERT(textPtr != NULL)
+    assert(textPtr != NULL);
 
     currX = x;
     while (true)
@@ -510,7 +509,7 @@ void textOutShadow(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shadowP
     uint8_t c;
     uint16_t currX;
 
-    MY_ASSERT(textPtr != NULL)
+    assert(textPtr != NULL);
 
     currX = x;
     while (true)
@@ -529,7 +528,7 @@ void bigTextOut(uint16_t x, uint16_t y, uint8_t paletteIndex, char *textPtr)
     uint8_t c;
     uint16_t currX;
 
-    MY_ASSERT(textPtr != NULL)
+    assert(textPtr != NULL);
 
     currX = x;
     while (true)
@@ -548,7 +547,7 @@ void bigTextOutShadow(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shad
     uint8_t c;
     uint16_t currX;
 
-    MY_ASSERT(textPtr != NULL)
+    assert(textPtr != NULL);
 
     currX = x;
     while (true)
@@ -567,7 +566,7 @@ void textOutClipX(uint16_t x, uint16_t y, uint8_t paletteIndex, char *textPtr, u
     uint8_t c;
     uint16_t currX;
 
-    MY_ASSERT(textPtr != NULL)
+    assert(textPtr != NULL);
 
     currX = x;
     while (true)
@@ -591,7 +590,7 @@ void hexOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint32_t val, ui
     uint8_t x, y, nybble;
     uint32_t *dstPtr, pixVal;
 
-    MY_ASSERT((xPos < SCREEN_W) && (yPos < SCREEN_H))
+    assert((xPos < SCREEN_W) && (yPos < SCREEN_H));
 
     pixVal = video.palette[paletteIndex];
     dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
@@ -627,7 +626,7 @@ void hexOutBg(uint16_t xPos, uint16_t yPos, uint8_t fgPalette, uint8_t bgPalette
     uint8_t x, y, nybble;
     uint32_t *dstPtr, fg, bg;
 
-    MY_ASSERT((xPos < SCREEN_W) && (yPos < SCREEN_H))
+    assert((xPos < SCREEN_W) && (yPos < SCREEN_H));
 
     fg = video.palette[fgPalette];
     bg = video.palette[bgPalette];
@@ -667,7 +666,7 @@ void clearRect(uint16_t xPos, uint16_t yPos, uint16_t w, uint16_t h)
     uint16_t y;
     uint32_t *dstPtr, fillNumDwords;
 
-    MY_ASSERT((xPos < SCREEN_W) && (yPos < SCREEN_H) && ((xPos + w) <= SCREEN_W) && ((yPos + h) <= SCREEN_H))
+    assert((xPos < SCREEN_W) && (yPos < SCREEN_H) && ((xPos + w) <= SCREEN_W) && ((yPos + h) <= SCREEN_H));
 
     fillNumDwords = w * sizeof (uint32_t);
 
@@ -683,7 +682,7 @@ void fillRect(uint16_t xPos, uint16_t yPos, uint16_t w, uint16_t h, uint8_t pale
 {
     uint32_t *dstPtr, pixVal, x, y;
 
-    MY_ASSERT((xPos < SCREEN_W) && (yPos < SCREEN_H) && ((xPos + w) <= SCREEN_W) && ((yPos + h) <= SCREEN_H))
+    assert((xPos < SCREEN_W) && (yPos < SCREEN_H) && ((xPos + w) <= SCREEN_W) && ((yPos + h) <= SCREEN_H));
 
     pixVal = video.palette[paletteIndex];
     dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
@@ -701,7 +700,7 @@ void blit(uint16_t xPos, uint16_t yPos, const uint8_t *srcPtr, uint16_t w, uint1
 {
     uint32_t *dstPtr, x, y, pixel;
 
-    MY_ASSERT((srcPtr != NULL) && (xPos < SCREEN_W) && (yPos < SCREEN_H) && ((xPos + w) <= SCREEN_W) && ((yPos + h) <= SCREEN_H))
+    assert((srcPtr != NULL) && (xPos < SCREEN_W) && (yPos < SCREEN_H) && ((xPos + w) <= SCREEN_W) && ((yPos + h) <= SCREEN_H));
 
     dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
     for (y = 0; y < h; ++y)
@@ -722,7 +721,7 @@ void blitFast(uint16_t xPos, uint16_t yPos, const uint8_t *srcPtr, uint16_t w, u
 {
     uint32_t *dstPtr, x, y;
 
-    MY_ASSERT((srcPtr != NULL) && (xPos < SCREEN_W) && (yPos < SCREEN_H) && ((xPos + w) <= SCREEN_W) && ((yPos + h) <= SCREEN_H))
+    assert((srcPtr != NULL) && (xPos < SCREEN_W) && (yPos < SCREEN_H) && ((xPos + w) <= SCREEN_W) && ((yPos + h) <= SCREEN_H));
 
     dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
     for (y = 0; y < h; ++y)
@@ -741,7 +740,7 @@ void hLine(uint16_t x, uint16_t y, uint16_t w, uint8_t paletteIndex)
 {
     uint32_t *dstPtr, i, pixVal;
 
-    MY_ASSERT((x < SCREEN_W) && (y < SCREEN_H) && ((x + w) <= SCREEN_W))
+    assert((x < SCREEN_W) && (y < SCREEN_H) && ((x + w) <= SCREEN_W));
 
     pixVal = video.palette[paletteIndex];
 
@@ -754,7 +753,7 @@ void vLine(uint16_t x, uint16_t y, uint16_t h, uint8_t paletteIndex)
 {
     uint32_t *dstPtr,i, pixVal;
 
-    MY_ASSERT((x < SCREEN_W) && (y < SCREEN_H) && ((y + h) <= SCREEN_W))
+    assert((x < SCREEN_W) && (y < SCREEN_H) && ((y + h) <= SCREEN_W));
 
     pixVal = video.palette[paletteIndex];
 
@@ -794,7 +793,7 @@ void line(int16_t x1, int16_t x2, int16_t y1, int16_t y2, uint8_t paletteIndex)
 
         while (true)
         {
-            MY_ASSERT((x < SCREEN_W) && (y < SCREEN_H))
+            assert((x < SCREEN_W) && (y < SCREEN_H));
 
             *dst32 = pixVal;
             if (x == x2)
@@ -820,7 +819,7 @@ void line(int16_t x1, int16_t x2, int16_t y1, int16_t y2, uint8_t paletteIndex)
 
         while (true)
         {
-            MY_ASSERT((x < SCREEN_W) && (y < SCREEN_H))
+            assert((x < SCREEN_W) && (y < SCREEN_H));
 
             *dst32 = pixVal;
             if (y == y2)
@@ -844,7 +843,7 @@ void line(int16_t x1, int16_t x2, int16_t y1, int16_t y2, uint8_t paletteIndex)
 
 void drawFramework(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint8_t type)
 {
-    MY_ASSERT((x < SCREEN_W) && (y < SCREEN_H) && (w >= 2) && (h >= h))
+    assert((x < SCREEN_W) && (y < SCREEN_H) && (w >= 2) && (h >= h));
 
     h--;
     w--;
@@ -986,7 +985,7 @@ void showTopLeftMainScreen(uint8_t restoreScreens)
         textOutShadow(4, 80, PAL_FORGRND, PAL_DSKTOP2, "Global volume");
         drawGlobalVol(song.globVol);
 
-        editor.updatePosSections = true;
+        editor.ui.updatePosSections = true;
 
         textOutShadow(204, 80, PAL_FORGRND, PAL_DSKTOP2, "Time");
         charOutShadow(250, 80, PAL_FORGRND, PAL_DSKTOP2, ':');
@@ -1191,5 +1190,5 @@ void drawGUIOnRunTime(void)
     showTopScreen(false); /* false = don't restore screens */
     showPatternEditor();
 
-    editor.updatePosSections = true;
+    editor.ui.updatePosSections = true;
 }

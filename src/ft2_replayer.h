@@ -254,7 +254,7 @@ typedef struct channel_t
 } channel_t;
 
 void calcReplayRate(uint32_t rate);
-
+void resetOldRates(void);
 void tuneSample(sampleTyp *s, uint32_t midCFreq);
 uint32_t getFrequenceValue(uint16_t period);
 uint32_t getFrequenceValueScope(uint16_t period);
@@ -304,6 +304,7 @@ void pbPlaySong(void);
 void pbPlayPtn(void);
 void pbRecSng(void);
 void pbRecPtn(void);
+
 
 /* ft2_replayer.c */
 extern volatile int8_t replayerBusy;

@@ -222,7 +222,7 @@ uint8_t testAudioDeviceListsMouseDown(void)
     int32_t mx, my, deviceNum;
     uint32_t devStringLen;
 
-    if (!editor.ui.configScreenShown || (editor.currentConfigScreen != CONFIG_SCREEN_IO_DEVICES))
+    if (!editor.ui.configScreenShown || (editor.currConfigScreen != CONFIG_SCREEN_IO_DEVICES))
         return (false);
 
     mx = mouse.x;
@@ -425,7 +425,7 @@ void rescanAudioDevices(void)
     int32_t i;
     uint32_t stringLen;
 
-    listShown = editor.ui.configScreenShown && (editor.currentConfigScreen == CONFIG_SCREEN_IO_DEVICES);
+    listShown = editor.ui.configScreenShown && (editor.currConfigScreen == CONFIG_SCREEN_IO_DEVICES);
 
     freeAudioDeviceLists();
 
@@ -520,18 +520,18 @@ void scrollAudOutputDevListDown(void)
     scrollBarScrollDown(SB_AUDIO_OUTPUT_SCROLL, 1);
 }
 
-void sbAudOutputSetPos(int32_t pos)
+void sbAudOutputSetPos(uint32_t pos)
 {
     (void)(pos); /* prevent compiler warning */
 
-    if (editor.ui.configScreenShown && (editor.currentConfigScreen == CONFIG_SCREEN_IO_DEVICES))
+    if (editor.ui.configScreenShown && (editor.currConfigScreen == CONFIG_SCREEN_IO_DEVICES))
         drawAudioOutputList();
 }
 
-void sbAudInputSetPos(int32_t pos)
+void sbAudInputSetPos(uint32_t pos)
 {
     (void)(pos); /* prevent compiler warning */
 
-    if (editor.ui.configScreenShown && (editor.currentConfigScreen == CONFIG_SCREEN_IO_DEVICES))
+    if (editor.ui.configScreenShown && (editor.currConfigScreen == CONFIG_SCREEN_IO_DEVICES))
         drawAudioInputList();
 }

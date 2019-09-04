@@ -460,11 +460,11 @@ void scrollMidiInputDevListDown(void)
     scrollBarScrollDown(SB_MIDI_INPUT_SCROLL, 1);
 }
 
-void sbMidiInputSetPos(int32_t pos)
+void sbMidiInputSetPos(uint32_t pos)
 {
     (void)(pos); /* prevent compiler warning */
 
-    if (editor.ui.configScreenShown && (editor.currentConfigScreen == CONFIG_SCREEN_MIDI_INPUT))
+    if (editor.ui.configScreenShown && (editor.currConfigScreen == CONFIG_SCREEN_MIDI_INPUT))
         drawMidiInputList();
 }
 
@@ -472,7 +472,7 @@ uint8_t testMidiInputDeviceListMouseDown(void)
 {
     int32_t mx, my, deviceNum;
 
-    if (!editor.ui.configScreenShown || (editor.currentConfigScreen != CONFIG_SCREEN_MIDI_INPUT))
+    if (!editor.ui.configScreenShown || (editor.currConfigScreen != CONFIG_SCREEN_MIDI_INPUT))
         return (false); /* we didn't click the area */
 
     if (!midi.initThreadDone)

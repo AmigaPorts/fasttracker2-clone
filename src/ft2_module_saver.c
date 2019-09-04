@@ -540,7 +540,7 @@ static int32_t SDLCALL saveMusicThread(void *ptr)
 
     (void)(ptr);
 
-    MY_ASSERT(editor.tmpFilenameU != NULL);
+    assert(editor.tmpFilenameU != NULL);;
     if (editor.tmpFilenameU == NULL)
         return (false);
 

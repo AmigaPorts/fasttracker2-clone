@@ -21,12 +21,7 @@ static SDL_AudioDeviceID recordDev;
 static void SDLCALL samplingCallback(void *userdata, Uint8 *stream, int len)
 {
     if ((currSmp == NULL) || (len < 0))
-    {
-#ifdef _DEBUG
-        __debugbreak();
-#endif
         return;
-    }
 
     currSmp->pek = (int8_t *)(realloc(currSmp->pek, (currSmp->len + len) + 4)); /* +4 for interpolation loop fix */
     if (currSmp->pek == NULL)
@@ -84,7 +79,7 @@ static uint8_t getDispBuffPeakSmp(const int16_t *smpData, int32_t pos, int32_t l
     uint32_t smpAbs, max;
     int32_t numSamples, i;
 
-    MY_ASSERT(smpData != NULL)
+    assert(smpData != NULL);
 
     len /= 2; /* convert from number of bytes to number of samples */
 

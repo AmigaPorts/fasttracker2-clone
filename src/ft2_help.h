@@ -9,7 +9,7 @@
 
 void helpScrollUp(void);
 void helpScrollDown(void);
-void helpScrollSetPos(int32_t pos);
+void helpScrollSetPos(uint32_t pos);
 
 void showHelpScreen(void);
 void hideHelpScreen(void);

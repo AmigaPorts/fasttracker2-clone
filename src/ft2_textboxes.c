@@ -123,7 +123,7 @@ static int16_t getTextLength(textBox_t *t, uint16_t offset)
 
     i -= offset; /* i now contains string length */
 
-    MY_ASSERT(i <= t->maxChars)
+    assert(i <= t->maxChars);
     return (i);
 }
 
@@ -138,7 +138,7 @@ static void deleteMarkedText(textBox_t *t)
     start = getTextMarkStart();
     end   = getTextMarkEnd();
 
-    MY_ASSERT((start < t->maxChars) && (end <= t->maxChars))
+    assert((start < t->maxChars) && (end <= t->maxChars));
 
     /* calculate pixel width of string to delete */
     deleteTextWidth = 0;
@@ -174,7 +174,7 @@ static void setCursorToMarkStart(textBox_t *t)
 
     start = getTextMarkStart();
 
-    MY_ASSERT(start < t->maxChars)
+    assert(start < t->maxChars);
 
     t->cursorPos = start;
 
@@ -204,7 +204,7 @@ static void setCursorToMarkEnd(textBox_t *t)
 
     end = getTextMarkEnd();
 
-    MY_ASSERT(end <= t->maxChars)
+    assert(end <= t->maxChars);
 
     t->cursorPos = end;
 
@@ -234,7 +234,7 @@ static void copyMarkedText(textBox_t *t)
     start = getTextMarkStart();
     end   = getTextMarkEnd();
 
-    MY_ASSERT((start < t->maxChars) && (end <= t->maxChars))
+    assert((start < t->maxChars) && (end <= t->maxChars));
 
     length = end - start;
     if (length < 1)
@@ -339,7 +339,7 @@ static void pasteText(textBox_t *t)
 
 void exitTextEditing(void)
 {
-    if (!editor.ui.editTextFlag)
+    if (!editor.editTextFlag)
         return;
 
     if ((mouse.lastEditBox >= 0) && (mouse.lastEditBox < NUM_TEXTBOXES))
@@ -357,7 +357,7 @@ void exitTextEditing(void)
     }
 
     keyb.ignoreCurrKeyUp = true; /* prevent a note being played (on enter key) */
-    editor.ui.editTextFlag = false;
+    editor.editTextFlag = false;
 
     hideSprite(SPRITE_TEXT_CURSOR);
     SDL_StopTextInput();
@@ -368,7 +368,7 @@ static int16_t cursorPosToX(textBox_t *t)
     int16_t i;
     int32_t x;
 
-    MY_ASSERT(t->textPtr != NULL)
+    assert(t->textPtr != NULL);
 
     x = -1; /* cursor starts one pixel before character */
     for (i = 0; i < t->cursorPos; ++i)
@@ -402,7 +402,7 @@ static void scrollTextBufferRight(textBox_t *t, uint16_t numCharsInText)
     uint16_t j;
     int32_t textEnd;
 
-    MY_ASSERT(numCharsInText <= t->maxChars)
+    assert(numCharsInText <= t->maxChars);
 
     /* get end of text position */
     textEnd = 0;
@@ -482,7 +482,7 @@ static void textOutBuf(uint8_t *dstBuffer, uint32_t dstWidth, uint8_t paletteInd
     uint16_t currX;
     uint32_t i;
 
-    MY_ASSERT(text != NULL)
+    assert(text != NULL);
     if (*text == '\0')
         return;
 
@@ -524,8 +524,8 @@ static void blitClipW(uint16_t xPos, uint16_t yPos, const uint8_t *srcPtr, uint1
     if (blitW > clipW)
         blitW = clipW;
 
-    MY_ASSERT((xPos < SCREEN_W) && (yPos < SCREEN_H) && ((xPos + blitW) <= SCREEN_W) &&
-             ((yPos + h) <= SCREEN_H) && (srcPtr != NULL))
+    assert((xPos < SCREEN_W) && (yPos < SCREEN_H) && ((xPos + blitW) <= SCREEN_W) &&
+           ((yPos + h) <= SCREEN_H) && (srcPtr != NULL));
 
     dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
     for (y = 0; y < h; ++y)
@@ -551,7 +551,7 @@ void drawTextBox(uint16_t textBoxID)
     int32_t start, end, x1, x2, length;
     textBox_t *t;
 
-    MY_ASSERT(textBoxID < NUM_TEXTBOXES)
+    assert(textBoxID < NUM_TEXTBOXES);
     t = &textBoxes[textBoxID];
     if (!t->visible)
         return;
@@ -559,7 +559,7 @@ void drawTextBox(uint16_t textBoxID)
     /* test if buffer offset is not overflowing */
 #ifdef _DEBUG
     if (t->renderBufW > t->renderW)
-        MY_ASSERT(t->bufOffset <= (t->renderBufW - t->renderW))
+        assert(t->bufOffset <= (t->renderBufW - t->renderW));
 #endif
 
     /* fill text rendering buffer with transparency key */
@@ -573,7 +573,7 @@ void drawTextBox(uint16_t textBoxID)
         start = getTextMarkStart();
         end   = getTextMarkEnd();
 
-        MY_ASSERT((start < t->maxChars) && (end <= t->maxChars))
+        assert((start < t->maxChars) && (end <= t->maxChars));
 
         /* find pixel start/length from markX1 and markX2 */
 
@@ -597,7 +597,7 @@ void drawTextBox(uint16_t textBoxID)
             start  = x1;
             length = x2 - x1;
 
-            MY_ASSERT((start + length) <= t->renderBufW)
+            assert((start + length) <= t->renderBufW);
             for (y = 0; y < t->renderBufH; ++y)
                 memset(&t->renderBuf[(y * t->renderBufW) + start], PAL_TEXTMRK, length);
         }
@@ -616,13 +616,13 @@ void drawTextBox(uint16_t textBoxID)
 
 void showTextBox(uint16_t textBoxID)
 {
-    MY_ASSERT(textBoxID < NUM_TEXTBOXES)
+    assert(textBoxID < NUM_TEXTBOXES);
     textBoxes[textBoxID].visible = true;
 }
 
 void hideTextBox(uint16_t textBoxID)
 {
-    MY_ASSERT(textBoxID < NUM_TEXTBOXES)
+    assert(textBoxID < NUM_TEXTBOXES);
     hideSprite(SPRITE_TEXT_CURSOR);
     textBoxes[textBoxID].visible = false;
 }
@@ -687,7 +687,7 @@ static void setMarkX2ToMouseX(textBox_t *t)
 
     t->cursorPos = markX2;
 
-    MY_ASSERT((t->cursorPos >= 0) && (t->cursorPos <= getTextLength(t, 0)))
+    assert((t->cursorPos >= 0) && (t->cursorPos <= getTextLength(t, 0)));
 
     editor.textCursorBlinkCounter = 0;
 }
@@ -696,7 +696,7 @@ void handleTextBoxWhileMouseDown(void)
 {
     textBox_t *t;
 
-    MY_ASSERT((mouse.lastUsedObjectID >= 0) && (mouse.lastUsedObjectID < NUM_TEXTBOXES))
+    assert((mouse.lastUsedObjectID >= 0) && (mouse.lastUsedObjectID < NUM_TEXTBOXES));
 
     t = &textBoxes[mouse.lastUsedObjectID];
     if (!t->visible)
@@ -721,7 +721,7 @@ int8_t testTextBoxMouseDown(void)
     oldMouseX = mouse.x;
     oldCursorPos = 0;
 
-    if (editor.ui.systemRequestShown)
+    if (editor.ui.sysReqShown)
     {
         /* if a system request is open, only test the first textbox (reserved) */
         start = 0;
@@ -747,7 +747,7 @@ int8_t testTextBoxMouseDown(void)
                     break;
 
                 /* if we were editing another text box and clicked on another one, properly end it */
-                if (editor.ui.editTextFlag && (i != mouse.lastEditBox))
+                if (editor.editTextFlag && (i != mouse.lastEditBox))
                     exitTextEditing();
 
                 mouse.lastEditBox = i;
@@ -761,7 +761,7 @@ int8_t testTextBoxMouseDown(void)
                 mouse.lastUsedObjectType = OBJECT_TEXTBOX;
                 mouse.lastUsedObjectID = i;
 
-                editor.ui.editTextFlag = true;
+                editor.editTextFlag = true;
 
                 SDL_StartTextInput();
                 return (true);
@@ -770,7 +770,7 @@ int8_t testTextBoxMouseDown(void)
     }
 
     /* if we were editing text and we clicked outside of a text box, exit text editing */
-    if (editor.ui.editTextFlag)
+    if (editor.editTextFlag)
         exitTextEditing();
 
     return (false);
@@ -855,10 +855,10 @@ void handleTextEditControl(SDL_Keycode keycode)
     uint32_t textWidth;
     textBox_t *t;
 
-    MY_ASSERT((mouse.lastEditBox >= 0) && (mouse.lastEditBox < NUM_TEXTBOXES))
+    assert((mouse.lastEditBox >= 0) && (mouse.lastEditBox < NUM_TEXTBOXES));
 
     t = &textBoxes[mouse.lastEditBox];
-    MY_ASSERT(t->textPtr != NULL)
+    assert(t->textPtr != NULL);
 
     switch (keycode)
     {
@@ -1145,11 +1145,11 @@ void handleTextEditInputChar(char textChar)
     int16_t i;
     textBox_t *t;
 
-    MY_ASSERT((mouse.lastEditBox >= 0) && (mouse.lastEditBox < NUM_TEXTBOXES))
+    assert((mouse.lastEditBox >= 0) && (mouse.lastEditBox < NUM_TEXTBOXES));
 
     t = &textBoxes[mouse.lastEditBox];
 
-    MY_ASSERT(t->textPtr != NULL)
+    assert(t->textPtr != NULL);
 
     /* only certain negative values are allowed! */
     if (textChar < ' ')

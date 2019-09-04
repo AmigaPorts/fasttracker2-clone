@@ -123,7 +123,7 @@ void drawCheckBox(uint16_t checkBoxID)
     checkBox_t *checkBox;
     const uint8_t *srcPtr;
 
-    MY_ASSERT(checkBoxID < NUM_CHECKBOXES)
+    assert(checkBoxID < NUM_CHECKBOXES);
 
     checkBox = &checkBoxes[checkBoxID];
     if (!checkBox->visible)
@@ -198,7 +198,7 @@ void drawCheckBox(uint16_t checkBoxID)
 
 void showCheckBox(uint16_t checkBoxID)
 {
-    MY_ASSERT(checkBoxID < NUM_CHECKBOXES)
+    assert(checkBoxID < NUM_CHECKBOXES);
 
     checkBoxes[checkBoxID].visible = true;
     drawCheckBox(checkBoxID);
@@ -206,7 +206,7 @@ void showCheckBox(uint16_t checkBoxID)
 
 void hideCheckBox(uint16_t checkBoxID)
 {
-    MY_ASSERT(checkBoxID < NUM_CHECKBOXES)
+    assert(checkBoxID < NUM_CHECKBOXES);
 
     checkBoxes[checkBoxID].state   = 0;
     checkBoxes[checkBoxID].visible = false;
@@ -216,7 +216,7 @@ void handleCheckBoxesWhileMouseDown(void)
 {
     checkBox_t *checkBox;
 
-    MY_ASSERT((mouse.lastUsedObjectID >= 0) && (mouse.lastUsedObjectID < NUM_CHECKBOXES))
+    assert((mouse.lastUsedObjectID >= 0) && (mouse.lastUsedObjectID < NUM_CHECKBOXES));
 
     checkBox = &checkBoxes[mouse.lastUsedObjectID];
     if (!checkBox->visible)
@@ -243,7 +243,7 @@ int8_t testCheckBoxMouseDown(void)
     uint16_t i, start, end;
     checkBox_t *checkBox;
 
-    if (editor.ui.systemRequestShown)
+    if (editor.ui.sysReqShown)
     {
         /* if a system request is open, only test the first three checkboxes (reserved) */
         start = 0;
@@ -287,7 +287,7 @@ void testCheckBoxMouseRelease(void)
     {
         if (mouse.lastUsedObjectID != OBJECT_ID_NONE)
         {
-            MY_ASSERT(mouse.lastUsedObjectID < NUM_CHECKBOXES)
+            assert(mouse.lastUsedObjectID < NUM_CHECKBOXES);
 
             checkBox = &checkBoxes[mouse.lastUsedObjectID];
             if (checkBox->visible)

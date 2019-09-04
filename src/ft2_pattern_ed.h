@@ -114,9 +114,9 @@ int8_t savePattern(UNICHAR *filenameU);
 
 void scrollChannelLeft(void);
 void scrollChannelRight(void);
-void setChannelScrollPos(int32_t pos);
+void setChannelScrollPos(uint32_t pos);
 void jumpToChannel(uint8_t channel);
-void sbPosEdPos(int32_t pos);
+void sbPosEdPos(uint32_t pos);
 void pbPosEdPosUp(void);
 void pbPosEdPosDown(void);
 void pbPosEdIns(void);
@@ -177,7 +177,7 @@ void setNewInstr(int8_t ins);
 void sampleListScrollUp(void);
 void sampleListScrollDown(void);
 void pbZap(void);
-void sbSmpBankPos(int32_t pos);
+void sbSmpBankPos(uint32_t pos);
 void pbToggleLogo(void);
 void pbToggleBadge(void);
 

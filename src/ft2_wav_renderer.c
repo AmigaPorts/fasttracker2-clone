@@ -285,13 +285,13 @@ static void updateVisuals(void)
     editor.tempo       = song.tempo;
     editor.globalVol   = song.globVol;
 
-    editor.drawPosEdFlag         = true;
-    editor.drawPattNumLenFlag    = true; 
-    editor.drawReplayerPianoFlag = true;
-    editor.drawBPMFlag           = true;
-    editor.drawSpeedFlag         = true;
-    editor.drawGlobVolFlag       = true;
-    editor.updatePatternEditor   = true;
+    editor.ui.drawPosEdFlag         = true;
+    editor.ui.drawPattNumLenFlag    = true; 
+    editor.ui.drawReplayerPianoFlag = true;
+    editor.ui.drawBPMFlag           = true;
+    editor.ui.drawSpeedFlag         = true;
+    editor.ui.drawGlobVolFlag       = true;
+    editor.ui.updatePatternEditor      = true;
 }
 
 static int32_t SDLCALL renderWavThread(void *ptr)

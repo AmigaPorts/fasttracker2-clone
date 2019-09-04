@@ -11,8 +11,8 @@ enum
     FREQ_TABLE_AMIGA  = 1,
 };
 
-/* for audio/video sync queue (don't increase! 2048 = a lot of RAM already...) */
-#define SYNC_QUEUE_LEN 2048
+/* for audio/video sync queue (must be 2^n-1 - don't mess with this! It's big enough as is.) */
+#define SYNC_QUEUE_LEN 2047
 
 #define MAX_AUDIO_DEVICES 99
 

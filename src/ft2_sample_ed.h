@@ -25,7 +25,7 @@ void xchgSmp(void); /* dstSmp <-> srcSmp */
 /* callbacks */
 void scrollSampleDataLeft(void);
 void scrollSampleDataRight(void);
-void scrollSampleData(int32_t pos);
+void scrollSampleData(uint32_t pos);
 void sampPlayNoteUp(void);
 void sampPlayNoteDown(void);
 void sampPlayWave(void);

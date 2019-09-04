@@ -3,7 +3,6 @@
 #include <crtdbg.h>
 #endif
 
-#include <stdint.h>
 #include "ft2_header.h"
 #include "ft2_gui.h"
 #include "ft2_video.h"
@@ -102,7 +101,7 @@ static void clearTextEditMouse(void)
     mouse.yBias = 0;
 }
 
-static void changeMouseIfOverTextEditBoxes(void)
+static void changeCursorIfOverTextBoxes(void)
 {
     int16_t i, mx, my;
     textBox_t *t;
@@ -116,13 +115,13 @@ static void changeMouseIfOverTextEditBoxes(void)
 
     for (i = 0; i < NUM_TEXTBOXES; ++i)
     {
-        if (editor.ui.systemRequestShown && (i > 0))
+        if (editor.ui.sysReqShown && (i > 0))
             continue;
 
         t = &textBoxes[i];
         if (t->visible)
         {
-            if (!t->changeMouseCursor && !(editor.ui.editTextFlag && (i == mouse.lastEditBox)))
+            if (!t->changeMouseCursor && !(editor.editTextFlag && (i == mouse.lastEditBox)))
                 continue;
 
             if ((my >= t->y) && (my < (t->y + t->h)) && (mx >= t->x) && (mx < (t->x + t->w)))
@@ -191,61 +190,6 @@ void mouseAnimOff(void)
     setMouseShape(config.mouseType);
 }
 
-void updateMouseScaling(void)
-{
-    int32_t mx, my, w, h;
-    float fScaleX, fScaleY;
-    SDL_DisplayMode dm;
-    SDL_WindowFlags wf;
-
-    SDL_GetWindowSize(video.window, &w, &h);
-
-    fScaleX = w / (float)(SCREEN_W);
-    fScaleY = h / (float)(SCREEN_H);
-
-    wf = (SDL_WindowFlags)(SDL_GetWindowFlags(video.window));
-
-    /* correct scaling and/or put mouse cursor in center */
-    if (video.fullscreen)
-    {
-        SDL_GetDesktopDisplayMode(0, &dm);
-
-#if SDL_PATCHLEVEL >= 4
-        mx = dm.w / 2;
-        my = dm.h / 2;
-#endif
-
-        if (config.windowFlags & FILTERING)
-        {
-            fScaleX = dm.w / (float)(SCREEN_W);
-            fScaleY = dm.h / (float)(SCREEN_H);
-        }
-#if SDL_PATCHLEVEL >= 4
-        else
-        {
-            mx -= (dm.w - (int32_t)(SCREEN_W * fScaleX)) / 2;
-            my -= (dm.h - (int32_t)(SCREEN_H * fScaleY)) / 2;
-
-            if (mx < 0) mx = 0;
-            if (my < 0) my = 0;
-        }
-
-        if (wf & SDL_WINDOW_SHOWN)
-            SDL_WarpMouseGlobal(mx, my);
-#endif
-    }
-    else
-    {
-        if (wf & SDL_WINDOW_SHOWN)
-            SDL_WarpMouseInWindow(video.window, (int32_t)(SCREEN_W * fScaleX) / 2, (int32_t)(SCREEN_H * fScaleY) / 2);
-    }
-
-    video.fXScale    = fScaleX;
-    video.fYScale    = fScaleY;
-    video.fXScaleMul = 1.0f / fScaleX;
-    video.fYScaleMul = 1.0f / fScaleY;
-}
-
 static void mouseWheelDecRow(void)
 {
     int16_t pattPos;
@@ -276,10 +220,10 @@ static void mouseWheelIncRow(void)
 
 void mouseWheelHandler(uint8_t directionUp)
 {
-    if (editor.ui.systemRequestShown)
+    if (editor.ui.sysReqShown)
         return;
 
-    if (editor.ui.editTextFlag)
+    if (editor.editTextFlag)
         return;
 
     if (editor.ui.extended)
@@ -339,7 +283,7 @@ void mouseWheelHandler(uint8_t directionUp)
         }
         else if (editor.ui.configScreenShown)
         {
-            if (editor.currentConfigScreen == CONFIG_SCREEN_IO_DEVICES)
+            if (editor.currConfigScreen == CONFIG_SCREEN_IO_DEVICES)
             {
                 /* audio device selectors */
                 if ((mouse.x >= 110) && (mouse.x <= 355) && (mouse.y <= 173))
@@ -350,7 +294,7 @@ void mouseWheelHandler(uint8_t directionUp)
                         directionUp ? scrollAudInputDevListUp() : scrollAudInputDevListDown();
                 }
             }
-            else if (editor.currentConfigScreen == CONFIG_SCREEN_MIDI_INPUT)
+            else if (editor.currConfigScreen == CONFIG_SCREEN_MIDI_INPUT)
             {
                 /* midi input device selector */
                 if ((mouse.x >= 110) && (mouse.x <= 503) && (mouse.y <= 173))
@@ -537,7 +481,7 @@ void mouseButtonDownHandler(uint8_t mouseButton)
     if ((mouse.x == 0) && (mouse.y == 0)) 
     {
         if (quitBox(false) == 1)
-            editor.ui.throwExit = true;
+            editor.throwExit = true;
 
         return;
     }
@@ -565,7 +509,7 @@ void mouseButtonDownHandler(uint8_t mouseButton)
     if (testRadioButtonMouseDown())         return;
 
     /* from this point, we don't need to test more widgets if a system request box is shown */
-    if (editor.ui.systemRequestShown)
+    if (editor.ui.sysReqShown)
         return;
 
     if (testInstrSwitcherMouseDown())       return;
@@ -604,36 +548,86 @@ void handleLastGUIObjectDown(void)
     }
 }
 
+void updateMouseScaling(void)
+{
+    float fScaleX, fScaleY;
+    SDL_DisplayMode dm;
+#if SDL_PATCHLEVEL >= 4
+    int32_t mx, my;
+    SDL_WindowFlags wf;
+#endif
+
+    SDL_GetDesktopDisplayMode(0, &dm);
+
+    /* if we have the pixel filter on in fullscreen, calculate the scaling in a different way */
+    if ((config.windowFlags & FILTERING) && video.fullscreen)
+    {
+        fScaleX = dm.w / (float)(SCREEN_W);
+        fScaleY = dm.h / (float)(SCREEN_H);
+    }
+    else
+    {
+        SDL_RenderGetScale(video.renderer, &fScaleX, &fScaleY);
+    }
+
+    video.xScaleMul = (uint32_t)(65536.0f / fScaleX);
+    video.yScaleMul = (uint32_t)(65536.0f / fScaleY);
+
+#if SDL_PATCHLEVEL >= 4
+    /* put mouse cursor in center */
+
+    wf = (SDL_WindowFlags)(SDL_GetWindowFlags(video.window));
+    if (video.fullscreen)
+    {
+        mx = dm.w / 2;
+        my = dm.h / 2;
+
+        if (!(config.windowFlags & FILTERING))
+        {
+            mx -= (dm.w - video.renderW) / 2;
+            my -= (dm.h - video.renderH) / 2;
+
+            if (mx < 0) mx = 0;
+            if (my < 0) my = 0;
+        }
+
+        if (wf & SDL_WINDOW_SHOWN)
+            SDL_WarpMouseGlobal(mx, my);
+    }
+    else
+    {
+        if (wf & SDL_WINDOW_SHOWN)
+            SDL_WarpMouseInWindow(video.window, video.renderW / 2, video.renderH / 2);
+    }
+#endif
+}
+
 void readMouseXY(void)
 {
     int16_t x, y;
-    int32_t mx, my, endX, endY;
+    int32_t mx, my;
 
-    SDL_PumpEvents(); /* gathers all pending input from devices into the event queue */
+    SDL_PumpEvents(); /* gathers all pending input from devices into the event queue (less mouse lag) */
     SDL_GetMouseState(&mx, &my);
 
 #if SDL_PATCHLEVEL >= 4
     /* in centered fullscreen mode, prevent mouse cursor from getting stuck outside */
     if (video.fullscreen && !(config.windowFlags & FILTERING))
     {
-        endX = (int32_t)(SCREEN_W * video.fXScale);
-        endY = (int32_t)(SCREEN_H * video.fYScale);
-
-        if (mx >= endX) SDL_WarpMouseGlobal(endX - 1, my);
-        if (my >= endY) SDL_WarpMouseGlobal(mx, endY - 1);
+        if (mx >= video.renderW) SDL_WarpMouseGlobal(video.renderW - 1, my);
+        if (my >= video.renderH) SDL_WarpMouseGlobal(mx, video.renderH - 1);
     }
 #endif
 
-    /* scale mouse positions to match window size */
-    if ((video.fXScale > 1.0f) || (video.fYScale > 1.0f))
-    {
-        mx = (int32_t)(mx * video.fXScaleMul);
-        my = (int32_t)(my * video.fYScaleMul);
-    }
+    if (mx < 0) mx = 0;
+    if (my < 0) mx = 0;
 
-    /* clamp to edges */
-    mx = CLAMP(mx, 0, SCREEN_W - 1);
-    my = CLAMP(my, 0, SCREEN_H - 1);
+    /* apply video scaling factors to mouse coords */
+    mx = (int32_t)(((uint32_t)(mx) * video.xScaleMul) >> 16);
+    my = (int32_t)(((uint32_t)(my) * video.yScaleMul) >> 16);
+
+    if (mx >= SCREEN_W) mx = SCREEN_W - 1;
+    if (my >= SCREEN_H) my = SCREEN_H - 1;
 
     x = (int16_t)(mx);
     y = (int16_t)(my);
@@ -649,5 +643,5 @@ void readMouseXY(void)
     if (y < 0) y = 0;
 
     setSpritePos(SPRITE_MOUSE_POINTER, x, y);
-    changeMouseIfOverTextEditBoxes();
+    changeCursorIfOverTextBoxes();
 }

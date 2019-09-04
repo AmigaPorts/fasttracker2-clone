@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include "ft2_header.h"
 
-int32_t getSamplePosition(uint8_t ch);
+int32_t getSampleReadPos(uint8_t ch);
 void stopAllScopes(void);
 void unmuteAllChansOnMusicLoad(void);
 int8_t testScopesMouseDown(void);
