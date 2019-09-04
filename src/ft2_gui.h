@@ -2,6 +2,7 @@
 #define __FT2_GUI_H
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "ft2_pushbuttons.h"
 #include "ft2_radiobuttons.h"
 #include "ft2_checkboxes.h"
@@ -71,7 +72,7 @@ extern scrollBar_t scrollBars[NUM_SCROLLBARS];
 extern textBox_t textBoxes[NUM_TEXTBOXES];
 
 void unstuckAllGUIElements(void);
-int8_t setupGUI(void);
+bool setupGUI(void);
 void hLine(uint16_t x, uint16_t y, uint16_t width, uint8_t paletteIndex);
 void vLine(uint16_t x, uint16_t y, uint16_t h, uint8_t paletteIndex);
 void line(int16_t x1, int16_t x2, int16_t y1, int16_t y2, uint8_t paletteIndex);
@@ -102,13 +103,13 @@ uint16_t textWidth(char *textPtr);
 uint16_t textNWidth(char *textPtr, int32_t length);
 uint16_t textBigWidth(char *textPtr);
 void drawGUIOnRunTime(void);
-void showTopLeftMainScreen(uint8_t restoreScreens);
+void showTopLeftMainScreen(bool restoreScreens);
 void hideTopLeftMainScreen(void);
 void showTopRightMainScreen(void);
 void hideTopRightMainScreen(void);
 void hideTopLeftScreen(void);
 void hideTopScreen(void);
-void showTopScreen(uint8_t restoreScreens);
+void showTopScreen(bool restoreScreens);
 void showBottomScreen(void);
 
 #endif

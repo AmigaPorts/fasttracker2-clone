@@ -1,3 +1,5 @@
+#include <stdint.h>
+#include <stdbool.h>
 #include "ft2_config.h"
 #include "ft2_gui.h"
 #include "ft2_mouse.h"
@@ -63,7 +65,7 @@ static void drawWindow(uint16_t w)
     hLine(x + 3, y + 17, w - 6, PAL_BUTTON1);
 }
 
-static int8_t mouseButtonDownLogic(uint8_t mouseButton)
+static bool mouseButtonDownLogic(uint8_t mouseButton)
 {
     /* if already holding left button and clicking right, don't do mouse down handling */
     if ((mouseButton == SDL_BUTTON_RIGHT) && mouse.leftButtonPressed)
@@ -97,7 +99,7 @@ static int8_t mouseButtonDownLogic(uint8_t mouseButton)
     return (true);
 }
 
-static int8_t mouseButtonUpLogic(uint8_t mouseButton)
+static bool mouseButtonUpLogic(uint8_t mouseButton)
 {
          if (mouseButton == SDL_BUTTON_LEFT)  mouse.leftButtonPressed  = false;
     else if (mouseButton == SDL_BUTTON_RIGHT) mouse.rightButtonPressed = false;
@@ -573,7 +575,7 @@ int16_t okBoxThreadSafe(int16_t typ, char *headline, char *text)
     return (okBoxData.returnData);
 }
 
-int16_t quitBox(uint8_t skipQuitMsg)
+int16_t quitBox(bool skipQuitMsg)
 {
     char *text;
 

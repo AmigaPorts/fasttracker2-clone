@@ -4,6 +4,7 @@
 #endif
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "ft2_gui.h"
 #include "ft2_mouse.h"
 #include "ft2_sample_ed.h"
@@ -13,7 +14,7 @@
 #define SAMPLING_BUFFER_SIZE 1024
 #define SAMPLING_FREQUENCY 44100
 
-static volatile uint8_t drawSamplingBufferFlag, outOfMemoryFlag;
+static volatile bool drawSamplingBufferFlag, outOfMemoryFlag, noMoreRoomFlag;
 static int16_t *currWriteBuf, displayBuffer1[SAMPLING_BUFFER_SIZE], displayBuffer2[SAMPLING_BUFFER_SIZE];
 static volatile int32_t currSampleLen, displayBufferLen;
 static SDL_AudioDeviceID recordDev;
@@ -46,12 +47,12 @@ static void SDLCALL samplingCallback(void *userdata, Uint8 *stream, int len)
         currWriteBuf = displayBuffer1;
 
     currSmp->len += len;
-    if (currSmp->len & 0x80000000) /* length overflow */
+    if (currSmp->len > MAX_SAMPLE_LEN) /* length overflow */
     {
         currSmp->len -= len;
 
         drawSamplingBufferFlag = false;
-        outOfMemoryFlag = true;
+        noMoreRoomFlag = true;
 
         return;
     }
@@ -120,6 +121,16 @@ void handleSamplingUpdates(void)
 
         stopSampling();
         okBox(0, "System message", "Not enough memory!");
+
+        return;
+    }
+
+    if (noMoreRoomFlag)
+    {
+        noMoreRoomFlag = false;
+
+        stopSampling();
+        okBox(0, "System message", "Not more room in sample!");
 
         return;
     }

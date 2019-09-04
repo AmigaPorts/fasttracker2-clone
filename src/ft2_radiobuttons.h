@@ -2,6 +2,7 @@
 #define __FT2_RADIOBUTTONS_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 enum /* RADIOBUTTONS */
 {
@@ -200,7 +201,8 @@ typedef struct radioButton_t /* DO NOT TOUCH!!! */
     uint16_t group;
     void (*callbackFunc)(void);
 
-    uint8_t state, visible;
+    uint8_t state;
+    bool visible;
 } radioButton_t;
 
 void drawRadioButton(uint16_t radioButtonID);
@@ -211,7 +213,7 @@ void uncheckRadioButtonGroup(uint16_t radioButtonGroup);
 void showRadioButtonGroup(uint16_t radioButtonGroup);
 void hideRadioButtonGroup(uint16_t radioButtonGroup);
 void handleRadioButtonsWhileMouseDown(void);
-int8_t testRadioButtonMouseDown(void);
+bool testRadioButtonMouseDown(void);
 void testRadioButtonMouseRelease(void);
 
 #endif

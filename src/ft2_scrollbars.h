@@ -2,6 +2,7 @@
 #define __FT2_SCROLLBARS_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 enum /* SCROLLBARS */
 {
@@ -69,22 +70,22 @@ typedef struct scrollBar_t /* DO NOT TOUCH!!! */
     uint8_t type, thumbType;
     void (*callbackFunc)(uint32_t pos);
 
-    uint8_t visible, state;
+    bool visible;
+    uint8_t state;
     uint32_t pos, page, end;
     uint16_t thumbX, thumbY, thumbW, thumbH; 
 } scrollBar_t;
 
 void drawScrollBar(uint16_t scrollBarID);
-void drawScrollBar2(uint16_t scrollBarID);
 void showScrollBar(uint16_t scrollBarID);
 void hideScrollBar(uint16_t scrollBarID);
 void scrollBarScrollUp(uint16_t scrollBarID, uint32_t amount);
 void scrollBarScrollDown(uint16_t scrollBarID, uint32_t amount);
-void setScrollBarPos(uint16_t scrollBarID, uint32_t pos, int8_t triggerCallBack);
+void setScrollBarPos(uint16_t scrollBarID, uint32_t pos, bool triggerCallBack);
 uint32_t getScrollBarPos(uint16_t scrollBarID);
 void setScrollBarEnd(uint16_t scrollBarID, uint32_t end);
 void setScrollBarPageLength(uint16_t scrollBarID, uint32_t pageLength);
-int8_t testScrollBarMouseDown(void);
+bool testScrollBarMouseDown(void);
 void testScrollBarMouseRelease(void);
 void handleScrollBarsWhileMouseDown(void);
 void updateLoopPinPalette(void);

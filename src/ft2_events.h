@@ -21,7 +21,7 @@ void handleEvents(void);
 void setupCrashHandler(void);
 
 #ifdef _WIN32
-int8_t handleSingleInstancing(int32_t argc, char **argv);
+bool handleSingleInstancing(int32_t argc, char **argv);
 void closeSingleInstancing(void);
 void usleep(uint32_t usec);
 void setupWin32Usleep(void);

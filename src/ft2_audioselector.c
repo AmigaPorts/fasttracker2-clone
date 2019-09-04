@@ -116,7 +116,7 @@ char *getAudioInputDeviceFromConfig(void)
     return (devString);
 }
 
-uint8_t saveAudioDevicesToConfig(const char *outputDevice, const char *inputDevice)
+bool saveAudioDevicesToConfig(const char *outputDevice, const char *inputDevice)
 {
     FILE *f;
 
@@ -216,7 +216,7 @@ void drawAudioInputList(void)
     }
 }
 
-uint8_t testAudioDeviceListsMouseDown(void)
+bool testAudioDeviceListsMouseDown(void)
 {
     char *devString;
     int32_t mx, my, deviceNum;

@@ -14,7 +14,7 @@
 #endif
 #include "ft2_replayer.h"
 
-#define BETA_VERSION 139
+#define BETA_VERSION 141
 
 /* do NOT change these! It will only mess things up... */
 #define VBLANK_HZ 60
@@ -58,44 +58,54 @@
 
 /* round and convert double/float to int32_t */
 #if defined __APPLE__ || defined _WIN32 || defined __i386__ || defined __amd64__
-#define double2int32_round(i, d) (i = _mm_cvtsd_si32(_mm_load_sd(&d))) /* SSE2 */
-#define float2int32_round(i, f)  (i = _mm_cvt_ss2si(_mm_load_ss(&f)))  /* SSE  */
+#define sse2_double2int32_round(i, d) (i = _mm_cvtsd_si32(_mm_load_sd(&d)))  /* SSE2 */
+#define sse2_double2int32_trunc(i, d) (i = _mm_cvttsd_si32(_mm_load_sd(&d))) /* SSE2 */
+#define sse_float2int32_round(i, f)   (i = _mm_cvt_ss2si(_mm_load_ss(&f)))   /* SSE  */
+#define sse_float2int32_trunc(i, f)   (i = _mm_cvtt_ss2si(_mm_load_ss(&f)))  /* SSE  */
 #else
-#define double2int32_round(i, d) (i = (int32_t)(round(d)))
-#define float2int32_round(i, f)  (i = (int32_t)(roundf(f)))
+#define sse2_double2int32_round(i, d) i = 0; (void)(d);
+#define sse2_double2int32_trunc(i, d) i = 0; (void)(d);
+#define sse_float2int32_round(i, f)   i = 0; (void)(f);
+#define sse_float2int32_trunc(i, f)   i = 0; (void)(f);
 #endif
+
+struct cpu_t
+{
+    bool hasSSE, hasSSE2;
+} cpu;
 
 struct editor_t
 {
     struct ui_t
     {
-        volatile uint8_t setMouseBusy, setMouseIdle;
+        volatile bool setMouseBusy, setMouseIdle;
         char fullscreenButtonText[24];
         int8_t buttonContrast, desktopContrast;
 
         /* all screens */
-        uint8_t extended, sysReqShown;
+        bool extended, sysReqShown;
 
         /* top screens */
-        uint8_t instrSwitcherShown, aboutScreenShown, helpScreenShown, configScreenShown;
-        uint8_t scopesShown, diskOpShown, nibblesShown, transposeShown, instEditorExtShown;
-        uint8_t sampleEditorExtShown, advEditShown, wavRendererShown, trimScreenShown, oldTopLeftScreen;
-        uint8_t drawBPMFlag, drawSpeedFlag, drawGlobVolFlag, drawPosEdFlag, drawPattNumLenFlag;
-        uint8_t updatePosSections;
+        bool instrSwitcherShown, aboutScreenShown, helpScreenShown, configScreenShown;
+        bool scopesShown, diskOpShown, nibblesShown, transposeShown, instEditorExtShown;
+        bool sampleEditorExtShown, advEditShown, wavRendererShown, trimScreenShown;
+        bool drawBPMFlag, drawSpeedFlag, drawGlobVolFlag, drawPosEdFlag, drawPattNumLenFlag;
+        bool updatePosSections;
+        uint8_t oldTopLeftScreen;
 
         /* bottom screens */
-        uint8_t patternEditorShown, instEditorShown, sampleEditorShown;
-        uint8_t channelOffset, numChannelsShown, pattChanScrollShown;
-        uint8_t leftLoopPinMoving, rightLoopPinMoving, recordBoxShown;
-        uint8_t drawReplayerPianoFlag, drawPianoFlag, updatePatternEditor, maxVisibleChannels;
+        bool patternEditorShown, instEditorShown, sampleEditorShown, pattChanScrollShown;
+        bool leftLoopPinMoving, rightLoopPinMoving;
+        bool drawReplayerPianoFlag, drawPianoFlag, updatePatternEditor;
+        uint8_t channelOffset, numChannelsShown, maxVisibleChannels;
         uint16_t patternChannelWidth;
         int32_t sampleDataOrLoopDrag;
 
         /* backup flag for when entering/exiting extended pattern editor (TODO: this is lame and shouldn't be hardcoded) */
-        uint8_t _aboutScreenShown, _helpScreenShown, _configScreenShown, _diskOpShown;
-        uint8_t _nibblesShown, _transposeShown, _instEditorShown;
-        uint8_t _instEditorExtShown,  _sampleEditorExtShown, _patternEditorShown;
-        uint8_t _sampleEditorShown, _advEditShown, _wavRendererShown, _trimScreenShown;
+        bool _aboutScreenShown, _helpScreenShown, _configScreenShown, _diskOpShown;
+        bool _nibblesShown, _transposeShown, _instEditorShown;
+        bool _instEditorExtShown, _sampleEditorExtShown, _patternEditorShown;
+        bool _sampleEditorShown, _advEditShown, _wavRendererShown, _trimScreenShown;
         /* ------------------------------------------- */
     } ui;
 
@@ -108,24 +118,25 @@ struct editor_t
     UNICHAR *tmpFilenameU, *tmpInstrFilenameU; /* used by saving/loading threads */
     UNICHAR *configFileLocation, *audioDevConfigFileLocation, *midiConfigFileLocation;
 
-    volatile uint8_t busy, loadMusicEvent, scopeThreadMutex, programRunning, wavIsRendering, wavReachedEndFlag;
-    volatile uint8_t updateLoadedSample, updateLoadedInstrument;
+    volatile bool busy, scopeThreadMutex, programRunning, wavIsRendering, wavReachedEndFlag;
+    volatile bool updateCurSmp, updateCurInstr, diskOpReadDir, diskOpReadDone, updateWindowTitle;
+    volatile uint8_t loadMusicEvent;
     volatile FILE *wavRendererFileHandle;
 
-    uint8_t autoPlayOnDrop, trimThreadWasDone, curSmpChannel, throwExit, editTextFlag;
+    bool autoPlayOnDrop, trimThreadWasDone, throwExit, editTextFlag;
+    bool copyMaskEnable, diskOpReadOnOpen, samplingAudioFlag;
+    bool instrBankSwapped, channelMute[MAX_VOICES], NI_Play;
+
     uint8_t currPanEnvPoint, currVolEnvPoint, currPaletteEdit;
-    uint8_t copyMaskEnable, copyMask[5], pasteMask[5], transpMask[5], updateWindowTitle;
-    uint8_t smpEd_NoteNr, instrBankSwapped, instrBankOffset, sampleBankOffset, channelMute[MAX_VOICES];
-    uint8_t srcInstr, curInstr, srcSmp, curSmp, currHelpScreen, currConfigScreen, textCursorBlinkCounter, diskOpReadOnOpen;
-    uint8_t keyOnTab[MAX_VOICES], diskOpReadDir, diskOpReadDone, ID_Add, curOctave;
-    uint8_t sampleSaveMode, moduleSaveMode, samplingAudioFlag, NI_Play, ptnJumpPos[4];
+    uint8_t copyMask[5], pasteMask[5], transpMask[5], smpEd_NoteNr, instrBankOffset, sampleBankOffset;
+    uint8_t srcInstr, curInstr, srcSmp, curSmp, currHelpScreen, currConfigScreen, textCursorBlinkCounter;
+    uint8_t keyOnTab[MAX_VOICES], ID_Add, curOctave, curSmpChannel;
+    uint8_t sampleSaveMode, moduleSaveMode, ptnJumpPos[4];
     int16_t globalVol, songPos, pattPos;
     uint16_t tmpPattern, editPattern, speed, tempo, timer, ptnCursorY;
     int32_t samplePlayOffset, keyOffNr, keyOffTime[MAX_VOICES];
     uint32_t framesPassed, *currPaletteEntry, wavRendererTime;
     double dPerfFreq, dPerfFreqMulMicro;
-
-    tonTyp *blkCopyBuff, *ptnCopyBuff, *trackCopyBuff, clearNote;
 } editor;
 
 #endif

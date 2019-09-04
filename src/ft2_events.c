@@ -29,12 +29,14 @@
 #include "ft2_textboxes.h"
 #include "ft2_sysreqs.h"
 #include "ft2_keyboard.h"
+#include "ft2_sample_ed.h"
+#include "ft2_sample_ed_features.h"
 
 #define CRASH_TEXT "Oh no!\nThe Fasttracker II clone has crashed...\n\nA backup .xm was hopefully " \
                    "saved to the current module directory.\n\nPlease report this to 8bitbubsy " \
                    "(IRC or olav.sorensen@live.no).\nTry to mention what you did before the crash happened."
 
-static uint8_t backupMadeAfterCrash;
+static bool backupMadeAfterCrash;
 
 #ifdef _WIN32
 #define SYSMSG_FILE_ARG (WM_USER + 1)
@@ -113,17 +115,15 @@ void handleEvents(void)
             drawMidiInputList();
     }
 
-    /* check if we were done trimming the song, update visuals */
     if (editor.trimThreadWasDone)
     {
         editor.trimThreadWasDone = false;
         trimThreadDone();
     }
 
-    /* this flag is set from the sample/instrument loader threads (and make echo thread) */
-    if (editor.updateLoadedSample)
+    if (editor.updateCurSmp)
     {
-        editor.updateLoadedSample = false;
+        editor.updateCurSmp = false;
 
         updateNewInstrument();
         updateNewSample();
@@ -134,10 +134,9 @@ void handleEvents(void)
         setMouseBusy(false);
     }
 
-    /* called after loading an instrument */
-    if (editor.updateLoadedInstrument)
+    if (editor.updateCurInstr)
     {
-        editor.updateLoadedInstrument = false;
+        editor.updateCurInstr = false;
 
         updateNewInstrument();
         updateNewSample();
@@ -176,7 +175,7 @@ void handleEvents(void)
 
 /* Windows specific routines */
 #ifdef _WIN32
-static int8_t instanceAlreadyOpen(void)
+static bool instanceAlreadyOpen(void)
 {
     hMapFile = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, SHARED_HWND_NAME);
     if (hMapFile != NULL)
@@ -198,7 +197,7 @@ static int8_t instanceAlreadyOpen(void)
     return (false);
 }
 
-int8_t handleSingleInstancing(int32_t argc, char **argv)
+bool handleSingleInstancing(int32_t argc, char **argv)
 {
     SDL_SysWMinfo wmInfo;
 
@@ -402,7 +401,9 @@ static void handleInput(void)
 {
     char *inputText;
     uint8_t vibDepth;
+    uint32_t eventType;
     SDL_Event inputEvent;
+    SDL_Keycode key;
 
     if (!editor.busy)
         handleLastGUIObjectDown(); /* this should be handled before main input poll (on next frame) */
@@ -411,15 +412,27 @@ static void handleInput(void)
     {
         if (editor.busy)
         {
+            eventType = inputEvent.type;
+            key = inputEvent.key.keysym.scancode;
+
+            /* the Echo tool in Smp. Ed. can literally take forever if abused,
+            ** let mouse buttons/ESC/SIGTERM force-stop it.
+            */
+            if ((eventType == SDL_MOUSEBUTTONDOWN) || (eventType == SDL_QUIT) ||
+                ((eventType == SDL_KEYUP) && (key == SDL_SCANCODE_ESCAPE)))
+            {
+                handleEchoToolPanic();
+            }
+
             /* let certain mouse buttons or keyboard keys stop certain events */
-            if ((inputEvent.type == SDL_MOUSEBUTTONDOWN) || ((inputEvent.type == SDL_KEYDOWN) &&
-                (inputEvent.key.keysym.scancode != SDL_SCANCODE_MUTE) &&
-                (inputEvent.key.keysym.scancode != SDL_SCANCODE_AUDIOMUTE) &&
-                (inputEvent.key.keysym.scancode != SDL_SCANCODE_VOLUMEDOWN) &&
-                (inputEvent.key.keysym.scancode != SDL_SCANCODE_VOLUMEUP)))
+            if ((eventType == SDL_MOUSEBUTTONDOWN) || ((eventType == SDL_KEYDOWN) &&
+                (key != SDL_SCANCODE_MUTE) &&
+                (key != SDL_SCANCODE_AUDIOMUTE) &&
+                (key != SDL_SCANCODE_VOLUMEDOWN) &&
+                (key != SDL_SCANCODE_VOLUMEUP)))
             {
                 /* only let keyboard keys interrupt audio sampling */
-                if (editor.samplingAudioFlag && (inputEvent.type != SDL_MOUSEBUTTONDOWN))
+                if (editor.samplingAudioFlag && (eventType != SDL_MOUSEBUTTONDOWN))
                     stopSampling();
 
                 editor.wavIsRendering = false;

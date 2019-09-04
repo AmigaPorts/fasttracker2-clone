@@ -2,6 +2,7 @@
 #define __FT2_REPLAYER_H
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "ft2_unicode.h"
 
 enum
@@ -46,7 +47,7 @@ enum
 #define INSTR_SIZE           232
 #define INSTR_HEADER_SIZE    263
 #define INSTR_XI_HEADER_SIZE 298
-#define MAX_SAMPLE_LEN 0x7FFFFFFF
+#define MAX_SAMPLE_LEN 0x3FFFFFFF
 #define PROG_NAME_STR "Fasttracker II clone"
 
 /* some of the following structs must be packed (e.g. not padded) since they
@@ -216,8 +217,9 @@ typedef struct stmTyp_t
     uint8_t fPortaUpSpeed, fPortaDownSpeed, ePortaUpSpeed, ePortaDownSpeed;
     uint8_t portaUpSpeed, portaDownSpeed, retrigSpeed, retrigCnt, retrigVol;
     uint8_t volKolVol, tonNr, envPPos, eVibPos, envVPos, realVol, oldVol, outVol;
-    uint8_t oldPan, outPan, finalPan, envSustainActive;
-    int16_t midiCurChannel,  midiCurTone, midiCurVibDepth, midiCurPeriod, midiCurPitch;
+    uint8_t oldPan, outPan, finalPan;
+    bool envSustainActive;
+    int16_t midiCurChannel, midiCurTone, midiCurVibDepth, midiCurPeriod, midiCurPitch;
     int16_t midiBend, midiPortaPeriod, midiPitch, realPeriod, envVIPValue, envPIPValue;
     uint16_t finalVol, outPeriod, finalPeriod, instrNr, tonTyp, wantPeriod, portaSpeed;
     uint16_t envVCnt, envVAmp, envPCnt, envPAmp, eVibAmp, eVibSweep;
@@ -229,8 +231,8 @@ typedef struct stmTyp_t
 
 typedef struct songTyp_t
 {
-    uint8_t antChn, pattDelTime, pattDelTime2, pBreakFlag;
-    uint8_t pBreakPos, posJumpFlag, songTab[MAX_ORDERS], isModified;
+    uint8_t antChn, pattDelTime, pattDelTime2, pBreakFlag, pBreakPos, songTab[MAX_ORDERS];
+    bool posJumpFlag, isModified;
     int16_t songPos, pattNr, pattPos, pattLen;
     uint16_t len, repS, speed, tempo, globVol, timer, ver, initialTempo;
     char name[20 + 1], instrName[1 + MAX_INST][22 + 1];
@@ -249,7 +251,8 @@ typedef struct tonTyp_t
 typedef struct channel_t
 {
     int8_t fineTune, relTonNr;
-    uint8_t status, sampleNr, mute, effTyp, eff, envSustainActive;
+    uint8_t status, sampleNr, mute, effTyp, eff;
+    bool envSustainActive;
     uint16_t instrNr, finalPeriod, finalVol;
     int32_t smpStartPos;
     uint32_t rate;
@@ -267,7 +270,7 @@ void freeSample(sampleTyp *s);
 void freeSamples(uint16_t ins);
 void freeAllPatterns(void);
 void updateChanNums(void);
-int8_t setupReplayer(void);
+bool setupReplayer(void);
 void closeReplayer(void);
 void resetMusic(void);
 void startPlaying(int8_t mode, int16_t row);
@@ -282,18 +285,18 @@ void playTone(uint8_t stmm, uint8_t inst, uint8_t ton, int8_t vol, uint16_t midi
 void playSample(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t midiVibDepth, uint16_t midiPitch);
 void playRange(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t midiVibDepth, uint16_t midiPitch, int32_t offs, int32_t len);
 void keyOff(stmTyp *ch);
-void conv8BitSample(int8_t *p, int32_t len, int8_t stereo);
-void conv16BitSample(int8_t *p, int32_t len, int8_t stereo);
+void conv8BitSample(int8_t *p, int32_t len, bool stereo);
+void conv16BitSample(int8_t *p, int32_t len, bool stereo);
 void delta2Samp(int8_t *p, int32_t len, uint8_t typ);
 void samp2Delta(int8_t *p, int32_t len, uint8_t typ);
-uint8_t setPatternLen(uint16_t nr, int16_t len);
-void setFrqTab(uint8_t linear);
+bool setPatternLen(uint16_t nr, int16_t len);
+void setFrqTab(bool linear);
 void mainPlayer(void); /* periodically called from audio callback */
 void resetChannels(void);
-int8_t patternEmpty(uint16_t nr);
+bool patternEmpty(uint16_t nr);
 int16_t getUsedSamples(int16_t nr);
 int16_t getRealUsedSamples(int16_t nr);
-int8_t instrIsEmpty(int16_t nr);
+bool instrIsEmpty(int16_t nr);
 void setStdEnvelope(uint16_t nr, uint16_t i, uint8_t typ);
 void setSyncedReplayerVars(void);
 void decSongPos(void);
@@ -309,13 +312,10 @@ void pbRecPtn(void);
 
 
 /* ft2_replayer.c */
-extern volatile int8_t replayerBusy;
-extern int8_t linearFrqTab;
 extern int8_t playMode;
-extern int8_t songPlaying;
-extern int8_t musicPaused;
-extern int8_t audioPaused;
-extern int16_t pattLens[MAX_PATTERNS];
+extern bool linearFrqTab, songPlaying, audioPaused, musicPaused;
+extern volatile bool replayerBusy;
+extern int16_t *note2Period, pattLens[MAX_PATTERNS];
 extern stmTyp stm[MAX_VOICES];
 extern songTyp song;
 extern instrTyp instr[1 + MAX_INST + 1];

@@ -3,6 +3,8 @@
 #include <crtdbg.h>
 #endif
 
+#include <stdint.h>
+#include <stdbool.h>
 #include "ft2_header.h"
 #include "ft2_gui.h"
 #include "ft2_video.h"
@@ -63,8 +65,8 @@ textBox_t textBoxes[NUM_TEXTBOXES] =
 static int16_t markX1, markX2;
 static uint16_t oldCursorPos, oldMouseX;
 
-static void moveTextCursorLeft(int16_t i, uint8_t updateTextBox);
-static void moveTextCursorRight(int16_t i, uint8_t updateTextBox);
+static void moveTextCursorLeft(int16_t i, bool updateTextBox);
+static void moveTextCursorRight(int16_t i, bool updateTextBox);
 
 static void setSongModifiedFlagIfNeeded(void) /* called during keystrokes in text boxes */
 {
@@ -77,7 +79,7 @@ static void setSongModifiedFlagIfNeeded(void) /* called during keystrokes in tex
     }
 }
 
-int8_t textIsMarked(void)
+bool textIsMarked(void)
 {
     if (markX1 == markX2)
         return (false);
@@ -713,7 +715,7 @@ void handleTextBoxWhileMouseDown(void)
     }
 }
 
-int8_t testTextBoxMouseDown(void)
+bool testTextBoxMouseDown(void)
 {
     uint16_t i, start, end;
     textBox_t *t;
@@ -1142,6 +1144,7 @@ void handleTextEditControl(SDL_Keycode keycode)
 
 void handleTextEditInputChar(char textChar)
 {
+    int8_t ch;
     int16_t i;
     textBox_t *t;
 
@@ -1152,11 +1155,12 @@ void handleTextEditInputChar(char textChar)
     assert(t->textPtr != NULL);
 
     /* only certain negative values are allowed! */
-    if (textChar < ' ')
+    ch = (int8_t)(textChar);
+    if (ch < 32)
     {
         /* allow certain codepage 437 nordic characters */
-        if ((textChar != -124) && (textChar != -108) && (textChar != -122) &&
-            (textChar != -114) && (textChar != -103) && (textChar != -113))
+        if ((ch != -124) && (ch != -108) && (ch != -122) &&
+            (ch != -114) && (ch != -103) && (ch != -113))
         {
             return;
         }
@@ -1190,7 +1194,7 @@ void handleTextEditInputChar(char textChar)
     }
 }
 
-static void moveTextCursorLeft(int16_t i, uint8_t updateTextBox)
+static void moveTextCursorLeft(int16_t i, bool updateTextBox)
 {
     textBox_t *t;
 
@@ -1210,7 +1214,7 @@ static void moveTextCursorLeft(int16_t i, uint8_t updateTextBox)
     }
 }
 
-static void moveTextCursorRight(int16_t i, uint8_t updateTextBox)
+static void moveTextCursorRight(int16_t i, bool updateTextBox)
 {
     uint16_t numChars;
     textBox_t *t;

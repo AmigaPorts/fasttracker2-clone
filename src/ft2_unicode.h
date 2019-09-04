@@ -1,6 +1,8 @@
 #ifndef __FT2_UNICODE_H
 #define __FT2_UNICODE_H
 
+#include <stdbool.h>
+
 #ifdef _WIN32
 #include <wchar.h>
 #endif
@@ -42,11 +44,11 @@ typedef char UNICHAR;
 #endif
 
 char *cp437ToUtf8(char *src);
-char *utf8ToCp437(char *src, uint8_t removeIllegalChars);
+char *utf8ToCp437(char *src, bool removeIllegalChars);
 
 #ifdef _WIN32
 UNICHAR *cp437ToUnichar(char *src);
-char *unicharToCp437(UNICHAR *src, uint8_t removeIllegalChars);
+char *unicharToCp437(UNICHAR *src, bool removeIllegalChars);
 #else
 #define cp437ToUnichar(a) cp437ToUtf8(a)
 #define unicharToCp437(a, b) utf8ToCp437(a, b)

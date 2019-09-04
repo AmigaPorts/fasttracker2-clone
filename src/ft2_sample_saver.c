@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 #ifndef _WIN32
 #include <unistd.h> /* chdir() */
 #endif
@@ -46,11 +47,11 @@ typedef struct mptExtraChunk_t
 static const char rangedDataStr[] = "Ranged data from FT2";
 
 /* thread data */
-static uint8_t saveRangeFlag;
+static bool saveRangeFlag;
 static SDL_Thread *thread;
 
 /* used to restore mixer interpolation fix .RAW/.IFF/.WAV files after save */
-static int8_t fileRestoreSampleData(UNICHAR *filenameU, int32_t sampleDataOffset, sampleTyp *smp)
+static bool fileRestoreSampleData(UNICHAR *filenameU, int32_t sampleDataOffset, sampleTyp *smp)
 {
     int8_t fixSpar8;
     FILE *f;
@@ -111,7 +112,7 @@ static int8_t fileRestoreSampleData(UNICHAR *filenameU, int32_t sampleDataOffset
     return (true);
 }
 
-static int8_t saveRawSample(UNICHAR *filenameU, uint8_t saveRangedData)
+static bool saveRawSample(UNICHAR *filenameU, bool saveRangedData)
 {
     int8_t *samplePtr;
     uint32_t sampleLen;
@@ -180,7 +181,7 @@ static void iffWriteUint16(FILE *f, uint16_t value)
     fwrite(&value, sizeof (int16_t), 1, f);
 }
 
-static int8_t saveIFFSample(UNICHAR *filenameU, uint8_t saveRangedData)
+static bool saveIFFSample(UNICHAR *filenameU, bool saveRangedData)
 {
     char *smpNamePtr;
     int8_t *samplePtr;
@@ -304,7 +305,7 @@ static int8_t saveIFFSample(UNICHAR *filenameU, uint8_t saveRangedData)
     return (true);
 }
 
-static int8_t saveWAVSample(UNICHAR *filenameU, uint8_t saveRangedData)
+static bool saveWAVSample(UNICHAR *filenameU, bool saveRangedData)
 {
     char *smpNamePtr;
     int8_t *samplePtr;
@@ -527,16 +528,16 @@ static int32_t SDLCALL saveSampleThread(void *ptr)
     return (true);
 }
 
-void saveSample(UNICHAR *filenameU, uint8_t saveAsRange)
+void saveSample(UNICHAR *filenameU, bool saveAsRange)
 {
     saveRangeFlag = saveAsRange;
     UNICHAR_STRCPY(editor.tmpFilenameU, filenameU);
 
     mouseAnimOn();
-    thread = SDL_CreateThread(saveSampleThread, "FT2 Clone Sample Saving Thread", NULL);
+    thread = SDL_CreateThread(saveSampleThread, NULL, NULL);
     if (thread == NULL)
     {
-        okBoxThreadSafe(0, "System message", "Error creating sample saving thread!");
+        okBoxThreadSafe(0, "System message", "Couldn't create thread!");
         return;
     }
 

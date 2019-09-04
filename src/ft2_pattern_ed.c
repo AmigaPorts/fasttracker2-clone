@@ -5,7 +5,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
-#include <math.h>
+#include <stdbool.h>
 #include "ft2_header.h"
 #include "ft2_gfxdata.h"
 #include "ft2_config.h"
@@ -43,9 +43,9 @@ extern const pattCoordsMouse_t pattCoordMouseTable[2][2][2];
 /* globalized */
 const uint16_t chanWidths[6] = { 141, 141, 93, 69, 45, 45 };
 
-uint8_t allocatePattern(uint16_t nr) /* for tracker use only, not in loader! */
+bool allocatePattern(uint16_t nr) /* for tracker use only, not in loader! */
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
     int16_t pattLen;
 
     if (patt[nr] == NULL)
@@ -77,7 +77,7 @@ uint8_t allocatePattern(uint16_t nr) /* for tracker use only, not in loader! */
 
 void killPatternIfUnused(uint16_t nr) /* for tracker use only, not in loader! */
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
 
     if (patternEmpty(nr))
     {
@@ -845,9 +845,10 @@ static int16_t mouseYToRow(void) /* used to get row num from mouse y (for patter
     }
 }
 
-void handlePatternDataMouseDown(int8_t mouseButtonHeld)
+void handlePatternDataMouseDown(bool mouseButtonHeld)
 {
-    int8_t chTmp, forceMarking;
+    bool forceMarking;
+    int8_t chTmp;
     int16_t y1, y2, rowTmp, pattLen;
 
     /* non-FT2 feature: Use right mouse button to remove pattern marking */
@@ -983,7 +984,7 @@ void handlePatternDataMouseDown(int8_t mouseButtonHeld)
 
 void rowOneUpWrap(void)
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
 
     audioWasntLocked = !audio.locked;
     if (audioWasntLocked)
@@ -1002,7 +1003,7 @@ void rowOneUpWrap(void)
 
 void rowOneDownWrap(void)
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
 
     audioWasntLocked = !audio.locked;
     if (audioWasntLocked)
@@ -1025,7 +1026,7 @@ void rowOneDownWrap(void)
 
 void rowUp(uint16_t amount)
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
 
     audioWasntLocked = !audio.locked;
     if (audioWasntLocked)
@@ -1047,7 +1048,7 @@ void rowUp(uint16_t amount)
 
 void rowDown(uint16_t amount)
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
 
     audioWasntLocked = !audio.locked;
     if (audioWasntLocked)
@@ -1208,7 +1209,7 @@ void keybPattMarkRight(void)
     chanRight();
 }
 
-int8_t loadTrack(UNICHAR *filenameU)
+bool loadTrack(UNICHAR *filenameU)
 {
     FILE *f;
     uint16_t nr, pattLen, i;
@@ -1295,14 +1296,14 @@ int8_t loadTrack(UNICHAR *filenameU)
     return (true);
 }
 
-int8_t saveTrack(UNICHAR *filenameU)
+bool saveTrack(UNICHAR *filenameU)
 {
     FILE *f;
     uint16_t nr, pattLen, i;
     tonTyp *pattPtr, saveBuff[MAX_PATT_LEN];
     trackHeaderType th;
 
-    nr      = editor.editPattern;
+    nr = editor.editPattern;
     pattPtr = patt[nr];
 
     if (pattPtr == NULL)
@@ -1345,7 +1346,7 @@ int8_t saveTrack(UNICHAR *filenameU)
     return (true);
 }
 
-int8_t loadPattern(UNICHAR *filenameU)
+bool loadPattern(UNICHAR *filenameU)
 {
     FILE *f;
     uint16_t i, j, nr, pattLen;
@@ -1434,14 +1435,14 @@ int8_t loadPattern(UNICHAR *filenameU)
     return (true);
 }
 
-int8_t savePattern(UNICHAR *filenameU)
+bool savePattern(UNICHAR *filenameU)
 {
     FILE *f;
     uint16_t nr, pattLen;
     tonTyp *pattPtr;
     patternHeaderType th;
 
-    nr      = editor.editPattern;
+    nr = editor.editPattern;
     pattPtr = patt[nr];
 
     if (pattPtr == NULL)
@@ -1557,7 +1558,7 @@ void jumpToChannel(uint8_t channel) /* for ALT+q..i ALT+a..k */
 
 void sbPosEdPos(uint32_t pos)
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
 
     audioWasntLocked = !audio.locked;
     if (audioWasntLocked)
@@ -1572,7 +1573,7 @@ void sbPosEdPos(uint32_t pos)
 
 void pbPosEdPosUp(void)
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
 
     audioWasntLocked = !audio.locked;
     if (audioWasntLocked)
@@ -1587,7 +1588,7 @@ void pbPosEdPosUp(void)
 
 void pbPosEdPosDown(void)
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
 
     audioWasntLocked = !audio.locked;
     if (audioWasntLocked)
@@ -1703,7 +1704,7 @@ void pbPosEdPattDown(void)
 
 void pbPosEdLenUp(void)
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
 
     audioWasntLocked = !audio.locked;
     if (audioWasntLocked)
@@ -1726,7 +1727,7 @@ void pbPosEdLenUp(void)
 
 void pbPosEdLenDown(void)
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
 
     audioWasntLocked = !audio.locked;
     if (audioWasntLocked)
@@ -1762,7 +1763,7 @@ void pbPosEdLenDown(void)
 
 void pbPosEdRepSUp(void)
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
 
     audioWasntLocked = !audio.locked;
     if (audioWasntLocked)
@@ -1781,7 +1782,7 @@ void pbPosEdRepSUp(void)
 
 void pbPosEdRepSDown(void)
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
 
     audioWasntLocked = !audio.locked;
     if (audioWasntLocked)
@@ -1800,7 +1801,7 @@ void pbPosEdRepSDown(void)
 
 void pbBPMUp(void)
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
 
     audioWasntLocked = !audio.locked;
     if (audioWasntLocked)
@@ -1825,7 +1826,7 @@ void pbBPMUp(void)
 
 void pbBPMDown(void)
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
 
     audioWasntLocked = !audio.locked;
     if (audioWasntLocked)
@@ -1850,7 +1851,7 @@ void pbBPMDown(void)
 
 void pbSpeedUp(void)
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
 
     audioWasntLocked = !audio.locked;
     if (audioWasntLocked)
@@ -1874,7 +1875,7 @@ void pbSpeedUp(void)
 
 void pbSpeedDown(void)
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
 
     audioWasntLocked = !audio.locked;
     if (audioWasntLocked)
@@ -1971,7 +1972,7 @@ static void updatePtnLen(void)
 
 void pbEditPattUp(void)
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
 
     audioWasntLocked = !audio.locked;
     if (audioWasntLocked)
@@ -2001,7 +2002,7 @@ void pbEditPattUp(void)
 
 void pbEditPattDown(void)
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
 
     audioWasntLocked = !audio.locked;
     if (audioWasntLocked)
@@ -2031,7 +2032,7 @@ void pbEditPattDown(void)
 
 void pbPattLenUp(void)
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
     uint16_t pattLen;
 
     audioWasntLocked = !audio.locked;
@@ -2055,7 +2056,7 @@ void pbPattLenUp(void)
 
 void pbPattLenDown(void)
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
     uint16_t pattLen;
 
     audioWasntLocked = !audio.locked;

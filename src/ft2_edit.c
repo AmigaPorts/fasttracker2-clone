@@ -23,7 +23,7 @@ enum
 static double dVolScaleFK1 = 1.0, dVolScaleFK2 = 1.0;
 
 /* for block cut/copy/paste */
-static int8_t blockCopied;
+static bool blockCopied;
 static int16_t markXSize, markYSize;
 static uint16_t ptnBufLen, trkBufLen;
 
@@ -31,6 +31,13 @@ static uint16_t ptnBufLen, trkBufLen;
 static int8_t lastTranspVal;
 static uint8_t lastInsMode, lastTranspMode;
 static uint32_t transpDelNotes; /* count of under-/overflowing notes for warning message */
+static tonTyp clearNote;
+
+static tonTyp blkCopyBuff[MAX_PATT_LEN * MAX_VOICES];
+static tonTyp ptnCopyBuff[MAX_PATT_LEN * MAX_VOICES];
+static tonTyp trackCopyBuff[MAX_PATT_LEN];
+
+static const int8_t tickArr[16] = { 16, 8, 0, 4, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1 };
 
 static const SDL_Keycode key2VolTab[] = 
 {
@@ -56,12 +63,10 @@ static const SDL_Keycode key2HexTab[] =
 };
 #define KEY2HEX_ENTRIES (signed)(sizeof (key2HexTab) / sizeof (SDL_Keycode))
 
-static const int8_t tickArr[16] = { 16, 8, 0, 4, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1 };
-
 void recordNote(uint8_t note, int8_t vol);
 
 /* when the cursor is at the note field */
-static uint8_t testNoteKeys(SDL_Scancode scancode)
+static bool testNoteKeys(SDL_Scancode scancode)
 {
     int8_t noteNum;
 
@@ -86,7 +91,7 @@ void testNoteKeysRelease(SDL_Scancode scancode)
         recordNote(noteNum, 0); /* release note */
 }
 
-static uint8_t testEditKeys(SDL_Scancode scancode, SDL_Keycode keycode)
+static bool testEditKeys(SDL_Scancode scancode, SDL_Keycode keycode)
 {
     int8_t i;
     uint8_t oldVal;
@@ -543,9 +548,9 @@ void recordNote(uint8_t note, int8_t vol)
     }
 }
 
-int8_t handleEditKeys(SDL_Keycode keycode, SDL_Scancode scancode)
+bool handleEditKeys(SDL_Keycode keycode, SDL_Scancode scancode)
 {
-    uint8_t frKeybHack;
+    bool frKeybHack;
     uint16_t pattLen;
     tonTyp *note;
 
@@ -607,7 +612,8 @@ int8_t handleEditKeys(SDL_Keycode keycode, SDL_Scancode scancode)
     }
 
     /* a hack for french keyb. layouts to allow writing numbers in the pattern data with left SHIFT */
-    frKeybHack = keyb.leftShiftPressed && !keyb.leftAltPressed && !keyb.leftCtrlPressed && (scancode >= SDL_SCANCODE_1) && (scancode <= SDL_SCANCODE_0);
+    frKeybHack = keyb.leftShiftPressed && !keyb.leftAltPressed && !keyb.leftCtrlPressed &&
+                    (scancode >= SDL_SCANCODE_1) && (scancode <= SDL_SCANCODE_0);
 
     if (frKeybHack || !keyb.keyModifierDown)
         return (testEditKeys(scancode, keycode));
@@ -1415,16 +1421,16 @@ void cutTrack(void)
 
     if (config.ptnCutToBuffer)
     {
-        memset(editor.trackCopyBuff, 0, MAX_PATT_LEN * sizeof (tonTyp));
+        memset(trackCopyBuff, 0, MAX_PATT_LEN * sizeof (tonTyp));
         for (i = 0; i < pattLen; ++i)
-            copyNote(&pattPtr[(i * MAX_VOICES) + editor.cursor.ch], &editor.trackCopyBuff[i]);
+            copyNote(&pattPtr[(i * MAX_VOICES) + editor.cursor.ch], &trackCopyBuff[i]);
 
         trkBufLen = pattLen;
     }
 
     pauseMusic();
     for (i = 0; i < pattLen; ++i)
-        pasteNote(&editor.clearNote, &pattPtr[(i * MAX_VOICES) + editor.cursor.ch]);
+        pasteNote(&clearNote, &pattPtr[(i * MAX_VOICES) + editor.cursor.ch]);
     resumeMusic();
 
     killPatternIfUnused(editor.editPattern);
@@ -1444,9 +1450,9 @@ void copyTrack(void)
 
     pattLen = pattLens[editor.editPattern];
 
-    memset(editor.trackCopyBuff, 0, MAX_PATT_LEN * sizeof (tonTyp));
+    memset(trackCopyBuff, 0, MAX_PATT_LEN * sizeof (tonTyp));
     for (i = 0; i < pattLen; ++i)
-        copyNote(&pattPtr[(i * MAX_VOICES) + editor.cursor.ch], &editor.trackCopyBuff[i]);
+        copyNote(&pattPtr[(i * MAX_VOICES) + editor.cursor.ch], &trackCopyBuff[i]);
 
     trkBufLen = pattLen;
 }
@@ -1464,7 +1470,7 @@ void pasteTrack(void)
 
     pauseMusic();
     for (i = 0; i < pattLen; ++i)
-        pasteNote(&editor.trackCopyBuff[i], &pattPtr[(i * MAX_VOICES) + editor.cursor.ch]);
+        pasteNote(&trackCopyBuff[i], &pattPtr[(i * MAX_VOICES) + editor.cursor.ch]);
     resumeMusic();
 
     killPatternIfUnused(editor.editPattern);
@@ -1486,11 +1492,11 @@ void cutPattern(void)
 
     if (config.ptnCutToBuffer)
     {
-        memset(editor.ptnCopyBuff, 0, (MAX_PATT_LEN * MAX_VOICES) * sizeof (tonTyp));
+        memset(ptnCopyBuff, 0, (MAX_PATT_LEN * MAX_VOICES) * sizeof (tonTyp));
         for (x = 0; x < song.antChn; ++x)
         {
             for (i = 0; i < pattLen; ++i)
-                copyNote(&pattPtr[(i * MAX_VOICES) + x], &editor.ptnCopyBuff[(i * MAX_VOICES) + x]);
+                copyNote(&pattPtr[(i * MAX_VOICES) + x], &ptnCopyBuff[(i * MAX_VOICES) + x]);
         }
 
         ptnBufLen = pattLen;
@@ -1500,7 +1506,7 @@ void cutPattern(void)
     for (x = 0; x < song.antChn; ++x)
     {
         for (i = 0; i < pattLen; ++i)
-            pasteNote(&editor.clearNote, &pattPtr[(i * MAX_VOICES) + x]);
+            pasteNote(&clearNote, &pattPtr[(i * MAX_VOICES) + x]);
     }
     resumeMusic();
 
@@ -1521,11 +1527,11 @@ void copyPattern(void)
 
     pattLen = pattLens[editor.editPattern];
 
-    memset(editor.ptnCopyBuff, 0, (MAX_PATT_LEN * MAX_VOICES) * sizeof (tonTyp));
+    memset(ptnCopyBuff, 0, (MAX_PATT_LEN * MAX_VOICES) * sizeof (tonTyp));
     for (x = 0; x < song.antChn; ++x)
     {
         for (i = 0; i < pattLen; ++i)
-            copyNote(&pattPtr[(i * MAX_VOICES) + x], &editor.ptnCopyBuff[(i * MAX_VOICES) + x]);
+            copyNote(&pattPtr[(i * MAX_VOICES) + x], &ptnCopyBuff[(i * MAX_VOICES) + x]);
     }
 
     ptnBufLen = pattLen;
@@ -1557,7 +1563,7 @@ void pastePattern(void)
     for (x = 0; x < song.antChn; ++x)
     {
         for (i = 0; i < pattLen; ++i)
-            pasteNote(&editor.ptnCopyBuff[(i * MAX_VOICES) + x], &pattPtr[(i * MAX_VOICES) + x]);
+            pasteNote(&ptnCopyBuff[(i * MAX_VOICES) + x], &pattPtr[(i * MAX_VOICES) + x]);
     }
     resumeMusic();
 
@@ -1588,7 +1594,7 @@ void cutBlock(void)
                 assert((x < song.antChn) && (y < pattLens[editor.editPattern]));
 
                 copyNote(&pattPtr[(y * MAX_VOICES) + x],
-                         &editor.blkCopyBuff[((y - pattMark.markY1) * MAX_VOICES) + (x - pattMark.markX1)]);
+                         &blkCopyBuff[((y - pattMark.markY1) * MAX_VOICES) + (x - pattMark.markX1)]);
             }
         }
     }
@@ -1597,7 +1603,7 @@ void cutBlock(void)
     for (x = pattMark.markX1; x <= pattMark.markX2; ++x)
     {
         for (y = pattMark.markY1; y < pattMark.markY2; ++y)
-            pasteNote(&editor.clearNote, &pattPtr[(y * MAX_VOICES) + x]);
+            pasteNote(&clearNote, &pattPtr[(y * MAX_VOICES) + x]);
     }
     resumeMusic();
 
@@ -1630,7 +1636,7 @@ void copyBlock(void)
             assert((x < song.antChn) && (y < pattLens[editor.editPattern]));
 
             copyNote(&pattPtr[(y * MAX_VOICES) + x],
-                     &editor.blkCopyBuff[((y - pattMark.markY1) * MAX_VOICES) + (x - pattMark.markX1)]);
+                     &blkCopyBuff[((y - pattMark.markY1) * MAX_VOICES) + (x - pattMark.markX1)]);
         }
     }
 
@@ -1668,7 +1674,7 @@ void pasteBlock(void)
         for (y = ypos; y < (ypos + k); ++y)
         {
             assert((x < song.antChn) && (y < pattLen));
-            pasteNote(&editor.blkCopyBuff[((y - ypos) * MAX_VOICES) + (x - xpos)], &pattPtr[(y * MAX_VOICES) + x]);
+            pasteNote(&blkCopyBuff[((y - ypos) * MAX_VOICES) + (x - xpos)], &pattPtr[(y * MAX_VOICES) + x]);
         }
     }
     resumeMusic();
@@ -1849,7 +1855,7 @@ static void scaleNote(uint16_t ptn, int8_t ch, int16_t row, double dScale)
     }
 }
 
-static uint8_t askForScaleFade(char *msg)
+static bool askForScaleFade(char *msg)
 {
     char *val1, *val2, volstr[32 + 1];
     uint8_t err;

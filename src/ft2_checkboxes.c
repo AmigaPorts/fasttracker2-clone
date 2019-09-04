@@ -238,7 +238,7 @@ void handleCheckBoxesWhileMouseDown(void)
     }
 }
 
-int8_t testCheckBoxMouseDown(void)
+bool testCheckBoxMouseDown(void)
 {
     uint16_t i, start, end;
     checkBox_t *checkBox;

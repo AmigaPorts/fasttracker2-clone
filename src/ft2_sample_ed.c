@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <math.h>
 #ifndef _WIN32
 #include <unistd.h> /* chdir() in UNICHAR_CHDIR() */
@@ -30,12 +31,13 @@ static const char flatNote2Char[12]  = { '-', 'b', '-', 'b', '-', '-', 'b', '-',
 
 static char smpEd_SysReqText[64];
 static int8_t *smpCopyBuff;
-static uint8_t updateLoopsOnMouseUp;
-static int32_t smpEd_OldSmpPosLine = -1; /* must be initialized to -1! */
+static bool updateLoopsOnMouseUp, writeSampleFlag;
+static int32_t smpEd_OldSmpPosLine = -1;
 static int32_t smpEd_ViewSize, smpEd_ScrPos, smpCopySize, smpCopyBits;
-static int32_t old_Rx1, old_Rx2, old_ViewSize, old_SmpScrPos, scrPosScaled;
+static int32_t old_Rx1, old_Rx2, old_ViewSize, old_SmpScrPos;
 static int32_t lastMouseX, lastMouseY, lastDrawX, lastDrawY, mouseXOffs, curSmpRepS, curSmpRepL;
-static double dPos2ScrMul, dScr2SmpPosMul;
+static double dScrPosScaled, dPos2ScrMul, dScr2SmpPosMul;
+static SDL_Thread *thread;
 
 /* globals */
 int32_t smpEd_Rx1 = 0, smpEd_Rx2 = 0;
@@ -306,57 +308,70 @@ static void updateViewSize(void)
     if (smpEd_ViewSize == 0)
         dPos2ScrMul = 1.0;
     else
-        dPos2ScrMul = (1.0 / smpEd_ViewSize) * SAMPLE_AREA_WIDTH;
+        dPos2ScrMul = (double)(SAMPLE_AREA_WIDTH) / smpEd_ViewSize;
 
-    dScr2SmpPosMul = (1.0 / SAMPLE_AREA_WIDTH) * smpEd_ViewSize;
+    dScr2SmpPosMul = smpEd_ViewSize / (double)(SAMPLE_AREA_WIDTH);
 }
 
 static void updateScrPos(void)
 {
-    scrPosScaled = (int32_t)(smpEd_ScrPos * dPos2ScrMul); /* must be truncated */
+    dScrPosScaled = trunc(smpEd_ScrPos * dPos2ScrMul);
 }
 
-static int32_t smpPos2Scr(int32_t pos) /* sample pos -> screen x pos (result can and will overflow) */
+/* sample pos -> screen x pos (if outside of visible area, will return <0 or >=SCREEN_W) */
+static int32_t smpPos2Scr(int32_t pos)
 {
     double dPos;
 
-    assert(currSmp != NULL);
     if (smpEd_ViewSize <= 0)
         return (0);
 
+    assert(currSmp != NULL);
     if (pos > currSmp->len)
         pos = currSmp->len;
 
-    /* rounding is needed here */
-    dPos = pos * dPos2ScrMul;
-    double2int32_round(pos, dPos);
-    pos -= scrPosScaled;
+    dPos = round(pos * dPos2ScrMul) - dScrPosScaled; /* rounding is needed here */
+
+    /* this is important, or else the result can mess up in some cases */
+    dPos = CLAMP(dPos, INT32_MIN, INT32_MAX);
+
+    if (cpu.hasSSE2)
+        sse2_double2int32_trunc(pos, dPos);
+    else
+        pos = (int32_t)(dPos);
 
     return (pos);
 }
 
-int32_t scr2SmpPos(int32_t x) /* screen x pos -> sample pos */
+/* screen x pos -> sample pos */
+static int32_t scr2SmpPos(int32_t x)
 {
-    assert(currSmp != NULL);
+    double dPos;
+
     if (smpEd_ViewSize <= 0)
         return (0);
 
     if (x < 0)
         x = 0;
 
-    x += scrPosScaled;
+    dPos = (dScrPosScaled + x) * dScr2SmpPosMul;
 
-    x = (int32_t)(x * dScr2SmpPosMul);
+    if (cpu.hasSSE2)
+        sse2_double2int32_trunc(x, dPos);
+    else
+        x = (int32_t)(dPos);
+
+    assert(currSmp != NULL);
     if (x > currSmp->len)
         x = currSmp->len;
 
     if (currSmp->typ & 16)
-        x &= 0xFFFFFFFE; /* align to 16-bit because of 8-bit offset look-ups */
+        x &= 0xFFFFFFFE;
 
     return (x);
 }
 
-void fixRepeatGadgets(void)
+static void fixRepeatGadgets(void)
 {
     int32_t repS, repE;
 
@@ -399,17 +414,20 @@ void fixRepeatGadgets(void)
     }
 }
 
-void fixSampleDrag(void)
+static void fixSampleDrag(void)
 {
     setScrollBarPageLength(SB_SAMP_SCROLL, smpEd_ViewSize);
     setScrollBarEnd(SB_SAMP_SCROLL, currSmp->len);
     setScrollBarPos(SB_SAMP_SCROLL, smpEd_ScrPos, false);
 }
 
-int8_t getCopyBuffer(int32_t size)
+static bool getCopyBuffer(int32_t size)
 {
     if (smpCopyBuff != NULL)
         free(smpCopyBuff);
+
+    if (size > MAX_SAMPLE_LEN)
+        size = MAX_SAMPLE_LEN;
 
     smpCopyBuff = (int8_t *)(malloc(size + 4));
     if (smpCopyBuff == NULL)
@@ -422,13 +440,12 @@ int8_t getCopyBuffer(int32_t size)
     return (true);
 }
 
-void copySmp(void) /* copy sample from srcInstr->srcSmp to curInstr->curSmp */
+static int32_t SDLCALL copySampleThread(void *ptr)
 {
     int8_t *p;
     sampleTyp *src, *dst;
 
-    if ((editor.curInstr == 0) || ((editor.curInstr == editor.srcInstr) && (editor.curSmp == editor.srcSmp)))
-        return;
+    (void)(ptr);
 
     src = &instr[editor.srcInstr].samp[editor.srcSmp];
     dst = &instr[editor.curInstr].samp[editor.curSmp];
@@ -445,13 +462,33 @@ void copySmp(void) /* copy sample from srcInstr->srcSmp to curInstr->curSmp */
         }
         else
         {
-            okBox(0, "System message", "Not enough memory!");
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
         }
     }
     resumeAudio();
 
-    updateNewSample();
+    editor.updateCurSmp = true;
     setSongModifiedFlag();
+    setMouseBusy(false);
+
+    return (true);
+}
+
+void copySmp(void) /* copy sample from srcInstr->srcSmp to curInstr->curSmp */
+{
+    if ((editor.curInstr == 0) || ((editor.curInstr == editor.srcInstr) && (editor.curSmp == editor.srcSmp)))
+        return;
+
+    mouseAnimOn();
+    thread = SDL_CreateThread(copySampleThread, NULL, NULL);
+    if (thread == NULL)
+    {
+        okBox(0, "System message", "Couldn't create thread!");
+        return;
+    }
+
+    /* don't let thread wait for this thread, let it clean up on its own when done */
+    SDL_DetachThread(thread);
 }
 
 void xchgSmp(void) /* dstSmp <-> srcSmp */
@@ -474,7 +511,7 @@ void xchgSmp(void) /* dstSmp <-> srcSmp */
     setSongModifiedFlag();
 }
 
-void writeRange(void)
+static void writeRange(void)
 {
     int32_t x, y, start, end, rangeLen;
     uint32_t *ptr32;
@@ -506,7 +543,7 @@ void writeRange(void)
     }
 }
 
-int8_t getScaledSample(int32_t index)
+static int8_t getScaledSample(int32_t index)
 {
     int8_t *ptr8, sample;
     int16_t *ptr16;
@@ -567,7 +604,7 @@ int8_t getScaledSample(int32_t index)
     return (sample);
 }
 
-void sampleLine(int16_t x1, int16_t x2, int16_t y1, int16_t y2)
+static void sampleLine(int16_t x1, int16_t x2, int16_t y1, int16_t y2)
 {
     int16_t d, x, y, sx, sy, dx, dy;
     uint16_t ax, ay;
@@ -655,179 +692,189 @@ void sampleLine(int16_t x1, int16_t x2, int16_t y1, int16_t y2)
 static void getMinMax16(const void *p, uint32_t scanLen, int16_t *min16, int16_t *max16)
 {
 #if defined __APPLE__ || defined _WIN32 || defined __i386__ || defined __amd64__
-    /* Taken with permission from the OpenMPT project (and slightly modified).
-    **
-    ** SSE2 implementation for min/max finder, packs 8*int16 in a 128-bit XMM register.
-    ** scanLen = How many samples to process
-    */
-    const int16_t *p16;
-    uint32_t scanLen8;
-    const __m128i *v;
-    __m128i minVal, maxVal, minVal2, maxVal2, curVals;
-
-    /* Put minimum / maximum in 8 packed int16 values */
-    minVal = _mm_set1_epi16( 32767);
-    maxVal = _mm_set1_epi16(-32768);
-
-    scanLen8 = scanLen / 8;
-    if (scanLen8 > 0)
+    if (cpu.hasSSE2)
     {
-        v = (__m128i *)(p);
-        p = (const __m128i *)(p) + scanLen8;
+        /* Taken with permission from the OpenMPT project (and slightly modified).
+        **
+        ** SSE2 implementation for min/max finder, packs 8*int16 in a 128-bit XMM register.
+        ** scanLen = How many samples to process
+        */
+        const int16_t *p16;
+        uint32_t scanLen8;
+        const __m128i *v;
+        __m128i minVal, maxVal, minVal2, maxVal2, curVals;
 
-        while (scanLen8--)
+        /* Put minimum / maximum in 8 packed int16 values */
+        minVal = _mm_set1_epi16(32767);
+        maxVal = _mm_set1_epi16(-32768);
+
+        scanLen8 = scanLen / 8;
+        if (scanLen8 > 0)
         {
-            curVals = _mm_loadu_si128(v++);
+            v = (__m128i *)(p);
+            p = (const __m128i *)(p) + scanLen8;
+
+            while (scanLen8--)
+            {
+                curVals = _mm_loadu_si128(v++);
+                minVal  = _mm_min_epi16(minVal, curVals);
+                maxVal  = _mm_max_epi16(maxVal, curVals);
+            }
+
+            /* Now we have 8 minima and maxima each.
+            ** Move the upper 4 values to the lower half and compute the minima/maxima of that. */
+            minVal2 = _mm_unpackhi_epi64(minVal, minVal);
+            maxVal2 = _mm_unpackhi_epi64(maxVal, maxVal);
+            minVal  = _mm_min_epi16(minVal, minVal2);
+            maxVal  = _mm_max_epi16(maxVal, maxVal2);
+
+            /* Now we have 4 minima and maxima each.
+            ** Move the upper 2 values to the lower half and compute the minima/maxima of that. */
+            minVal2 = _mm_shuffle_epi32(minVal, _MM_SHUFFLE(1, 1, 1, 1));
+            maxVal2 = _mm_shuffle_epi32(maxVal, _MM_SHUFFLE(1, 1, 1, 1));
+            minVal  = _mm_min_epi16(minVal, minVal2);
+            maxVal  = _mm_max_epi16(maxVal, maxVal2);
+
+            /* Compute the minima/maxima of the both remaining values */
+            minVal2 = _mm_shufflelo_epi16(minVal, _MM_SHUFFLE(1, 1, 1, 1));
+            maxVal2 = _mm_shufflelo_epi16(maxVal, _MM_SHUFFLE(1, 1, 1, 1));
+            minVal  = _mm_min_epi16(minVal, minVal2);
+            maxVal  = _mm_max_epi16(maxVal, maxVal2);
+        }
+
+        p16 = (const int16_t *)(p);
+        while (scanLen-- & 7)
+        {
+            curVals = _mm_set1_epi16(*p16++);
             minVal  = _mm_min_epi16(minVal, curVals);
             maxVal  = _mm_max_epi16(maxVal, curVals);
         }
 
-        /* Now we have 8 minima and maxima each.
-        ** Move the upper 4 values to the lower half and compute the minima/maxima of that. */
-        minVal2 = _mm_unpackhi_epi64(minVal, minVal);
-        maxVal2 = _mm_unpackhi_epi64(maxVal, maxVal);
-        minVal  = _mm_min_epi16(minVal, minVal2);
-        maxVal  = _mm_max_epi16(maxVal, maxVal2);
-
-        /* Now we have 4 minima and maxima each.
-        ** Move the upper 2 values to the lower half and compute the minima/maxima of that. */
-        minVal2 = _mm_shuffle_epi32(minVal, _MM_SHUFFLE(1, 1, 1, 1));
-        maxVal2 = _mm_shuffle_epi32(maxVal, _MM_SHUFFLE(1, 1, 1, 1));
-        minVal  = _mm_min_epi16(minVal, minVal2);
-        maxVal  = _mm_max_epi16(maxVal, maxVal2);
-
-        /* Compute the minima/maxima of the both remaining values */
-        minVal2 = _mm_shufflelo_epi16(minVal, _MM_SHUFFLE(1, 1, 1, 1));
-        maxVal2 = _mm_shufflelo_epi16(maxVal, _MM_SHUFFLE(1, 1, 1, 1));
-        minVal  = _mm_min_epi16(minVal, minVal2);
-        maxVal  = _mm_max_epi16(maxVal, maxVal2);
+        *min16 = (int16_t)(_mm_cvtsi128_si32(minVal));
+        *max16 = (int16_t)(_mm_cvtsi128_si32(maxVal));
     }
-
-    p16 = (const int16_t *)(p);
-    while (scanLen-- & 7)
-    {
-        curVals = _mm_set1_epi16(*p16++);
-        minVal  = _mm_min_epi16(minVal, curVals);
-        maxVal  = _mm_max_epi16(maxVal, curVals);
-    }
-
-    *min16 = (int16_t)(_mm_cvtsi128_si32(minVal));
-    *max16 = (int16_t)(_mm_cvtsi128_si32(maxVal));
-#else
-    /* non-SSE version (slow!) */
-    int16_t smp16, minVal, maxVal, *ptr16;
-    uint32_t i;
-
-    minVal =  32767;
-    maxVal = -32768;
-
-    ptr16 = (int16_t *)(p);
-    for (i = 0; i < scanLen; ++i)
-    {
-        smp16 = ptr16[i];
-        if (smp16 < minVal) minVal = smp16;
-        if (smp16 > maxVal) maxVal = smp16;
-    }
-
-    *min16 = minVal;
-    *max16 = maxVal;
+    else
 #endif
+    {
+        /* non-SSE version (slow!) */
+        int16_t smp16, minVal, maxVal, *ptr16;
+        uint32_t i;
+
+        minVal =  32767;
+        maxVal = -32768;
+
+        ptr16 = (int16_t *)(p);
+        for (i = 0; i < scanLen; ++i)
+        {
+            smp16 = ptr16[i];
+            if (smp16 < minVal) minVal = smp16;
+            if (smp16 > maxVal) maxVal = smp16;
+        }
+
+        *min16 = minVal;
+        *max16 = maxVal;
+    }
 }
 
 static void getMinMax8(const void *p, uint32_t scanLen, int8_t *min8, int8_t *max8)
 {
 #if defined __APPLE__ || defined _WIN32 || defined __i386__ || defined __amd64__
-    /* Taken with permission from the OpenMPT project (and slightly modified).
-    **
-    ** SSE2 implementation for min/max finder, packs 16*int8 in a 128-bit XMM register.
-    ** scanLen = How many samples to process
-    */
-    const int8_t *p8;
-    uint32_t scanLen16;
-    const __m128i *v;
-    __m128i xorVal, minVal, maxVal, minVal2, maxVal2, curVals;
-
-    /* Put minimum / maximum in 8 packed int16 values (-1 and 0 because unsigned) */
-    minVal = _mm_set1_epi8(-1);
-    maxVal = _mm_set1_epi8( 0);
-
-    /* For signed <-> unsigned conversion (_mm_min_epi8/_mm_max_epi8 is SSE4) */
-    xorVal = _mm_set1_epi8(0x80);
-
-    scanLen16 = scanLen / 16;
-    if (scanLen16 > 0)
+    if (cpu.hasSSE2)
     {
-        v = (__m128i *)(p);
-        p = (const __m128i *)(p) + scanLen16;
+        /* Taken with permission from the OpenMPT project (and slightly modified).
+        **
+        ** SSE2 implementation for min/max finder, packs 16*int8 in a 128-bit XMM register.
+        ** scanLen = How many samples to process
+        */
+        const int8_t *p8;
+        uint32_t scanLen16;
+        const __m128i *v;
+        __m128i xorVal, minVal, maxVal, minVal2, maxVal2, curVals;
 
-        while (scanLen16--)
+        /* Put minimum / maximum in 8 packed int16 values (-1 and 0 because unsigned) */
+        minVal = _mm_set1_epi8(-1);
+        maxVal = _mm_set1_epi8(0);
+
+        /* For signed <-> unsigned conversion (_mm_min_epi8/_mm_max_epi8 is SSE4) */
+        xorVal = _mm_set1_epi8(0x80);
+
+        scanLen16 = scanLen / 16;
+        if (scanLen16 > 0)
         {
-            curVals = _mm_loadu_si128(v++);
-            curVals = _mm_xor_si128(curVals, xorVal);
+            v = (__m128i *)(p);
+            p = (const __m128i *)(p) + scanLen16;
+
+            while (scanLen16--)
+            {
+                curVals = _mm_loadu_si128(v++);
+                curVals = _mm_xor_si128(curVals, xorVal);
+                minVal  = _mm_min_epu8(minVal, curVals);
+                maxVal  = _mm_max_epu8(maxVal, curVals);
+            }
+
+            /* Now we have 16 minima and maxima each.
+            ** Move the upper 8 values to the lower half and compute the minima/maxima of that. */
+            minVal2 = _mm_unpackhi_epi64(minVal, minVal);
+            maxVal2 = _mm_unpackhi_epi64(maxVal, maxVal);
+            minVal  = _mm_min_epu8(minVal, minVal2);
+            maxVal  = _mm_max_epu8(maxVal, maxVal2);
+
+            /* Now we have 8 minima and maxima each.
+            ** Move the upper 4 values to the lower half and compute the minima/maxima of that. */
+            minVal2 = _mm_shuffle_epi32(minVal, _MM_SHUFFLE(1, 1, 1, 1));
+            maxVal2 = _mm_shuffle_epi32(maxVal, _MM_SHUFFLE(1, 1, 1, 1));
+            minVal  = _mm_min_epu8(minVal, minVal2);
+            maxVal  = _mm_max_epu8(maxVal, maxVal2);
+
+            /* Now we have 4 minima and maxima each.
+            ** Move the upper 2 values to the lower half and compute the minima/maxima of that. */
+            minVal2 = _mm_srai_epi32(minVal, 16);
+            maxVal2 = _mm_srai_epi32(maxVal, 16);
+            minVal  = _mm_min_epu8(minVal, minVal2);
+            maxVal  = _mm_max_epu8(maxVal, maxVal2);
+
+            /* Compute the minima/maxima of the both remaining values */
+            minVal2 = _mm_srai_epi16(minVal, 8);
+            maxVal2 = _mm_srai_epi16(maxVal, 8);
+            minVal  = _mm_min_epu8(minVal, minVal2);
+            maxVal  = _mm_max_epu8(maxVal, maxVal2);
+        }
+
+        p8 = (const int8_t *)(p);
+        while (scanLen-- & 15)
+        {
+            curVals = _mm_set1_epi8((*p8++) ^ 0x80);
             minVal  = _mm_min_epu8(minVal, curVals);
             maxVal  = _mm_max_epu8(maxVal, curVals);
         }
 
-        /* Now we have 16 minima and maxima each.
-        ** Move the upper 8 values to the lower half and compute the minima/maxima of that. */
-        minVal2 = _mm_unpackhi_epi64(minVal, minVal);
-        maxVal2 = _mm_unpackhi_epi64(maxVal, maxVal);
-        minVal  = _mm_min_epu8(minVal, minVal2);
-        maxVal  = _mm_max_epu8(maxVal, maxVal2);
-
-        /* Now we have 8 minima and maxima each.
-        ** Move the upper 4 values to the lower half and compute the minima/maxima of that. */
-        minVal2 = _mm_shuffle_epi32(minVal, _MM_SHUFFLE(1, 1, 1, 1));
-        maxVal2 = _mm_shuffle_epi32(maxVal, _MM_SHUFFLE(1, 1, 1, 1));
-        minVal  = _mm_min_epu8(minVal, minVal2);
-        maxVal  = _mm_max_epu8(maxVal, maxVal2);
-
-        /* Now we have 4 minima and maxima each.
-        ** Move the upper 2 values to the lower half and compute the minima/maxima of that. */
-        minVal2 = _mm_srai_epi32(minVal, 16);
-        maxVal2 = _mm_srai_epi32(maxVal, 16);
-        minVal  = _mm_min_epu8(minVal, minVal2);
-        maxVal  = _mm_max_epu8(maxVal, maxVal2);
-
-        /* Compute the minima/maxima of the both remaining values */
-        minVal2 = _mm_srai_epi16(minVal, 8);
-        maxVal2 = _mm_srai_epi16(maxVal, 8);
-        minVal  = _mm_min_epu8(minVal, minVal2);
-        maxVal  = _mm_max_epu8(maxVal, maxVal2);
+        *min8 = (int8_t)(_mm_cvtsi128_si32(minVal) ^ 0x80);
+        *max8 = (int8_t)(_mm_cvtsi128_si32(maxVal) ^ 0x80);
     }
-
-    p8 = (const int8_t *)(p);
-    while (scanLen-- & 15)
-    {
-        curVals = _mm_set1_epi8((*p8++) ^ 0x80);
-        minVal  = _mm_min_epu8(minVal, curVals);
-        maxVal  = _mm_max_epu8(maxVal, curVals);
-    }
-
-    *min8 = (int8_t)(_mm_cvtsi128_si32(minVal) ^ 0x80);
-    *max8 = (int8_t)(_mm_cvtsi128_si32(maxVal) ^ 0x80);
-#else
-    /* non-SSE version (slow!) */
-    int8_t smp8, minVal, maxVal, *ptr8;
-    uint32_t i;
-
-    minVal =  127;
-    maxVal = -128;
-
-    ptr8 = (int8_t *)(p);
-    for (i = 0; i < scanLen; ++i)
-    {
-        smp8 = ptr8[i];
-        if (smp8 < minVal) minVal = smp8;
-        if (smp8 > maxVal) maxVal = smp8;
-    }
-
-    *min8 = minVal;
-    *max8 = maxVal;
+    else
 #endif
+    {
+        /* non-SSE version (slow!) */
+        int8_t smp8, minVal, maxVal, *ptr8;
+        uint32_t i;
+
+        minVal =  127;
+        maxVal = -128;
+
+        ptr8 = (int8_t *)(p);
+        for (i = 0; i < scanLen; ++i)
+        {
+            smp8 = ptr8[i];
+            if (smp8 < minVal) minVal = smp8;
+            if (smp8 > maxVal) maxVal = smp8;
+        }
+
+        *min8 = minVal;
+        *max8 = maxVal;
+    }
 }
 
-void getSampleDataPeak(int32_t index, int32_t numBytes, int16_t *outMin, int16_t *outMax)
+static void getSampleDataPeak(int32_t index, int32_t numBytes, int16_t *outMin, int16_t *outMax)
 {
     int8_t min8, max8;
     int16_t min16, max16;
@@ -865,7 +912,7 @@ void getSampleDataPeak(int32_t index, int32_t numBytes, int16_t *outMin, int16_t
     }
 }
 
-void writeWaveform(void)
+static void writeWaveform(void)
 {
     int16_t x, y1, y2, min, max, oldMin, oldMax;
     int32_t smpIdx, smpNum, smpNumMin;
@@ -927,7 +974,7 @@ void writeWaveform(void)
     }
 }
 
-void writeSample(uint8_t forceSmpRedraw)
+void writeSample(bool forceSmpRedraw)
 {
     int32_t tmpRx1, tmpRx2;
 
@@ -1028,16 +1075,13 @@ void writeSample(uint8_t forceSmpRedraw)
     updateSampleEditor();
 }
 
-void clearRange(void)
+static void setSampleRange(int32_t start, int32_t end)
 {
-    smpEd_Rx1 = 0;
-    smpEd_Rx2 = 0;
-}
+    if (start < 0)
+        start = 0;
 
-void setSampleRange(int32_t start, int32_t end)
-{
-    if (start < 0) start = 0;
-    if (end   < 0) end   = 0;
+    if (end < 0)
+        end = 0;
 
     /* kludge so that you can mark the last sample of what we see */
     if (end == (SCREEN_W - 1))
@@ -1456,64 +1500,72 @@ void saveRange(void)
     free(filenameU);
 }
 
-int8_t cutRange(void)
+static bool cutRange(bool cropMode, int32_t r1, int32_t r2)
 {
     int32_t len, repE;
 
-    if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len == 0))
-        return (false);
+    assert(!(currSmp->typ & 16) || (!(r1 & 1) && !(r2 & 1) && !(currSmp->len & 1)));
 
-    assert(!(currSmp->typ & 16) || (!(smpEd_Rx1 & 1) && !(smpEd_Rx2 & 1) && !(currSmp->len & 1)));
-
-    pauseAudio();
-    restoreSample(currSmp);
-
-    if (config.smpCutToBuffer)
+    if (!cropMode)
     {
-        if (!getCopyBuffer(smpEd_Rx2 - smpEd_Rx1))
-        {
-            fixSample(currSmp);
-            resumeAudio();
-
-            okBox(0, "System message", "Not enough memory!");
+        if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len == 0))
             return (false);
-        }
 
-        memcpy(smpCopyBuff, &currSmp->pek[smpEd_Rx1], smpEd_Rx2 - smpEd_Rx1);
-        smpCopyBits = (currSmp->typ & 16) ? 16 : 8;
+        pauseAudio();
+        restoreSample(currSmp);
+
+        if (config.smpCutToBuffer)
+        {
+            if (!getCopyBuffer(r2 - r1))
+            {
+                if (!cropMode)
+                {
+                    fixSample(currSmp);
+                    resumeAudio();
+                }
+
+                okBoxThreadSafe(0, "System message", "Not enough memory!");
+                return (false);
+            }
+
+            memcpy(smpCopyBuff, &currSmp->pek[r1], r2 - r1);
+            smpCopyBits = (currSmp->typ & 16) ? 16 : 8;
+        }
     }
 
-    memcpy(&currSmp->pek[smpEd_Rx1], &currSmp->pek[smpEd_Rx2], currSmp->len - smpEd_Rx2);
+    memmove(&currSmp->pek[r1], &currSmp->pek[r2], currSmp->len - r2);
 
-    len = currSmp->len - smpEd_Rx2 + smpEd_Rx1;
+    len = currSmp->len - r2 + r1;
     if (len > 0)
     {
         currSmp->pek = (int8_t *)(realloc(currSmp->pek, len + 4));
         if (currSmp->pek == NULL)
         {
             freeSample(currSmp);
-            writeSample(true);
-            resumeAudio();
+            editor.updateCurSmp = true;
 
-            okBox(0, "System message", "Not enough memory!");
+            if (!cropMode)
+                resumeAudio();
+
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
             return (false);
         }
 
         currSmp->len = len;
 
         repE = currSmp->repS + currSmp->repL;
-        if (currSmp->repS > smpEd_Rx1)
+        if (currSmp->repS > r1)
         {
-            currSmp->repS -= (smpEd_Rx2 - smpEd_Rx1);
-            if (currSmp->repS < smpEd_Rx1)
-                currSmp->repS = smpEd_Rx1;
+            currSmp->repS -= (r2 - r1);
+            if (currSmp->repS < r1)
+                currSmp->repS = r1;
         }
 
-        if (repE > smpEd_Rx1)
+        if (repE > r1)
         {
-           repE -= (smpEd_Rx2 - smpEd_Rx1);
-            if (repE < smpEd_Rx1)
-                repE = smpEd_Rx1;
+           repE -= (r2 - r1);
+            if (repE < r1)
+                repE = r1;
         }
 
         currSmp->repL = repE - currSmp->repS;
@@ -1536,19 +1588,37 @@ int8_t cutRange(void)
             currSmp->typ &= ~3; /* disable loop */
         }
 
-        fixSample(currSmp);
+        if (!cropMode)
+            fixSample(currSmp);
     }
     else
     {
         freeSample(currSmp);
+        editor.updateCurSmp = true;
     }
 
-    resumeAudio();
+    if (!cropMode)
+    {
+        resumeAudio();
+        setSongModifiedFlag();
 
-    setSongModifiedFlag();
+        setMouseBusy(false);
 
-    smpEd_Rx2 = smpEd_Rx1;
-    writeSample(true);
+        smpEd_Rx2 = r1;
+        writeSampleFlag = true;
+    }
+
+    return (true);
+}
+
+static int32_t SDLCALL sampCutThread(void *ptr)
+{
+    (void)(ptr);
+
+    if (!cutRange(false, smpEd_Rx1, smpEd_Rx2))
+        okBoxThreadSafe(0, "System message", "Not enough memory! (Disable \"cut to buffer\")");
+    else
+        writeSampleFlag = true;
 
     return (true);
 }
@@ -1558,10 +1628,47 @@ void sampCut(void)
     if ((editor.curInstr == 0) || (smpEd_Rx2 == 0) || (smpEd_Rx2 < smpEd_Rx1) || (currSmp->pek == NULL) || (currSmp->len == 0))
         return;
 
-    if (!cutRange())
-        okBox(0, "System message", "Not enough memory! (Disable \"cut to buffer\")");
-    else
-        writeSample(true);
+    mouseAnimOn();
+    thread = SDL_CreateThread(sampCutThread, NULL, NULL);
+    if (thread == NULL)
+    {
+        okBox(0, "System message", "Couldn't create thread!");
+        return;
+    }
+
+    /* don't let thread wait for this thread, let it clean up on its own when done */
+    SDL_DetachThread(thread);
+}
+
+static int32_t SDLCALL sampCopyThread(void *ptr)
+{
+    bool smpMustBeFixed;
+
+    (void)(ptr);
+
+    assert(!(currSmp->typ & 16) || (!(smpEd_Rx1 & 1) && !(smpEd_Rx2 & 1)));
+
+    if (!getCopyBuffer(smpEd_Rx2 - smpEd_Rx1))
+    {
+        okBoxThreadSafe(0, "System message", "Not enough memory!");
+        return (true);
+    }
+
+    /* if smp loop fix is within marked range, we need to restore and fix the sample before copy */
+    smpMustBeFixed = (smpEd_Rx1 >= currSmp->fixedPos) || (smpEd_Rx2 >= currSmp->fixedPos);
+
+    if (smpMustBeFixed)
+        restoreSample(currSmp);
+
+    memcpy(smpCopyBuff, &currSmp->pek[smpEd_Rx1], smpEd_Rx2 - smpEd_Rx1);
+
+    if (smpMustBeFixed)
+        fixSample(currSmp);
+
+    smpCopyBits = (currSmp->typ & 16) ? 16 : 8;
+    setMouseBusy(false);
+
+    return (true);
 }
 
 void sampCopy(void)
@@ -1569,38 +1676,34 @@ void sampCopy(void)
     if ((editor.curInstr == 0) || (smpEd_Rx2 == 0) || (smpEd_Rx2 < smpEd_Rx1) || (currSmp->pek == NULL) || (currSmp->len == 0))
         return;
 
-    assert(!(currSmp->typ & 16) || (!(smpEd_Rx1 & 1) && !(smpEd_Rx2 & 1)));
-
-    if (!getCopyBuffer(smpEd_Rx2 - smpEd_Rx1))
+    mouseAnimOn();
+    thread = SDL_CreateThread(sampCopyThread, NULL, NULL);
+    if (thread == NULL)
     {
-        okBox(0, "System message", "Not enough memory!");
+        okBox(0, "System message", "Couldn't create thread!");
         return;
     }
 
-    restoreSample(currSmp);
-    memcpy(smpCopyBuff, &currSmp->pek[smpEd_Rx1], smpEd_Rx2 - smpEd_Rx1);
-    fixSample(currSmp);
-
-    smpCopyBits = (currSmp->typ & 16) ? 16 : 8;
+    /* don't let thread wait for this thread, let it clean up on its own when done */
+    SDL_DetachThread(thread);
 }
 
-void sampPaste(void)
+static int32_t SDLCALL sampPasteThread(void *ptr)
 {
-    int8_t *ptr, *ptr8;
+    int8_t *p, *ptr8;
     int16_t *ptr16;
-    int32_t i, l, d, realCopyLen;
+    int32_t i, l, d, realCopyLen, len32;
 
-    if ((editor.curInstr == 0) || (smpEd_Rx2 < smpEd_Rx1) || (smpCopyBuff == NULL) || (smpCopySize == 0))
-        return;
+    (void)(ptr);
 
-    /* paste without selecting where (overwrite) */
+    /* non-FT2 feature: paste without selecting where (overwrite) */
     if (smpEd_Rx2 == 0)
     {
-        ptr = (int8_t *)(malloc(smpCopySize + 4));
-        if (ptr == NULL)
+        p = (int8_t *)(malloc(smpCopySize + 4));
+        if (p == NULL)
         {
-            okBox(0, "System message", "Not enough memory!");
-            return;
+            okBoxThreadSafe(0, "System message", "Not enough memory!");
+            return (true);
         }
 
         pauseAudio();
@@ -1609,9 +1712,9 @@ void sampPaste(void)
         if (currSmp->pek != NULL)
             free(currSmp->pek);
 
-        memcpy(ptr, smpCopyBuff, smpCopySize);
+        memcpy(p, smpCopyBuff, smpCopySize);
 
-        currSmp->pek    = ptr;
+        currSmp->pek    = p;
         currSmp->len    = smpCopySize;
         currSmp->repL   = 0;
         currSmp->repS   = 0;
@@ -1624,13 +1727,20 @@ void sampPaste(void)
         fixSample(currSmp);
         resumeAudio();
 
-        updateSampleEditorSample();
+        editor.updateCurSmp = true;
         setSongModifiedFlag();
+        setMouseBusy(false);
 
-        return;
+        return (true);
     }
 
     assert(!(currSmp->typ & 16) || (!(smpEd_Rx1 & 1) && !(smpEd_Rx2 & 1) && !(currSmp->len & 1)));
+
+    if ((currSmp->len + smpCopySize) > MAX_SAMPLE_LEN)
+    {
+        okBoxThreadSafe(0, "System message", "Not enough room in sample!");
+        return (true);
+    }
 
     realCopyLen = smpCopySize;
     if (currSmp->pek != NULL)
@@ -1665,11 +1775,11 @@ void sampPaste(void)
         l = smpCopySize;
     }
 
-    ptr = (int8_t *)(malloc(l + 4));
-    if (ptr == NULL)
+    p = (int8_t *)(malloc(l + 4));
+    if (p == NULL)
     {
-        okBox(0, "System message", "Not enough memory!");
-        return;
+        okBoxThreadSafe(0, "System message", "Not enough memory!");
+        return (true);
     }
 
     pauseAudio();
@@ -1678,7 +1788,7 @@ void sampPaste(void)
     if (currSmp->pek != NULL)
     {
         /* copy first part of sample (left side before copy part) */
-        memcpy(ptr, currSmp->pek, smpEd_Rx1);
+        memcpy(p, currSmp->pek, smpEd_Rx1);
 
         if (currSmp->typ & 16)
         {
@@ -1687,13 +1797,15 @@ void sampPaste(void)
             if (smpCopyBits == 16)
             {
                 /* src/dst = equal bits, copy directly */
-                memcpy(&ptr[smpEd_Rx1], smpCopyBuff, realCopyLen);
+                memcpy(&p[smpEd_Rx1], smpCopyBuff, realCopyLen);
             }
             else
             {
                 /* convert copy data to 16-bit then paste */
-                ptr16 = (int16_t *)(&ptr[smpEd_Rx1]);
-                for (i = 0; i < (realCopyLen / 2); ++i)
+                ptr16 = (int16_t *)(&p[smpEd_Rx1]);
+                len32 = realCopyLen / 2;
+
+                for (i = 0; i < len32; ++i)
                     ptr16[i] = smpCopyBuff[i] << 8;
             }
         }
@@ -1704,12 +1816,12 @@ void sampPaste(void)
             if (smpCopyBits == 8)
             {
                 /* src/dst = equal bits, copy directly */
-                memcpy(&ptr[smpEd_Rx1], smpCopyBuff, realCopyLen);
+                memcpy(&p[smpEd_Rx1], smpCopyBuff, realCopyLen);
             }
             else
             {
                 /* convert copy data to 8-bit then paste */
-                ptr8  = (int8_t  *)(&ptr[smpEd_Rx1]);
+                ptr8  = (int8_t  *)(&p[smpEd_Rx1]);
                 ptr16 = (int16_t *)(smpCopyBuff);
 
                 for (i = 0; i < realCopyLen; ++i)
@@ -1718,7 +1830,7 @@ void sampPaste(void)
         }
 
         /* copy remaining data from original sample */
-        memcpy(&ptr[smpEd_Rx1 + realCopyLen], &currSmp->pek[smpEd_Rx2], currSmp->len - smpEd_Rx2);
+        memmove(&p[smpEd_Rx1 + realCopyLen], &currSmp->pek[smpEd_Rx2], currSmp->len - smpEd_Rx2);
         free(currSmp->pek);
 
         /* adjust loop points if necessary */
@@ -1755,7 +1867,7 @@ void sampPaste(void)
         /* we pasted to an empty sample */
 
         /* copy over copy buffer data */
-        memcpy(ptr, smpCopyBuff, smpCopySize);
+        memcpy(p, smpCopyBuff, smpCopySize);
 
         /* set new sample bit depth */
         if (smpCopyBits == 16)
@@ -1768,10 +1880,13 @@ void sampPaste(void)
     }
 
     currSmp->len = l;
-    currSmp->pek = ptr;
+    currSmp->pek = p;
 
     fixSample(currSmp);
     resumeAudio();
+
+    setSongModifiedFlag();
+    setMouseBusy(false);
 
     /* set new range */
     smpEd_Rx2 = smpEd_Rx1 + realCopyLen;
@@ -1782,62 +1897,91 @@ void sampPaste(void)
         smpEd_Rx2 &= 0xFFFFFFFE;
     }
 
-    writeSample(true);
-    setSongModifiedFlag();
+    writeSampleFlag = true;
+
+    return (true);
 }
 
-void sampCrop(void)
+void sampPaste(void)
 {
-    int8_t tb;
+    if ((editor.curInstr == 0) || (smpEd_Rx2 < smpEd_Rx1) || (smpCopyBuff == NULL) || (smpCopySize == 0))
+        return;
+
+    mouseAnimOn();
+    thread = SDL_CreateThread(sampPasteThread, NULL, NULL);
+    if (thread == NULL)
+    {
+        okBox(0, "System message", "Couldn't create thread!");
+        return;
+    }
+
+    /* don't let thread wait for this thread, let it clean up on its own when done */
+    SDL_DetachThread(thread);
+}
+
+static int32_t SDLCALL sampCropThread(void *ptr)
+{
     int32_t r1, r2;
 
-    if ((smpEd_Rx1 >= smpEd_Rx2) || (editor.curInstr == 0) || (currSmp->pek == NULL))
-        return;
+    (void)(ptr);
 
     assert(!(currSmp->typ & 16) || (!(smpEd_Rx1 & 1) && !(smpEd_Rx2 & 1) && !(currSmp->len & 1)));
 
     r1 = smpEd_Rx1;
     r2 = smpEd_Rx2;
-    tb = config.smpCutToBuffer;
-
-    config.smpCutToBuffer = false;
 
     pauseAudio();
+    restoreSample(currSmp);
 
-    smpEd_Rx1 = 0;
-    smpEd_Rx2 = r1;
-    cutRange();
-
-    smpEd_Rx1 = r2 - r1;
-    smpEd_Rx2 = currSmp->len;
-    cutRange();
-
+    if (!cutRange(true, 0, r1) || !cutRange(true, r2 - r1, currSmp->len))
+    {
+        fixSample(currSmp);
+        resumeAudio();
+        return (true);
+    }
+    
+    fixSample(currSmp);
     resumeAudio();
 
-    smpEd_Rx1 = 0;
-    smpEd_Rx2 = currSmp->len;
+    r1 = 0;
+    r2 = currSmp->len;
 
     if (currSmp->typ & 16)
-    {
-        smpEd_Rx1 &= 0xFFFFFFFE;
-        smpEd_Rx2 &= 0xFFFFFFFE;
-    }
+        r2 &= 0xFFFFFFFE;
 
-    config.smpCutToBuffer = tb;
-
-    writeSample(true);
     setSongModifiedFlag();
+    setMouseBusy(false);
+
+    smpEd_Rx1 = r1;
+    smpEd_Rx2 = r2;
+    writeSampleFlag = true;
+
+    return (true);
 }
 
-void sampVolume(void)
+void sampCrop(void)
 {
-    if ((editor.curInstr == 0) || (currSmp->pek == NULL))
+    if ((smpEd_Rx1 >= smpEd_Rx2) || (editor.curInstr == 0) || (currSmp->pek == NULL))
         return;
+
+    if ((smpEd_Rx1 == 0) && (smpEd_Rx2 == currSmp->len))
+        return; /* no need to crop (the whole sample is marked) */
+
+    mouseAnimOn();
+    thread = SDL_CreateThread(sampCropThread, NULL, NULL);
+    if (thread == NULL)
+    {
+        okBox(0, "System message", "Couldn't create thread!");
+        return;
+    }
+
+    /* don't let thread wait for this thread, let it clean up on its own when done */
+    SDL_DetachThread(thread);
 }
 
 void sampXFade(void)
 {
-    int8_t is16Bit;
+    bool is16Bit;
     uint8_t t;
     int16_t c ,d;
     int32_t i, x1, x2, y1, y2, a, b, d1, d2, d3, dist;
@@ -2149,49 +2293,60 @@ void rbSamplePingpongLoop(void)
     setSongModifiedFlag();
 }
 
-void rbSample8bit(void)
+static int32_t SDLCALL convSmp8Bit(void *ptr)
 {
     int8_t *dst8;
     int16_t *src16;
     int32_t i, newLen;
 
+    (void)(ptr);
+
+    pauseAudio();
+    restoreSample(currSmp);
+
+    src16 = (int16_t *)(currSmp->pek);
+    dst8  = currSmp->pek;
+
+    newLen = currSmp->len / 2;
+    for (i = 0; i < newLen; ++i)
+        dst8[i] = (int8_t)(src16[i] >> 8);
+
+    currSmp->pek = (int8_t *)(realloc(currSmp->pek, currSmp->len + 4));
+
+    currSmp->repL /= 2;
+    currSmp->repS /= 2;
+    currSmp->len  /= 2;
+    currSmp->typ &= ~16; /* remove 16-bit flag */
+
+    fixSample(currSmp);
+    resumeAudio();
+
+    editor.updateCurSmp = true;
+    setSongModifiedFlag();
+    setMouseBusy(false);
+
+    return (true);
+}
+
+void rbSample8bit(void)
+{
     if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len == 0))
         return;
 
-    radioButtons[RB_SAMPLE_8BIT].state  = RADIOBUTTON_CHECKED;
-    radioButtons[RB_SAMPLE_16BIT].state = RADIOBUTTON_UNCHECKED;
-    drawRadioButton(RB_SAMPLE_8BIT);
-    drawRadioButton(RB_SAMPLE_16BIT);
-
     if (okBox(2, "System request", "Convert sampledata?") == 1)
     {
-        newLen = currSmp->len / 2;
-
-        dst8 = (int8_t *)(malloc(newLen + 4));
-        if (dst8 == NULL)
+        mouseAnimOn();
+        thread = SDL_CreateThread(convSmp8Bit, NULL, NULL);
+        if (thread == NULL)
         {
-            okBox(0, "System message", "Not enough memory!");
+            okBox(0, "System message", "Couldn't create thread!");
             return;
         }
 
-        pauseAudio();
-        restoreSample(currSmp);
+        /* don't let thread wait for this thread, let it clean up on its own when done */
+        SDL_DetachThread(thread);
 
-        currSmp->typ &= ~16; /* remove 16-bit flag */
-
-        currSmp->repL /= 2;
-        currSmp->repS /= 2;
-        currSmp->len  /= 2;
-
-        src16 = (int16_t *)(currSmp->pek);
-        for (i = 0; i < newLen; ++i)
-            dst8[i] = (int8_t)(src16[i] >> 8);
-
-        free(currSmp->pek);
-        currSmp->pek = dst8;
-
-        fixSample(currSmp);
-        resumeAudio();
+        return;
     }
     else
     {
@@ -2202,60 +2357,70 @@ void rbSample8bit(void)
 
         fixSample(currSmp);
         unlockMixerCallback();
+
+        updateSampleEditorSample();
+        updateSampleEditor();
+        writeSample(true);
+        setSongModifiedFlag();
+    }
+}
+
+static int32_t SDLCALL convSmp16Bit(void *ptr)
+{
+    int8_t *src8;
+    int16_t smp16, *dst16;
+    int32_t i;
+
+    (void)(ptr);
+
+    pauseAudio();
+    restoreSample(currSmp);
+
+    currSmp->pek = (int8_t *)(realloc(currSmp->pek, (currSmp->len * 2) + 4));
+
+    src8 = currSmp->pek;
+    dst16 = (int16_t *)(currSmp->pek);
+
+    for (i = (currSmp->len - 1); i >= 0; --i)
+    {
+        smp16    = src8[i] << 8;
+        dst16[i] = smp16;
     }
 
-    updateSampleEditorSample();
-    updateSampleEditor();
-    writeSample(true);
+    currSmp->len  *= 2;
+    currSmp->repL *= 2;
+    currSmp->repS *= 2;
+    currSmp->typ |= 16; /* add 16-bit flag */
+
+    fixSample(currSmp);
+    resumeAudio();
+
+    editor.updateCurSmp = true;
     setSongModifiedFlag();
+    setMouseBusy(false);
+
+    return (true);
 }
 
 void rbSample16bit(void)
 {
-    int8_t *dst8, *src8;
-    int16_t *dst16;
-    int32_t i, newLen;
-
     if ((editor.curInstr == 0) || (currSmp->pek == NULL))
         return;
 
-    radioButtons[RB_SAMPLE_16BIT].state = RADIOBUTTON_CHECKED;
-    radioButtons[RB_SAMPLE_8BIT].state  = RADIOBUTTON_UNCHECKED;
-    drawRadioButton(RB_SAMPLE_8BIT);
-    drawRadioButton(RB_SAMPLE_16BIT);
-
     if (okBox(2, "System request", "Convert sampledata?") == 1)
     {
-        pauseAudio();
-        restoreSample(currSmp);
-
-        newLen = currSmp->len * 2;
-
-        dst8 = (int8_t *)(malloc(newLen + 4));
-        if (dst8 == NULL)
+        mouseAnimOn();
+        thread = SDL_CreateThread(convSmp16Bit, NULL, NULL);
+        if (thread == NULL)
         {
-            okBox(0, "System message", "Not enough memory!");
+            okBox(0, "System message", "Couldn't create thread!");
             return;
         }
 
-        currSmp->typ |= 16; /* add 16-bit flag */
+        /* don't let thread wait for this thread, let it clean up on its own when done */
+        SDL_DetachThread(thread);
 
-        currSmp->repL *= 2;
-        currSmp->repS *= 2;
-
-        dst16 = (int16_t *)(dst8);
-        src8  = currSmp->pek;
-
-        for (i = 0; i < currSmp->len; ++i)
-            dst16[i] = src8[i] << 8;
-
-        currSmp->len = newLen;
-
-        free(currSmp->pek);
-        currSmp->pek = dst8;
-
-        fixSample(currSmp);
-        resumeAudio();
+        return;
     }
     else
     {
@@ -2271,12 +2436,12 @@ void rbSample16bit(void)
 
         fixSample(currSmp);
         unlockMixerCallback();
-    }
 
-    updateSampleEditorSample();
-    updateSampleEditor();
-    writeSample(true);
-    setSongModifiedFlag();
+        updateSampleEditorSample();
+        updateSampleEditor();
+        writeSample(true);
+        setSongModifiedFlag();
+    }
 }
 
 void clearSample(void)
@@ -2314,18 +2479,16 @@ void sampMin(void)
     else
     {
         lockMixerCallback();
-        restoreSample(currSmp);
 
         currSmp->len = currSmp->repS + currSmp->repL;
 
-        currSmp->pek = (int8_t *)(realloc(currSmp->pek, currSmp->len + 4));
+        currSmp->pek = (int8_t *)(realloc(currSmp->pek, currSmp->len + 4)); /* +4 to include loop fixes */
         if (currSmp->pek == NULL)
         {
             freeSample(currSmp);
             okBox(0, "System message", "Not enough memory!");
         }
 
-        fixSample(currSmp);
         unlockMixerCallback();
 
         updateSampleEditorSample();
@@ -2374,14 +2537,16 @@ void sampRepeatUp(void)
 
 void sampRepeatDown(void)
 {
-    int32_t repS, delta;
+    int32_t repS;
 
     if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len == 0))
         return;
 
-    delta = (currSmp->typ & 16) ? 2 : 1;
+    if (currSmp->typ & 16)
+        repS = curSmpRepS - 2;
+    else
+        repS = curSmpRepS - 1;
 
-    repS = curSmpRepS - delta;
     if (repS < 0)
         repS = 0;
 
@@ -2393,14 +2558,16 @@ void sampRepeatDown(void)
 
 void sampReplenUp(void)
 {
-    int32_t repL, delta;
+    int32_t repL;
 
     if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len == 0))
         return;
 
-    delta = (currSmp->typ & 16) ? 2 : 1;
+    if (currSmp->typ & 16)
+        repL = curSmpRepL + 2;
+    else
+        repL = curSmpRepL + 1;
 
-    repL = curSmpRepL + delta;
     if ((curSmpRepS + repL) > currSmp->len)
         repL = currSmp->len - curSmpRepS;
 
@@ -2412,14 +2579,16 @@ void sampReplenUp(void)
 
 void sampReplenDown(void)
 {
-    int32_t repL, delta;
+    int32_t repL;
 
     if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len == 0))
         return;
 
-    delta = (currSmp->typ & 16) ? 2 : 1;
+    if (currSmp->typ & 16)
+        repL = curSmpRepL - 2;
+    else
+        repL = curSmpRepL - 1;
 
-    repL = curSmpRepL - delta;
     if (repL < 0)
         repL = 0;
 
@@ -2635,8 +2804,13 @@ void handleSamplerRedrawing(void)
         if (editor.samplingAudioFlag)
             return;
 
-        if ((smpEd_Rx1    != old_Rx1)       || (smpEd_Rx2      != old_Rx2) ||
-            (smpEd_ScrPos != old_SmpScrPos) || (smpEd_ViewSize != old_ViewSize))
+        if (writeSampleFlag)
+        {
+            writeSampleFlag = false;
+            writeSample(true);
+        }
+        else if ((smpEd_Rx1 != old_Rx1) || (smpEd_Rx2 != old_Rx2) ||
+                 (smpEd_ScrPos != old_SmpScrPos) || (smpEd_ViewSize != old_ViewSize))
         {
             writeSample(false);
         }
@@ -2645,7 +2819,7 @@ void handleSamplerRedrawing(void)
     }
 }
 
-void setLeftLoopPinPos(int32_t x)
+static void setLeftLoopPinPos(int32_t x)
 {
     int32_t repS, repL, newPos;
 
@@ -2682,7 +2856,7 @@ void setLeftLoopPinPos(int32_t x)
     updateLoopsOnMouseUp = true;
 }
 
-void setRightLoopPinPos(int32_t x)
+static void setRightLoopPinPos(int32_t x)
 {
     int32_t repL;
 
@@ -2708,7 +2882,7 @@ void setRightLoopPinPos(int32_t x)
     updateLoopsOnMouseUp = true;
 }
 
-void editSampleData(uint8_t mouseButtonHeld)
+static void editSampleData(bool mouseButtonHeld)
 {
     int8_t *ptr8;
     int16_t *ptr16;
@@ -2843,7 +3017,7 @@ void editSampleData(uint8_t mouseButtonHeld)
     setSongModifiedFlag();
 }
 
-void handleSampleDataMouseDown(int8_t mouseButtonHeld)
+void handleSampleDataMouseDown(bool mouseButtonHeld)
 {
     int32_t tmp, leftLoopPinPos, rightLoopPinPos;
 
@@ -3037,13 +3211,12 @@ void toggleSampleEditorExt(void)
         showSampleEditorExt();
 }
 
-void sampleBackwards(void)
+static int32_t SDLCALL sampleBackwardsThread(void *ptr)
 {
     int8_t tmp8, *ptrStart, *ptrEnd;
     int16_t tmp16, *ptrStart16, *ptrEnd16;
 
-    if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len < 2))
-        return;
+    (void)(ptr);
 
     if (currSmp->typ & 16)
     {
@@ -3098,18 +3271,37 @@ void sampleBackwards(void)
         resumeAudio();
     }
 
-    writeSample(true);
     setSongModifiedFlag();
+    setMouseBusy(false);
+    writeSampleFlag = true;
+
+    return (true);
 }
 
-void sampleConv(void)
+void sampleBackwards(void)
+{
+    if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len < 2))
+        return;
+
+    mouseAnimOn();
+    thread = SDL_CreateThread(sampleBackwardsThread, NULL, NULL);
+    if (thread == NULL)
+    {
+        okBox(0, "System message", "Couldn't create thread!");
+        return;
+    }
+
+    /* don't let thread wait for this thread, let it clean up on its own when done */
+    SDL_DetachThread(thread);
+}
+
+static int32_t SDLCALL sampleConvThread(void *ptr)
 {
     int8_t *ptr8;
     int16_t *ptr16;
     int32_t i, len;
 
-    if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len == 0))
-        return;
+    (void)(ptr);
 
     pauseAudio();
     restoreSample(currSmp);
@@ -3134,17 +3326,36 @@ void sampleConv(void)
     fixSample(currSmp);
     resumeAudio();
 
-    writeSample(true);
     setSongModifiedFlag();
+    setMouseBusy(false);
+    writeSampleFlag = true;
+
+    return (true);
 }
 
-void sampleConvW(void)
+void sampleConv(void)
+{
+    if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len == 0))
+        return;
+
+    mouseAnimOn();
+    thread = SDL_CreateThread(sampleConvThread, NULL, NULL);
+    if (thread == NULL)
+    {
+        okBox(0, "System message", "Couldn't create thread!");
+        return;
+    }
+
+    /* don't let thread wait for this thread, let it clean up on its own when done */
+    SDL_DetachThread(thread);
+}
+
+static int32_t SDLCALL sampleConvWThread(void *ptr)
 {
     int8_t *ptr8, tmp;
     int32_t i, len;
 
-    if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len == 0))
-        return;
+    (void)(ptr);
 
     pauseAudio();
     restoreSample(currSmp);
@@ -3164,22 +3375,38 @@ void sampleConvW(void)
     fixSample(currSmp);
     resumeAudio();
 
-    if (editor.ui.sampleEditorShown)
-    {
-        writeSample(true);
-        setSongModifiedFlag();
-    }
+    setSongModifiedFlag();
+    setMouseBusy(false);
+    writeSampleFlag = true;
+
+    return (true);
 }
 
-void fixDC(void)
+void sampleConvW(void)
+{
+    if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len == 0))
+        return;
+
+    mouseAnimOn();
+    thread = SDL_CreateThread(sampleConvWThread, NULL, NULL);
+    if (thread == NULL)
+    {
+        okBox(0, "System message", "Couldn't create thread!");
+        return;
+    }
+
+    /* don't let thread wait for this thread, let it clean up on its own when done */
+    SDL_DetachThread(thread);
+}
+
+static int32_t SDLCALL fixDCThread(void *ptr)
 {
     int8_t *ptr8;
     int16_t *ptr16;
     int32_t i, len, smpSub, smp32;
     int64_t offset;
 
-    if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len == 0))
-        return;
+    (void)(ptr);
 
     offset = 0;
     if (currSmp->typ & 16)
@@ -3201,7 +3428,10 @@ void fixDC(void)
         }
 
         if ((len < 0) || (len > ((signed)(currSmp->len) / 2)))
-            return;
+        {
+            setMouseBusy(false);
+            return (true);
+        }
 
         pauseAudio();
         restoreSample(currSmp);
@@ -3235,7 +3465,10 @@ void fixDC(void)
         }
 
         if ((len < 0) || (len > currSmp->len))
-            return;
+        {
+            setMouseBusy(false);
+            return (true);
+        }
 
         pauseAudio();
         restoreSample(currSmp);
@@ -3256,8 +3489,28 @@ void fixDC(void)
         resumeAudio();
     }
 
-    writeSample(true);
+    writeSampleFlag = true;
     setSongModifiedFlag();
+    setMouseBusy(false);
+
+    return (true);
+}
+
+void fixDC(void)
+{
+    if ((editor.curInstr == 0) || (currSmp->pek == NULL) || (currSmp->len == 0))
+        return;
+
+    mouseAnimOn();
+    thread = SDL_CreateThread(fixDCThread, NULL, NULL);
+    if (thread == NULL)
+    {
+        okBox(0, "System message", "Couldn't create thread!");
+        return;
+    }
+
+    /* don't let thread wait for this thread, let it clean up on its own when done */
+    SDL_DetachThread(thread);
 }
 
 void smpEdStop(void)

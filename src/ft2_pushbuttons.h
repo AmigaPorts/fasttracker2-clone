@@ -2,6 +2,7 @@
 #define __FT2_PUSHBUTTONS_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 enum /* PUSHBUTTONS */
 {
@@ -366,7 +367,8 @@ typedef struct pushButton_t /* DO NOT TOUCH!!! */
     void (*callbackFuncOnDown)(void);
     void (*callbackFuncOnUp)(void);
 
-    uint8_t state, bitmapFlag, visible;
+    uint8_t state;
+    bool bitmapFlag, visible;
     const uint8_t *bitmapUnpressed;
     const uint8_t *bitmapPressed;
 } pushButton_t;
@@ -375,7 +377,7 @@ void drawPushButton(uint16_t pushButtonID);
 void showPushButton(uint16_t pushButtonID);
 void hidePushButton(uint16_t pushButtonID);
 void handlePushButtonsWhileMouseDown(void);
-int8_t testPushButtonMouseDown(void);
-int16_t testPushButtonMouseRelease(uint8_t runCallback);
+bool testPushButtonMouseDown(void);
+int16_t testPushButtonMouseRelease(bool runCallback);
 
 #endif

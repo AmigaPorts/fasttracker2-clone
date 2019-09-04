@@ -9,7 +9,7 @@
 >- 12-Point Volume- & Panning Envelope.
 >- Multisamples, up to 16 samples/instrument.
 >- 128 instruments.
->- Unlimited sample length. (2GB)
+>- "Unlimited" sample length. (1GB in this clone)
 >- 8 octaves.
 >- Variable pattern length.
 >- Built in sampler/sample editor.
@@ -393,6 +393,8 @@ Alt+Enter @T160Toggle fullscreen mode
 @X040@C001Cursor moves:
 >@X060@C002
 F9..F12 @T160Jump in pattern.
+>Ctrl+F9..F12 @T160Pattern-play from F9..F12 line.
+>Sh+F9..F12 @T160Store current line in F9..F12.
 >PageUp  @T160Jump 16-lines upwards.
 >PageDown @T160Jump 16-lines downwards.
 >Home  @T160Jump to line 0.

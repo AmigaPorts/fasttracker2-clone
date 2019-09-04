@@ -45,7 +45,8 @@ static char nibblesCheatBuffer[16];
 
 const char convHexTable2[10] = { 7, 8, 9, 10, 11, 12, 13, 16, 17, 18 };
 static const uint8_t NI_Speeds[4] = { 12, 8, 6, 4 };
-static uint8_t NI_CheatIndex, NI_EternalLives, NI_CurSpeed, NI_CurTick60Hz, NI_CurSpeed60Hz, NI_Screen[51][23], NI_Level;
+static bool NI_EternalLives;
+static uint8_t NI_CheatIndex, NI_CurSpeed, NI_CurTick60Hz, NI_CurSpeed60Hz, NI_Screen[51][23], NI_Level;
 static int16_t NI_P1Dir, NI_P2Dir, NI_P1Len, NI_P2Len, NI_Number, NI_NumberX, NI_NumberY, NI_P1NoRens, NI_P2NoRens;
 static uint16_t NI_P1Lives, NI_P2Lives;
 static int32_t NI_P1Score, NI_P2Score;
@@ -113,7 +114,7 @@ static void nibblesAddBuffer(int16_t nr, uint8_t typ)
     }
 }
 
-static uint8_t nibblesBufferFull(int16_t nr)
+static bool nibblesBufferFull(int16_t nr)
 {
     return (nibblesBuffer[nr].antal > 0);
 }
@@ -356,7 +357,7 @@ static void newNibblesGame(void)
         nibblesGenNewNumber();
 }
 
-static uint8_t nibblesInvalid(int16_t x, int16_t y, int16_t d)
+static bool nibblesInvalid(int16_t x, int16_t y, int16_t d)
 {
     if (!config.NI_Wrap)
     {
@@ -961,7 +962,7 @@ void nibblesKeyAdministrator(SDL_Scancode scancode)
     }
 }
 
-uint8_t testNibblesCheatCodes(SDL_Keycode keycode)
+bool testNibblesCheatCodes(SDL_Keycode keycode)
 {
     const char *codeStringPtr;
     uint8_t codeStringLen;

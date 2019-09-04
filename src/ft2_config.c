@@ -154,8 +154,8 @@ static void loadConfigFromBuffer(uint8_t defaults)
         setNewAudioSettings();
 
     /* reset temporary contrast settings for custom preset */
-    video.customContrasts[0] = 52;
-    video.customContrasts[1] = 57;
+    video.customPaletteContrasts[0] = 52;
+    video.customPaletteContrasts[1] = 57;
     setPalettePreset(config.cfg_StdPalNr);
 
     audioSetInterpolation(config.interpolation ? true : false);
@@ -334,7 +334,7 @@ void resetConfig(void)
     }
 }
 
-uint8_t loadConfig(uint8_t showErrorFlag)
+bool loadConfig(bool showErrorFlag)
 {
     size_t fileSize;
     FILE *in;
@@ -478,7 +478,7 @@ static char getDefPathLen(char *ptr)
     return ((char)(i));
 }
 
-uint8_t saveConfig(uint8_t showErrorFlag)
+bool saveConfig(bool showErrorFlag)
 {
     FILE *out;
 
@@ -851,12 +851,12 @@ static void updatePaletteSelection(void)
 
     if (editor.currPaletteEdit == 4)
     {
-        editor.ui.desktopContrast = video.customContrasts[0];
+        editor.ui.desktopContrast = video.customPaletteContrasts[0];
         setScrollBarPos(SB_PAL_CONTRAST, editor.ui.desktopContrast, false);
     }
     else if (editor.currPaletteEdit == 5)
     {
-        editor.ui.buttonContrast = video.customContrasts[1];
+        editor.ui.buttonContrast = video.customPaletteContrasts[1];
         setScrollBarPos(SB_PAL_CONTRAST, editor.ui.buttonContrast, false);
     }
 }
@@ -2661,7 +2661,7 @@ void configPalBUp(void)
 
 void configPalContDown(void)
 {
-    uint8_t update;
+    bool update;
 
     update = false;
 
@@ -2693,7 +2693,7 @@ void configPalContDown(void)
 
 void configPalContUp(void)
 {
-    uint8_t update;
+    bool update;
 
     update = false;
 

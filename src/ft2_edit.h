@@ -4,7 +4,7 @@
 #include <stdint.h>
 #include <SDL2/SDL.h>
 
-int8_t handleEditKeys(SDL_Keycode keycode, SDL_Scancode scancode);
+bool handleEditKeys(SDL_Keycode keycode, SDL_Scancode scancode);
 void recordNote(uint8_t note, int8_t vol);
 void testNoteKeysRelease(SDL_Scancode scancode);
 

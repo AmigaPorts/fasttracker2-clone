@@ -35,13 +35,13 @@ void changeFilenameExt(char *name, char *ext, int32_t nameMaxLen);
 void diskOpChangeFilenameExt(char *ext);
 
 void freeDiskOp(void);
-int8_t setupDiskOp(void);
+bool setupDiskOp(void);
 void diskOpSetFilename(uint8_t type, UNICHAR *pathU);
 void sanitizeFilename(const char *src);
-int8_t diskOpGoParent(void);
+bool diskOpGoParent(void);
 void pbDiskOpRoot(void);
 int32_t getExtOffset(char *s, int32_t stringLen); /* get byte offset of file extension (last '.') */
-int8_t testDiskOpMouseDown(uint8_t mouseHeldDown);
+bool testDiskOpMouseDown(bool mouseHeldDown);
 void testDiskOpMouseRelease(void);
 void startDiskOpFillThread(void);
 void diskOp_DrawDirectory(void);
@@ -67,7 +67,6 @@ void pbDiskOpDrive7(void);
 void pbDiskOpDrive8(void);
 #endif
 void pbDiskOpSave(void);
-void diskOpSave2(void); /* called from sys req */
 void pbDiskOpDelete(void);
 void pbDiskOpRename(void);
 void pbDiskOpMakeDir(void);
@@ -87,7 +86,7 @@ void rbDiskOpSmpSaveWav(void);
 void rbDiskOpSmpSaveRaw(void);
 void rbDiskOpSmpSaveIff(void);
 
-void trimEntryName(char *name, uint8_t isDir);
-int32_t fileExistsAnsi(char *str);
+void trimEntryName(char *name, bool isDir);
+bool fileExistsAnsi(char *str);
 
 #endif

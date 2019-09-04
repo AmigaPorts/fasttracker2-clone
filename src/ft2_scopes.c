@@ -4,6 +4,7 @@
 #endif
 
 #include <stdint.h>
+#include <stdbool.h>
 #ifndef _WIN32
 #include <unistd.h> /* usleep() */
 #endif
@@ -39,16 +40,18 @@ typedef struct scopeState_t
 /* actual scope data */
 typedef struct scope_t
 {
+    volatile uint8_t latchOffset, nextLatchOffset;
+    volatile bool active, latchFlag;
     const int8_t *sampleData8;
     const int16_t *sampleData16;
     int8_t SVol;
-    uint8_t wasCleared, sample16bit, loopType;
+    bool wasCleared, sample16Bit;
+    uint8_t loopType;
     int32_t SRepS, SRepL, SLen, SPos;
     uint32_t SFrq, drawSFrq, SPosDec, posXOR, drawPosXOR;
-    volatile uint8_t active, latchFlag, latchOffset, nextLatchOffset;
 } scope_t;
 
-static volatile uint8_t scopesUpdating, scopesDisplaying;
+static volatile bool scopesUpdatingFlag, scopesDisplayingFlag;
 static uint64_t timeNext64, timeNext64Frac;
 static scope_t scope[MAX_VOICES];
 static SDL_Thread *scopeThread;
@@ -108,7 +111,7 @@ int32_t getSampleReadPos(uint8_t ch)
 
     if (sc->active && (pos >= 0) && (pos < sc->SLen))
     {
-        if (sc->sample16bit)
+        if (sc->sample16Bit)
             pos <<= 1;
 
         /* do this check again here - check if scope is latching at the moment */
@@ -127,7 +130,7 @@ void stopAllScopes(void)
     scope_t *sc;
 
     /* wait for scopes to finish updating */
-    while (scopesUpdating);
+    while (scopesUpdatingFlag);
 
     for (i = 0; i < MAX_VOICES; ++i)
     {
@@ -138,17 +141,17 @@ void stopAllScopes(void)
     }
 
     /* wait for scope displaying to be done (safety) */
-    while (scopesDisplaying);
+    while (scopesDisplayingFlag);
 }
 
 /* toggle mute */
-static void setChannel(uint8_t nr, uint8_t on)
+static void setChannel(uint8_t nr, bool on)
 {
     stmTyp *ch;
 
     ch = &stm[nr];
 
-    ch->stOff = !on;
+    ch->stOff = on ? false : true;
     if (ch->stOff)
     {
         ch->effTyp   = 0;
@@ -168,7 +171,7 @@ static void setChannel(uint8_t nr, uint8_t on)
     scope[nr].wasCleared = false;
 }
 
-static void drawScopeNumber(uint16_t scopeXOffs, uint16_t scopeYOffs, uint8_t channel, uint8_t outline)
+static void drawScopeNumber(uint16_t scopeXOffs, uint16_t scopeYOffs, uint8_t channel, bool outline)
 {
     scopeYOffs++;
     channel++;
@@ -243,7 +246,6 @@ static void redrawScope(uint8_t ch)
 
         blitFast(muteGfxX, y + 6, scopeMuteBMPPointers[chanLookup], muteGfxLen, scopeMuteBMPHeights[chanLookup]);
 
-        /* draw channel number if needed */
         if (config.ptnChnNumbers)
             drawScopeNumber(x + 1, y + 1, i, true);
     }
@@ -283,10 +285,11 @@ static void toggleChannelMute(uint8_t ch)
     redrawScope(ch);
 }
 
-int8_t testScopesMouseDown(void)
+bool testScopesMouseDown(void)
 {
+    bool test;
     int8_t chanToToggle, chansPerRow;
-    uint8_t test, i;
+    uint8_t i;
     uint16_t x;
     const uint16_t *scopeLens;
 
@@ -365,7 +368,8 @@ int8_t testScopesMouseDown(void)
 static void triggerScope(uint8_t ch)
 {
     int8_t *sampleData;
-    uint8_t loopFlag, sampleIs16Bit;
+    bool sampleIs16Bit;
+    uint8_t loopType;
     int32_t sampleLength, sampleLoopBegin, sampleLoopLength, position;
     scope_t *sc;
     volatile scopeState_t *s;
@@ -377,8 +381,8 @@ static void triggerScope(uint8_t ch)
     sampleLength     = s->len;
     sampleLoopBegin  = s->repS;
     sampleLoopLength = s->repL;
-    loopFlag         = s->typ & 3;
-    sampleIs16Bit    = s->typ & 16;
+    loopType         = s->typ & 3;
+    sampleIs16Bit    = (s->typ & 16) >> 4;
     position         = s->playOffset;
 
     if ((sampleData == NULL) || (sampleLength < 1))
@@ -405,17 +409,17 @@ static void triggerScope(uint8_t ch)
     }
 
     if (sampleLoopLength < 1)
-        loopFlag = false;
+        loopType = 0;
 
-    sc->sample16bit = sampleIs16Bit;
+    sc->sample16Bit = sampleIs16Bit;
 
     sc->posXOR   = 0; /* forwards */
-    sc->SLen     = loopFlag ? (sampleLoopBegin + sampleLoopLength) : sampleLength;
+    sc->SLen     = (loopType > 0) ? (sampleLoopBegin + sampleLoopLength) : sampleLength;
     sc->SRepS    = sampleLoopBegin;
     sc->SRepL    = sampleLoopLength;
     sc->SPos     = position;
     sc->SPosDec  = 0; /* position fraction */
-    sc->loopType = loopFlag;
+    sc->loopType = loopType;
 
     /* if 9xx position overflows, shut down scopes (confirmed FT2 behavior) */
     if (sc->SPos >= sc->SLen)
@@ -430,10 +434,10 @@ static void triggerScope(uint8_t ch)
 static void updateScopes(void)
 {
     uint8_t i;
-    int32_t readPos, loopOverflow;
+    int32_t readPos, loopOverflowVal;
     scope_t *sc;
 
-    scopesUpdating = true;
+    scopesUpdatingFlag = true;
     for (i = 0; i < song.antChn; ++i)
     {
         sc = &scope[i];
@@ -483,18 +487,18 @@ static void updateScopes(void)
             else if (readPos >= sc->SLen) /* forward or pingpong loop */
             {
                 if (sc->SRepL < 2)
-                    loopOverflow = 0;
+                    loopOverflowVal = 0;
                 else
-                    loopOverflow = (readPos - sc->SLen) % sc->SRepL;
+                    loopOverflowVal = (readPos - sc->SLen) % sc->SRepL;
 
                 if (sc->loopType == LOOP_PINGPONG)
                 {
                     sc->posXOR = 0xFFFFFFFF; /* change direction to backwards */
-                    readPos = (sc->SLen - 1) - loopOverflow;
+                    readPos = (sc->SLen - 1) - loopOverflowVal;
                 }
                 else /* forward loop */
                 {
-                    readPos = sc->SRepS + loopOverflow;
+                    readPos = sc->SRepS + loopOverflowVal;
                 }
 
                 assert((readPos >= sc->SRepS) && (readPos < sc->SLen));
@@ -505,7 +509,7 @@ static void updateScopes(void)
             sc->SPos = readPos; /* update it */
         }
     }
-    scopesUpdating = false;
+    scopesUpdatingFlag = false;
 }
 
 static void scopeLine(int16_t x1, int16_t y1, int16_t y2)
@@ -531,26 +535,25 @@ static void scopeLine(int16_t x1, int16_t y1, int16_t y2)
             dst32 += pitch;
 
         *++dst32 = pixVal;
+        return;
     }
-    else
+
+    d = 2 - ay;
+
+    ay *= 2;
+    while (y1 != y2)
     {
-        d = 2 - ay;
-
-        ay *= 2;
-        while (y1 != y2)
+        if (d >= 0)
         {
-            if (d >= 0)
-            {
-                d -= ay;
-                dst32++;
-            }
-
-            y1 += sy;
-            d  += 2;
-
-             dst32 += pitch;
-            *dst32  = pixVal;
+            d -= ay;
+            dst32++;
         }
+
+        y1 += sy;
+        d  += 2;
+
+         dst32 += pitch;
+        *dst32  = pixVal;
     }
 }
 
@@ -601,18 +604,18 @@ static inline int8_t getScaledScopeSample16(scope_t *sc, int32_t drawPos)
         else if (scopeDrawPos >= sc->SLen) /* forward or pingpong loop */ \
         { \
             if (sc->SRepL < 2) \
-                loopOverflow = 0; \
+                loopOverflowVal = 0; \
             else \
-                loopOverflow = (scopeDrawPos - sc->SLen) % sc->SRepL; \
+                loopOverflowVal = (scopeDrawPos - sc->SLen) % sc->SRepL; \
             \
             if (sc->loopType == LOOP_PINGPONG) \
             { \
                 sc->drawPosXOR = 0xFFFFFFFF; /* change direction to backwards */ \
-                scopeDrawPos = (sc->SLen - 1) - loopOverflow; \
+                scopeDrawPos = (sc->SLen - 1) - loopOverflowVal; \
             } \
             else /* forward loop */ \
             { \
-                scopeDrawPos = sc->SRepS + loopOverflow; \
+                scopeDrawPos = sc->SRepS + loopOverflowVal; \
             } \
             \
             assert((scopeDrawPos >= sc->SRepS) && (scopeDrawPos < sc->SLen)); \
@@ -625,11 +628,11 @@ void drawScopes(void)
     int16_t y1, y2, sample, scopeLineY;
     const uint16_t *scopeLens;
     uint16_t x16, scopeXOffs, scopeYOffs, scopeDrawLen;
-    int32_t scopeDrawPos, loopOverflow;
+    int32_t scopeDrawPos, loopOverflowVal;
     uint32_t x, len, scopeDrawFrac, scopePixelColor;
     scope_t cachedScope, *sc;
 
-    scopesDisplaying = true;
+    scopesDisplayingFlag = true;
 
     scopeLens  = scopeLenTab[(song.antChn / 2) - 1];
     scopeXOffs = 3;
@@ -674,7 +677,7 @@ void drawScopes(void)
                 {
                     /* LINE SCOPE */
 
-                    if (sc->sample16bit)
+                    if (sc->sample16Bit)
                     {
                         y1 = scopeLineY - getScaledScopeSample16(sc, scopeDrawPos);
                         SCOPE_UPDATE_POS
@@ -718,7 +721,7 @@ void drawScopes(void)
                     x   = scopeXOffs;
                     len = scopeXOffs + scopeDrawLen;
 
-                    if (sc->sample16bit)
+                    if (sc->sample16Bit)
                     {
                         for (; x < len; ++x)
                         {
@@ -770,7 +773,7 @@ void drawScopes(void)
         scopeXOffs += (scopeDrawLen + 3);
     }
 
-    scopesDisplaying = false;
+    scopesDisplayingFlag = false;
 }
 
 void drawScopeFramework(void)
@@ -876,7 +879,11 @@ static int32_t SDLCALL scopeThreadFunc(void *ptr)
 
             /* convert and round to microseconds */
             dTime = diff32 * editor.dPerfFreqMulMicro;
-            double2int32_round(time32, dTime);
+
+            if (cpu.hasSSE2)
+                sse2_double2int32_round(time32, dTime);
+            else
+                time32 = (int32_t)(round(dTime));
 
             /* delay until we have reached next tick */
             if (time32 > 0)
@@ -899,9 +906,9 @@ static int32_t SDLCALL scopeThreadFunc(void *ptr)
     return (true);
 }
 
-uint8_t initScopes(void)
+bool initScopes(void)
 {
-    scopeThread = SDL_CreateThread(scopeThreadFunc, "FT2 Clone Visuals Thread", NULL);
+    scopeThread = SDL_CreateThread(scopeThreadFunc, NULL, NULL);
     if (scopeThread == NULL)
     {
         showErrorMsgBox("Couldn't create scope thread!");

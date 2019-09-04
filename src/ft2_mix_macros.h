@@ -93,7 +93,7 @@
 
 /* 3-tap quadratic interpolation (default - slower, but sharper sound) */
 
-/* in: int32_t s1,s2,s3 = -128..127 | f = 0..65535 (frac) | out: s1 (can overflow 16-bit because of splines) */
+/* in: int32_t s1,s2,s3 = -128..127 | f = 0..65535 (frac) | out: s1 (can exceed 16-bits because of under-/overshoot) */
 #define INTERPOLATE8(s1, s2, s3, f) \
 { \
     int32_t frac, s4; \
@@ -114,7 +114,7 @@
     s1 += s4; \
 } \
 
-/* in: int32_t s1,s2,s3 = -32768..32767 | f = 0..65535 (frac) | out: s1 (can overflow 16-bit because of splines) */
+/* in: int32_t s1,s2,s3 = -32768..32767 | f = 0..65535 (frac) | out: s1 (can exceed 16-bits because of under-/overshoot) */
 #define INTERPOLATE16(s1, s2, s3, f)  \
 { \
     int32_t frac, s4; \

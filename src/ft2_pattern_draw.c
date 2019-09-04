@@ -12,18 +12,6 @@
 #include "ft2_gui.h"
 #include "ft2_video.h"
 
-static tonTyp emptyNote;
-
-/* ft2_pattern_ed.c */
-extern const uint16_t chanWidths[6];
-
-/* defined at the bottom of this file */
-extern const pattCoord_t pattCoordTable[2][2][2];
-extern const pattCoord2_t pattCoord2Table[2][2][2];
-extern const markCoord_t markCoordTable[2][2][2];
-extern const uint8_t pattCursorXTab[2 * 4 * 8];
-extern const uint8_t pattCursorWTab[2 * 4 * 8];
-
 static const uint8_t vol2charTab1[16] = { 39, 0, 1, 2, 3, 4, 36, 52, 53, 54, 28, 31, 25, 58, 59, 22 };
 static const uint8_t vol2charTab2[16] = { 42, 0, 1, 2, 3, 4, 36, 37, 38, 39, 28, 31, 25, 40, 41, 22 };
 static const uint8_t columnModeTab[12] = { 0, 0, 0, 0, 0, 1, 1, 2, 2, 3, 3, 3 };
@@ -39,6 +27,18 @@ static const uint16_t sharpNote1Char_big[12] = { 12*16, 12*16, 13*16, 13*16, 14*
 static const uint16_t sharpNote2Char_big[12] = { 36*16, 37*16, 36*16, 37*16, 36*16, 36*16, 37*16, 36*16, 37*16, 36*16, 37*16, 36*16 };
 static const uint16_t flatNote1Char_big[12] = { 12*16, 13*16, 13*16, 14*16, 14*16, 15*16, 16*16, 16*16, 10*16, 10*16, 11*16, 11*16 };
 static const uint16_t flatNote2Char_big[12] = { 36*16, 38*16, 36*16, 38*16, 36*16, 36*16, 38*16, 36*16, 38*16, 36*16, 38*16, 36*16 };
+
+static tonTyp emptyNote;
+
+/* ft2_pattern_ed.c */
+extern const uint16_t chanWidths[6];
+
+/* defined at the bottom of this file */
+extern const pattCoord_t pattCoordTable[2][2][2];
+extern const pattCoord2_t pattCoord2Table[2][2][2];
+extern const markCoord_t markCoordTable[2][2][2];
+extern const uint8_t pattCursorXTab[2 * 4 * 8];
+extern const uint8_t pattCursorWTab[2 * 4 * 8];
 
 static void rowNumOut(uint32_t yPos, uint8_t paletteIndex, uint8_t rowChar1, uint8_t rowChar2);
 static void pattCharOut(uint32_t xPos, uint32_t yPos, uint8_t paletteIndex, uint8_t chr, uint8_t fontType);
@@ -333,7 +333,7 @@ static void drawChannelNumbering(uint16_t yPos)
     }
 }
 
-static void drawRowNum(uint16_t yPos, uint16_t row, uint8_t middleRowFlag)
+static void drawRowNum(uint16_t yPos, uint16_t row, bool middleRowFlag)
 {
     uint8_t pal;
 
@@ -415,10 +415,10 @@ static void showInstrNum(uint8_t pal, uint16_t xPos, uint16_t yPos, uint8_t ins)
         chr1 = ins >> 4;
         chr2 = ins & 0x0F;
 
-        if (chr1)
+        if (chr1 > 0)
             pattCharOut(xPos, yPos, pal, chr1, fontType);
 
-        if (chr1 || chr2)
+        if ((chr1 > 0) || (chr2 > 0))
             pattCharOut(xPos + charW, yPos, pal, chr2, fontType);
     }
 }
@@ -570,10 +570,10 @@ static void showInstrNumNoVolColumn(uint8_t pal, uint16_t xPos, uint16_t yPos, u
         chr1 = ins >> 4;
         chr2 = ins & 0x0F;
 
-        if (chr1)
+        if (chr1 > 0)
             pattCharOut(xPos, yPos, pal, chr1, fontType);
 
-        if (chr1 || chr2)
+        if ((chr1 > 0) || (chr2 > 0))
             pattCharOut(xPos + charW, yPos, pal, chr2, fontType);
     }
 }

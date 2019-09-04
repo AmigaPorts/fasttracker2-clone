@@ -34,7 +34,7 @@ extern const uint8_t vibTab[32];
 extern const uint16_t amigaFinePeriod[12 * 8];
 extern const uint16_t amigaPeriod[12 * 8];
 
-static int8_t bxxOverflow;
+static bool bxxOverflow;
 static int16_t *linearPeriods, *amigaPeriods, oldPeriod;
 static uint32_t *logTab, oldRate;
 static uint32_t frequenceDivFactor, frequenceMulFactor;
@@ -42,8 +42,9 @@ static tonTyp nilPatternLine;
 
 /* globally accessed */
 
-int8_t linearFrqTab = 0, playMode = 0, songPlaying = false,  audioPaused = false, musicPaused = false;
-volatile int8_t replayerBusy = false;
+int8_t playMode = 0;
+bool linearFrqTab = false, songPlaying = false,  audioPaused = false, musicPaused = false;
+volatile bool replayerBusy = false;
 int16_t *note2Period = NULL, pattLens[MAX_PATTERNS];
 stmTyp stm[MAX_VOICES];
 songTyp song;
@@ -54,7 +55,8 @@ tonTyp *patt[MAX_PATTERNS];
 
 void resetChannels(void)
 {
-    uint8_t i, audioWasntLocked;
+    uint8_t i;
+    bool audioWasntLocked;
     stmTyp *ch;
 
     audioWasntLocked = !audio.locked;
@@ -109,9 +111,9 @@ void tuneSample(sampleTyp *s, uint32_t midCFreq)
     }
 }
 
-uint8_t setPatternLen(uint16_t nr, int16_t len)
+bool setPatternLen(uint16_t nr, int16_t len)
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
 
     assert(nr < MAX_PATTERNS);
 
@@ -188,7 +190,7 @@ uint8_t setPatternLen(uint16_t nr, int16_t len)
     return (true);
 }
 
-int8_t instrIsEmpty(int16_t nr)
+bool instrIsEmpty(int16_t nr)
 {
     /* check if we're testing a non-editable instrument */
     if ((nr <= 0) || (nr > MAX_INST))
@@ -246,9 +248,9 @@ int16_t getRealUsedSamples(int16_t nr)
     return (i + 1);
 }
 
-void setFrqTab(uint8_t linear)
+void setFrqTab(bool linear)
 {
-    linearFrqTab = linear ? true : false;
+    linearFrqTab = linear;
 
     if (linearFrqTab)
     {
@@ -539,7 +541,8 @@ static void multiRetrig(stmTyp *ch)
 
 static void checkMoreEffects(stmTyp *ch) /* called even if channel is muted */
 {
-    int8_t envPos, envUpdate;
+    int8_t envPos;
+    bool envUpdate;
     uint8_t tmpEff;
     int16_t newEnvPos;
     uint16_t i;
@@ -1099,7 +1102,8 @@ static void getNewNote(stmTyp *ch, tonTyp *p)
 {
     /* this is a mess, but it appears to be 100% FT2-correct */
 
-    uint8_t inst, checkEfx;
+    uint8_t inst;
+    bool checkEfx;
 
     ch->volKolVol = p->vol;
 
@@ -1221,7 +1225,7 @@ static void getNewNote(stmTyp *ch, tonTyp *p)
 
 static void fixaEnvelopeVibrato(stmTyp *ch)
 {
-    int8_t envInterpolateFlag, envDidInterpolate;
+    bool envInterpolateFlag, envDidInterpolate;
     uint8_t envPos;
     int16_t autoVibVal, panTmp;
     uint16_t autoVibAmp, tmpPeriod, envVal;
@@ -2110,7 +2114,8 @@ static void noNewAllChannels(void)
 
 void mainPlayer(void) /* periodically called from audio callback */
 {
-    uint8_t i, readNewNote;
+    uint8_t i;
+    bool readNewNote;
 
     if (musicPaused || !songPlaying)
     {
@@ -2165,7 +2170,7 @@ void mainPlayer(void) /* periodically called from audio callback */
 
 void resetMusic(void)
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
 
     song.timer = 1;
 
@@ -2189,7 +2194,7 @@ void resetMusic(void)
 
 void setPos(int16_t songPos, int16_t pattPos)
 {
-    int8_t audioWasntLocked;
+    bool audioWasntLocked;
 
     audioWasntLocked = !audio.locked;
     if (audioWasntLocked)
@@ -2461,7 +2466,7 @@ void clearAllInstr(void)
     memset(&instr[1 + MAX_INST], 0, sizeof (tonTyp)); /* placeholder for instrument jamming */
 }
 
-int8_t patternEmpty(uint16_t nr)
+bool patternEmpty(uint16_t nr)
 {
     uint8_t *scanPtr;
     uint32_t i, scanLen;
@@ -2573,7 +2578,7 @@ void updateChanNums(void)
         editor.cursor.ch  = (editor.ui.channelOffset + editor.ui.numChannelsShown) - 1;
 }
 
-void conv8BitSample(int8_t *p, int32_t len, int8_t stereo)
+void conv8BitSample(int8_t *p, int32_t len, bool stereo)
 {
     int8_t *p2, l, r;
     int16_t tmp16;
@@ -2600,7 +2605,7 @@ void conv8BitSample(int8_t *p, int32_t len, int8_t stereo)
     }
 }
 
-void conv16BitSample(int8_t *p, int32_t len, int8_t stereo)
+void conv16BitSample(int8_t *p, int32_t len, bool stereo)
 {
     int16_t *p16_1, *p16_2, l, r;
     int32_t i, tmp32;
@@ -2635,24 +2640,6 @@ void closeReplayer(void)
     clearAllInstr();
     freeAllPatterns();
 
-    if (editor.blkCopyBuff != NULL)
-    {
-        free(editor.blkCopyBuff);
-        editor.blkCopyBuff = NULL;
-    }
-
-    if (editor.ptnCopyBuff != NULL)
-    {
-        free(editor.ptnCopyBuff);
-        editor.ptnCopyBuff = NULL;
-    }
-
-    if (editor.trackCopyBuff != NULL)
-    {
-        free(editor.trackCopyBuff);
-        editor.trackCopyBuff = NULL;
-    }
-
     if (logTab != NULL)
     {
         free(logTab);
@@ -2672,7 +2659,7 @@ void closeReplayer(void)
     }
 }
 
-int8_t setupReplayer(void)
+bool setupReplayer(void)
 {
     uint16_t i, j, k;
     int16_t noteVal;
@@ -2699,7 +2686,7 @@ int8_t setupReplayer(void)
 
     /* generate tables, bit-exact to original FT2 */
 
-    /* log tables */
+    /* log table */
     for (i = 0; i < 768; ++i)
         logTab[i] = (uint32_t)(round(16777216.0 * exp((i / 768.0) * M_LN2)));
 
@@ -2782,7 +2769,8 @@ void startPlaying(int8_t mode, int16_t row)
 
 void stopPlaying(void)
 {
-    uint8_t i, songWasPlaying;
+    uint8_t i;
+    bool songWasPlaying;
 
     songWasPlaying = songPlaying;
     playMode = PLAYMODE_IDLE;
@@ -3022,8 +3010,8 @@ void playRange(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t 
 
 void stopVoices(void)
 {
-    int8_t audioWasntLocked;
     uint8_t i;
+    bool audioWasntLocked;
     stmTyp *ch;
 
     audioWasntLocked = !audio.locked;
@@ -3068,7 +3056,7 @@ void stopVoices(void)
 
 void decSongPos(void)
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
 
     audioWasntLocked = !audio.locked;
     if (audioWasntLocked)
@@ -3083,7 +3071,7 @@ void decSongPos(void)
 
 void incSongPos(void)
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
 
     audioWasntLocked = !audio.locked;
     if (audioWasntLocked)

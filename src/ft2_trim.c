@@ -3,6 +3,8 @@
 #include <crtdbg.h>
 #endif
 
+#include <stdint.h>
+#include <stdbool.h>
 #include <stdio.h>
 #include <math.h>
 #include "ft2_header.h"
@@ -14,13 +16,10 @@
 #include "ft2_audio.h"
 #include "ft2_mouse.h"
 
-/*
-** "Messy But Works™"
-** - 8bitbubsy Solutions, Inc.
-*/
+/* Messy But Works™ */
 
 static char byteFormatBuffer[64], tmpInstrName[1 + MAX_INST][22 + 1], tmpInstName[MAX_INST][22 + 1];
-static uint8_t removePatt, removeInst, removeSamp, removeChans, removeSmpDataAfterLoop, convSmpsTo8Bit;
+static bool removePatt, removeInst, removeSamp, removeChans, removeSmpDataAfterLoop, convSmpsTo8Bit;
 static uint8_t instrUsed[MAX_INST], instrOrder[MAX_INST], pattUsed[MAX_PATTERNS], pattOrder[MAX_PATTERNS];
 static int16_t oldPattLens[MAX_PATTERNS], tmpPattLens[MAX_PATTERNS];
 static int64_t xmSize64 = -1, xmAfterTrimSize64 = -1, spaceSaved64 = -1;
@@ -54,7 +53,7 @@ static void remapInstrInSong(uint8_t src, uint8_t dst, int16_t ap)
     }
 }
 
-static int8_t tempInstrIsEmpty(uint16_t nr)
+static bool tempInstrIsEmpty(uint16_t nr)
 {
     assert((nr != 0) && (nr < (1 + MAX_INST)));
 
@@ -133,7 +132,7 @@ static int64_t getTempInsAndSmpSize(void)
     return (currSize64);
 }
 
-static void wipeInstrUnused(uint8_t testWipeSize, int16_t *ai, int16_t ap, uint8_t antChn)
+static void wipeInstrUnused(bool testWipeSize, int16_t *ai, int16_t ap, uint8_t antChn)
 {
     uint8_t newInst;
     int16_t numInsts, newNumInsts, instToDel, i, j, k, pattLen;
@@ -248,7 +247,7 @@ static void wipeInstrUnused(uint8_t testWipeSize, int16_t *ai, int16_t ap, uint8
     *ai = newNumInsts;
 }
 
-static void wipePattsUnused(uint8_t testWipeSize, int16_t *ap)
+static void wipePattsUnused(bool testWipeSize, int16_t *ap)
 {
     uint8_t newPatt;
     int16_t usedPatts, newUsedPatts, i, *pLens;
@@ -341,7 +340,7 @@ static void wipePattsUnused(uint8_t testWipeSize, int16_t *ap)
     *ap = newUsedPatts;
 }
 
-static void wipeSamplesUnused(uint8_t testWipeSize, int16_t ai)
+static void wipeSamplesUnused(bool testWipeSize, int16_t ai)
 {
     uint8_t newSamp, smpUsed[16], smpOrder[16];
     int16_t i, j, k, l;
@@ -431,7 +430,7 @@ static void wipeSamplesUnused(uint8_t testWipeSize, int16_t ai)
     }
 }
 
-static void wipeSmpDataAfterLoop(uint8_t testWipeSize, int16_t ai)
+static void wipeSmpDataAfterLoop(bool testWipeSize, int16_t ai)
 {
     int16_t i, j, l;
     instrTyp *ins;
@@ -490,11 +489,11 @@ static void wipeSmpDataAfterLoop(uint8_t testWipeSize, int16_t ai)
     }
 }
 
-static void convertSamplesTo8bit(uint8_t testWipeSize, int16_t ai)
+static void convertSamplesTo8bit(bool testWipeSize, int16_t ai)
 {
-    int8_t *newSmpPtr;
-    int16_t *smpPtr16, i, j, k;
-    int32_t l;
+    int8_t *dst8, smp8;
+    int16_t *src16, i, j, k;
+    int32_t a, newLen;
     instrTyp *ins;
     sampleTyp *s;
 
@@ -535,26 +534,26 @@ static void convertSamplesTo8bit(uint8_t testWipeSize, int16_t ai)
                 }
                 else
                 {
-                    newSmpPtr = (int8_t *)(malloc((s->len / 2) + 4));
-                    if (newSmpPtr != NULL)
+                    restoreSample(s);
+
+                    src16 = (int16_t *)(s->pek);
+                    dst8  = s->pek;
+
+                    newLen = s->len / 2;
+                    for (a = 0; a < newLen; ++a)
                     {
-                        restoreSample(s);
-
-                        s->typ &= ~16;
-
-                        s->len  /= 2;
-                        s->repL /= 2;
-                        s->repS /= 2;
-
-                        smpPtr16 = (int16_t *)(s->pek);
-                        for (l = 0; l < s->len; ++l)
-                            newSmpPtr[l] = (int8_t)(smpPtr16[l] >> 8);
-
-                        free(s->pek);
-                        s->pek = newSmpPtr;
-
-                        fixSample(s);
+                        smp8    = (int8_t)(src16[a] >> 8);
+                        dst8[a] = smp8;
                     }
+
+                    s->repL /= 2;
+                    s->repS /= 2;
+                    s->len  /= 2;
+                    s->typ &= ~16;
+
+                    s->pek = (int8_t *)(realloc(s->pek, s->len + 4));
+
+                    fixSample(s);
                 }
             }
         }
@@ -575,8 +574,11 @@ static uint16_t getPackedPattSize(tonTyp *pattern, uint16_t numRows, uint8_t ant
     {
         for (chn = 0; chn < antChn; ++chn)
         {
-            memcpy(bytes, pattPtr, sizeof (tonTyp));
-            pattPtr += sizeof (tonTyp);
+            bytes[0] = *pattPtr++;
+            bytes[1] = *pattPtr++;
+            bytes[2] = *pattPtr++;
+            bytes[3] = *pattPtr++;
+            bytes[4] = *pattPtr++;
 
             firstBytePtr = writePtr++;
 
@@ -607,35 +609,27 @@ static uint16_t getPackedPattSize(tonTyp *pattern, uint16_t numRows, uint8_t ant
     return (totalPackLen);
 }
 
-static int8_t tmpPatternEmpty(uint16_t nr, uint8_t antChn)
+static bool tmpPatternEmpty(uint16_t nr, uint8_t antChn)
 {
-    uint8_t j, *scanPtr;
-    uint16_t i, pattLen;
-    uint32_t zeroTest;
+    uint8_t *scanPtr;
+    uint32_t i, j, pattLen, scanLen;
 
     if (tmpPatt[nr] == NULL)
         return (true);
 
     scanPtr = (uint8_t *)(tmpPatt[nr]);
+    scanLen = antChn * sizeof (tonTyp);
     pattLen = tmpPattLens[nr];
 
     for (i = 0; i < pattLen; ++i)
     {
-        for (j = 0; j < antChn; ++j)
+        for (j = 0; j < scanLen; ++j)
         {
-            zeroTest  = scanPtr[0];
-            zeroTest += scanPtr[1];
-            zeroTest += scanPtr[2];
-            zeroTest += scanPtr[3];
-            zeroTest += scanPtr[4];
-
-            if (zeroTest != 0)
+            if (scanPtr[j] != 0)
                 return (false);
-
-            scanPtr += sizeof (tonTyp);
         }
 
-        scanPtr += (sizeof (tonTyp) * (MAX_VOICES - antChn));
+        scanPtr += (sizeof (tonTyp) * MAX_VOICES);
     }
 
     return (true);
@@ -1190,7 +1184,7 @@ void pbTrimDoTrim(void)
     mouseAnimOn();
     lockMixerCallback();
 
-    trimThread = SDL_CreateThread(trimThreadFunc, "FT2 Trim Thread", NULL);
+    trimThread = SDL_CreateThread(trimThreadFunc, NULL, NULL);
     if (trimThread == NULL)
     {
         unlockMixerCallback();

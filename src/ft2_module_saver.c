@@ -4,6 +4,7 @@
 #endif
 
 #include <stdio.h>
+#include <stdbool.h>
 #include "ft2_header.h"
 #include "ft2_audio.h"
 #include "ft2_gui.h"
@@ -24,7 +25,7 @@ static uint16_t packPatt(uint8_t *pattPtr, uint16_t numRows);
 extern const char modSig[16][5];
 extern const uint16_t amigaPeriod[12 * 8];
 
-int8_t saveXM(UNICHAR *filenameU)
+bool saveXM(UNICHAR *filenameU)
 {
     uint8_t *pattPtr;
     int16_t ap, ai, i, k, a;
@@ -212,9 +213,10 @@ int8_t saveXM(UNICHAR *filenameU)
     return (true);
 }
 
-static int8_t saveMOD(UNICHAR *filenameU)
+static bool saveMOD(UNICHAR *filenameU)
 {
-    int8_t smp8, test, tooManyInstr, incompatEfx, noteUnderflow;
+    bool test, tooManyInstr, incompatEfx, noteUnderflow;
+    int8_t smp8;
     uint8_t ton, inst, pattBuff[64 * 4 * 32];
     int16_t a, i, ap, *ptr16;
     int32_t j, k, l1, l2, l3;
@@ -224,14 +226,18 @@ static int8_t saveMOD(UNICHAR *filenameU)
     tonTyp *t;
     songMOD31HeaderTyp hm;
 
-    tooManyInstr = incompatEfx = noteUnderflow = false;
+    tooManyInstr  = false;
+    incompatEfx   = false;
+    noteUnderflow = false;
 
     if (linearFrqTab) okBoxThreadSafe(0, "System message", "Linear frequency table used!");
 
     /* sanity checking */
 
     test = false;
-    if (song.len > 128) test = true;
+    if (song.len > 128)
+        test = true;
+
     for (i = 100; i < 256; ++i)
     {
         if (patt[i] != NULL)
@@ -536,8 +542,6 @@ static int8_t saveMOD(UNICHAR *filenameU)
 
 static int32_t SDLCALL saveMusicThread(void *ptr)
 {
-    int8_t result;
-
     (void)(ptr);
 
     assert(editor.tmpFilenameU != NULL);;
@@ -547,13 +551,13 @@ static int32_t SDLCALL saveMusicThread(void *ptr)
     pauseAudio();
 
     if (editor.moduleSaveMode == 1)
-        result = saveXM(editor.tmpFilenameU);
+        saveXM(editor.tmpFilenameU);
     else
-        result = saveMOD(editor.tmpFilenameU);
+        saveMOD(editor.tmpFilenameU);
 
     resumeAudio();
 
-    return (result);
+    return (true);
 }
 
 void saveMusic(UNICHAR *filenameU)
@@ -561,10 +565,10 @@ void saveMusic(UNICHAR *filenameU)
     UNICHAR_STRCPY(editor.tmpFilenameU, filenameU);
 
     mouseAnimOn();
-    thread = SDL_CreateThread(saveMusicThread, "FT2 Clone Module Saving Thread", NULL);
+    thread = SDL_CreateThread(saveMusicThread, NULL, NULL);
     if (thread == NULL)
     {
-        okBoxThreadSafe(0, "System message", "Error creating module saving thread!");
+        okBoxThreadSafe(0, "System message", "Couldn't create thread!");
         return;
     }
 

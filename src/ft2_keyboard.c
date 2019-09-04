@@ -21,9 +21,10 @@
 #include "ft2_sample_ed.h"
 #include "ft2_audio.h"
 #include "ft2_trim.h"
+#include "ft2_sample_ed_features.h"
 
-void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey);
-uint8_t checkModifiedKeys(SDL_Keycode keycode);
+static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey);
+static bool checkModifiedKeys(SDL_Keycode keycode);
 
 static const uint8_t scancodeKey2Note[52] = /* keys (USB usage page standard) to FT2 notes look-up table */
 {
@@ -36,17 +37,17 @@ static const uint8_t scancodeKey2Note[52] = /* keys (USB usage page standard) to
     0x00, 0x0D, 0x0F, 0x11
 };
 
-int8_t scancodeKeyToNote(SDL_Scancode skey)
+int8_t scancodeKeyToNote(SDL_Scancode scancode)
 {
     int8_t note;
 
-    if ((skey == SDL_SCANCODE_CAPSLOCK) || (skey == SDL_SCANCODE_NONUSBACKSLASH))
+    if ((scancode == SDL_SCANCODE_CAPSLOCK) || (scancode == SDL_SCANCODE_NONUSBACKSLASH))
         return (97); /* key off */
 
     /* translate key to note */
     note = 0;
-    if ((skey >= SDL_SCANCODE_B) && (skey <= SDL_SCANCODE_SLASH))
-        note = scancodeKey2Note[(int32_t)(skey) - SDL_SCANCODE_B];
+    if ((scancode >= SDL_SCANCODE_B) && (scancode <= SDL_SCANCODE_SLASH))
+        note = scancodeKey2Note[(int32_t)(scancode) - SDL_SCANCODE_B];
 
     if (note == 0)
         return (-1); /* not a note key, do further key handling (non-notes) */
@@ -60,15 +61,15 @@ void readKeyModifiers(void)
 
     modState = SDL_GetModState();
 
-    keyb.ctrlPressed        = modState & (KMOD_LCTRL | KMOD_RCTRL);
-    keyb.leftCtrlPressed    = modState & KMOD_LCTRL;
-    keyb.leftAltPressed     = modState & KMOD_LALT;
-    keyb.leftShiftPressed   = modState & KMOD_LSHIFT;
+    keyb.ctrlPressed        = (modState & (KMOD_LCTRL | KMOD_RCTRL)) ? true : false;
+    keyb.leftCtrlPressed    = (modState & KMOD_LCTRL) ? true : false;
+    keyb.leftAltPressed     = (modState & KMOD_LALT) ? true : false;
+    keyb.leftShiftPressed   = (modState & KMOD_LSHIFT) ? true : false;
 #ifdef __APPLE__
-    keyb.commandPressed     = modState & (KMOD_LGUI | KMOD_RGUI);
-    keyb.leftCommandPressed = modState & KMOD_LGUI;
+    keyb.commandPressed     = (modState & (KMOD_LGUI | KMOD_RGUI)) ? true : false;
+    keyb.leftCommandPressed = (modState & KMOD_LGUI) ? true : false;
 #endif
-    keyb.keyModifierDown    = modState & (KMOD_LSHIFT | KMOD_LCTRL | KMOD_LALT | KMOD_LGUI);
+    keyb.keyModifierDown    = (modState & (KMOD_LSHIFT | KMOD_LCTRL | KMOD_LALT | KMOD_LGUI)) ? true : false;
 }
 
 void keyUpHandler(SDL_Scancode scancode, SDL_Keycode keycode)
@@ -93,7 +94,7 @@ void keyUpHandler(SDL_Scancode scancode, SDL_Keycode keycode)
     keyb.keyRepeat = false;
 }
 
-void keyDownHandler(SDL_Scancode scancode, SDL_Keycode keycode, uint8_t keyWasRepeated)
+void keyDownHandler(SDL_Scancode scancode, SDL_Keycode keycode, bool keyWasRepeated)
 {
     if (keycode == SDLK_UNKNOWN)
         return;
@@ -149,9 +150,9 @@ void keyDownHandler(SDL_Scancode scancode, SDL_Keycode keycode, uint8_t keyWasRe
     handleKeys(keycode, scancode); /* no pattern editing, do general key handling */
 }
 
-void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
+static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 {
-    uint8_t audioWasntLocked;
+    bool audioWasntLocked;
     uint16_t pattLen;
 
     /* if we're holding numpad plus but not pressing bank keys, don't check any other key */
@@ -351,7 +352,7 @@ void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
         }
         break;
 
-        case SDLK_PRINTSCREEN: togglePatternEditorExtended(); break;
+        //case SDLK_PRINTSCREEN: togglePatternEditorExtended(); break;
 
         /* EDIT/PLAY KEYS */
 
@@ -670,7 +671,7 @@ void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
     }
 }
 
-uint8_t checkModifiedKeys(SDL_Keycode keycode)
+static bool checkModifiedKeys(SDL_Keycode keycode)
 {
     /* normal keys */
     switch (keycode)

@@ -15,7 +15,8 @@
 
 typedef struct
 {
-    uint8_t bigFont, noLine, color;
+    bool bigFont, noLine;
+    uint8_t color;
     int16_t xPos;
     char text[100];
 } helpRec;
@@ -47,7 +48,7 @@ static void addText(helpRec *t, int16_t xPos, uint8_t color, char *text)
     textLine++;
 }
 
-static uint8_t getLine(char *output)
+static bool getLine(char *output)
 {
     uint8_t strLen;
 
@@ -263,7 +264,7 @@ skipLine:
     free(tempText);
 }
 
-static void bigTextOutHalf(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint8_t lowerHalf, char *textPtr)
+static void bigTextOutHalf(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, bool lowerHalf, char *textPtr)
 {
     const uint8_t *srcPtr;
     uint8_t c, x, y;
@@ -281,10 +282,9 @@ static void bigTextOutHalf(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, u
 
         if ((c != ' ') && (c < FONT_CHARS))
         {
-            if (lowerHalf)
-                srcPtr = &font2Data[c * FONT2_CHAR_W];
-            else
-                srcPtr = &font2Data[((FONT2_CHAR_H / 2) * FONT2_WIDTH) + (c * FONT2_CHAR_W)];
+            srcPtr = &font2Data[c * FONT2_CHAR_W];
+            if (!lowerHalf)
+                srcPtr += ((FONT2_CHAR_H / 2) * FONT2_WIDTH);
 
             dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + currX];
             pixVal = video.palette[paletteIndex];

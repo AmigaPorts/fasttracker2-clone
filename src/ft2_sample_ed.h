@@ -58,10 +58,8 @@ void sampReplenDown(void);
 
 int16_t getSampleValueNr(int8_t *ptr, uint8_t typ, int32_t pos);
 void putSampleValueNr(int8_t *ptr, uint8_t typ, int32_t pos, int16_t val);
-void writeSample(uint8_t forceSmpRedraw);
-void clearRange(void);
-void setSampleRange(int32_t start, int32_t end);
-void handleSampleDataMouseDown(int8_t mouseButtonHeld);
+void writeSample(bool forceSmpRedraw);
+void handleSampleDataMouseDown(bool mouseButtonHeld);
 void updateSampleEditorSample(void);
 void updateSampleEditor(void);
 void hideSampleEditor(void);

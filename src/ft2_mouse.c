@@ -4,6 +4,7 @@
 #endif
 
 #include <stdio.h>
+#include <stdbool.h>
 #include "ft2_header.h"
 #include "ft2_gui.h"
 #include "ft2_video.h"
@@ -19,7 +20,7 @@
 #include "ft2_audioselector.h"
 #include "ft2_midi.h"
 
-static uint8_t mouseBusyGfxBackwards;
+static bool mouseBusyGfxBackwards;
 static int16_t mouseShape;
 static int32_t mouseModeGfxOffs, mouseBusyGfxFrame;
 
@@ -159,7 +160,7 @@ void resetMouseBusyAnimation(void)
     mouseBusyGfxFrame     = 0;
 }
 
-void setMouseBusy(int8_t busy) /* can be called from other threads */
+void setMouseBusy(bool busy) /* can be called from other threads */
 {
     if (busy)
     {
@@ -219,7 +220,7 @@ static void mouseWheelIncRow(void)
     }
 }
 
-void mouseWheelHandler(uint8_t directionUp)
+void mouseWheelHandler(bool directionUp)
 {
     if (editor.ui.sysReqShown)
         return;
@@ -335,7 +336,7 @@ void mouseWheelHandler(uint8_t directionUp)
     }
 }
 
-static int8_t testSamplerDataMouseDown(void)
+static bool testSamplerDataMouseDown(void)
 {
     if (editor.ui.sampleEditorShown)
     {
@@ -349,7 +350,7 @@ static int8_t testSamplerDataMouseDown(void)
     return (false);
 }
 
-static int8_t testPatternDataMouseDown(void)
+static bool testPatternDataMouseDown(void)
 {
     uint16_t y1, y2;
 
@@ -452,7 +453,8 @@ void mouseButtonDownHandler(uint8_t mouseButton)
         }
 
         /* kludge - we must do scope solo/unmute all here */
-        testScopesMouseDown();
+        if (!editor.ui.sysReqShown)
+            testScopesMouseDown();
 
         return;
     }
@@ -467,7 +469,8 @@ void mouseButtonDownHandler(uint8_t mouseButton)
         }
 
         /* kludge - we must do scope solo/unmute all here */
-        testScopesMouseDown();
+        if (!editor.ui.sysReqShown)
+            testScopesMouseDown();
 
         return;
     }
@@ -553,7 +556,6 @@ void updateMouseScaling(void)
 {
     int32_t mx, my;
     float fScaleX, fScaleY;
-    SDL_DisplayMode dm;
 
     fScaleX = video.renderW / (float)(SCREEN_W);
     fScaleY = video.renderH / (float)(SCREEN_H);
@@ -566,10 +568,8 @@ void updateMouseScaling(void)
     {
         if (video.fullscreen)
         {
-            SDL_GetDesktopDisplayMode(0, &dm);
-
-            mx = dm.w / 2;
-            my = dm.h / 2;
+            mx = video.displayW / 2;
+            my = video.displayH / 2;
         }
         else
         {

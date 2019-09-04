@@ -4,6 +4,7 @@
 #endif
 
 #include <stdio.h>
+#include <stdbool.h>
 #include "ft2_header.h"
 #include "ft2_edit.h"
 #include "ft2_config.h"
@@ -21,8 +22,8 @@
 
 /* MIDI INPUT ONLY! */
 
-static volatile uint8_t midiDeviceOpened;
-static uint8_t recMIDIValidChn = true;
+static volatile bool midiDeviceOpened;
+static bool recMIDIValidChn = true;
 static RtMidiPtr midiDev;
 
 static inline void midiInSetChannel(uint8_t status)
@@ -175,7 +176,7 @@ void freeMidiIn(void)
     }
 }
 
-uint8_t initMidiIn(void)
+bool initMidiIn(void)
 {
     if (midiDev != NULL)
         return (false); /* already initialized */
@@ -191,7 +192,7 @@ uint8_t initMidiIn(void)
     return (true);
 }
 
-uint8_t openMidiInDevice(uint32_t deviceID)
+bool openMidiInDevice(uint32_t deviceID)
 {
     if (midiDev == NULL)
         return (false);
@@ -260,7 +261,7 @@ void recordMIDIEffect(uint8_t effTyp, uint8_t effData)
     }
 }
 
-uint8_t saveMidiInputDeviceToConfig(void)
+bool saveMidiInputDeviceToConfig(void)
 {
     char *midiInStr;
     uint32_t numDevices;
@@ -291,7 +292,7 @@ uint8_t saveMidiInputDeviceToConfig(void)
     return (true);
 }
 
-uint8_t setMidiInputDeviceFromConfig(void)
+bool setMidiInputDeviceFromConfig(void)
 {
 #define MAX_DEV_STR_LEN 1024
 
@@ -468,7 +469,7 @@ void sbMidiInputSetPos(uint32_t pos)
         drawMidiInputList();
 }
 
-uint8_t testMidiInputDeviceListMouseDown(void)
+bool testMidiInputDeviceListMouseDown(void)
 {
     int32_t mx, my, deviceNum;
 

@@ -2,6 +2,7 @@
 #define __FT2_TEXTBOXES_H
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <SDL2/SDL.h>
 
 enum /* TEXTBOXES */
@@ -50,25 +51,25 @@ typedef struct textBox_t /* DO NOT TOUCH!!! */
     uint16_t x, y, w;
     uint8_t h, tx, ty;
     uint16_t maxChars;
-    uint8_t rightMouseButton;
-    uint8_t changeMouseCursor;
+    bool rightMouseButton, changeMouseCursor;
 
     /* these ones are changed at run time */
     char *textPtr;
-    uint8_t visible, *renderBuf;
+    bool visible;
+    uint8_t *renderBuf;
     int16_t cursorPos;
     uint16_t renderW, renderBufW, renderBufH;
     int32_t bufOffset;
 } textBox_t;
 
-int8_t textIsMarked(void);
+bool textIsMarked(void);
 void exitTextEditing(void);
 int16_t getTextCursorX(textBox_t *t);
 int16_t getTextCursorY(textBox_t *t);
 void drawTextBox(uint16_t textBoxID);
 void showTextBox(uint16_t textBoxID);
 void hideTextBox(uint16_t textBoxID);
-int8_t testTextBoxMouseDown(void);
+bool testTextBoxMouseDown(void);
 void updateTextBoxPointers(void);
 void setupInitialTextBoxPointers(void);
 void setTextCursorToEnd(textBox_t *t);

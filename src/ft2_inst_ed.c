@@ -95,8 +95,8 @@ static const uint8_t whiteKeyIndex[7] = { 0, 2, 4, 5, 7, 9, 11 };
 static const uint8_t whiteKeysBmpOrder[12] = { 0, 0, 1, 0, 2, 0, 0, 1, 0, 1, 0, 2 };
 static const uint8_t keyNumX[12] = { 11, 16, 22, 27, 33, 44, 49, 55, 60, 66, 71, 77 };
 static const uint8_t keyXPos[12] = { 0, 7, 11, 18, 22, 33, 40, 44, 51, 55, 62, 66 };
-static volatile uint8_t updateVolEnv, updatePanEnv;
-static uint8_t pianoKeyStatus[96];
+static volatile bool updateVolEnv, updatePanEnv;
+static bool pianoKeyStatus[96];
 static int32_t lastMouseX, lastMouseY, saveMouseX, saveMouseY;
 
 /* thread data */
@@ -108,17 +108,16 @@ extern int16_t *note2Period; /* ft2_replayer.c */
 void updateInstEditor(void);
 void updateNewInstrument(void);
 
-void copyInstr(void) /* dstInstr = srcInstr */
+static int32_t SDLCALL copyInstrThread(void *ptr)
 {
     int8_t *p;
     uint32_t i;
     instrTyp *dst, *src;
     sampleTyp *dstSmp, *srcSmp;
 
-    if ((editor.curInstr == 0) || (editor.srcInstr == editor.curInstr))
-        return;
+    (void)(ptr);
 
-    lockMixerCallback();
+    pauseAudio();
 
     src = &instr[editor.srcInstr];
     dst = &instr[editor.curInstr];
@@ -127,7 +126,7 @@ void copyInstr(void) /* dstInstr = srcInstr */
     *dst = *src;
 
     /* copy over sample datas */
-    for (i = 0; i < 16; ++i)
+    for (i = 0; i < MAX_SMP_PER_INST; ++i)
     {
         srcSmp = &src->samp[i];
         dstSmp = &dst->samp[i];
@@ -138,7 +137,7 @@ void copyInstr(void) /* dstInstr = srcInstr */
             p = (int8_t *)(malloc(srcSmp->len + 4));
             if (p == NULL)
             {
-                okBox(0, "System message", "Not enough memory!");
+                okBoxThreadSafe(0, "System message", "Not enough memory!");
                 break;
             }
 
@@ -147,12 +146,32 @@ void copyInstr(void) /* dstInstr = srcInstr */
         }
     }
 
-    unlockMixerCallback();
+    resumeAudio();
 
     /* do not change instrument names! */
 
-    updateNewInstrument();
+    editor.updateCurInstr = true;
     setSongModifiedFlag();
+    setMouseBusy(false);
+
+    return (false);
+}
+
+void copyInstr(void) /* dstInstr = srcInstr */
+{
+    if ((editor.curInstr == 0) || (editor.srcInstr == editor.curInstr))
+        return;
+
+    mouseAnimOn();
+    thread = SDL_CreateThread(copyInstrThread, NULL, NULL);
+    if (thread == NULL)
+    {
+        okBox(0, "System message", "Couldn't create thread!");
+        return;
+    }
+
+    /* don't let thread wait for this thread, let it clean up on its own when done */
+    SDL_DetachThread(thread);
 }
 
 void xchgInstr(void) /* dstInstr <-> srcInstr */
@@ -530,7 +549,8 @@ static void drawRelTone(void)
 
 static void setStdVolEnvelope(instrTyp *ins, uint8_t num)
 {
-    if (editor.curInstr == 0) return;
+    if (editor.curInstr == 0)
+        return;
 
     pauseMusic();
 
@@ -552,7 +572,8 @@ static void setStdVolEnvelope(instrTyp *ins, uint8_t num)
 
 static void setStdPanEnvelope(instrTyp *ins, uint8_t num)
 {
-    if (editor.curInstr == 0) return;
+    if (editor.curInstr == 0)
+        return;
 
     pauseMusic();
 
@@ -1768,7 +1789,7 @@ static void writePianoNumber(uint8_t note)
     }
 }
 
-static void drawBlackPianoKey(uint8_t note, uint8_t keyDown)
+static void drawBlackPianoKey(uint8_t note, bool keyDown)
 {
     uint16_t x;
 
@@ -1776,7 +1797,7 @@ static void drawBlackPianoKey(uint8_t note, uint8_t keyDown)
     blit(x, 351, &blackPianoKeysBitmap[keyDown * (7 * 27)], 7, 27);
 }
 
-static void drawWhitePianoKey(uint8_t note, uint8_t keyDown)
+static void drawWhitePianoKey(uint8_t note, bool keyDown)
 {
     uint8_t key;
     uint16_t x;
@@ -1804,7 +1825,7 @@ void redrawPiano(void)
     }
 }
 
-int8_t testPianoKeysMouseDown(uint8_t buttonDown)
+bool testPianoKeysMouseDown(bool mouseButtonDown)
 {
     uint8_t key, note, octave;
     int32_t mx, my;
@@ -1816,7 +1837,7 @@ int8_t testPianoKeysMouseDown(uint8_t buttonDown)
     mx = mouse.x;
     my = mouse.y;
 
-    if (!buttonDown)
+    if (!mouseButtonDown)
     {
         if ((my < 351) || (my > 396) || (mx < 8) || (mx > 623))
             return (false);
@@ -1851,7 +1872,8 @@ int8_t testPianoKeysMouseDown(uint8_t buttonDown)
         else if (mx >= 14) key =  2;
         else if (mx >=  7) key =  1;
         else               key =  0;
-        note = (12 * octave) + key;
+
+        note = (octave * 12) + key;
 
         if (ins->ta[note] != editor.curSmp)
         {
@@ -1867,7 +1889,7 @@ int8_t testPianoKeysMouseDown(uint8_t buttonDown)
 
         octave = (uint8_t)(mx / 77);
         key    = (uint8_t)(mx / 11);
-        note   = (12 * octave) + whiteKeyIndex[key % 7];
+        note   = (octave * 12) + whiteKeyIndex[key % 7];
 
         if (ins->ta[note] != editor.curSmp)
         {
@@ -1921,7 +1943,7 @@ static uint8_t getNote(uint8_t i) /* returns 1..96 */
 void drawPiano(void) /* draw piano in idle mode */
 {
     uint8_t i, note;
-    uint8_t keyDown, newStatus[96];
+    bool keyDown, newStatus[96];
     stmTyp *ch;
 
     memset(newStatus, 0, sizeof (newStatus));
@@ -1995,8 +2017,8 @@ static uint8_t getNoteReplayer(channel_t *ch) /* returns 1..96 */
 
 void drawPianoReplayer(chSyncData_t *chSyncData) /* draw piano with synced replayer datas */
 {
-    uint8_t i;
-    uint8_t keyDown, note, newStatus[96];
+    uint8_t i, note;
+    bool keyDown, newStatus[96];
     channel_t *ch;
 
     memset(newStatus, 0, sizeof (newStatus));
@@ -2201,7 +2223,7 @@ static void envelopeVertLine(int32_t nr, int16_t x, int16_t y, uint8_t col)
 
 static void writeEnvelope(int32_t nr)
 {
-    uint8_t selected;
+    bool selected;
     int16_t i, x, y, lx, ly, nd, sp, ls, le, (*curEnvP)[2];
     instrTyp *ins;
 
@@ -2664,7 +2686,7 @@ void toggleInstEditor(void)
     }
 }
 
-int8_t testInstrVolEnvMouseDown(uint8_t buttonDown)
+bool testInstrVolEnvMouseDown(bool mouseButtonDown)
 {
     int8_t i;
     uint8_t ant;
@@ -2683,7 +2705,7 @@ int8_t testInstrVolEnvMouseDown(uint8_t buttonDown)
     mx = mouse.x;
     my = mouse.y;
 
-    if (!buttonDown)
+    if (!mouseButtonDown)
     {
         if ((my < 189) || (my > 256) || (mx < 7) || (mx > 334))
             return (false);
@@ -2761,7 +2783,7 @@ int8_t testInstrVolEnvMouseDown(uint8_t buttonDown)
     return (true);
 }
 
-int8_t testInstrPanEnvMouseDown(uint8_t buttonDown)
+bool testInstrPanEnvMouseDown(bool mouseButtonDown)
 {
     int8_t i;
     uint8_t ant;
@@ -2780,7 +2802,7 @@ int8_t testInstrPanEnvMouseDown(uint8_t buttonDown)
     mx = mouse.x;
     my = mouse.y;
 
-    if (!buttonDown)
+    if (!mouseButtonDown)
     {
         if ((my < 277) || (my > 343) || (mx < 7) || (mx > 334))
             return (false);
@@ -2957,7 +2979,7 @@ void toggleInstEditorExt(void)
         showInstEditorExt();
 }
 
-static uint8_t testInstrSwitcherNormal(void) /* Welcome to the Jungle */
+static bool testInstrSwitcherNormal(void) /* Welcome to the Jungle */
 {
     uint8_t newEntry;
 
@@ -3046,7 +3068,7 @@ static uint8_t testInstrSwitcherNormal(void) /* Welcome to the Jungle */
     return (false);
 }
 
-static uint8_t testInstrSwitcherExtended(void) /* Welcome to the Jungle 2 - The Happening */
+static bool testInstrSwitcherExtended(void) /* Welcome to the Jungle 2 - The Happening */
 {
     uint8_t newEntry;
 
@@ -3133,7 +3155,7 @@ static uint8_t testInstrSwitcherExtended(void) /* Welcome to the Jungle 2 - The 
     return (false);
 }
 
-int8_t testInstrSwitcherMouseDown(void)
+bool testInstrSwitcherMouseDown(void)
 { 
     if (!mouse.leftButtonPressed || !editor.ui.instrSwitcherShown)
         return (false);
@@ -3246,10 +3268,10 @@ void saveInstr(UNICHAR *filenameU, int16_t nr)
     UNICHAR_STRCPY(editor.tmpFilenameU, filenameU);
 
     mouseAnimOn();
-    thread = SDL_CreateThread(saveInstrThread, "FT2 Clone Instrument Saving Thread", NULL);
+    thread = SDL_CreateThread(saveInstrThread, NULL, NULL);
     if (thread == NULL)
     {
-        okBox(0, "System message", "Error creating instrument saving thread!");
+        okBox(0, "System message", "Couldn't create thread!");
         return;
     }
 
@@ -3262,14 +3284,12 @@ static int16_t getPATNote(int32_t freq)
     double dFreq;
 
     dFreq = ((log(freq / (440.0 * 1000.0)) / M_LN2) * 12.0) + 48.0 + 9.0;
-    double2int32_round(freq, dFreq);
-
-    return ((int16_t)(freq));
+    return ((int16_t)(round(dFreq)));
 }
 
 static int32_t SDLCALL loadInstrThread(void *ptr)
 {
-    uint8_t stereoWarning;
+    bool stereoWarning;
     int16_t i, j, a, b;
     double dFreq;
     FILE *f;
@@ -3579,7 +3599,7 @@ static int32_t SDLCALL loadInstrThread(void *ptr)
 loadDone:
     fclose(f);
 
-    editor.updateLoadedInstrument = true; /* setMouseBusy(false) is called in the input/video thread when done */
+    editor.updateCurInstr = true; /* setMouseBusy(false) is called in the input/video thread when done */
 
     if (stereoWarning)
         okBoxThreadSafe(0, "System message", "The instrument contains stereo samples! They were mixed to mono.");
@@ -3587,7 +3607,7 @@ loadDone:
     return (true);
 }
 
-static uint8_t fileIsInstr(UNICHAR *filename)
+static bool fileIsInstr(UNICHAR *filename)
 {
     char header[22];
     FILE *f;
@@ -3620,10 +3640,10 @@ void loadInstr(UNICHAR *filenameU)
         /* load as instrument */
 
         mouseAnimOn();
-        thread = SDL_CreateThread(loadInstrThread, "FT2 Clone Instrument Loading Thread", NULL);
+        thread = SDL_CreateThread(loadInstrThread, NULL, NULL);
         if (thread == NULL)
         {
-            okBox(0, "System message", "Error creating instrument loading thread!");
+            okBox(0, "System message", "Couldn't create thread!");
             return;
         }
 

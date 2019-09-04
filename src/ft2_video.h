@@ -2,6 +2,7 @@
 #define __FT2_VIDEO_H
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "ft2_header.h"
 #include "ft2_palette.h"
 #include "ft2_audio.h"
@@ -25,9 +26,9 @@ enum
 
 struct video_t
 {
-    uint8_t customContrasts[2]; /* for palette */
-    uint8_t upscaleFactor, fullscreen, vsync60HzPresent;
-    int32_t renderX, renderY, renderW, renderH;
+    uint8_t upscaleFactor, customPaletteContrasts[2];
+    bool fullscreen, vsync60HzPresent;
+    int32_t renderX, renderY, renderW, renderH, displayW, displayH;
     uint32_t *frameBuffer, palette[PAL_NUM], vblankTimeLen, vblankTimeLenFrac;
     uint32_t xScaleMul, yScaleMul;
 #ifdef _WIN32
@@ -43,28 +44,28 @@ typedef struct
 {
     uint32_t *refreshBuffer;
     const uint8_t *data;
-    int8_t visible;
+    bool visible;
     int16_t newX, newY, x, y;
     uint16_t w, h;
 } sprite_t;
 
 void flipFrame(void);
 void showErrorMsgBox(const char *fmt, ...);
-void updateWindowTitle(uint8_t forceUpdate);
+void updateWindowTitle(bool forceUpdate);
 void setPalettePreset(int16_t palettePreset);
 void updatePaletteContrast(void);
 void handleScopesFromChQueue(chSyncData_t *chSyncData, uint8_t *scopeUpdateStatus);
 
-int8_t setupWindow(void);
-int8_t setupRenderer(void);
+bool setupWindow(void);
+bool setupRenderer(void);
 void closeVideo(void);
-void setLeftLoopPinState(int8_t clicked);
-void setRightLoopPinState(int8_t clicked);
+void setLeftLoopPinState(bool clicked);
+void setRightLoopPinState(bool clicked);
 int32_t getSpritePosX(uint8_t sprite);
 void eraseSprites(void);
 void renderLoopPins(void);
 void renderSprites(void);
-int8_t setupSprites(void);
+bool setupSprites(void);
 void freeSprites(void);
 void setSpritePos(uint8_t sprite, int16_t x, int16_t y);
 void changeSpriteData(uint8_t sprite, const uint8_t *data);
@@ -73,8 +74,8 @@ void handleRedrawing(void);
 void enterFullscreen(void);
 void leaveFullScreen(void);
 void toggleFullScreen(void);
-void setWindowSizeFromConfig(uint8_t updateRenderer);
-uint8_t recreateTexture(void);
+void setWindowSizeFromConfig(bool updateRenderer);
+bool recreateTexture(void);
 void setupWaitVBL(void);
 void waitVBL(void);
 

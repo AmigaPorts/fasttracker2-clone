@@ -4,6 +4,8 @@
 #endif
 
 #include <stdio.h>
+#include <stdint.h>
+#include <stdbool.h>
 #include "ft2_header.h"
 #include "ft2_audio.h"
 #include "ft2_config.h"
@@ -111,11 +113,11 @@ songS3MHeaderTyp;
 #pragma pack(pop)
 #endif
 
-static volatile uint8_t musicIsLoading, loadedFormat, moduleLoaded, moduleFailedToLoad;
-static uint8_t freqTabType, oldPlayMode, pattBuff[12288];
+static volatile uint8_t loadedFormat;
+static volatile bool linearFreqTable, musicIsLoading, moduleLoaded, moduleFailedToLoad;
+static uint8_t oldPlayMode, pattBuff[12288];
 static const uint8_t st2TempoFactor[16] = { 140, 50, 25, 15, 10, 7, 6, 4, 3, 3, 2, 2, 2, 2, 1, 1 };
 static const uint8_t stmEff[16] = { 0, 0, 11, 0, 10, 2, 1, 3, 4, 7, 0, 5 ,6, 0, 0, 0 };
-
 static SDL_Thread *thread;
 
 /* these temporarily read to, then copied to real struct if load was OK (should not need to be volatile'd) */
@@ -126,22 +128,23 @@ static songTyp songTmp;
 
 static void setupLoadedModule(void);
 static void freeTmpModule(void);
-static int8_t loadInstrHeader(FILE *f, uint16_t i);
+static bool loadInstrHeader(FILE *f, uint16_t i);
 static void checkSampleRepeat(sampleTyp *s);
-static int8_t loadInstrSample(FILE *f, uint16_t i);
+static bool loadInstrSample(FILE *f, uint16_t i);
 void unpackPatt(uint8_t *dst, uint16_t inn, uint16_t len, uint8_t antChn);
-static int8_t tmpPatternEmpty(uint16_t nr);
-static int8_t loadPatterns(FILE *f, uint16_t antPtn);
+static bool tmpPatternEmpty(uint16_t nr);
+static bool loadPatterns(FILE *f, uint16_t antPtn);
 static void setStdEnvelopeTmp(uint16_t nr, uint16_t i, uint8_t typ);
 
 /* ft2_replayer.c */
 extern const char modSig[32][5];
 extern const uint16_t amigaPeriod[12 * 8];
 
-int8_t loadMusicMOD(FILE *f, uint32_t fileLength)
+static bool loadMusicMOD(FILE *f, uint32_t fileLength)
 {
     char wavID[16];
-    uint8_t bytes[4], modIsUST, modIsFEST, modIsNT;
+    bool modIsUST, modIsFEST, modIsNT;
+    uint8_t bytes[4];
     int16_t i, j, k, ai;
     uint16_t a, b, period;
     tonTyp *ton;
@@ -635,9 +638,10 @@ static uint16_t stmTempoToBPM(uint8_t tempo)
     return (CLAMP(bpm, 32, 255));
 }
 
-int8_t loadMusicSTM(FILE *f, uint32_t fileLength)
+static bool loadMusicSTM(FILE *f, uint32_t fileLength)
 {
-    uint8_t check3xx, typ, tmp8, tempo;
+    bool check3xx;
+    uint8_t typ, tmp8, tempo;
     int16_t i, j, k, ai, ap, tmp;
     uint16_t a;
     int32_t len;
@@ -986,13 +990,13 @@ static int8_t countS3MChannels(uint16_t antPtn)
     return (++channels);
 }
 
-int8_t loadMusicS3M(FILE *f, uint32_t dataLength)
+static bool loadMusicS3M(FILE *f, uint32_t dataLength)
 {
     int8_t *tmpSmp;
-    uint8_t stereoWarn, ha[2048];
+    bool stereoWarn, check3xx, illegalUxx;
+    uint8_t ha[2048];
     uint8_t s3mLastDEff[32], s3mLastEEff[32], s3mLastFEff[32];
-    uint8_t s3mLastSEff[32], s3mLastJEff[32], s3mLastGInstr[32], typ;
-    uint8_t tmp8, check3xx, illegalUxx;
+    uint8_t s3mLastSEff[32], s3mLastJEff[32], s3mLastGInstr[32], tmp8, typ;
     int16_t i, j, k, ai, ap, ver, ii, kk, tmp;
     uint16_t ptnOfs[256];
     int32_t len;
@@ -1691,7 +1695,7 @@ static int32_t SDLCALL loadMusicThread(void *ptr)
 
     (void)(ptr);
 
-    freqTabType = 0;
+    linearFreqTable = false;
 
     if (editor.tmpFilenameU == NULL)
     {
@@ -1788,13 +1792,13 @@ static int32_t SDLCALL loadMusicThread(void *ptr)
     memcpy(songTmp.name, h.name, 20);
     songTmp.name[20] = '\0';
 
-    songTmp.len    = h.len;
-    songTmp.repS   = h.repS;
-    songTmp.antChn = (uint8_t)(h.antChn);
-    songTmp.speed  = h.defSpeed ? h.defSpeed : 125;
-    songTmp.tempo  = h.defTempo ? h.defTempo : 6;
-    songTmp.ver    = h.ver;
-    freqTabType    = h.flags & 1;
+    songTmp.len     = h.len;
+    songTmp.repS    = h.repS;
+    songTmp.antChn  = (uint8_t)(h.antChn);
+    songTmp.speed   = h.defSpeed ? h.defSpeed : 125;
+    songTmp.tempo   = h.defTempo ? h.defTempo : 6;
+    songTmp.ver     = h.ver;
+    linearFreqTable = h.flags & 1;
 
     songTmp.speed = CLAMP(songTmp.speed, 32, 255);
 
@@ -1919,11 +1923,11 @@ void loadMusic(UNICHAR *filenameU)
     for (i = 0; i < MAX_PATTERNS; ++i)
         pattLensTmp[i] = 64;
 
-    thread = SDL_CreateThread(loadMusicThread, "FT2 Clone Module Loading Thread", NULL);
+    thread = SDL_CreateThread(loadMusicThread, NULL, NULL);
     if (thread == NULL)
     {
         editor.loadMusicEvent = EVENT_NONE;
-        okBox(0, "System message", "Error creating module loading thread!");
+        okBox(0, "System message", "Couldn't create thread!");
         musicIsLoading = false;
         return;
     }
@@ -1931,7 +1935,7 @@ void loadMusic(UNICHAR *filenameU)
     SDL_DetachThread(thread);
 }
 
-int8_t loadMusicUnthreaded(UNICHAR *filenameU) /* for development testing */
+bool loadMusicUnthreaded(UNICHAR *filenameU) /* for development testing */
 {
     if (editor.tmpFilenameU == NULL)
         return (false);
@@ -1977,7 +1981,7 @@ static void freeTmpModule(void)
     }
 }
 
-static int8_t loadInstrHeader(FILE *f, uint16_t i)
+static bool loadInstrHeader(FILE *f, uint16_t i)
 {
     int8_t k;
     uint8_t j;
@@ -2097,11 +2101,11 @@ static void checkSampleRepeat(sampleTyp *s)
     if (s->repL == 0) s->typ &= ~3; /* non-FT2 fix: force loop off if looplen is 0 */
 }
 
-static int8_t loadInstrSample(FILE *f, uint16_t i)
+static bool loadInstrSample(FILE *f, uint16_t i)
 {
-    uint8_t stereoWarn;
+    bool stereoWarn;
     uint16_t j, k;
-    int32_t l;
+    int32_t l, bytesToSkip;
     sampleTyp *s;
 
     if (i >= (1 + MAX_INST))
@@ -2131,12 +2135,22 @@ static int8_t loadInstrSample(FILE *f, uint16_t i)
         }
         else
         {
+            bytesToSkip = 0;
+            if (l > MAX_SAMPLE_LEN)
+            {
+                bytesToSkip = l - MAX_SAMPLE_LEN;
+                l = MAX_SAMPLE_LEN;
+            }
+
             s->pek = (int8_t *)(malloc(l + 4));
             if (s->pek == NULL)
                 return (false);
 
             if (fread(s->pek, l, 1, f) != 1)
                 return (false);
+
+            if (bytesToSkip > 0)
+                fseek(f, bytesToSkip, SEEK_CUR);
 
             delta2Samp(s->pek, l, s->typ);
 
@@ -2228,7 +2242,7 @@ void unpackPatt(uint8_t *dst, uint16_t inn, uint16_t len, uint8_t antChn)
     }
 }
 
-static int8_t tmpPatternEmpty(uint16_t nr)
+static bool tmpPatternEmpty(uint16_t nr)
 {
     uint8_t *scanPtr;
     uint32_t i, scanLen;
@@ -2259,9 +2273,10 @@ void clearUnusedChannels(tonTyp *p, int16_t pattLen, uint8_t antChn)
     }
 }
 
-static int8_t loadPatterns(FILE *f, uint16_t antPtn)
+static bool loadPatterns(FILE *f, uint16_t antPtn)
 {
-    uint8_t pattLenWarn, tmpLen, *pattPtr;
+    bool pattLenWarn;
+    uint8_t tmpLen, *pattPtr;
     uint16_t i, a;
     patternHeaderTyp ph;
 
@@ -2491,7 +2506,7 @@ static void setupLoadedModule(void)
     editor.timer      = 1;
     editor.globalVol  = song.globVol;
 
-    setFrqTab((loadedFormat == FORMAT_XM) ? freqTabType : false);
+    setFrqTab((loadedFormat == FORMAT_XM) ? linearFreqTable : false);
     unlockMixerCallback();
 
     exitTextEditing();
@@ -2532,7 +2547,7 @@ static void setupLoadedModule(void)
     editor.loadMusicEvent = EVENT_NONE;
 }
 
-int8_t handleModuleLoadFromArg(int argc, char **argv)
+bool handleModuleLoadFromArg(int argc, char **argv)
 {
     uint32_t filenameLen;
     UNICHAR *filenameU;
@@ -2569,7 +2584,7 @@ int8_t handleModuleLoadFromArg(int argc, char **argv)
     return (true);
 }
 
-void loadDroppedFile(char *fullPathUTF8, uint8_t songModifiedCheck)
+void loadDroppedFile(char *fullPathUTF8, bool songModifiedCheck)
 {
     int32_t fullPathLen;
     UNICHAR *fullPathU;

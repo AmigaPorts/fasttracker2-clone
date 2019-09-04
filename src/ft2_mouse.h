@@ -2,6 +2,7 @@
 #define __FT2_MOUSE_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 enum
 {
@@ -15,10 +16,11 @@ enum
 
 struct mouse_t
 {
-    int8_t leftButtonPressed, rightButtonPressed, leftButtonReleased, rightButtonReleased;
-    int8_t firstTimePressingButton, buttonCounter, mode, mouseOverTextBox;
+    bool leftButtonPressed, rightButtonPressed, leftButtonReleased, rightButtonReleased;
+    bool firstTimePressingButton, mouseOverTextBox;
+    int8_t buttonCounter, mode;
     int16_t lastUsedObjectID, lastUsedObjectType, lastEditBox, x, y, lastX, lastY, xBias, yBias;
-    int32_t lastScrollX, lastScrollXTmp, lastScrollY, saveMouseX, saveMouseY;
+    int16_t lastScrollX, lastScrollXTmp, lastScrollY, saveMouseX, saveMouseY;
 } mouse;
 
 /* do not change these! */
@@ -29,11 +31,11 @@ struct mouse_t
 
 void setMouseShape(int16_t shape);
 void setMouseMode(uint8_t mode);
-void mouseWheelHandler(uint8_t directionUp);
+void mouseWheelHandler(bool directionUp);
 void mouseButtonUpHandler(uint8_t mouseButton);
 void mouseButtonDownHandler(uint8_t mouseButton);
 void updateMouseScaling(void);
-void setMouseBusy(int8_t busy); /* can be called from other threads */
+void setMouseBusy(bool busy); /* can be called from other threads */
 void mouseAnimOn(void);
 void mouseAnimOff(void);
 void animateBusyMouse(void);

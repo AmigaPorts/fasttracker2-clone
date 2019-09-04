@@ -70,7 +70,7 @@ void unstuckAllGUIElements(void) /* releases all GUI elements if they were held 
     }
 }
 
-int8_t setupGUI(void)
+bool setupGUI(void)
 {
     int16_t i;
     textBox_t *t;
@@ -81,17 +81,11 @@ int8_t setupGUI(void)
 
     /* all memory will be NULL-tested and free'd if we return false somewhere in this function */
 
-    editor.blkCopyBuff       =  (tonTyp *)(calloc(MAX_PATT_LEN * MAX_VOICES, sizeof (tonTyp)));
-    editor.ptnCopyBuff       =  (tonTyp *)(calloc(MAX_PATT_LEN * MAX_VOICES, sizeof (tonTyp)));
-    editor.trackCopyBuff     =  (tonTyp *)(calloc(MAX_PATT_LEN,              sizeof (tonTyp)));
     editor.tmpFilenameU      = (UNICHAR *)(calloc(PATH_MAX + 1,              sizeof (UNICHAR)));
     editor.tmpInstrFilenameU = (UNICHAR *)(calloc(PATH_MAX + 1,              sizeof (UNICHAR)));
 
-    if ((editor.blkCopyBuff  == NULL) || (editor.ptnCopyBuff       == NULL) || (editor.trackCopyBuff == NULL) ||
-        (editor.tmpFilenameU == NULL) || (editor.tmpInstrFilenameU == NULL))
-    {
+    if ((editor.tmpFilenameU == NULL) || (editor.tmpInstrFilenameU == NULL))
         goto oom;
-    }
 
     /* set uninitialized GUI struct entries */
 
@@ -668,7 +662,7 @@ void clearRect(uint16_t xPos, uint16_t yPos, uint16_t w, uint16_t h)
 
     assert((xPos < SCREEN_W) && (yPos < SCREEN_H) && ((xPos + w) <= SCREEN_W) && ((yPos + h) <= SCREEN_H));
 
-    fillNumDwords = w * sizeof (uint32_t);
+    fillNumDwords = w * sizeof (int32_t);
 
     dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
     for (y = 0; y < h; ++y)
@@ -878,7 +872,7 @@ void drawFramework(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint8_t type)
 
 /* GUI FUNCTIONS */
 
-void showTopLeftMainScreen(uint8_t restoreScreens)
+void showTopLeftMainScreen(bool restoreScreens)
 {
     editor.ui.diskOpShown          = false;
     editor.ui.sampleEditorExtShown = false;
@@ -1146,7 +1140,7 @@ void hideTopScreen(void)
     editor.ui.scopesShown = false;
 }
 
-void showTopScreen(uint8_t restoreScreens)
+void showTopScreen(bool restoreScreens)
 {
     editor.ui.scopesShown = false;
 

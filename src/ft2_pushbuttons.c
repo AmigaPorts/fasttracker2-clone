@@ -3,6 +3,8 @@
 #include <crtdbg.h>
 #endif
 
+#include <stdio.h>
+#include <stdbool.h>
 #include "ft2_header.h"
 #include "ft2_gui.h"
 #include "ft2_about.h"
@@ -555,7 +557,7 @@ void handlePushButtonsWhileMouseDown(void)
     }
 }
 
-int8_t testPushButtonMouseDown(void)
+bool testPushButtonMouseDown(void)
 {
     uint16_t i, start, end;
     pushButton_t *pushButton;
@@ -605,7 +607,7 @@ int8_t testPushButtonMouseDown(void)
     return (false);
 }
 
-int16_t testPushButtonMouseRelease(uint8_t runCallback)
+int16_t testPushButtonMouseRelease(bool runCallback)
 {
     pushButton_t *pushButton;
 

@@ -2,6 +2,7 @@
 #define __FT2_SAMPLE_SAVER_H
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "ft2_unicode.h"
 
 enum
@@ -10,6 +11,6 @@ enum
     SAVE_RANGE  = 1
 };
 
-void saveSample(UNICHAR *filenameU, uint8_t saveAsRange);
+void saveSample(UNICHAR *filenameU, bool saveAsRange);
 
 #endif

@@ -2,6 +2,7 @@
 #define __FT2_CHECKBOXES_H
 
 #include <stdint.h>
+#include <stdbool.h>
 
 enum /* CHECKBOXES */
 {
@@ -111,14 +112,15 @@ typedef struct checkBox_t /* DO NOT TOUCH!!! */
     uint16_t x, y, clickAreaWidth, clickAreaHeight;
     void (*callbackFunc)(void);
 
-    uint8_t state, checked, visible;
+    uint8_t state;
+    bool checked, visible;
 } checkBox_t;
 
 void drawCheckBox(uint16_t checkBoxID);
 void showCheckBox(uint16_t checkBoxID);
 void hideCheckBox(uint16_t checkBoxID);
 void handleCheckBoxesWhileMouseDown(void);
-int8_t testCheckBoxMouseDown(void);
+bool testCheckBoxMouseDown(void);
 void testCheckBoxMouseRelease(void);
 
 #endif

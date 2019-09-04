@@ -62,14 +62,15 @@ enum
 typedef struct DirRec
 {
     UNICHAR *nameU;
-    uint8_t isDir;
+    bool isDir;
     int32_t filesize;
 } DirRec;
 
 static char FReq_SysReqText[196], *FReq_FileName, *FReq_NameTemp;
 static char *modTmpFName, *insTmpFName, *smpTmpFName, *patTmpFName, *trkTmpFName;
 static char *modTmpFNameUTF8; /* for window title */
-static uint8_t FReq_ShowAllFiles, FReq_Item;
+static uint8_t FReq_Item;
+static bool FReq_ShowAllFiles;
 static int32_t FReq_EntrySelected = -1, FReq_FileCount, FReq_DirPos, lastMouseY;
 static UNICHAR *FReq_CurPathU, *FReq_ModCurPathU, *FReq_InsCurPathU, *FReq_SmpCurPathU, *FReq_PatCurPathU, *FReq_TrkCurPathU;
 static DirRec *FReq_Buffer;
@@ -213,7 +214,7 @@ void freeDiskOp(void)
     freeDirRecBuffer();
 }
 
-int8_t setupDiskOp(void)
+bool setupDiskOp(void)
 {
     modTmpFName      =    (char *)(calloc(PATH_MAX + 1, sizeof (char)));
     insTmpFName      =    (char *)(calloc(PATH_MAX + 1, sizeof (char)));
@@ -288,7 +289,7 @@ static void removeQuestionMarksFromString(char *s)
 
 #ifdef _WIN32 /* WINDOWS SPECIFIC FILE OPERATION ROUTINES */
 
-int32_t fileExistsAnsi(char *str)
+bool fileExistsAnsi(char *str)
 {
     int32_t retVal;
     UNICHAR *strU;
@@ -303,7 +304,7 @@ int32_t fileExistsAnsi(char *str)
     return (retVal);
 }
 
-static uint8_t deleteDirRecursive(UNICHAR *strU)
+static bool deleteDirRecursive(UNICHAR *strU)
 {
     SHFILEOPSTRUCTW shfo;
 
@@ -315,7 +316,7 @@ static uint8_t deleteDirRecursive(UNICHAR *strU)
     return (SHFileOperationW(&shfo) == 0);
 }
 
-static uint8_t makeDirAnsi(char *str)
+static bool makeDirAnsi(char *str)
 {
     int32_t retVal;
     UNICHAR *strU;
@@ -330,7 +331,7 @@ static uint8_t makeDirAnsi(char *str)
     return (retVal == 0);
 }
 
-static uint8_t renameAnsi(UNICHAR *oldNameU, char *newName)
+static bool renameAnsi(UNICHAR *oldNameU, char *newName)
 {
     int32_t retVal;
     UNICHAR *newNameU;
@@ -400,7 +401,7 @@ static void openDrive(char *str) /* Windows only */
 
 #else /* NON-WINDOWS SPECIFIC FILE OPERATION ROUTINES */
 
-int32_t fileExistsAnsi(char *str)
+bool fileExistsAnsi(char *str)
 {
     int32_t retVal;
     UNICHAR *strU;
@@ -415,7 +416,7 @@ int32_t fileExistsAnsi(char *str)
     return (retVal != -1);
 }
 
-static uint8_t deleteDirRecursive(UNICHAR *strU)
+static bool deleteDirRecursive(UNICHAR *strU)
 {
     int32_t ret;
     FTS *ftsp;
@@ -465,7 +466,7 @@ static uint8_t deleteDirRecursive(UNICHAR *strU)
     return (ret);
 }
 
-static uint8_t makeDirAnsi(char *str)
+static bool makeDirAnsi(char *str)
 {
     int32_t retVal;
     UNICHAR *strU;
@@ -480,7 +481,7 @@ static uint8_t makeDirAnsi(char *str)
     return (retVal == 0);
 }
 
-static uint8_t renameAnsi(UNICHAR *oldNameU, char *newName)
+static bool renameAnsi(UNICHAR *oldNameU, char *newName)
 {
     int32_t retVal;
     UNICHAR *newNameU;
@@ -510,7 +511,7 @@ static void openDirectory(UNICHAR *strU)
         editor.diskOpReadDir = true;
 }
 
-int8_t diskOpGoParent(void)
+bool diskOpGoParent(void)
 {
     if (chdir("..") == 0)
     {
@@ -626,7 +627,7 @@ void diskOpSetFilename(uint8_t type, UNICHAR *pathU)
         drawTextBox(TB_DISKOP_FILENAME);
 }
 
-static void openFile(UNICHAR *filenameU, uint8_t songModifiedCheck)
+static void openFile(UNICHAR *filenameU, bool songModifiedCheck)
 {
     FILE *f;
 
@@ -709,7 +710,7 @@ void diskOpChangeFilenameExt(char *ext)
         diskOp_DrawDirectory();
 }
 
-void trimEntryName(char *name, uint8_t isDir)
+void trimEntryName(char *name, bool isDir)
 {
     char extBuffer[24];
     int32_t j, extOffset, extLen;
@@ -774,7 +775,7 @@ static void createOverwriteText(char *name)
     sprintf(FReq_SysReqText, "Overwrite file \"%s\"?", nameTmp);
 }
 
-static void diskOpSave(uint8_t checkOverwrite)
+static void diskOpSave(bool checkOverwrite)
 {
     UNICHAR *fileNameU;
 
@@ -941,7 +942,7 @@ static void diskOpSave(uint8_t checkOverwrite)
 
 void pbDiskOpSave(void)
 {
-    diskOpSave(config.cfg_OverwriteWarning); /* check if about to overwrite */
+    diskOpSave(config.cfg_OverwriteWarning ? true : false); /* check if about to overwrite */
 }
 
 static void fileListPressed(int32_t index)
@@ -1061,7 +1062,7 @@ static void fileListPressed(int32_t index)
     }
 }
 
-int8_t testDiskOpMouseDown(uint8_t mouseHeldDlown)
+bool testDiskOpMouseDown(bool mouseHeldDlown)
 {
     int32_t tmpEntry, max;
 
@@ -1140,7 +1141,7 @@ void testDiskOpMouseRelease(void)
     }
 }
 
-static uint8_t handleEntrySkip(UNICHAR *nameU, uint8_t isDir)
+static uint8_t handleEntrySkip(UNICHAR *nameU, bool isDir)
 {
     char *name, *extPtr;
     int32_t nameLen, extOffset, extLen;
@@ -1495,7 +1496,7 @@ static void findClose(void)
     }
 }
 
-static int8_t swapBufferEntry(int32_t a, int32_t b) /* used for sorting */
+static bool swapBufferEntry(int32_t a, int32_t b) /* used for sorting */
 {
     DirRec tmpBuffer;
 
@@ -1915,11 +1916,11 @@ void startDiskOpFillThread(void)
      editor.diskOpReadDone = false;
 
      mouseAnimOn();
-     thread = SDL_CreateThread(diskOp_ReadDirectoryThread, "FT2 Clone Disk Op. Fill Thread", NULL);
+     thread = SDL_CreateThread(diskOp_ReadDirectoryThread, NULL, NULL);
      if (thread == NULL)
      {
         editor.diskOpReadDone = true;
-        okBox(0, "System message", "Couldn't create directory reading thread!");
+        okBox(0, "System message", "Couldn't create thread!");
         return;
      }
 

@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include "ft2_header.h"
 #include "ft2_gui.h"
 #include "ft2_pattern_ed.h"
@@ -153,7 +154,7 @@ void exitWavRenderer(void)
     hideWavRenderer();
 }
 
-static uint8_t dump_Init(uint32_t frq, int16_t amp, int16_t songPos)
+static bool dump_Init(uint32_t frq, int16_t amp, int16_t songPos)
 {
     uint8_t i, oldMuteFlags[MAX_VOICES];
 
@@ -251,9 +252,9 @@ static void dump_Close(FILE *f, uint32_t totalSamples)
     setMouseBusy(false);
 }
 
-static uint8_t dump_EndOfTune(int16_t endSongPos) /* exactly the same as in real FT2 */
+static bool dump_EndOfTune(int16_t endSongPos) /* exactly the same as in real FT2 */
 {
-    uint8_t returnValue = (editor.wavReachedEndFlag && (song.pattPos == 0) && (song.timer == 1)) || (song.tempo == 0);
+    bool returnValue = (editor.wavReachedEndFlag && (song.pattPos == 0) && (song.timer == 1)) || (song.tempo == 0);
 
     if ((song.songPos == endSongPos) && (song.pattPos == 0) && (song.timer == 1))
         editor.wavReachedEndFlag = true;
@@ -291,12 +292,13 @@ static void updateVisuals(void)
     editor.ui.drawBPMFlag           = true;
     editor.ui.drawSpeedFlag         = true;
     editor.ui.drawGlobVolFlag       = true;
-    editor.ui.updatePatternEditor      = true;
+    editor.ui.updatePatternEditor   = true;
 }
 
 static int32_t SDLCALL renderWavThread(void *ptr)
 {
-    uint8_t *ptr8, renderDone, loopCounter;
+    bool renderDone;
+    uint8_t *ptr8, loopCounter;
     uint32_t i, samplesInChunk, tickSamples, sampleCounter; 
     FILE *f;
 
@@ -385,7 +387,7 @@ static void createOverwriteText(char *name)
     sprintf(WAV_SysReqText, "Overwrite file \"%s\"?", nameTmp);
 }
 
-void wavRender(uint8_t checkOverwrite)
+static void wavRender(bool checkOverwrite)
 {
     char *filename;
 
@@ -412,11 +414,11 @@ void wavRender(uint8_t checkOverwrite)
     }
 
     mouseAnimOn();
-    thread = SDL_CreateThread(renderWavThread, "FT2 Clone Wav Renderer Thread", NULL);
+    thread = SDL_CreateThread(renderWavThread, NULL, NULL);
     if (thread == NULL)
     {
         fclose((FILE *)(editor.wavRendererFileHandle));
-        okBox(0, "System message", "Couldn't create WAV rendering thread!");
+        okBox(0, "System message", "Couldn't create thread!");
         return;
     }
 
@@ -426,7 +428,7 @@ void wavRender(uint8_t checkOverwrite)
 
 void pbWavRender(void)
 {
-    wavRender(config.cfg_OverwriteWarning);
+    wavRender(config.cfg_OverwriteWarning ? true : false);
 }
 
 void pbWavExit(void)

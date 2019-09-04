@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <math.h>
 #include "ft2_header.h"
 #include "ft2_gui.h"
@@ -24,9 +25,10 @@ enum
     WAV_FORMAT_IEEE_FLOAT = 0x0003
 };
 
-static volatile uint8_t sampleIsLoading;
+static volatile bool sampleIsLoading;
+static bool loadAsInstrFlag;
+static uint8_t sampleSlot;
 static int16_t stereoSampleLoadMode;
-static uint8_t sampleSlot, loadAsInstrFlag;
 static SDL_Thread *thread;
 
 static void normalize32bitSigned(int32_t *sampleData, uint32_t sampleLength);
@@ -59,9 +61,9 @@ static double aiffRateToDouble(uint8_t *in)
     return (neg ? -dOut : dOut);
 }
 
-static int8_t aiffIsStereo(FILE *f) /* only ran on files that are confirmed to be AIFFs */
+static bool aiffIsStereo(FILE *f) /* only ran on files that are confirmed to be AIFFs */
 {
-    int8_t stereoFlag;
+    bool stereoFlag;
     uint16_t numChannels;
     int32_t bytesRead, endOfChunk, filesize;
     uint32_t chunkID, chunkSize, commPtr, commLen;
@@ -122,9 +124,9 @@ static int8_t aiffIsStereo(FILE *f) /* only ran on files that are confirmed to b
     return (stereoFlag);
 }
 
-static int8_t wavIsStereo(FILE *f) /* only ran on files that are confirmed to be WAVs */
+static bool wavIsStereo(FILE *f) /* only ran on files that are confirmed to be WAVs */
 {
-    int8_t stereoFlag;
+    bool stereoFlag;
     uint16_t numChannels;
     int32_t bytesRead, endOfChunk, filesize;
     uint32_t chunkID, chunkSize, fmtPtr, fmtLen;
@@ -189,14 +191,14 @@ static int8_t wavIsStereo(FILE *f) /* only ran on files that are confirmed to be
 static int32_t SDLCALL loadAIFFSample(void *ptr)
 {
     char *tmpFilename, *tmpPtr, compType[4];
-    uint8_t is16Bit, sampleRateBytes[10], *audioDataU8;
+    bool is16Bit;
+    uint8_t sampleRateBytes[10], *audioDataU8;
     int16_t *audioDataS16, smp16;
     uint16_t numChannels, bitDepth;
     int32_t j, filesize, smp32, *audioDataS32;
     uint32_t i, filenameLen, sampleRate, sampleLength, blockName, blockSize;
-    uint32_t commPtr, commLen, ssndPtr, ssndLen, offset;
+    uint32_t commPtr, commLen, ssndPtr, ssndLen, offset, len32;
     int64_t smp64;
-    double dRate;
     FILE *f;
     UNICHAR *filename;
     sampleTyp tmpSmp, *s;
@@ -306,8 +308,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
         }
     }
 
-    dRate = aiffRateToDouble(sampleRateBytes);
-    double2int32_round(sampleRate, dRate);
+    sampleRate = (int32_t)(round(aiffRateToDouble(sampleRateBytes)));
 
     /* sample data chunk */
 
@@ -328,7 +329,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
     if (sampleLength > MAX_SAMPLE_LEN)
         sampleLength = MAX_SAMPLE_LEN;
 
-    is16Bit = (bitDepth > 8);
+    is16Bit = bitDepth > 8;
 
     tmpSmp.pek = NULL;
     freeSample(&tmpSmp);
@@ -367,7 +368,8 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 
                 case STEREO_SAMPLE_READ_RIGHT:
                 {
-                    for (i = 0; i < (sampleLength - 1); i++)
+                    len32 = sampleLength - 1;
+                    for (i = 0; i < len32; i++)
                         tmpSmp.pek[i] = tmpSmp.pek[(i * 2) + 1];
 
                     tmpSmp.pek[i] = 0;
@@ -377,7 +379,8 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
                 default:
                 case STEREO_SAMPLE_CONVERT:
                 {
-                    for (i = 0; i < (sampleLength - 1); i++)
+                    len32 = sampleLength - 1;
+                    for (i = 0; i < len32; i++)
                     {
                         smp16 = tmpSmp.pek[(i * 2) + 0] + tmpSmp.pek[(i * 2) + 1];
                         tmpSmp.pek[i] = (int8_t)(smp16 >> 1);
@@ -416,7 +419,9 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 
         /* fix endianness */
         audioDataS16 = (int16_t *)(tmpSmp.pek);
-        for (i = 0; i < (sampleLength / 2); ++i)
+        len32 = sampleLength / 2;
+
+        for (i = 0; i < len32; ++i)
             audioDataS16[i] = SWAP16(audioDataS16[i]);
 
         if (numChannels == 2)
@@ -428,7 +433,9 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
                 case STEREO_SAMPLE_READ_LEFT:
                 {
                     audioDataS16 = (int16_t *)(tmpSmp.pek);
-                    for (i = 1; i < (sampleLength / 2); i++)
+                    len32 = sampleLength / 2;
+
+                    for (i = 1; i < len32; i++)
                         audioDataS16[i] = audioDataS16[(i * 2) + 0];
                 }
                 break;
@@ -436,7 +443,9 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
                 case STEREO_SAMPLE_READ_RIGHT:
                 {
                     audioDataS16 = (int16_t *)(tmpSmp.pek);
-                    for (i = 0; i < ((sampleLength / 2) - 1); i++)
+                    len32 = (sampleLength / 2) - 1;
+
+                    for (i = 0; i < len32; i++)
                         audioDataS16[i] = audioDataS16[(i * 2) + 1];
 
                     audioDataS16[i] = 0;
@@ -447,7 +456,9 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
                 case STEREO_SAMPLE_CONVERT:
                 {
                     audioDataS16 = (int16_t *)(tmpSmp.pek);
-                    for (i = 0; i < ((sampleLength / 2) - 1); i++)
+                    len32 = (sampleLength / 2) - 1;
+
+                    for (i = 0; i < len32; i++)
                     {
                         smp32 = audioDataS16[(i * 2) + 0] + audioDataS16[(i * 2) + 1];
                         audioDataS16[i] = (int16_t)(smp32 >> 1);
@@ -484,7 +495,9 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 
         /* read sample data */
         audioDataU8 = (uint8_t *)(tmpSmp.pek);
-        for (i = 0; i < (sampleLength / 4); i++)
+        len32 = sampleLength / 4;
+
+        for (i = 0; i < len32; i++)
         {
             fread(audioDataU8, 3, 1, f);
             audioDataU8[3] = 0;
@@ -494,7 +507,9 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 
         /* fix endianness */
         audioDataS32 = (int32_t *)(tmpSmp.pek);
-        for (i = 0; i < (sampleLength / 4); ++i)
+        len32 = sampleLength / 4;
+
+        for (i = 0; i < len32; ++i)
             audioDataS32[i] = SWAP32(audioDataS32[i]);
 
         if (numChannels == 2)
@@ -506,7 +521,9 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
                 case STEREO_SAMPLE_READ_LEFT:
                 {
                     audioDataS32 = (int32_t *)(tmpSmp.pek);
-                    for (i = 1; i < (sampleLength / 4); i++)
+                    len32 = sampleLength / 4;
+
+                    for (i = 1; i < len32; i++)
                         audioDataS32[i] = audioDataS32[(i * 2) + 0];
                 }
                 break;
@@ -514,7 +531,9 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
                 case STEREO_SAMPLE_READ_RIGHT:
                 {
                     audioDataS32 = (int32_t *)(tmpSmp.pek);
-                    for (i = 0; i < ((sampleLength / 4) - 1); i++)
+                    len32 = (sampleLength / 4) - 1;
+
+                    for (i = 0; i < len32; i++)
                         audioDataS32[i] = audioDataS32[(i * 2) + 1];
 
                     audioDataS32[i] = 0;
@@ -525,7 +544,9 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
                 case STEREO_SAMPLE_CONVERT:
                 {
                     audioDataS32 = (int32_t *)(tmpSmp.pek);
-                    for (i = 0; i < ((sampleLength / 4) - 1); i++)
+                    len32 = (sampleLength / 4) - 1;
+
+                    for (i = 0; i < len32; i++)
                     {
                         smp64   = audioDataS32[(i * 2) + 0];
                         smp64  += audioDataS32[(i * 2) + 1];
@@ -546,8 +567,9 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 
         audioDataS16 = (int16_t *)(tmpSmp.pek);
         audioDataS32 = (int32_t *)(tmpSmp.pek);
+        len32 = sampleLength / 4;
 
-        for (i = 0; i < (sampleLength / 4); ++i)
+        for (i = 0; i < len32; ++i)
             audioDataS16[i] = (int16_t)(audioDataS32[i] >> 8);
 
         sampleLength /= 2;
@@ -580,7 +602,9 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 
         /* fix endianness */
         audioDataS32 = (int32_t *)(tmpSmp.pek);
-        for (i = 0; i < (sampleLength / 4); ++i)
+        len32 = sampleLength / 4;
+
+        for (i = 0; i < len32; ++i)
             audioDataS32[i] = SWAP32(audioDataS32[i]);
 
         if (numChannels == 2)
@@ -592,7 +616,9 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
                 case STEREO_SAMPLE_READ_LEFT:
                 {
                     audioDataS32 = (int32_t *)(tmpSmp.pek);
-                    for (i = 1; i < (sampleLength / 4); i++)
+                    len32 = sampleLength / 4;
+
+                    for (i = 1; i < len32; i++)
                         audioDataS32[i] = audioDataS32[(i * 2) + 0];
                 }
                 break;
@@ -600,7 +626,9 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
                 case STEREO_SAMPLE_READ_RIGHT:
                 {
                     audioDataS32 = (int32_t *)(tmpSmp.pek);
-                    for (i = 0; i < ((sampleLength / 4) - 1); i++)
+                    len32 = (sampleLength / 4) - 1;
+
+                    for (i = 0; i < len32; i++)
                         audioDataS32[i] = audioDataS32[(i * 2) + 1];
 
                     audioDataS32[i] = 0;
@@ -611,7 +639,9 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
                 case STEREO_SAMPLE_CONVERT:
                 {
                     audioDataS32 = (int32_t *)(tmpSmp.pek);
-                    for (i = 0; i < ((sampleLength / 4) - 1); i++)
+                    len32 = (sampleLength / 4) - 1;
+
+                    for (i = 0; i < len32; i++)
                     {
                         smp64   = audioDataS32[(i * 2) + 0];
                         smp64  += audioDataS32[(i * 2) + 1];
@@ -632,8 +662,9 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 
         audioDataS16 = (int16_t *)(tmpSmp.pek);
         audioDataS32 = (int32_t *)(tmpSmp.pek);
+        len32 = sampleLength / 4;
 
-        for (i = 0; i < (sampleLength / 4); ++i)
+        for (i = 0; i < len32; ++i)
             audioDataS16[i] = (int16_t)(audioDataS32[i] >> 16);
 
         sampleLength /= 2;
@@ -706,7 +737,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
     stereoSampleLoadMode = -1;
 
     /* also sets mouse busy to false when done */
-    editor.updateLoadedSample = true;
+    editor.updateCurSmp = true;
 
     (void)(ptr); /* prevent compiler warning */
     return (true);
@@ -724,7 +755,8 @@ aiffLoadError:
 static int32_t SDLCALL loadIFFSample(void *ptr)
 {
     char *tmpFilename, *tmpPtr, hdr[4 + 1];
-    uint8_t i, is16Bit;
+    bool is16Bit;
+    uint8_t i;
     uint16_t sampleRate;
     int32_t j, filesize;
     uint32_t filenameLen, sampleVol, sampleLength, sampleLoopStart, sampleLoopLength, blockName, blockSize;
@@ -840,7 +872,9 @@ static int32_t SDLCALL loadIFFSample(void *ptr)
     }
 
     fread(&sampleVol, 4, 1, f); sampleVol = SWAP32(sampleVol);
-    if (sampleVol > 65536) sampleVol = 65536;
+    if (sampleVol > 65536)
+        sampleVol = 65536;
+
     sampleVol = (uint32_t)(round(sampleVol / 1024.0));
 
     sampleLength = bodyLen;
@@ -969,7 +1003,7 @@ static int32_t SDLCALL loadIFFSample(void *ptr)
     stereoSampleLoadMode = -1;
 
     /* also sets mouse busy to false when done */
-    editor.updateLoadedSample = true;
+    editor.updateCurSmp = true;
 
     return (true);
 
@@ -1089,7 +1123,7 @@ static int32_t SDLCALL loadRawSample(void *ptr)
     stereoSampleLoadMode = -1;
 
     /* also sets mouse busy to false when done */
-    editor.updateLoadedSample = true;
+    editor.updateCurSmp = true;
 
     return (true);
 
@@ -1114,7 +1148,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
     int32_t j, *audioDataS32, smp32;
     uint32_t filenameLen, i, *audioDataU32, sampleRate, chunkID, chunkSize, sampleLength, filesize;
     uint32_t numLoops, loopType, loopStart, loopEnd, bytesRead, endOfChunk, dataPtr, dataLen, fmtPtr;
-    uint32_t fmtLen, inamPtr, inamLen, smplPtr, smplLen, xtraPtr, xtraLen, xtraFlags;
+    uint32_t fmtLen, inamPtr, inamLen, smplPtr, smplLen, xtraPtr, xtraLen, xtraFlags, len32;
     int64_t smp64;
     float fSmp, *fAudioDataFloat;
     double *dAudioDataDouble, dSmp;
@@ -1328,7 +1362,8 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
                 case STEREO_SAMPLE_READ_RIGHT:
                 {
                     /* remove left channel data */
-                    for (i = 0; i < (sampleLength - 1); i++)
+                    len32 = sampleLength - 1;
+                    for (i = 0; i < len32; i++)
                         audioDataU8[i] = audioDataU8[(i * 2) + 1];
 
                     audioDataU8[i] = 0;
@@ -1339,7 +1374,8 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
                 case STEREO_SAMPLE_CONVERT:
                 {
                     /* mix stereo to mono */
-                    for (i = 0; i < (sampleLength - 1); i++)
+                    len32 = sampleLength - 1;
+                    for (i = 0; i < len32; i++)
                         audioDataU8[i] = (audioDataU8[(i * 2) + 0] + audioDataU8[(i * 2) + 1]) >> 1;
 
                     audioDataU8[i] = 0;
@@ -1394,7 +1430,8 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
                 case STEREO_SAMPLE_READ_RIGHT:
                 {
                     /* remove left channel data */
-                    for (i = 0; i < (sampleLength - 1); i++)
+                    len32 = sampleLength - 1;
+                    for (i = 0; i < len32; i++)
                         audioDataS16[i] = audioDataS16[(i * 2) + 1];
 
                     audioDataS16[i] = 0;
@@ -1405,7 +1442,8 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
                 case STEREO_SAMPLE_CONVERT:
                 {
                     /* mix stereo to mono */
-                    for (i = 0; i < (sampleLength - 1); i++)
+                    len32 = sampleLength - 1;
+                    for (i = 0; i < len32; i++)
                     {
                         smp32 = audioDataS16[(i * 2) + 0] + audioDataS16[(i * 2) + 1];
                         audioDataS16[i] = (int16_t)(smp32 >> 1);
@@ -1469,7 +1507,8 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
                 case STEREO_SAMPLE_READ_RIGHT:
                 {
                     /* remove left channel data */
-                    for (i = 0; i < (sampleLength - 1); i++)
+                    len32 = sampleLength - 1;
+                    for (i = 0; i < len32; i++)
                         audioDataS32[i] = audioDataS32[(i * 2) + 1];
 
                     audioDataS32[i] = 0;
@@ -1480,7 +1519,8 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
                 case STEREO_SAMPLE_CONVERT:
                 {
                     /* mix stereo to mono */
-                    for (i = 0; i < (sampleLength - 1); i++)
+                    len32 = sampleLength - 1;
+                    for (i = 0; i < len32; i++)
                     {
                         smp64   = audioDataS32[(i * 2) + 0];
                         smp64  += audioDataS32[(i * 2) + 1];
@@ -1511,7 +1551,9 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
         tmpSmp.typ |= 16; /* 16-bit */
 
         ptr16 = (int16_t *)(tmpSmp.pek);
-        for (i = 0; i < (sampleLength / 2); ++i)
+        len32 = sampleLength / 2;
+
+        for (i = 0; i < len32; ++i)
             ptr16[i] = (int16_t)(audioDataS32[i] >> 8);
 
         free(audioDataS32);
@@ -1548,7 +1590,8 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
                 case STEREO_SAMPLE_READ_RIGHT:
                 {
                     /* remove left channel data */
-                    for (i = 0; i < (sampleLength - 1); i++)
+                    len32 = sampleLength - 1;
+                    for (i = 0; i < len32; i++)
                         audioDataS32[i] = audioDataS32[(i * 2) + 1];
 
                     audioDataS32[i] = 0;
@@ -1559,7 +1602,8 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
                 case STEREO_SAMPLE_CONVERT:
                 {
                     /* mix stereo to mono */
-                    for (i = 0; i < (sampleLength - 1); i++)
+                    len32 = sampleLength - 1;
+                    for (i = 0; i < len32; i++)
                     {
                         smp64   = audioDataS32[(i * 2) + 0];
                         smp64  += audioDataS32[(i * 2) + 1];
@@ -1592,7 +1636,9 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
         tmpSmp.typ |= 16; /* 16-bit */
 
         ptr16 = (int16_t *)(tmpSmp.pek);
-        for (i = 0; i < (sampleLength / 2); ++i)
+        len32 = sampleLength / 2;
+
+        for (i = 0; i < len32; ++i)
             ptr16[i] = (int16_t)(audioDataS32[i] >> 16);
     }
     else if ((audioFormat == WAV_FORMAT_IEEE_FLOAT) && (bitsPerSample == 32)) /* 32-BIT FLOATING POINT SAMPLE */
@@ -1628,7 +1674,8 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
                 case STEREO_SAMPLE_READ_RIGHT:
                 {
                     /* remove left channel data */
-                    for (i = 0; i < (sampleLength - 1); i++)
+                    len32 = sampleLength - 1;
+                    for (i = 0; i < len32; i++)
                         fAudioDataFloat[i] = fAudioDataFloat[(i * 2) + 1];
 
                     fAudioDataFloat[i] = 0.0f;
@@ -1639,7 +1686,8 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
                 case STEREO_SAMPLE_CONVERT:
                 {
                     /* mix stereo to mono */
-                    for (i = 0; i < (sampleLength - 1); i++)
+                    len32 = sampleLength - 1;
+                    for (i = 0; i < len32; i++)
                         fAudioDataFloat[i] = (fAudioDataFloat[(i * 2) + 0] + fAudioDataFloat[(i * 2) + 1]) / 2.0f;
 
                     fAudioDataFloat[i] = 0.0f;
@@ -1664,12 +1712,26 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
         tmpSmp.typ |= 16; /* 16-bit */
 
         ptr16 = (int16_t *)(tmpSmp.pek);
-        for (i = 0; i < (sampleLength / 2); ++i)
+        len32 = sampleLength / 2;
+
+        if (cpu.hasSSE)
         {
-            fSmp = fAudioDataFloat[i];
-            float2int32_round(smp32, fSmp);
-            CLAMP16(smp32);
-            ptr16[i] = (int16_t)(smp32);
+            for (i = 0; i < len32; ++i)
+            {
+                fSmp = fAudioDataFloat[i];
+                sse_float2int32_round(smp32, fSmp);
+                CLAMP16(smp32);
+                ptr16[i] = (int16_t)(smp32);
+            }
+        }
+        else
+        {
+            for (i = 0; i < len32; ++i)
+            {
+                smp32 = (int32_t)(roundf(fAudioDataFloat[i]));
+                CLAMP16(smp32);
+                ptr16[i] = (int16_t)(smp32);
+            }
         }
     }
     else if ((audioFormat == WAV_FORMAT_IEEE_FLOAT) && (bitsPerSample == 64)) /* 64-BIT FLOATING POINT SAMPLE */
@@ -1703,7 +1765,8 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
                 case STEREO_SAMPLE_READ_RIGHT:
                 {
                     /* remove left channel data */
-                    for (i = 0; i < (sampleLength - 1); i++)
+                    len32 = sampleLength - 1;
+                    for (i = 0; i < len32; i++)
                         dAudioDataDouble[i] = dAudioDataDouble[(i * 2) + 1];
 
                     dAudioDataDouble[i] = 0.0;
@@ -1714,7 +1777,8 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
                 case STEREO_SAMPLE_CONVERT:
                 {
                     /* mix stereo to mono */
-                    for (i = 0; i < (sampleLength - 1); i++)
+                    len32 = sampleLength - 1;
+                    for (i = 0; i < len32; i++)
                         dAudioDataDouble[i] = (dAudioDataDouble[(i * 2) + 0] + dAudioDataDouble[(i * 2) + 1]) / 2.0;
 
                     dAudioDataDouble[i] = 0.0;
@@ -1739,12 +1803,26 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
         tmpSmp.typ |= 16; /* 16-bit */
 
         ptr16 = (int16_t *)(tmpSmp.pek);
-        for (i = 0; i < (sampleLength / 2); ++i)
+        len32 = sampleLength / 2;
+
+        if (cpu.hasSSE2)
         {
-            dSmp = dAudioDataDouble[i];
-            double2int32_round(smp32, dSmp);
-            CLAMP16(smp32);
-            ptr16[i] = (int16_t)(smp32);
+            for (i = 0; i < len32; ++i)
+            {
+                dSmp = dAudioDataDouble[i];
+                sse2_double2int32_round(smp32, dSmp);
+                CLAMP16(smp32);
+                ptr16[i] = (int16_t)(smp32);
+            }
+        }
+        else
+        {
+            for (i = 0; i < len32; ++i)
+            {
+                smp32 = (int32_t)(round(dAudioDataDouble[i]));
+                CLAMP16(smp32);
+                ptr16[i] = (int16_t)(smp32);
+            }
         }
     }
 
@@ -1892,7 +1970,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
     stereoSampleLoadMode = -1;
 
     /* also sets mouse busy to false when done */
-    editor.updateLoadedSample = true;
+    editor.updateCurSmp = true;
 
     (void)(ptr); /* prevent compiler warning */
     return (true);
@@ -1913,7 +1991,7 @@ wavLoadError:
     return (false);
 }
 
-int8_t loadSample(UNICHAR *filenameU, uint8_t smpNr, uint8_t instrFlag)
+bool loadSample(UNICHAR *filenameU, uint8_t smpNr, bool instrFlag)
 {
     char tmpBuffer[16 + 1];
     FILE *f;
@@ -1959,10 +2037,10 @@ int8_t loadSample(UNICHAR *filenameU, uint8_t smpNr, uint8_t instrFlag)
             UNICHAR_STRCPY(editor.tmpFilenameU, filenameU);
 
             mouseAnimOn();
-            thread = SDL_CreateThread(loadWAVSample, "FT2 Clone Sample Loading Thread", NULL);
+            thread = SDL_CreateThread(loadWAVSample, NULL, NULL);
             if (thread == NULL)
             {
-                okBox(0, "System message", "Error creating sample loading thread!");
+                okBox(0, "System message", "Couldn't create thread!");
                 sampleIsLoading = false;
                 return (false);
             }
@@ -1998,10 +2076,10 @@ int8_t loadSample(UNICHAR *filenameU, uint8_t smpNr, uint8_t instrFlag)
                 UNICHAR_STRCPY(editor.tmpFilenameU, filenameU);
 
                 mouseAnimOn();
-                thread = SDL_CreateThread(loadAIFFSample, "FT2 Clone Sample Loading Thread", NULL);
+                thread = SDL_CreateThread(loadAIFFSample, NULL, NULL);
                 if (thread == NULL)
                 {
-                    okBox(0, "System message", "Error creating sample loading thread!");
+                    okBox(0, "System message", "Couldn't create thread!");
                     sampleIsLoading = false;
                     return (false);
                 }
@@ -2021,10 +2099,10 @@ int8_t loadSample(UNICHAR *filenameU, uint8_t smpNr, uint8_t instrFlag)
                 UNICHAR_STRCPY(editor.tmpFilenameU, filenameU);
 
                 mouseAnimOn();
-                thread = SDL_CreateThread(loadIFFSample, "FT2 Clone Sample Loading Thread", NULL);
+                thread = SDL_CreateThread(loadIFFSample, NULL, NULL);
                 if (thread == NULL)
                 {
-                    okBox(0, "System message", "Error creating sample loading thread!");
+                    okBox(0, "System message", "Couldn't create thread!");
                     sampleIsLoading = false;
                     return (false);
                 }
@@ -2045,10 +2123,10 @@ int8_t loadSample(UNICHAR *filenameU, uint8_t smpNr, uint8_t instrFlag)
     UNICHAR_STRCPY(editor.tmpFilenameU, filenameU);
 
     mouseAnimOn();
-    thread = SDL_CreateThread(loadRawSample, "FT2 Clone Sample Loading Thread", NULL);
+    thread = SDL_CreateThread(loadRawSample, NULL, NULL);
     if (thread == NULL)
     {
-        okBox(0, "System message", "Error creating sample loading thread!");
+        okBox(0, "System message", "Couldn't create thread!");
         sampleIsLoading = false;
         return (false);
     }
@@ -2061,8 +2139,9 @@ int8_t loadSample(UNICHAR *filenameU, uint8_t smpNr, uint8_t instrFlag)
 
 static void normalize32bitSigned(int32_t *sampleData, uint32_t sampleLength)
 {
+    int32_t smp32;
     uint32_t i, sample, sampleVolPeak;
-    double dGain;
+    double dGain, dSmp;
 
     sampleVolPeak = 0;
     for (i = 0; i < sampleLength; ++i)
@@ -2078,14 +2157,28 @@ static void normalize32bitSigned(int32_t *sampleData, uint32_t sampleLength)
 
     /* 2147483647 = (2^32 / 2) - 1 */
     dGain = 2147483647.0 / sampleVolPeak;
-    for (i = 0; i < sampleLength; ++i)
-        sampleData[i] = (int32_t)(sampleData[i] * dGain);
+
+    if (cpu.hasSSE2)
+    {
+        for (i = 0; i < sampleLength; ++i)
+        {
+            dSmp = sampleData[i] * dGain;
+            sse2_double2int32_trunc(smp32, dSmp);
+            sampleData[i] = smp32;
+        }
+    }
+    else
+    {
+        for (i = 0; i < sampleLength; ++i)
+            sampleData[i] = (int32_t)(sampleData[i] * dGain);
+    }
 }
 
 static void normalize24bitSigned(int32_t *sampleData, uint32_t sampleLength)
 {
+    int32_t smp32;
     uint32_t i, sample, sampleVolPeak;
-    double dGain;
+    double dGain, dSmp;
 
     sampleVolPeak = 0;
     for (i = 0; i < sampleLength; ++i)
@@ -2101,8 +2194,21 @@ static void normalize24bitSigned(int32_t *sampleData, uint32_t sampleLength)
 
     /* 8388607 = (2^24 / 2) - 1 */
     dGain = 8388607.0 / sampleVolPeak;
-    for (i = 0; i < sampleLength; ++i)
-        sampleData[i] = (int32_t)(sampleData[i] * dGain);
+
+    if (cpu.hasSSE2)
+    {
+        for (i = 0; i < sampleLength; ++i)
+        {
+            dSmp = sampleData[i] * dGain;
+            sse2_double2int32_trunc(smp32, dSmp);
+            sampleData[i] = smp32;
+        }
+    }
+    else
+    {
+        for (i = 0; i < sampleLength; ++i)
+            sampleData[i] = (int32_t)(sampleData[i] * dGain);
+    }
 }
 
 static void normalize16bitFloatSigned(float *fSampleData, uint32_t sampleLength)
@@ -2147,7 +2253,7 @@ static void normalize64bitDoubleSigned(double *dSampleData, uint32_t sampleLengt
     }
 }
 
-int8_t fileIsInstrument(char *fullPath)
+bool fileIsInstrument(char *fullPath)
 {
     char *filename;
     int32_t i, len, extOffset;
@@ -2186,7 +2292,7 @@ int8_t fileIsInstrument(char *fullPath)
     return (false);
 }
 
-int8_t fileIsSample(char *fullPath)
+bool fileIsSample(char *fullPath)
 {
     char *filename;
     int32_t i, len, extOffset;

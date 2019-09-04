@@ -2,6 +2,7 @@
 #define __FT2_PATTERN_ED_H
 
 #include <stdint.h>
+#include <stdbool.h>
 #include "ft2_unicode.h"
 
 enum
@@ -57,7 +58,7 @@ struct pattMark_t
     int16_t markX1, markX2, markY1, markY2;
 } pattMark;
 
-uint8_t allocatePattern(uint16_t nr);
+bool allocatePattern(uint16_t nr);
 void killPatternIfUnused(uint16_t nr);
 
 uint8_t getMaxVisibleChannels(void);
@@ -88,7 +89,7 @@ void exitPatternEditorExtended(void);
 
 void clearPattMark(void);
 void checkMarkLimits(void);
-void handlePatternDataMouseDown(int8_t mouseButtonHeld);
+void handlePatternDataMouseDown(bool mouseButtonHeld);
 
 void togglePatternEditorExtended(void);
 
@@ -107,10 +108,10 @@ void showTranspose(void);
 void hideTranspose(void);
 void toggleTranspose(void);
 
-int8_t loadTrack(UNICHAR *filenameU);
-int8_t saveTrack(UNICHAR *filenameU);
-int8_t loadPattern(UNICHAR *filenameU);
-int8_t savePattern(UNICHAR *filenameU);
+bool loadTrack(UNICHAR *filenameU);
+bool saveTrack(UNICHAR *filenameU);
+bool loadPattern(UNICHAR *filenameU);
+bool savePattern(UNICHAR *filenameU);
 
 void scrollChannelLeft(void);
 void scrollChannelRight(void);

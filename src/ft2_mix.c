@@ -1,5 +1,5 @@
-#include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include "ft2_header.h"
 #include "ft2_mix.h"
 #include "ft2_mix_macros.h"
@@ -31,7 +31,7 @@
 static void mix8bNoLoop(voice_t *v, uint32_t numSamples)
 {
     const int8_t *CDA_LinearAdr;
-    uint8_t mixInMono, CDA_SmpEndFlag;
+    bool mixInMono, CDA_SmpEndFlag;
     int32_t realPos, sample, *audioMixL, *audioMixR, CDA_BytesLeft;
     register const int8_t *smpPtr;
     register int32_t CDA_LVol, CDA_RVol;
@@ -97,7 +97,7 @@ static void mix8bNoLoop(voice_t *v, uint32_t numSamples)
 static void mix8bLoop(voice_t *v, uint32_t numSamples)
 {
     const int8_t *CDA_LinearAdr;
-    uint8_t mixInMono, CDA_SmpEndFlag;
+    bool mixInMono, CDA_SmpEndFlag;
     int32_t realPos, sample, *audioMixL, *audioMixR, CDA_BytesLeft;
     register const int8_t *smpPtr;
     register int32_t CDA_LVol, CDA_RVol;
@@ -163,7 +163,7 @@ static void mix8bLoop(voice_t *v, uint32_t numSamples)
 static void mix8bBidiLoop(voice_t *v, uint32_t numSamples)
 {
     const int8_t *CDA_LinearAdr;
-    uint8_t mixInMono, CDA_SmpEndFlag;
+    bool mixInMono, CDA_SmpEndFlag;
     int32_t realPos, sample, *audioMixL, *audioMixR, CDA_BytesLeft;
     register const int8_t *smpPtr;
     register int32_t CDA_LVol, CDA_RVol;
@@ -267,7 +267,7 @@ static void mix8bBidiLoop(voice_t *v, uint32_t numSamples)
 static void mix8bNoLoopIntrp(voice_t *v, uint32_t numSamples)
 {
     const int8_t *CDA_LinearAdr;
-    uint8_t mixInMono, CDA_SmpEndFlag;
+    bool mixInMono, CDA_SmpEndFlag;
     int32_t realPos, sample, sample2, *audioMixL, *audioMixR, CDA_BytesLeft;
     register const int8_t *smpPtr;
     register int32_t CDA_LVol, CDA_RVol;
@@ -336,7 +336,7 @@ static void mix8bNoLoopIntrp(voice_t *v, uint32_t numSamples)
 static void mix8bLoopIntrp(voice_t *v, uint32_t numSamples)
 {
     const int8_t *CDA_LinearAdr;
-    uint8_t mixInMono, CDA_SmpEndFlag;
+    bool mixInMono, CDA_SmpEndFlag;
     int32_t realPos, sample, sample2, *audioMixL, *audioMixR, CDA_BytesLeft;
     register const int8_t *smpPtr;
     register int32_t CDA_LVol, CDA_RVol;
@@ -405,7 +405,7 @@ static void mix8bLoopIntrp(voice_t *v, uint32_t numSamples)
 static void mix8bBidiLoopIntrp(voice_t *v, uint32_t numSamples)
 {
     const int8_t *CDA_LinearAdr;
-    uint8_t mixInMono, CDA_SmpEndFlag;
+    bool mixInMono, CDA_SmpEndFlag;
     int32_t realPos, sample, sample2, *audioMixL, *audioMixR, CDA_BytesLeft;
     register const int8_t *smpPtr;
     register int32_t CDA_LVol, CDA_RVol;
@@ -512,7 +512,7 @@ static void mix8bBidiLoopIntrp(voice_t *v, uint32_t numSamples)
 static void mix8bRampNoLoop(voice_t *v, uint32_t numSamples)
 {
     const int8_t *CDA_LinearAdr;
-    uint8_t mixInMono, CDA_SmpEndFlag;
+    bool mixInMono, CDA_SmpEndFlag;
     int32_t realPos, sample, *audioMixL, *audioMixR, CDA_BytesLeft, CDA_LVolIP, CDA_RVolIP;
     register const int8_t *smpPtr;
     register int32_t CDA_LVol, CDA_RVol;
@@ -585,7 +585,7 @@ static void mix8bRampNoLoop(voice_t *v, uint32_t numSamples)
 static void mix8bRampLoop(voice_t *v, uint32_t numSamples)
 {
     const int8_t *CDA_LinearAdr;
-    uint8_t mixInMono, CDA_SmpEndFlag;
+    bool mixInMono, CDA_SmpEndFlag;
     int32_t realPos, sample, *audioMixL, *audioMixR, CDA_BytesLeft, CDA_LVolIP, CDA_RVolIP;
     register const int8_t *smpPtr;
     register int32_t CDA_LVol, CDA_RVol;
@@ -658,7 +658,7 @@ static void mix8bRampLoop(voice_t *v, uint32_t numSamples)
 static void mix8bRampBidiLoop(voice_t *v, uint32_t numSamples)
 {
     const int8_t *CDA_LinearAdr;
-    uint8_t mixInMono, CDA_SmpEndFlag;
+    bool mixInMono, CDA_SmpEndFlag;
     int32_t realPos, sample, *audioMixL, *audioMixR, CDA_BytesLeft, CDA_LVolIP, CDA_RVolIP;
     register const int8_t *smpPtr;
     register int32_t CDA_LVol, CDA_RVol;
@@ -775,7 +775,7 @@ static void mix8bRampBidiLoop(voice_t *v, uint32_t numSamples)
 static void mix8bRampNoLoopIntrp(voice_t *v, uint32_t numSamples)
 {
     const int8_t *CDA_LinearAdr;
-    uint8_t mixInMono, CDA_SmpEndFlag;
+    bool mixInMono, CDA_SmpEndFlag;
     int32_t realPos, sample, sample2, *audioMixL, *audioMixR, CDA_BytesLeft, CDA_LVolIP, CDA_RVolIP;
     register const int8_t *smpPtr;
     register int32_t CDA_LVol, CDA_RVol;
@@ -851,7 +851,7 @@ static void mix8bRampNoLoopIntrp(voice_t *v, uint32_t numSamples)
 static void mix8bRampLoopIntrp(voice_t *v, uint32_t numSamples)
 {
     const int8_t *CDA_LinearAdr;
-    uint8_t mixInMono, CDA_SmpEndFlag;
+    bool mixInMono, CDA_SmpEndFlag;
     int32_t realPos, sample, sample2, *audioMixL, *audioMixR, CDA_BytesLeft, CDA_LVolIP, CDA_RVolIP;
     register const int8_t *smpPtr;
     register int32_t CDA_LVol, CDA_RVol;
@@ -927,7 +927,7 @@ static void mix8bRampLoopIntrp(voice_t *v, uint32_t numSamples)
 static void mix8bRampBidiLoopIntrp(voice_t *v, uint32_t numSamples)
 {
     const int8_t *CDA_LinearAdr;
-    uint8_t mixInMono, CDA_SmpEndFlag;
+    bool mixInMono, CDA_SmpEndFlag;
     int32_t realPos, sample, sample2, *audioMixL, *audioMixR, CDA_BytesLeft, CDA_LVolIP, CDA_RVolIP;
     register const int8_t *smpPtr;
     register int32_t CDA_LVol, CDA_RVol;
@@ -1052,7 +1052,7 @@ static void mix8bRampBidiLoopIntrp(voice_t *v, uint32_t numSamples)
 
 static void mix16bNoLoop(voice_t *v, uint32_t numSamples)
 {
-    uint8_t mixInMono, CDA_SmpEndFlag;
+    bool mixInMono, CDA_SmpEndFlag;
     const int16_t *CDA_LinearAdr;
     int32_t realPos, sample, *audioMixL, *audioMixR, CDA_BytesLeft;
     register const int16_t *smpPtr;
@@ -1118,7 +1118,7 @@ static void mix16bNoLoop(voice_t *v, uint32_t numSamples)
 
 static void mix16bLoop(voice_t *v, uint32_t numSamples)
 {
-    uint8_t mixInMono, CDA_SmpEndFlag;
+    bool mixInMono, CDA_SmpEndFlag;
     const int16_t *CDA_LinearAdr;
     int32_t realPos, sample, *audioMixL, *audioMixR, CDA_BytesLeft;
     register const int16_t *smpPtr;
@@ -1184,7 +1184,7 @@ static void mix16bLoop(voice_t *v, uint32_t numSamples)
 
 static void mix16bBidiLoop(voice_t *v, uint32_t numSamples)
 {
-    uint8_t mixInMono, CDA_SmpEndFlag;
+    bool mixInMono, CDA_SmpEndFlag;
     const int16_t *CDA_LinearAdr;
     int32_t realPos, sample, *audioMixL, *audioMixR, CDA_BytesLeft;
     register const int16_t *smpPtr;
@@ -1288,7 +1288,7 @@ static void mix16bBidiLoop(voice_t *v, uint32_t numSamples)
 
 static void mix16bNoLoopIntrp(voice_t *v, uint32_t numSamples)
 {
-    uint8_t mixInMono, CDA_SmpEndFlag;
+    bool mixInMono, CDA_SmpEndFlag;
     const int16_t *CDA_LinearAdr;
     int32_t realPos, sample, sample2, *audioMixL, *audioMixR, CDA_BytesLeft;
     register const int16_t *smpPtr;
@@ -1357,7 +1357,7 @@ static void mix16bNoLoopIntrp(voice_t *v, uint32_t numSamples)
 
 static void mix16bLoopIntrp(voice_t *v, uint32_t numSamples)
 {
-    uint8_t mixInMono, CDA_SmpEndFlag;
+    bool mixInMono, CDA_SmpEndFlag;
     const int16_t *CDA_LinearAdr;
     int32_t realPos, sample, sample2, *audioMixL, *audioMixR, CDA_BytesLeft;
     register const int16_t *smpPtr;
@@ -1426,7 +1426,7 @@ static void mix16bLoopIntrp(voice_t *v, uint32_t numSamples)
 
 static void mix16bBidiLoopIntrp(voice_t *v, uint32_t numSamples)
 {
-    uint8_t mixInMono, CDA_SmpEndFlag;
+    bool mixInMono, CDA_SmpEndFlag;
     const int16_t *CDA_LinearAdr;
     int32_t realPos, sample, sample2, *audioMixL, *audioMixR, CDA_BytesLeft;
     register const int16_t *smpPtr;
@@ -1533,7 +1533,7 @@ static void mix16bBidiLoopIntrp(voice_t *v, uint32_t numSamples)
 
 static void mix16bRampNoLoop(voice_t *v, uint32_t numSamples)
 {
-    uint8_t mixInMono, CDA_SmpEndFlag;
+    bool mixInMono, CDA_SmpEndFlag;
     const int16_t *CDA_LinearAdr;
     int32_t realPos, sample, *audioMixL, *audioMixR, CDA_BytesLeft, CDA_LVolIP, CDA_RVolIP;
     register const int16_t *smpPtr;
@@ -1606,7 +1606,7 @@ static void mix16bRampNoLoop(voice_t *v, uint32_t numSamples)
 
 static void mix16bRampLoop(voice_t *v, uint32_t numSamples)
 {
-    uint8_t mixInMono, CDA_SmpEndFlag;
+    bool mixInMono, CDA_SmpEndFlag;
     const int16_t *CDA_LinearAdr;
     int32_t realPos, sample, *audioMixL, *audioMixR, CDA_BytesLeft, CDA_LVolIP, CDA_RVolIP;
     register const int16_t *smpPtr;
@@ -1679,7 +1679,7 @@ static void mix16bRampLoop(voice_t *v, uint32_t numSamples)
 
 static void mix16bRampBidiLoop(voice_t *v, uint32_t numSamples)
 {
-    uint8_t mixInMono, CDA_SmpEndFlag;
+    bool mixInMono, CDA_SmpEndFlag;
     const int16_t *CDA_LinearAdr;
     int32_t realPos, sample, *audioMixL, *audioMixR, CDA_BytesLeft, CDA_LVolIP, CDA_RVolIP;
     register const int16_t *smpPtr;
@@ -1796,7 +1796,7 @@ static void mix16bRampBidiLoop(voice_t *v, uint32_t numSamples)
 
 static void mix16bRampNoLoopIntrp(voice_t *v, uint32_t numSamples)
 {
-    uint8_t mixInMono, CDA_SmpEndFlag;
+    bool mixInMono, CDA_SmpEndFlag;
     const int16_t *CDA_LinearAdr;
     int32_t realPos, sample, sample2, *audioMixL, *audioMixR, CDA_BytesLeft, CDA_LVolIP, CDA_RVolIP;
     register const int16_t *smpPtr;
@@ -1872,7 +1872,7 @@ static void mix16bRampNoLoopIntrp(voice_t *v, uint32_t numSamples)
 
 static void mix16bRampLoopIntrp(voice_t *v, uint32_t numSamples)
 {
-    uint8_t mixInMono, CDA_SmpEndFlag;
+    bool mixInMono, CDA_SmpEndFlag;
     const int16_t *CDA_LinearAdr;
     int32_t realPos, sample, sample2, *audioMixL, *audioMixR, CDA_BytesLeft, CDA_LVolIP, CDA_RVolIP;
     register const int16_t *smpPtr;
@@ -1948,7 +1948,7 @@ static void mix16bRampLoopIntrp(voice_t *v, uint32_t numSamples)
 
 static void mix16bRampBidiLoopIntrp(voice_t *v, uint32_t numSamples)
 {
-    uint8_t mixInMono, CDA_SmpEndFlag;
+    bool mixInMono, CDA_SmpEndFlag;
     const int16_t *CDA_LinearAdr;
     int32_t realPos, sample, sample2, *audioMixL, *audioMixR, CDA_BytesLeft, CDA_LVolIP, CDA_RVolIP;
     register const int16_t *smpPtr;

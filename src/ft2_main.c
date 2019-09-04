@@ -61,19 +61,6 @@ int main(int argc, char *argv[])
 #endif
 
     initializeVars();
-
-#ifdef _WIN32
-    /* test if the CPU has SSE2 (not needed on OS X as it needs OS X 10.7 or later, guaranteed that the CPU has SSE2) */
-    if (!IsProcessorFeaturePresent(PF_XMMI64_INSTRUCTIONS_AVAILABLE)) /* test if we have SSE2 */
-    {
-        showErrorMsgBox("Your computer's processor doesn't have the SSE2 instruction set\n" \
-                        "which is needed for this program to run. Sorry!");
-        return (0);
-    }
-
-    setupWin32Usleep();
-#endif
-
     setupCrashHandler();
 
     /* on Windows and macOS, test what version SDL2.DLL is (against library version used in compilation) */
@@ -95,7 +82,7 @@ int main(int argc, char *argv[])
                         sdlVer.major, sdlVer.minor, sdlVer.patch,
                         SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_PATCHLEVEL);
 #endif
-        return (false);
+        return (0);
     }
 #endif
 
@@ -104,6 +91,14 @@ int main(int argc, char *argv[])
 #endif
 
 #ifdef _WIN32
+    if (!cpu.hasSSE)
+    {
+        showErrorMsgBox("Your computer's processor doesn't have the SSE instruction set\n" \
+                        "which is needed for this program to run. Sorry!");
+        return (0);
+    }
+
+    setupWin32Usleep();
     disableWasapi(); /* disable problematic WASAPI SDL2 audio driver on Windows (causes clicks/pops sometimes...) */
 #endif
 
@@ -194,7 +189,7 @@ int main(int argc, char *argv[])
     //benchmarkAudioChannelMixer(); /* for development testing */
 
     /* set up MIDI input (in a thread because it can take quite a while on f.ex. macOS) */
-    initMidiThread = SDL_CreateThread(initMidiFunc, "FT2 Clone MIDI Initialization Thread", NULL);
+    initMidiThread = SDL_CreateThread(initMidiFunc, NULL, NULL);
     if (initMidiThread == NULL)
     {
         showErrorMsgBox("Couldn't create MIDI initialization thread!");
@@ -224,6 +219,9 @@ int main(int argc, char *argv[])
 
 static void initializeVars(void)
 {
+    cpu.hasSSE  = SDL_HasSSE();
+    cpu.hasSSE2 = SDL_HasSSE2();
+
     /* clear common structs */
     memset(&video,    0, sizeof (video));
     memset(&keyb,     0, sizeof (keyb));
@@ -368,13 +366,13 @@ static void setupPerfFreq(void)
     assert(perfFreq64 != 0);
     editor.dPerfFreq = (double)(perfFreq64);
 
-    editor.dPerfFreqMulMicro = 1.0 / (editor.dPerfFreq / 1000000.0);
+    editor.dPerfFreqMulMicro = 1000000.0 / editor.dPerfFreq;
     dVblankTimeLen = editor.dPerfFreq / VBLANK_HZ;
 
     video.vblankTimeLen = (uint32_t)(dVblankTimeLen);
     dVblankTimeLenFrac  = dVblankTimeLen - video.vblankTimeLen;
 
-    /* fractional part of dVblankTimeLen scaled to 0..2^32 (max = 2^32-1, so fits in uint32_t) */
+    /* fractional part of dVblankTimeLen scaled to 0..2^32-1 */
     video.vblankTimeLenFrac = (uint32_t)((double)(1ULL << 32) * dVblankTimeLenFrac);
 }
 

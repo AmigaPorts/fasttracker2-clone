@@ -3,6 +3,8 @@
 #include <crtdbg.h>
 #endif
 
+#include <stdint.h>
+#include <stdbool.h>
 #include "ft2_header.h"
 #include "ft2_gui.h"
 #include "ft2_config.h"
@@ -334,7 +336,7 @@ void handleRadioButtonsWhileMouseDown(void)
     }
 }
 
-int8_t testRadioButtonMouseDown(void)
+bool testRadioButtonMouseDown(void)
 {
     uint16_t i;
     radioButton_t *radioButton;

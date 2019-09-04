@@ -2,6 +2,7 @@
 #define __FT2_NIBBLES_H
 
 #include <stdint.h>
+#include <stdbool.h>
 #include <SDL2/SDL.h>
 
 void nibblesKeyAdministrator(SDL_Scancode scancode);
@@ -30,6 +31,6 @@ void nibblesToggleSurround(void);
 void nibblesToggleGrid(void);
 void nibblesToggleWrap(void);
 
-uint8_t testNibblesCheatCodes(SDL_Keycode keycode);
+bool testNibblesCheatCodes(SDL_Keycode keycode);
 
 #endif

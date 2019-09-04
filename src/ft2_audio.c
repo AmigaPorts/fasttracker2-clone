@@ -49,7 +49,7 @@ void stopVoice(uint8_t i)
     v->SPan = 128;
 }
 
-int8_t setNewAudioSettings(void) /* only call this from the main input/video thread */
+bool setNewAudioSettings(void) /* only call this from the main input/video thread */
 {
     uint32_t stringLen;
 
@@ -98,7 +98,7 @@ int8_t setNewAudioSettings(void) /* only call this from the main input/video thr
 }
 
 /* ampFactor = 1..32, masterVol = 0..256 */
-void setAudioAmp(int16_t ampFactor, int16_t master, uint8_t bitDepth32Flag)
+void setAudioAmp(int16_t ampFactor, int16_t master, bool bitDepth32Flag)
 {
     int32_t newAmp, i;
 
@@ -159,20 +159,24 @@ void setSpeed(uint16_t bpm)
         /* calculate tick time length for audio/video sync timestamp */
         if (speedVal > 0)
         {
-            dTickTimeLen = ((double)(speedVal) / audio.freq) * editor.dPerfFreq; 
-            double2int32_round(tickTimeLen, dTickTimeLen);
+            dTickTimeLen = ((double)(speedVal) / audio.freq) * editor.dPerfFreq;
+
+            if (cpu.hasSSE2)
+                sse2_double2int32_round(tickTimeLen, dTickTimeLen);
+            else
+                tickTimeLen = (uint32_t)(round(dTickTimeLen));
         }
     }
 }
 
-void audioSetVolRamp(uint8_t volRamp)
+void audioSetVolRamp(bool volRamp)
 {
     lockMixerCallback();
     audio.volumeRampingFlag = volRamp;
     unlockMixerCallback();
 }
 
-void audioSetInterpolation(uint8_t interpolation)
+void audioSetInterpolation(bool interpolation)
 {
     lockMixerCallback();
     audio.interpolationFlag = interpolation;
@@ -247,7 +251,7 @@ static inline void voiceUpdateVolumes(uint8_t i, uint8_t status)
 
 static void voiceTrigger(uint8_t i, const int8_t *sampleData,
     int32_t sampleLength,  int32_t sampleLoopBegin, int32_t sampleLoopLength,
-    int8_t loopFlag, int8_t sampleIs16Bit, int32_t position)
+    uint8_t loopType, bool sampleIs16Bit, int32_t position)
 {
     voice_t *v;
 
@@ -277,10 +281,10 @@ static void voiceTrigger(uint8_t i, const int8_t *sampleData,
     }
 
     if (sampleLoopLength < 1)
-        loopFlag = false;
+        loopType = 0;
 
     v->backwards = false;
-    v->SLen      = loopFlag ? (sampleLoopBegin + sampleLoopLength) : sampleLength;
+    v->SLen      = (loopType > 0) ? (sampleLoopBegin + sampleLoopLength) : sampleLength;
     v->SRepS     = sampleLoopBegin;
     v->SRepL     = sampleLoopLength;
     v->SPos      = position;
@@ -294,7 +298,7 @@ static void voiceTrigger(uint8_t i, const int8_t *sampleData,
     }
 
     /* XXX: let's hope the CPU does no reordering optimization on this one... */
-    v->mixRoutine = mixRoutineTable[(sampleIs16Bit * 12) + (audio.volumeRampingFlag * 6) + (audio.interpolationFlag * 3) + loopFlag];
+    v->mixRoutine = mixRoutineTable[(sampleIs16Bit * 12) + (audio.volumeRampingFlag * 6) + (audio.interpolationFlag * 3) + loopType];
 }
 
 void mix_SaveIPVolumes(void) /* for volume ramping */
@@ -624,7 +628,7 @@ int32_t pattQueueWriteSize(void)
         return (SYNC_QUEUE_LEN);
 }
 
-int8_t pattQueuePush(pattSyncData_t t)
+bool pattQueuePush(pattSyncData_t t)
 {
     if (!pattQueueWriteSize())
         return (false);
@@ -637,7 +641,7 @@ int8_t pattQueuePush(pattSyncData_t t)
     return (true);
 }
 
-int8_t pattQueuePop(void)
+bool pattQueuePop(void)
 {
     if (!pattQueueReadSize())
         return (false);
@@ -684,7 +688,7 @@ int32_t chQueueWriteSize(void)
         return (SYNC_QUEUE_LEN);
 }
 
-int8_t chQueuePush(chSyncData_t t)
+bool chQueuePush(chSyncData_t t)
 {
     if (!chQueueWriteSize())
         return (false);
@@ -697,7 +701,7 @@ int8_t chQueuePush(chSyncData_t t)
     return (true);
 }
 
-int8_t chQueuePop(void)
+bool chQueuePop(void)
 {
     if (!chQueueReadSize())
         return (false);
@@ -889,7 +893,7 @@ static void SDLCALL mixCallback(void *userdata, Uint8 *stream, int len)
     (void)(userdata); /* make compiler happy */
 }
 
-uint8_t setupAudioBuffers(void)
+bool setupAudioBuffers(void)
 {
     audio.mixBufferL = (int32_t *)(malloc(MAX_SAMPLES_PER_TICK * sizeof (int32_t)));
     audio.mixBufferR = (int32_t *)(malloc(MAX_SAMPLES_PER_TICK * sizeof (int32_t)));
@@ -918,7 +922,7 @@ void freeAudioBuffers(void)
     }
 }
 
-void updateSendAudSamplesRoutine(uint8_t lockMixer)
+void updateSendAudSamplesRoutine(bool lockMixer)
 {
     if (lockMixer)
         lockMixerCallback();
@@ -959,7 +963,7 @@ void updateSendAudSamplesRoutine(uint8_t lockMixer)
         unlockMixerCallback();
 }
 
-int8_t setupAudio(int8_t showErrorMsg)
+bool setupAudio(bool showErrorMsg)
 {
     int8_t newBitDepth;
     uint8_t i;
@@ -1089,7 +1093,7 @@ int8_t setupAudio(int8_t showErrorMsg)
         showConfigScreen();
 
     updateWavRendererSettings();
-    setAudioAmp(config.boostLevel, config.masterVol, config.specialFlags & BITDEPTH_24);
+    setAudioAmp(config.boostLevel, config.masterVol, (config.specialFlags & BITDEPTH_24) ? true : false);
 
     for (i = 0; i < MAX_VOICES; ++i)
         stopVoice(i);

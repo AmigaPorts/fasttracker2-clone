@@ -105,10 +105,10 @@ void cbPEnvLoop(void);
 void drawPiano(void);
 void drawPianoReplayer(chSyncData_t *chSyncData);
 
-int8_t testInstrVolEnvMouseDown(uint8_t buttonDown);
-int8_t testInstrPanEnvMouseDown(uint8_t buttonDown);
-int8_t testPianoKeysMouseDown(uint8_t buttonDown);
-int8_t testInstrSwitcherMouseDown(void);
+bool testInstrVolEnvMouseDown(bool mouseButtonDown);
+bool testInstrPanEnvMouseDown(bool mouseButtonDown);
+bool testPianoKeysMouseDown(bool mouseButtonDown);
+bool testInstrSwitcherMouseDown(void);
 
 void cbInstMidiEnable(void);
 void cbInstMuteComputer(void);

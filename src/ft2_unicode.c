@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
+#include <stdbool.h>
 #ifdef _WIN32
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
@@ -13,7 +14,6 @@
 #include <iconv.h>
 #endif
 #include "ft2_unicode.h"
-
 
 #ifdef _WIN32
 
@@ -113,7 +113,7 @@ UNICHAR *cp437ToUnichar(char *src)
     return (w);
 }
 
-char *utf8ToCp437(char *src, uint8_t removeIllegalChars)
+char *utf8ToCp437(char *src, bool removeIllegalChars)
 {
     char *x, textChar;
     int32_t requiredSize, retVal, srcLen, i;
@@ -195,7 +195,7 @@ char *utf8ToCp437(char *src, uint8_t removeIllegalChars)
     return (x);
 }
 
-char *unicharToCp437(UNICHAR *src, uint8_t removeIllegalChars)
+char *unicharToCp437(UNICHAR *src, bool removeIllegalChars)
 {
     char *x, textChar;
     int32_t requiredSize, retVal, srcLen, i;
@@ -288,7 +288,7 @@ char *cp437ToUtf8(char *src)
     return (outBuf);
 }
 
-char *utf8ToCp437(char *src, uint8_t removeIllegalChars)
+char *utf8ToCp437(char *src, bool removeIllegalChars)
 {
     char *inPtr, *outPtr, *outBuf, textChar;
     int32_t rc;

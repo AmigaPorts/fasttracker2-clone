@@ -5,6 +5,7 @@
 
 #include <stdio.h>
 #include <stdint.h>
+#include <stdbool.h>
 #include <math.h>
 #ifdef _WIN32
 #define WIN32_MEAN_AND_LEAN
@@ -41,7 +42,7 @@ typedef struct pal16_t
 extern const uint8_t textCursorData[12];
 extern const pal16 palTable[12][13];
 
-static uint8_t songIsModified;
+static bool songIsModified;
 static uint32_t paletteTemp[PAL_NUM];
 static uint64_t timeNext64, timeNext64Frac;
 static sprite_t sprites[SPRITE_NUM];
@@ -80,6 +81,7 @@ void showErrorMsgBox(const char *fmt, ...)
 
 void updateRenderSizeVars(void)
 {
+    int32_t di;
 #ifdef __APPLE__
     int32_t actualScreenW, actualScreenH;
     float fXUpscale, fYUpscale;
@@ -89,12 +91,18 @@ void updateRenderSizeVars(void)
 
     if (video.fullscreen)
     {
-        SDL_GetDesktopDisplayMode(0, &dm);
+        di = SDL_GetWindowDisplayIndex(video.window);
+        if (di < 0)
+            di = 0; /* return display index 0 (default) on error */
+
+        SDL_GetDesktopDisplayMode(di, &dm);
+        video.displayW = dm.w;
+        video.displayH = dm.h;
 
         if (config.windowFlags & FILTERING)
         {
-            video.renderW = dm.w;
-            video.renderH = dm.h;
+            video.renderW = video.displayW;
+            video.renderH = video.displayH;
             video.renderX = 0;
             video.renderY = 0;
         }
@@ -109,15 +117,15 @@ void updateRenderSizeVars(void)
             /* retina high-DPI hackery (SDL2 is bad at reporting actual rendering sizes on macOS w/ high-DPI) */
             SDL_GL_GetDrawableSize(video.window, &actualScreenW, &actualScreenH);
 
-            fXUpscale = ((float)(actualScreenW) / dm.w);
-            fYUpscale = ((float)(actualScreenH) / dm.h);
+            fXUpscale = ((float)(actualScreenW) / video.displayW);
+            fYUpscale = ((float)(actualScreenH) / video.displayH);
 
             /* downscale back to correct sizes */
             if (fXUpscale != 0.0f) video.renderW = (int32_t)(video.renderW / fXUpscale);
             if (fYUpscale != 0.0f) video.renderH = (int32_t)(video.renderH / fYUpscale);
 #endif
-            video.renderX = (dm.w - video.renderW) / 2;
-            video.renderY = (dm.h - video.renderH) / 2;
+            video.renderX = (video.displayW - video.renderW) / 2;
+            video.renderY = (video.displayH - video.renderH) / 2;
         }
     }
     else
@@ -235,7 +243,7 @@ void updatePaletteContrast(void)
 
         /* convert 6-bit RGB values to 24-bit RGB */
         video.palette[PAL_DSKTOP1] = (PAL_DSKTOP1 << 24) | TO_RGB(P6_TO_P8(newR), P6_TO_P8(newG), P6_TO_P8(newB));
-        video.customContrasts[0] = editor.ui.desktopContrast;
+        video.customPaletteContrasts[0] = editor.ui.desktopContrast;
     }
     else if (editor.currPaletteEdit == 5)
     {
@@ -267,7 +275,7 @@ void updatePaletteContrast(void)
 
         /* convert 6-bit RGB values to 24-bit RGB */
         video.palette[PAL_BUTTON1] = (PAL_BUTTON1 << 24) | TO_RGB(P6_TO_P8(newR), P6_TO_P8(newG), P6_TO_P8(newB));
-        video.customContrasts[1] = editor.ui.buttonContrast;
+        video.customPaletteContrasts[1] = editor.ui.buttonContrast;
     }
 }
 
@@ -308,8 +316,8 @@ void setPalettePreset(int16_t palNum)
         palButtons1R    = config.palButtons1R;    palButtons1G    = config.palButtons1G;    palButtons1B    = config.palButtons1B;
         palMouseR       = config.palMouseR;       palMouseG       = config.palMouseG;       palMouseB       = config.palMouseB;
 
-        editor.ui.desktopContrast = video.customContrasts[0];
-        editor.ui.buttonContrast  = video.customContrasts[1];
+        editor.ui.desktopContrast = video.customPaletteContrasts[0];
+        editor.ui.buttonContrast  = video.customPaletteContrasts[1];
     }
     else
     {
@@ -353,7 +361,7 @@ void setPalettePreset(int16_t palNum)
     }
 }
 
-int8_t setupSprites(void)
+bool setupSprites(void)
 {
     uint8_t i;
     sprite_t *s;
@@ -416,12 +424,12 @@ void freeSprites(void)
     }
 }
 
-void setLeftLoopPinState(int8_t clicked)
+void setLeftLoopPinState(bool clicked)
 {
     changeSpriteData(SPRITE_LEFT_LOOP_PIN, clicked ? leftLoopPinClicked : leftLoopPinUnclicked);
 }
 
-void setRightLoopPinState(int8_t clicked)
+void setRightLoopPinState(bool clicked)
 {
     changeSpriteData(SPRITE_RIGHT_LOOP_PIN, clicked ? rightLoopPinClicked : rightLoopPinUnclicked);
 }
@@ -755,7 +763,11 @@ void waitVBL(void)
 
         /* convert and round to microseconds */
         dTime = diff32 * editor.dPerfFreqMulMicro;
-        double2int32_round(time32, dTime);
+
+        if (cpu.hasSSE2)
+            sse2_double2int32_round(time32, dTime);
+        else
+            time32 = (int32_t)(round(dTime));
 
         /* delay until we have reached next frame */
         if (time32 > 0)
@@ -801,7 +813,7 @@ void closeVideo(void)
     }
 }
 
-void setWindowSizeFromConfig(uint8_t updateRenderer)
+void setWindowSizeFromConfig(bool updateRenderer)
 {
 #define MAX_UPSCALE_FACTOR 16 /* 10112x6400 - should be good enough for many years to come */
 
@@ -850,7 +862,7 @@ void setWindowSizeFromConfig(uint8_t updateRenderer)
     }
 }
 
-void updateWindowTitle(uint8_t forceUpdate)
+void updateWindowTitle(bool forceUpdate)
 {
     char wndTitle[128 + PATH_MAX];
     char *songTitle;
@@ -878,7 +890,7 @@ void updateWindowTitle(uint8_t forceUpdate)
     songIsModified = song.isModified;
 }
 
-uint8_t recreateTexture(void)
+bool recreateTexture(void)
 {
     if (video.texture != NULL)
     {
@@ -902,7 +914,7 @@ uint8_t recreateTexture(void)
     return (true);
 }
 
-int8_t setupWindow(void)
+bool setupWindow(void)
 {
     uint32_t windowFlags;
     SDL_DisplayMode dm;
@@ -937,7 +949,7 @@ int8_t setupWindow(void)
     return (true);
 }
 
-int8_t setupRenderer(void)
+bool setupRenderer(void)
 {
     uint32_t rendererFlags;
 
@@ -1084,7 +1096,7 @@ void handleRedrawing(void)
 
 static void drawReplayerData(void)
 {
-    uint8_t drawPosText;
+    bool drawPosText;
 
     if (songPlaying)
     {
