@@ -264,7 +264,7 @@ static void voiceTrigger(uint8_t i, sampleTyp *s, int32_t position)
 {
 	bool sampleIs16Bit;
 	uint8_t loopType;
-	int32_t oldSLen, length, loopBegin, loopLength, loopLengthUnrolled;
+	int32_t oldSLen, length, loopBegin, loopLength;
 	voice_t *v;
 
 	v = &voice[i];
@@ -272,7 +272,6 @@ static void voiceTrigger(uint8_t i, sampleTyp *s, int32_t position)
 	length = s->len;
 	loopBegin = s->repS;
 	loopLength = s->repL;
-	loopLengthUnrolled = s->repLUnrolled;
 	loopType = s->typ & 3;
 	sampleIs16Bit = (s->typ >> 4) & 1;
 
@@ -281,12 +280,10 @@ static void voiceTrigger(uint8_t i, sampleTyp *s, int32_t position)
 		assert(!(length & 1));
 		assert(!(loopBegin & 1));
 		assert(!(loopLength & 1));
-		assert(!(loopLengthUnrolled & 1));
 
 		length >>= 1;
 		loopBegin >>= 1;
 		loopLength >>= 1;
-		loopLengthUnrolled >>= 1;
 	}
 
 	if ((s->pek == NULL) || (length < 1))
@@ -301,18 +298,18 @@ static void voiceTrigger(uint8_t i, sampleTyp *s, int32_t position)
 	if (sampleIs16Bit)
 	{
 		v->SBase16 = (const int16_t *)(s->pek);
-		v->SRevBase16 = &v->SBase16[loopBegin + (loopLengthUnrolled + loopBegin)]; // for pingpong loops
+		v->SRevBase16 = &v->SBase16[loopBegin + (loopBegin + loopLength)]; // for pingpong loops
 	}
 	else
 	{
 		v->SBase8 = s->pek;
-		v->SRevBase8 = &v->SBase8[loopBegin + (loopLengthUnrolled + loopBegin)]; // for pingpong loops
+		v->SRevBase8 = &v->SBase8[loopBegin + (loopBegin + loopLength)]; // for pingpong loops
 	}
 
 	v->backwards = false;
-	v->SLen      = (loopType > 0) ? (loopBegin + loopLengthUnrolled) : length;
+	v->SLen      = (loopType > 0) ? (loopBegin + loopLength) : length;
 	v->SRepS     = loopBegin;
-	v->SRepL     = loopLengthUnrolled;
+	v->SRepL     = loopLength;
 	v->SPos      = position;
 	v->SPosDec   = 0; // position fraction
 

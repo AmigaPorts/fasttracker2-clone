@@ -176,8 +176,6 @@ typedef struct sampleTyp_t  // DO NOT TOUCH!
 	int16_t fixedSmp2;
 #endif
 	int32_t fixedPos;
-
-	int32_t repLUnrolled;
 }
 #ifdef __GNUC__
 __attribute__ ((packed))

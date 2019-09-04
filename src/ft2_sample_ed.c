@@ -43,130 +43,6 @@ static SDL_Thread *thread;
 int32_t smpEd_Rx1 = 0, smpEd_Rx2 = 0;
 sampleTyp *currSmp = NULL;
 
-// loop lengths below this will be unrolled to be at least this size, for mixer optimization
-#define UNROLL_MIN_LOOPLEN 1024
-
-static void unrollSampleLoop(sampleTyp *s)
-{
-	bool backwards, sampleIs16Bit;
-	int8_t *newPtr, *src8, *dst8;
-	int16_t *src16, *dst16;
-	int32_t i, j, timesToUnroll, loopStart, loopEnd, loopLength;
-
-	s->repLUnrolled = s->repL;
-
-	if ((s->pek == NULL) || (s->len == 0))
-		return; // don't unroll an empty sample!
-
-	sampleIs16Bit = (s->typ >> 4) & 1;
-
-	loopStart = s->repS;
-	loopLength = s->repL;
-
-	if (sampleIs16Bit)
-	{
-		loopStart >>= 1;
-		loopLength >>= 1;
-	}
-
-	if (((s->typ & 3) == 0) || (loopLength < 1) || ((s->repS + s->repL) < s->len))
-		return; // don't unroll if there's no loop, or if there's data after the loop
-
-	loopEnd = loopStart + loopLength;
-
-	if (loopLength >= UNROLL_MIN_LOOPLEN)
-		return; // we don't need to unroll sample loop
-
-	timesToUnroll = UNROLL_MIN_LOOPLEN / loopLength;
-	if (((s->typ & 3) > 1) && !(timesToUnroll & 1))
-		timesToUnroll++; // on pingpong loops, make sure we're doing odd amount of loop unrolls
-
-	newPtr = realloc(s->pek, s->len + (s->repL * timesToUnroll) + LOOP_FIX_LEN);
-	if (newPtr == NULL)
-	{
-		s->repLUnrolled = s->repL;
-		return; // out of memory
-	}
-
-	s->pek = newPtr;
-	s->repLUnrolled = s->repL * (timesToUnroll + 1);
-
-	// do loop unrolling
-
-	src8  = &s->pek[s->repS];
-	dst8  = &s->pek[s->repS + s->repL];
-	src16 = (int16_t *)(src8);
-	dst16 = (int16_t *)(dst8);
-
-	if ((s->typ & 3) == 1)
-	{
-		// normal loop
-
-		if (sampleIs16Bit)
-		{
-			for (i = 0; i < timesToUnroll; ++i)
-			{
-				for (j = 0; j < loopLength; ++j)
-					*dst16++ = src16[j];
-			}
-		}
-		else
-		{
-			for (i = 0; i < timesToUnroll; ++i)
-			{
-				for (j = 0; j < loopLength; ++j)
-					*dst8++ = src8[j];
-			}
-		}
-	}
-	else
-	{
-		// pingpong loop
-
-		backwards = true;
-		if (sampleIs16Bit)
-		{
-			for (i = 0; i < timesToUnroll; ++i)
-			{
-				if (!backwards)
-				{
-					for (j = 0; j < loopLength; ++j)
-						*dst16++ = src16[j];
-
-					backwards = true;
-				}
-				else
-				{
-					for (j = (loopLength - 1); j >= 0; --j)
-						*dst16++ = src16[j];
-
-					backwards = false;
-				}
-			}
-		}
-		else
-		{
-			for (i = 0; i < timesToUnroll; ++i)
-			{
-				if (!backwards)
-				{
-					for (j = 0; j < loopLength; ++j)
-						*dst8++ = src8[j];
-
-					backwards = true;
-				}
-				else
-				{
-					for (j = (loopLength - 1); j >= 0; --j)
-						*dst8++ = src8[j];
-
-					backwards = false;
-				}
-			}
-		}
-	}
-}
-
 // adds wrapped samples after loop/end (for branchless mixer interpolation)
 void fixSample(sampleTyp *s)
 {
@@ -220,8 +96,6 @@ void fixSample(sampleTyp *s)
 	{
 		// forward loop
 
-		unrollSampleLoop(s);
-
 		if (s->typ & 16)
 		{
 			// 16-bit sample
@@ -230,13 +104,13 @@ void fixSample(sampleTyp *s)
 				return;
 
 			loopStart = s->repS / 2;
-			loopEnd = (s->repS + s->repLUnrolled) / 2;
+			loopEnd = (s->repS + s->repL) / 2;
 
 			ptr16 = (int16_t *)(s->pek);
 
 			// store old values and old fix position
 			s->fixedSmp1 = ptr16[loopEnd];
-			s->fixedPos = s->repS + s->repLUnrolled;
+			s->fixedPos = s->repS + s->repL;
 #ifndef LERPMIX
 			s->fixedSmp2 = ptr16[loopEnd + 1];
 #endif
@@ -254,7 +128,7 @@ void fixSample(sampleTyp *s)
 				return;
 
 			loopStart = s->repS;
-			loopEnd = s->repS + s->repLUnrolled;
+			loopEnd = s->repS + s->repL;
 
 			// store old values and old fix position
 			s->fixedSmp1 = s->pek[loopEnd];
@@ -273,8 +147,6 @@ void fixSample(sampleTyp *s)
 	{
 		// pingpong loop
 
-		unrollSampleLoop(s);
-
 		if (s->typ & 16)
 		{
 			// 16-bit sample
@@ -283,14 +155,14 @@ void fixSample(sampleTyp *s)
 				return;
 
 			loopStart = s->repS / 2;
-			loopLen   = s->repLUnrolled / 2;
+			loopLen   = s->repL/ 2;
 
 			loopEnd = loopStart + loopLen;
 			ptr16   = (int16_t *)(s->pek);
 
 			// store old values and old fix position
 			s->fixedSmp1 = ptr16[loopEnd];
-			s->fixedPos = s->repS + s->repLUnrolled;
+			s->fixedPos = s->repS + s->repL;
 #ifndef LERPMIX
 			s->fixedSmp2 = ptr16[loopEnd + 1];
 #endif
@@ -311,7 +183,7 @@ void fixSample(sampleTyp *s)
 				return;
 
 			loopStart = s->repS;
-			loopLen   = s->repLUnrolled;
+			loopLen   = s->repL;
 
 			loopEnd = loopStart + loopLen;
 
@@ -338,7 +210,6 @@ void fixSample(sampleTyp *s)
 // reverts wrapped samples after loop/end (for branchless mixer interpolation)
 void restoreSample(sampleTyp *s)
 {
-	int8_t *newPtr;
 	int16_t *ptr16;
 
 	if ((s->pek == NULL) || (s->len == 0) | ((s->typ & 3) == 0) || !s->fixed)
@@ -364,16 +235,6 @@ void restoreSample(sampleTyp *s)
 #ifndef LERPMIX
 		s->pek[s->fixedPos + 1] = (int8_t)(s->fixedSmp2);
 #endif
-	}
-
-	if (s->repLUnrolled != s->repL) // do we have an unrolled loop?
-	{
-		// revert loop unroll
-		newPtr = realloc(s->pek, s->len + LOOP_FIX_LEN);
-		if (newPtr != NULL)
-			s->pek = newPtr;
-
-		s->repLUnrolled = s->repL;
 	}
 }
 
