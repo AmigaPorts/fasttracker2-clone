@@ -209,7 +209,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 
 	// this is important for the "goto" on load error
 	f = NULL;
-	tmpSmp.pek = NULL;
+	memset(&tmpSmp, 0, sizeof (tmpSmp));
 
 	if (editor.tmpFilenameU == NULL)
 	{
@@ -737,10 +737,10 @@ static int32_t SDLCALL loadIFFSample(void *ptr)
 
 	(void)ptr;
 
-	memset(&tmpSmp, 0, sizeof(sampleTyp));
-
 	// this is important for the "goto" on load error
 	f = NULL;
+	memset(&tmpSmp, 0, sizeof (tmpSmp));
+
 
 	if (editor.tmpFilenameU == NULL)
 	{
@@ -1018,10 +1018,9 @@ static int32_t SDLCALL loadRawSample(void *ptr)
 
 	(void)ptr;
 
-	memset(&tmpSmp, 0, sizeof(sampleTyp));
-
 	// this is important for the "goto" on load error
 	f = NULL;
+	memset(&tmpSmp, 0, sizeof (tmpSmp));
 
 	if (editor.tmpFilenameU == NULL)
 	{
@@ -1167,7 +1166,7 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
 
 	// this is important for the "goto" on load error
 	f = NULL;
-	tmpSmp.pek = NULL;
+	memset(&tmpSmp, 0, sizeof (tmpSmp));
 
 	// zero out chunk pointers and lengths
 	fmtPtr  = 0; fmtLen  = 0;

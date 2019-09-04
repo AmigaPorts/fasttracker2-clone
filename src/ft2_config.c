@@ -391,6 +391,9 @@ bool saveConfig(bool showErrorFlag)
 	config.patternsPathLen = (uint8_t)strlen(config.patternsPath);
 	config.tracksPathLen = (uint8_t)strlen(config.tracksPath);
 
+	// copy over user palette
+	memcpy(config.userPal, palTable[11], sizeof (pal16) * 16);
+
 	memcpy(configBuffer, &config, CONFIG_FILE_SIZE);
 
 	// encrypt config buffer
