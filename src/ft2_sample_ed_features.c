@@ -1080,12 +1080,18 @@ static void sbSetStartVolPos(uint32_t pos)
 {
 	int16_t val;
 
-	val = (int16_t)(pos - 200);
+	val = (int16_t)(pos - 500);
 	if (val != vol_StartVol)
 	{
 			 if (ABS(val)       < 10) val =    0;
 		else if (ABS(val - 100) < 10) val =  100;
+		else if (ABS(val - 200) < 10) val =  200;
+		else if (ABS(val - 300) < 10) val =  300;
+		else if (ABS(val - 400) < 10) val =  400;
 		else if (ABS(val + 100) < 10) val = -100;
+		else if (ABS(val + 200) < 10) val = -200;
+		else if (ABS(val + 300) < 10) val = -300;
+		else if (ABS(val + 400) < 10) val = -400;
 
 		vol_StartVol = val;
 	}
@@ -1095,12 +1101,18 @@ static void sbSetEndVolPos(uint32_t pos)
 {
 	int16_t val;
 
-	val = (int16_t)(pos - 200);
+	val = (int16_t)(pos - 500);
 	if (val != vol_EndVol)
 	{
 			 if (ABS(val)       < 10) val =    0;
 		else if (ABS(val - 100) < 10) val =  100;
+		else if (ABS(val - 200) < 10) val =  200;
+		else if (ABS(val - 300) < 10) val =  300;
+		else if (ABS(val - 400) < 10) val =  400;
 		else if (ABS(val + 100) < 10) val = -100;
+		else if (ABS(val + 200) < 10) val = -200;
+		else if (ABS(val + 300) < 10) val = -300;
+		else if (ABS(val + 400) < 10) val = -400;
 
 		vol_EndVol = val;
 	}
@@ -1108,25 +1120,25 @@ static void sbSetEndVolPos(uint32_t pos)
 
 static void pbSampStartVolDown(void)
 {
-	if (vol_StartVol > -200)
+	if (vol_StartVol > -500)
 		vol_StartVol--;
 }
 
 static void pbSampStartVolUp(void)
 {
-	if (vol_StartVol < 200)
+	if (vol_StartVol < 500)
 		vol_StartVol++;
 }
 
 static void pbSampEndVolDown(void)
 {
-	if (vol_EndVol > -200)
+	if (vol_EndVol > -500)
 		vol_EndVol--;
 }
 
 static void pbSampEndVolUp(void)
 {
-	if (vol_EndVol < 200)
+	if (vol_EndVol < 500)
 		vol_EndVol++;
 }
 
@@ -1135,7 +1147,7 @@ static int32_t SDLCALL applyVolumeThread(void *ptr)
 	int8_t *ptr8;
 	int16_t *ptr16;
 	int32_t smp, x1, x2, len, i;
-	double dSmp;
+	double dSmp, dVolAdjust;
 
 	(void)(ptr);
 
@@ -1185,7 +1197,9 @@ static int32_t SDLCALL applyVolumeThread(void *ptr)
 		ptr16 = (int16_t *)(currSmp->pek);
 		for (i = x1; i < x2; ++i)
 		{
-			dSmp = (ptr16[i] * (vol_StartVol + (((vol_EndVol - vol_StartVol) * (i - x1)) / (double)(len)))) / 100.0;
+			dVolAdjust = vol_StartVol + (((vol_EndVol - vol_StartVol) * (double)(i - x1)) / len);
+
+			dSmp = (ptr16[i] * dVolAdjust) / 100.0;
 			double2int32_round(smp, dSmp);
 			CLAMP16(smp);
 			ptr16[i] = (int16_t)(smp);
@@ -1196,7 +1210,9 @@ static int32_t SDLCALL applyVolumeThread(void *ptr)
 		ptr8 = currSmp->pek;
 		for (i = x1; i < x2; ++i)
 		{
-			dSmp = (ptr8[i] * (vol_StartVol + (((vol_EndVol - vol_StartVol) * (i - x1)) / (double)(len)))) / 100.0;
+			dVolAdjust = vol_StartVol + (((vol_EndVol - vol_StartVol) * (double)(i - x1)) / len);
+
+			dSmp = (ptr8[i] * dVolAdjust) / 100.0;
 			double2int32_round(smp, dSmp);
 			CLAMP8(smp);
 			ptr8[i] = (int8_t)(smp);
@@ -1311,8 +1327,8 @@ static int32_t SDLCALL getMaxScaleThread(void *ptr)
 	else
 	{
 		vol = (100 * 32768) / maxAmp;
-		if (vol > 200)
-			vol = 200;
+		if (vol > 500)
+			vol = 500;
 
 		vol_StartVol = (int16_t)(vol);
 		vol_EndVol   = (int16_t)(vol);
@@ -1512,8 +1528,8 @@ static void setupVolumeBoxWidgets(void)
 	s->callbackFunc = sbSetStartVolPos;
 	s->visible = true;
 	setScrollBarPageLength(0, 1);
-	setScrollBarEnd(0, 200 * 2);
-	setScrollBarPos(0, 200, false);
+	setScrollBarEnd(0, 500 * 2);
+	setScrollBarPos(0, 500, false);
 
 	// volume end scrollbar
 	s = &scrollBars[1];
@@ -1525,8 +1541,8 @@ static void setupVolumeBoxWidgets(void)
 	s->callbackFunc = sbSetEndVolPos;
 	s->visible = true;
 	setScrollBarPageLength(1, 1);
-	setScrollBarEnd(1, 200 * 2);
-	setScrollBarPos(1, 200, false);
+	setScrollBarEnd(1, 500 * 2);
+	setScrollBarPos(1, 500, false);
 }
 
 void pbSampleVolume(void)
@@ -1550,8 +1566,8 @@ void pbSampleVolume(void)
 		if (editor.ui.setMouseIdle) mouseAnimOff();
 
 		drawSampleVolumeBox();
-		setScrollBarPos(0, 200 + vol_StartVol, false);
-		setScrollBarPos(1, 200 + vol_EndVol,   false);
+		setScrollBarPos(0, 500 + vol_StartVol, false);
+		setScrollBarPos(1, 500 + vol_EndVol,   false);
 		for (i = 0; i < 7; ++i) drawPushButton(i);
 		for (i = 0; i < 2; ++i) drawScrollBar(i);
 

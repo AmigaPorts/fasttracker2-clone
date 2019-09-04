@@ -61,6 +61,8 @@ int main(int argc, char *argv[])
 #pragma message("At least version 2.0.7 is recommended.")
 #endif
 
+	SDL_SetThreadPriority(SDL_THREAD_PRIORITY_HIGH);
+
 	initializeVars();
 	setupCrashHandler();
 
@@ -103,19 +105,24 @@ int main(int argc, char *argv[])
 	disableWasapi(); // disable problematic WASAPI SDL2 audio driver on Windows (causes clicks/pops sometimes...)
 #endif
 
+	/* SDL 2.0.9 for Windows has a serious bug where you need to initialize the joystick subsystem
+	** (even if you don't use it) or else weird things happen like random stutters, keyboard (rarely) being
+	** reinitialized in Windows and what not.
+	** Ref.: https://bugzilla.libsdl.org/show_bug.cgi?id=4391 */
+#if defined _WIN32 && (SDL_PATCHLEVEL == 9)
+	if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) != 0)
+#else
 	if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO) != 0)
+#endif
 	{
 		showErrorMsgBox("Couldn't initialize SDL:\n%s", SDL_GetError());
 		return (1);
 	}
 
 	/* Text input is started by default in SDL2, turn it off to remove ~2ms spikes per key press.
-	** We manuallay start it again when someone clicks on a text edit box, and stop it when done.
+	** We manuallay start it again when a text edit box is activated, and stop it when done.
 	** Ref.: https://bugzilla.libsdl.org/show_bug.cgi?id=4166 */
 	SDL_StopTextInput();
-
-	// this is mostly needed for situations without vsync
-	SDL_SetThreadPriority(SDL_THREAD_PRIORITY_HIGH);
 
 #ifdef __APPLE__
 	osxSetDirToProgramDirFromArgs(argv);

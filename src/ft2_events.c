@@ -272,8 +272,6 @@ static void handleSysMsg(SDL_Event inputEvent)
 
 					UnmapViewOfFile(sharedMemBuf);
 					sharedMemBuf = NULL;
-
-					//SDL_RestoreWindow(video.window);
 				}
 
 				CloseHandle(hMapFile);

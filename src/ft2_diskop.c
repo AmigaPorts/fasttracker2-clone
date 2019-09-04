@@ -11,6 +11,7 @@
 #include <shlwapi.h>
 #include <windows.h>
 #include <direct.h>
+#include <shlobj.h> // SHGetFolderPathW()
 #else
 #include <fts.h> // for fts_open() and stuff in recursiveDelete()
 #include <unistd.h>
@@ -135,6 +136,10 @@ const UNICHAR *getDiskOpSmpPath(void)
 
 static void setupInitialPaths(void)
 {
+#ifdef _WIN32
+	UNICHAR pathU[PATH_MAX + 2];
+#endif
+
 	// the UNICHAR paths are already zeroed out
 
 #ifdef _WIN32
@@ -151,12 +156,18 @@ static void setupInitialPaths(void)
 	if (config.tracksPath[1]   != '\0') strncpy(FReq_TrkCurPathU, &config.tracksPath[1],   80);
 #endif
 
-	// set initial path to home on *NIX systems before trying the custom path
-#ifndef _WIN32
+	// set initial path to user directory
+#ifdef _WIN32
+	if (SHGetFolderPathW(NULL, CSIDL_PROFILE, NULL, 0, pathU) >= 0)
+		UNICHAR_CHDIR(pathU);
+#else
 	UNICHAR_CHDIR(getenv("HOME"));
 #endif
 
-	if (UNICHAR_CHDIR(FReq_ModCurPathU) != 0) UNICHAR_GETCWD(FReq_ModCurPathU, PATH_MAX);
+	// if present in config, set custom "modules" path
+	if (UNICHAR_CHDIR(FReq_ModCurPathU) != 0)
+		UNICHAR_GETCWD(FReq_ModCurPathU, PATH_MAX);
+
 	if (UNICHAR_CHDIR(FReq_InsCurPathU) != 0) UNICHAR_STRCPY(FReq_InsCurPathU, FReq_ModCurPathU);
 	if (UNICHAR_CHDIR(FReq_SmpCurPathU) != 0) UNICHAR_STRCPY(FReq_SmpCurPathU, FReq_ModCurPathU);
 	if (UNICHAR_CHDIR(FReq_PatCurPathU) != 0) UNICHAR_STRCPY(FReq_PatCurPathU, FReq_ModCurPathU);

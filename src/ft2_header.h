@@ -14,7 +14,7 @@
 #endif
 #include "ft2_replayer.h"
 
-#define BETA_VERSION 148
+#define BETA_VERSION 149
 
 // do NOT change these! It will only mess things up...
 
@@ -36,7 +36,7 @@
 #define DIR_DELIMITER '/'
 #else
 #define DIR_DELIMITER '\\'
-#define PATH_MAX 260
+#define PATH_MAX MAX_PATH
 #endif
 
 #define SGN(x) (((x) >= 0) ? 1 : -1)

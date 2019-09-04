@@ -3410,9 +3410,9 @@ static int32_t SDLCALL fixDCThread(void *ptr)
 		smpSub = (int32_t)(offset);
 		for (i = 0; i < len; ++i)
 		{
-		   smp32 = ptr16[i] - smpSub;
-		   CLAMP16(smp32);
-		   ptr16[i] = (int16_t)(smp32);
+			smp32 = ptr16[i] - smpSub;
+			CLAMP16(smp32);
+			ptr16[i] = (int16_t)(smp32);
 		}
 
 		fixSample(currSmp);
@@ -3447,9 +3447,9 @@ static int32_t SDLCALL fixDCThread(void *ptr)
 		smpSub = (int32_t)(offset);
 		for (i = 0; i < len; ++i)
 		{
-		   smp32 = ptr8[i] - smpSub;
-		   CLAMP8(smp32);
-		   ptr8[i] = (int8_t)(smp32);
+			smp32 = ptr8[i] - smpSub;
+			CLAMP8(smp32);
+			ptr8[i] = (int8_t)(smp32);
 		}
 
 		fixSample(currSmp);

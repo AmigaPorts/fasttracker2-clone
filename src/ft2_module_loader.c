@@ -2627,7 +2627,8 @@ void loadDroppedFile(char *fullPathUTF8, bool songModifiedCheck)
 
 		if (songModifiedCheck && song.isModified)
 		{
-			// de-minimize window so that the user sees the message box
+			// de-minimize window and set focus so that the user sees the message box
+			SDL_RestoreWindow(video.window);
 			SDL_RaiseWindow(video.window);
 
 			if (okBox(2, "System request", "You have unsaved changes in your song. Load new song and lose all changes?") != 1)

@@ -1,11 +1,8 @@
 #ifndef __FT2_EVENTS_H
 #define __FT2_EVENTS_H
 
-#ifdef _WIN32
-#define WIN32_MEAN_AND_LEAN
-#include <windows.h>
-#endif
 #include <stdint.h>
+#include <stdbool.h>
 
 enum
 {
