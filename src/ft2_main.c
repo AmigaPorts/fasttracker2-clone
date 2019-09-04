@@ -75,7 +75,7 @@ int main(int argc, char *argv[])
 		showErrorMsgBox("SDL2.dll is not the expected version, the program will terminate.\n\n" \
 		                "Loaded dll version: %d.%d.%d\n" \
 		                "Required (compiled with) version: %d.%d.%d\n\n" \
-		                "The needed SDL2.dll is located in the .zip from 16-bits.org/ft2.php.\n",
+		                "The needed SDL2.dll is located in the .zip from 16-bits.org/ft2.php\n",
 		                sdlVer.major, sdlVer.minor, sdlVer.patch,
 		                SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_PATCHLEVEL);
 #else

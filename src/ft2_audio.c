@@ -914,7 +914,8 @@ void lockMixerCallback(void) // lock audio + clear voices/scopes (for short oper
 
 	audio.resetSyncTickTimeFlag = true;
 
-	stopVoices(); // VERY important! prevents potential crashes
+	stopVoices(); // VERY important! prevents potential crashes by purging pointers
+
 	// scopes, mixer and replayer are guaranteed to not be active at this point
 
 	resetSyncQueues();
@@ -922,7 +923,7 @@ void lockMixerCallback(void) // lock audio + clear voices/scopes (for short oper
 
 void unlockMixerCallback(void)
 {
-	stopVoices(); // VERY important! prevents potential crashes
+	stopVoices(); // VERY important! prevents potential crashes by purging pointers
 	
 	if (audio.locked)
 		unlockAudio();
@@ -931,18 +932,21 @@ void unlockMixerCallback(void)
 void pauseAudio(void) // lock audio + clear voices/scopes + render silence (for long operations)
 {
 	if (audioPaused)
+	{
+		stopVoices(); // VERY important! prevents potential crashes by purging pointers
 		return;
+	}
 
 	if (audio.dev > 0)
 		SDL_PauseAudioDevice(audio.dev, true);
 
 	audio.resetSyncTickTimeFlag = true;
 
-	stopVoices(); // VERY important! prevents potential crashes
+	stopVoices(); // VERY important! prevents potential crashes by purging pointers
+
 	// scopes, mixer and replayer are guaranteed to not be active at this point
 
 	resetSyncQueues();
-
 	audioPaused = true;
 }
 

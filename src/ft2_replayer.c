@@ -46,10 +46,50 @@ volatile bool replayerBusy = false;
 int16_t *note2Period = NULL, pattLens[MAX_PATTERNS];
 stmTyp stm[MAX_VOICES];
 songTyp song;
-instrTyp instr[1 + MAX_INST + 1];
+instrTyp *instr[132];
 tonTyp *patt[MAX_PATTERNS];
 
 // CODE START
+
+void fixSongName(void) // removes spaces from right side of song name
+{
+	for (int16_t i = 20; i >= 0; i--)
+	{
+		if (song.name[i] == ' ')
+			song.name[i] = '\0';
+		else
+			break;
+	}
+}
+
+void fixSampleName(int16_t nr) // removes spaces from right side of ins/smp names
+{
+	int16_t i, j;
+	sampleTyp *s;
+
+	for (i = 21; i >= 0; i--)
+	{
+		if (song.instrName[nr][i] == ' ')
+			song.instrName[nr][i] = '\0';
+		else
+			break;
+	}
+
+	if (instr[nr] != NULL)
+	{
+		for (i = 0; i < MAX_SMP_PER_INST; i++)
+		{
+			s = &instr[nr]->samp[i];
+			for (j = 21; j >= 0; j--)
+			{
+				if (s->name[j] == ' ')
+					s->name[j] = '\0';
+				else
+					break;
+			}
+		}
+	}
+}
 
 void resetChannels(void)
 {
@@ -65,7 +105,7 @@ void resetChannels(void)
 	{
 		ch = &stm[i];
 
-		ch->instrPtr = &instr[0];
+		ch->instrSeg = instr[0];
 		ch->status = IS_Vol;
 		ch->oldPan = 128;
 		ch->outPan = 128;
@@ -191,44 +231,26 @@ bool setPatternLen(uint16_t nr, int16_t len)
 	return true;
 }
 
-bool instrIsEmpty(int16_t nr)
-{
-	// check if we're testing a non-editable instrument
-	if (nr <= 0 || nr > MAX_INST)
-		return true;
-
-	// test if name is not empty
-	if (song.instrName[nr][0] != '\0')
-		return false;
-
-	// test data integrity against instrument 0, which is "empty" and non-editable
-	if (memcmp(&instr[nr], &instr[0], sizeof (instrTyp)) != 0)
-		return false;
-
-	return true; // empty
-}
-
 int16_t getUsedSamples(int16_t nr)
 {
-	int8_t i;
+	int16_t i, j;
 	instrTyp *ins;
 
-	if (instrIsEmpty(nr))
+	if (instr[nr] == NULL)
 		return 0;
 
-	ins = &instr[nr];
+	ins = instr[nr];
 
 	i = 16 - 1;
 	while (i >= 0 && ins->samp[i].pek == NULL && ins->samp[i].name[0] == '\0')
 		i--;
 
-	if (i >= 0)
+	/* Yes, 'i' can be -1 here, and will be set to at least 0
+	** because of ins->ta values. Possibly an FT2 bug... */
+	for (j = 0; j < 96; j++)
 	{
-		for (int8_t j = 0; j < 96; j++)
-		{
-			if (ins->ta[j] > i)
-				i = ins->ta[j];
-		}
+		if (ins->ta[j] > i)
+			i = ins->ta[j];
 	}
 
 	return i+1;
@@ -238,11 +260,11 @@ int16_t getRealUsedSamples(int16_t nr)
 {
 	int8_t i;
 
-	if (instrIsEmpty(nr))
+	if (instr[nr] == NULL)
 		return 0;
 
 	i = 16 - 1;
-	while (i >= 0 && instr[nr].samp[i].pek == NULL)
+	while (i >= 0 && instr[nr]->samp[i].pek == NULL)
 		i--;
 
 	return i+1;
@@ -288,7 +310,7 @@ static void retrigEnvelopeVibrato(stmTyp *ch)
 
 	ch->envSustainActive = true;
 
-	ins = ch->instrPtr;
+	ins = ch->instrSeg;
 	assert(ins != NULL);
 
 	if (ins->envVTyp & 1)
@@ -329,7 +351,7 @@ void keyOff(stmTyp *ch)
 
 	ch->envSustainActive = false;
 
-	ins = ch->instrPtr;
+	ins = ch->instrSeg;
 	assert(ins != NULL);
 
 	if (!(ins->envPTyp & 1)) // yes, FT2 does this (!)
@@ -435,10 +457,13 @@ static void startTone(uint8_t ton, uint8_t effTyp, uint8_t eff, stmTyp *ch)
 
 	ch->tonNr = ton;
 
-	assert(ch->instrNr <= MAX_INST+1);
+	assert(ch->instrNr <= 130);
 
-	ins = &instr[ch->instrNr];
-	ch->instrPtr = ins;
+	ins = instr[ch->instrNr];
+	if (ins == NULL)
+		ins = instr[0];
+
+	ch->instrSeg = ins;
 	ch->mute = ins->mute;
 
 	if (ton > 96) // non-FT2 security (should never happen because I clamp in the patt loaders now)
@@ -553,7 +578,7 @@ static void checkMoreEffects(stmTyp *ch) // called even if channel is muted
 	uint16_t i;
 	instrTyp *ins;
 
-	ins = ch->instrPtr;
+	ins = ch->instrSeg;
 	assert(ins != NULL);
 
 	// Bxx - position jump
@@ -1146,7 +1171,7 @@ static void getNewNote(stmTyp *ch, tonTyp *p)
 	inst = p->instr;
 	if (inst > 0)
 	{
-		if (inst <= 128)
+		if (inst <= MAX_INST)
 			ch->instrNr = inst;
 		else
 			inst = 0;
@@ -1234,7 +1259,7 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 	instrTyp *ins;
 	double dVol;
 
-	ins = ch->instrPtr;
+	ins = ch->instrSeg;
 
 	assert(ins != NULL);
 
@@ -2352,25 +2377,103 @@ void samp2Delta(int8_t *p, int32_t len, uint8_t typ)
 	}
 }
 
-void freeSample(sampleTyp *s)
+bool allocateInstr(int16_t nr)
 {
-	if (s->pek != NULL)
+	bool audioWasntLocked;
+	instrTyp *p;
+
+	if (instr[nr] != NULL)
+		return false; // already allocated
+
+	p = (instrTyp *)malloc(sizeof (instrTyp));
+	if (p == NULL)
+		return false;
+
+	memset(p, 0, sizeof (instrTyp));
+
+	for (int8_t i = 0; i < 16; i++) // set standard sample pan/vol
 	{
-		free(s->pek);
-		s->pek = NULL;
+		p->samp[i].pan = 128;
+		p->samp[i].vol = 64;
 	}
 
-	memset(s, 0, sizeof (sampleTyp));
+	setStdEnvelope(p, 0, 3);
+
+	audioWasntLocked = !audio.locked;
+	if (audioWasntLocked)
+		lockAudio();
+
+	instr[nr] = p;
+
+	if (audioWasntLocked)
+		unlockAudio();
+
+	return true;
 }
 
-void freeSamples(uint16_t ins)
+void freeInstr(int16_t nr)
 {
-	for (uint8_t i = 0; i < MAX_SMP_PER_INST; i++)
-		freeSample(&instr[ins].samp[i]);
+	if (instr[nr] == NULL)
+		return; // not allocated
+
+	pauseAudio(); // channel instrument pointers are now cleared
+
+	for (int8_t i = 0; i < 16; i++) // free sample data
+	{
+		if (instr[nr]->samp[i].pek != NULL)
+			free(instr[nr]->samp[i].pek);
+	}
+
+	free(instr[nr]);
+	instr[nr] = NULL;
+	
+	resumeAudio();
+}
+
+void freeAllInstr(void)
+{
+	pauseAudio(); // channel instrument pointers are now cleared
+	for (int16_t i = 1; i <= MAX_INST; i++)
+	{
+		if (instr[i] != NULL)
+		{
+			for (int8_t j = 0; j < 16; j++) // free sample data
+			{
+				if (instr[i]->samp[j].pek != NULL)
+					free(instr[i]->samp[j].pek);
+			}
+
+			free(instr[i]);
+			instr[i] = NULL;
+		}
+	}
+	resumeAudio();
+}
+
+void freeSample(int16_t nr, int16_t nr2)
+{
+	sampleTyp *s;
+
+	if (instr[nr] == NULL)
+		return; // instrument not allocated
+
+	pauseAudio(); // voice sample pointers are now cleared
+
+	s = &instr[nr]->samp[nr2];
+	if (s->pek != NULL)
+		free(s->pek);
+
+	memset(s, 0, sizeof (sampleTyp));
+
+	s->pan = 128;
+	s->vol = 64;
+
+	resumeAudio();
 }
 
 void freeAllPatterns(void)
 {
+	pauseAudio();
 	for (uint16_t i = 0; i < MAX_PATTERNS; i++)
 	{
 		if (patt[i] != NULL)
@@ -2379,67 +2482,72 @@ void freeAllPatterns(void)
 			patt[i] = NULL;
 		}
 	}
+	resumeAudio();
 }
 
-void setDefEnvelopes(uint16_t nr)
+void setStdEnvelope(instrTyp *ins, int16_t i, uint8_t typ)
 {
-	instrTyp *ins;
+	if (ins == NULL)
+		return;
 
 	pauseMusic();
 
-	assert(nr <= MAX_INST+1);
-
-	ins = &instr[nr];
-
-	ins->fadeOut  = defConfig->stdFadeOut[0];
-	ins->envVSust = (uint8_t)defConfig->stdVolEnvSust[0];
-	ins->envVRepS = (uint8_t)defConfig->stdVolEnvRepS[0];
-	ins->envVRepE = (uint8_t)defConfig->stdVolEnvRepE[0];
-	ins->envVPAnt = (uint8_t)defConfig->stdVolEnvAnt[0];
-	ins->envVTyp  = (uint8_t)defConfig->stdVolEnvTyp[0];
-	ins->vibRate  = (uint8_t)defConfig->stdVibRate[0];
-	ins->vibDepth = (uint8_t)defConfig->stdVibDepth[0];
-	ins->vibSweep = (uint8_t)defConfig->stdVibSweep[0];
-	ins->vibTyp   = (uint8_t)defConfig->stdVibTyp[0];
-
-	memcpy(ins->envVP, defConfig->stdEnvP[0][0], sizeof (int16_t) * 12 * 2);
-
-	ins->envPPAnt = (uint8_t)defConfig->stdPanEnvAnt[0];
-	ins->envPSust = (uint8_t)defConfig->stdPanEnvSust[0];
-	ins->envPRepS = (uint8_t)defConfig->stdPanEnvRepS[0];
-	ins->envPRepE = (uint8_t)defConfig->stdPanEnvRepE[0];
-	ins->envPTyp  = (uint8_t)defConfig->stdPanEnvTyp[0];
-
-	memcpy(ins->envPP, defConfig->stdEnvP[0][1], sizeof (int16_t) * 12 * 2);
-
-	for (uint8_t j = 0; j < MAX_SMP_PER_INST; j++)
+	if (typ & 1)
 	{
-		ins->samp[j].vol = 64;
-		ins->samp[j].pan = 128;
+		memcpy(ins->envVP, config.stdEnvP[i][0], 2*2*12);
+		ins->envVPAnt = (uint8_t)config.stdVolEnvAnt[i];
+		ins->envVSust = (uint8_t)config.stdVolEnvSust[i];
+		ins->envVRepS = (uint8_t)config.stdVolEnvRepS[i];
+		ins->envVRepE = (uint8_t)config.stdVolEnvRepE[i];
+		ins->fadeOut = config.stdFadeOut[i];
+		ins->vibRate = (uint8_t)config.stdVibRate[i];
+		ins->vibDepth = (uint8_t)config.stdVibDepth[i];
+		ins->vibSweep = (uint8_t)config.stdVibSweep[i];
+		ins->vibTyp = (uint8_t)config.stdVibTyp[i];
+		ins->envVTyp = (uint8_t)config.stdVolEnvTyp[i];
+	}
+
+	if (typ & 2)
+	{
+		memcpy(ins->envPP, config.stdEnvP[i][1], 2*2*12);
+		ins->envPPAnt = (uint8_t)config.stdPanEnvAnt[0];
+		ins->envPSust = (uint8_t)config.stdPanEnvSust[0];
+		ins->envPRepS = (uint8_t)config.stdPanEnvRepS[0];
+		ins->envPRepE = (uint8_t)config.stdPanEnvRepE[0];
+		ins->envPTyp  = (uint8_t)config.stdPanEnvTyp[0];
 	}
 
 	resumeMusic();
 }
 
-void clearInstr(uint8_t i)
+void setNoEnvelope(instrTyp *ins)
 {
-	assert(i <= MAX_INST+1);
+	if (ins == NULL)
+		return;
 
-	freeSamples(i);
+	pauseMusic();
 
-	memset(&instr[i], 0, sizeof (instrTyp));
-	memset(song.instrName[i], 0, sizeof (song.instrName[i]));
+	memcpy(ins->envVP, config.stdEnvP[0][0], 2*2*12);
+	ins->envVPAnt = (uint8_t)config.stdVolEnvAnt[0];
+	ins->envVSust = (uint8_t)config.stdVolEnvSust[0];
+	ins->envVRepS = (uint8_t)config.stdVolEnvRepS[0];
+	ins->envVRepE = (uint8_t)config.stdVolEnvRepE[0];
+	ins->envVTyp = 0;
 
-	setDefEnvelopes(i);
-}
+	memcpy(ins->envPP, config.stdEnvP[0][1], 2*2*12);
+	ins->envPPAnt = (uint8_t)config.stdPanEnvAnt[0];
+	ins->envPSust = (uint8_t)config.stdPanEnvSust[0];
+	ins->envPRepS = (uint8_t)config.stdPanEnvRepS[0];
+	ins->envPRepE = (uint8_t)config.stdPanEnvRepE[0];
+	ins->envPTyp = 0;
 
-void clearAllInstr(void)
-{
-	for (uint8_t i = 0; i <= MAX_INST; i++)
-		clearInstr(i);
+	ins->fadeOut = 0;
+	ins->vibRate = 0;
+	ins->vibDepth = 0;
+	ins->vibSweep = 0;
+	ins->vibTyp = 0;
 
-	// placeholder for instrument jamming
-	memset(&instr[1 + MAX_INST], 0, sizeof (tonTyp)); 
+	resumeMusic();
 }
 
 bool patternEmpty(uint16_t nr)
@@ -2613,7 +2721,7 @@ void conv16BitSample(int8_t *p, int32_t len, bool stereo)
 
 void closeReplayer(void)
 {
-	clearAllInstr();
+	freeAllInstr();
 	freeAllPatterns();
 
 	if (logTab != NULL)
@@ -2632,6 +2740,24 @@ void closeReplayer(void)
 	{
 		free(linearPeriods);
 		linearPeriods = NULL;
+	}
+
+	if (instr[0] != NULL)
+	{
+		free(instr[0]);
+		instr[0] = NULL;
+	}
+
+	if (instr[130] != NULL)
+	{
+		free(instr[130]);
+		instr[130] = NULL;
+	}
+
+	if (instr[131] != NULL)
+	{
+		free(instr[131]);
+		instr[131] = NULL;
 	}
 }
 
@@ -2698,7 +2824,6 @@ bool setupReplayer(void)
 	playMode = PLAYMODE_IDLE;
 	songPlaying = false;
 
-	clearAllInstr();
 	resetChannels();
 
 	song.len = 1;
@@ -2711,6 +2836,33 @@ bool setupReplayer(void)
 
 	setFrqTab(true);
 	setPos(0, 0);
+
+	if (!allocateInstr(0))
+	{
+		showErrorMsgBox("Not enough memory!");
+		return false;
+	}
+	instr[0]->samp[0].vol = 0;
+
+	if (!allocateInstr(130))
+	{
+		showErrorMsgBox("Not enough memory!");
+		return false;
+	}
+	memset(instr[130], 0, sizeof (instrTyp));
+
+	if (!allocateInstr(131)) // Instr. Ed. display instrument for unallocated/empty instruments
+	{
+		showErrorMsgBox("Not enough memory!");
+		return false;
+	}
+	memset(instr[131], 0, sizeof (instrTyp));
+	for (i = 0; i < 16; i++)
+		instr[131]->samp[i].pan = 128;
+
+	// unmute all channels
+	for (i = 0; i < MAX_VOICES; i++)
+		editor.chnMode[i] = true;
 
 	editor.tmpPattern = 65535; // pattern editor update/redraw kludge
 	return true;
@@ -2792,7 +2944,10 @@ void playTone(uint8_t stmm, uint8_t inst, uint8_t ton, int8_t vol, uint16_t midi
 {
 	sampleTyp *s;
 	stmTyp *ch;
-	instrTyp *ins;
+	instrTyp *ins = instr[inst];
+
+	if (ins == NULL)
+		return;
 
 	assert(stmm < MAX_VOICES && inst < MAX_INST && ton <= 97);
 	ch = &stm[stmm];
@@ -2802,9 +2957,7 @@ void playTone(uint8_t stmm, uint8_t inst, uint8_t ton, int8_t vol, uint16_t midi
 		if (ton < 1 || ton > 96)
 			return;
 
-		ins = &instr[inst];
 		s = &ins->samp[ins->ta[ton-1] & 0x0F];
-
 		if (s->pek == NULL || s->len == 0 || ton+s->relTon <= 0 || ton+s->relTon >= 12*10)
 			return;
 	}
@@ -2850,6 +3003,9 @@ void playSample(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t
 	uint8_t vol;
 	stmTyp *ch;
 
+	if (instr[inst] == NULL)
+		return;
+
 	// for sampling playback line in Smp. Ed.
 	lastChInstr[stmm].instrNr = 255;
 	lastChInstr[stmm].sampleNr = 255;
@@ -2859,14 +3015,14 @@ void playSample(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t
 	assert(stmm < MAX_VOICES && inst < MAX_INST && smpNr < MAX_SMP_PER_INST && ton <= 97);
 	ch = &stm[stmm];
 
-	memcpy(&instr[MAX_INST+1].samp[0], &instr[inst].samp[smpNr], sizeof (sampleTyp));
+	memcpy(&instr[130]->samp[0], &instr[inst]->samp[smpNr], sizeof (sampleTyp));
 
-	vol = instr[inst].samp[smpNr].vol;
+	vol = instr[inst]->samp[smpNr].vol;
 	
 	lockAudio();
 
-	ch->tonTyp = ((MAX_INST + 1) << 8) | ton;
-	ch->instrNr = MAX_INST + 1;
+	ch->instrNr = 130;
+	ch->tonTyp = (ch->instrNr << 8) | ton;
 	ch->effTyp = 0;
 
 	startTone(ton, 0, 0, ch);
@@ -2903,6 +3059,9 @@ void playRange(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t 
 	stmTyp *ch;
 	sampleTyp *s;
 
+	if (instr[inst] == NULL)
+		return;
+
 	// for sampling playback line in Smp. Ed.
 	lastChInstr[stmm].instrNr = 255;
 	lastChInstr[stmm].sampleNr = 255;
@@ -2912,16 +3071,16 @@ void playRange(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t 
 	assert(stmm < MAX_VOICES && inst < MAX_INST && smpNr < MAX_SMP_PER_INST && ton <= 97);
 
 	ch = &stm[stmm];
-	s = &instr[MAX_INST+1].samp[0];
+	s = &instr[130]->samp[0];
 
-	memcpy(s, &instr[inst].samp[smpNr], sizeof (sampleTyp));
+	memcpy(s, &instr[inst]->samp[smpNr], sizeof (sampleTyp));
 
-	vol = instr[inst].samp[smpNr].vol;
+	vol = instr[inst]->samp[smpNr].vol;
 
 	if (s->typ & 16)
 	{
 		offs &= 0xFFFFFFFE;
-		len  &= 0xFFFFFFFE;
+		len &= 0xFFFFFFFE;
 	}
 
 	lockAudio();
@@ -2935,8 +3094,8 @@ void playRange(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t 
 	if (s->typ & 16)
 		samplePlayOffset >>= 1;
 
-	ch->tonTyp = ((MAX_INST + 1) << 8) | ton;
-	ch->instrNr = MAX_INST + 1;
+	ch->instrNr = 130;
+	ch->tonTyp = (ch->instrNr << 8) | ton;
 	ch->effTyp = 0;
 
 	startTone(ton, 0, 0, ch);
@@ -2986,7 +3145,7 @@ void stopVoices(void)
 		ch->tonTyp = 0;
 		ch->relTonNr = 0;
 		ch->instrNr = 0;
-		ch->instrPtr = &instr[0]; // placeholder instrument
+		ch->instrSeg = instr[0]; // important: set instrument pointer to instr 0 (placeholder instrument)
 		ch->status = IS_Vol;
 		ch->realVol = 0;
 		ch->outVol = 0;

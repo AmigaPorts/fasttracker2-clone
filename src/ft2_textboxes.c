@@ -112,7 +112,7 @@ static int16_t getTextLength(textBox_t *t, uint16_t offset)
 {
 	uint16_t i;
 
-	if (offset >= t->maxChars)
+	if (t->textPtr == NULL || offset >= t->maxChars)
 		return 0;
 
 	// count number of characters in text
@@ -556,6 +556,9 @@ void drawTextBox(uint16_t textBoxID)
 	// fill text rendering buffer with transparency key
 	memset(t->renderBuf, PAL_TRANSPR, t->renderBufW * t->renderBufH);
 
+	if (t->textPtr == NULL)
+		return;
+
 	// draw text mark background
 	if (textIsMarked())
 	{
@@ -725,7 +728,7 @@ bool testTextBoxMouseDown(void)
 	for (uint16_t i = start; i < end; i++)
 	{
 		t = &textBoxes[i];
-		if (!t->visible)
+		if (!t->visible || t->textPtr == NULL)
 			continue;
 
 		if (mouse.y >= t->y && mouse.y < t->y+t->h &&
@@ -766,17 +769,23 @@ bool testTextBoxMouseDown(void)
 void updateTextBoxPointers(void)
 {
 	uint8_t i;
-	instrTyp *curIns;
-
-	curIns = &instr[editor.curInstr];
+	instrTyp *curIns = instr[editor.curInstr];
 
 	// instrument names
 	for (i = 0; i < 8; i++)
 		textBoxes[TB_INST1+i].textPtr = song.instrName[1+editor.instrBankOffset+i];
 
 	// sample names
-	for (i = 0; i < 5; i++)
-		textBoxes[TB_SAMP1+i].textPtr = curIns->samp[editor.sampleBankOffset+i].name;
+	if (editor.curInstr == 0 || curIns == NULL)
+	{
+		for (i = 0; i < 5; i++)
+			textBoxes[TB_SAMP1+i].textPtr = NULL;
+	}
+	else
+	{
+		for (i = 0; i < 5; i++)
+			textBoxes[TB_SAMP1+i].textPtr = curIns->samp[editor.sampleBankOffset+i].name;
+	}
 
 	// song name
 	textBoxes[TB_SONG_NAME].textPtr = song.name;
@@ -1134,7 +1143,8 @@ void handleTextEditInputChar(char textChar)
 	assert(mouse.lastEditBox >= 0 && mouse.lastEditBox < NUM_TEXTBOXES);
 
 	t = &textBoxes[mouse.lastEditBox];
-	assert(t->textPtr != NULL);
+	if (t->textPtr == NULL)
+		return;
 
 	ch = (int8_t)textChar;
 	if (ch < 32 && ch != -124 && ch != -108 && ch != -122 && ch != -114 && ch != -103 && ch != -113)

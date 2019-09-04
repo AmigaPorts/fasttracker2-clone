@@ -38,6 +38,17 @@ static void normalize32bitSigned(int32_t *sampleData, uint32_t sampleLength);
 static void normalize16bitFloatSigned(float *fSampleData, uint32_t sampleLength);
 static void normalize64bitDoubleSigned(double *dSampleData, uint32_t sampleLength);
 
+void freeTmpSample(sampleTyp *s)
+{
+	if (s->pek != NULL)
+	{
+		free(s->pek);
+		s->pek = NULL;
+	}
+
+	memset(s, 0, sizeof (sampleTyp));
+}
+
 void removeSampleIsLoadingFlag(void)
 {
 	sampleIsLoading = false;
@@ -322,7 +333,7 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 	if (sampleLength > MAX_SAMPLE_LEN)
 		sampleLength = MAX_SAMPLE_LEN;
 
-	freeSample(&tmpSmp);
+	freeTmpSample(&tmpSmp);
 
 	// read sample data
 
@@ -667,18 +678,32 @@ static int32_t SDLCALL loadAIFFSample(void *ptr)
 
 	fclose(f);
 
-	// if loaded in instrument mode
-	if (loadAsInstrFlag)
-		clearInstr(editor.curInstr);
-
-	s = &instr[editor.curInstr].samp[sampleSlot];
-
 	lockMixerCallback();
-	freeSample(s);
-	memcpy(s, &tmpSmp, sizeof (sampleTyp));
-	fixSample(s);
+	if (loadAsInstrFlag) // if loaded in instrument mode
+	{
+		freeInstr(editor.curInstr);
+		memset(song.instrName[editor.curInstr], 0, 23);
+	}
+
+	if (instr[editor.curInstr] == NULL)
+		allocateInstr(editor.curInstr);
+
+	if (instr[editor.curInstr] != NULL)
+	{
+		s = &instr[editor.curInstr]->samp[sampleSlot];
+
+		freeSample(editor.curInstr, sampleSlot);
+		memcpy(s, &tmpSmp, sizeof (sampleTyp));
+		fixSample(s);
+	}
+	else
+	{
+		okBoxThreadSafe(0, "System message", "Not enough memory!");
+		goto aiffLoadError;
+	}
 	unlockMixerCallback();
 
+	fixSampleName(editor.curInstr);
 	setSongModifiedFlag();
 	stereoSampleLoadMode = -1;
 
@@ -849,8 +874,8 @@ static int32_t SDLCALL loadIFFSample(void *ptr)
 		sampleLoopLength = 0;
 	}
 
-	tmpSmp.pek = NULL;
-	freeSample(&tmpSmp);
+	tmpSmp.pan = 128;
+	tmpSmp.vol = 64;
 
 	tmpSmp.pek = (int8_t *)malloc(sampleLength + LOOP_FIX_LEN);
 	if (tmpSmp.pek == NULL)
@@ -938,18 +963,32 @@ static int32_t SDLCALL loadIFFSample(void *ptr)
 
 	fclose(f);
 
-	// if loaded in instrument mode
-	if (loadAsInstrFlag)
-		clearInstr(editor.curInstr);
-
-	s = &instr[editor.curInstr].samp[sampleSlot];
-
 	lockMixerCallback();
-	freeSample(s);
-	memcpy(s, &tmpSmp, sizeof (sampleTyp));
-	fixSample(s);
+	if (loadAsInstrFlag) // if loaded in instrument mode
+	{
+		freeInstr(editor.curInstr);
+		memset(song.instrName[editor.curInstr], 0, 23);
+	}
+
+	if (instr[editor.curInstr] == NULL)
+		allocateInstr(editor.curInstr);
+
+	if (instr[editor.curInstr] != NULL)
+	{
+		s = &instr[editor.curInstr]->samp[sampleSlot];
+
+		freeSample(editor.curInstr, sampleSlot);
+		memcpy(s, &tmpSmp, sizeof (sampleTyp));
+		fixSample(s);
+	}
+	else
+	{
+		okBoxThreadSafe(0, "System message", "Not enough memory!");
+		goto iffLoadError;
+	}
 	unlockMixerCallback();
 
+	fixSampleName(editor.curInstr);
 	setSongModifiedFlag();
 	stereoSampleLoadMode = -1;
 
@@ -1012,7 +1051,8 @@ static int32_t SDLCALL loadRawSample(void *ptr)
 		goto rawLoadError;
 	}
 
-	freeSample(&tmpSmp);
+	tmpSmp.pan = 128;
+	tmpSmp.vol = 64;
 
 	tmpSmp.pek = (int8_t *)malloc(filesize + LOOP_FIX_LEN);
 	if (tmpSmp.pek == NULL)
@@ -1061,18 +1101,32 @@ static int32_t SDLCALL loadRawSample(void *ptr)
 	tmpSmp.vol = 64;
 	tmpSmp.pan = 128;
 
-	// if loaded in instrument mode
-	if (loadAsInstrFlag)
-		clearInstr(editor.curInstr);
-
-	s = &instr[editor.curInstr].samp[sampleSlot];
-
 	lockMixerCallback();
-	freeSample(s);
-	memcpy(s, &tmpSmp, sizeof (sampleTyp));
-	fixSample(s);
+	if (loadAsInstrFlag) // if loaded in instrument mode
+	{
+		freeInstr(editor.curInstr);
+		memset(song.instrName[editor.curInstr], 0, 23);
+	}
+
+	if (instr[editor.curInstr] == NULL)
+		allocateInstr(editor.curInstr);
+
+	if (instr[editor.curInstr] != NULL)
+	{
+		s = &instr[editor.curInstr]->samp[sampleSlot];
+
+		freeSample(editor.curInstr, sampleSlot);
+		memcpy(s, &tmpSmp, sizeof (sampleTyp));
+		fixSample(s);
+	}
+	else
+	{
+		okBoxThreadSafe(0, "System message", "Not enough memory!");
+		goto rawLoadError;
+	}
 	unlockMixerCallback();
 
+	fixSampleName(editor.curInstr);
 	setSongModifiedFlag();
 	stereoSampleLoadMode = -1;
 
@@ -1277,9 +1331,9 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
 	// ---- READ SAMPLE DATA ----
 	fseek(f, dataPtr, SEEK_SET);
 
-	s = &instr[editor.curInstr].samp[editor.curSmp];
-	tmpSmp.pek = NULL;
-	freeSample(&tmpSmp);
+	s = &instr[editor.curInstr]->samp[editor.curSmp];
+	tmpSmp.pan = 128;
+	tmpSmp.vol = 64;
 
 	if (sampleLength > MAX_SAMPLE_LEN)
 		sampleLength = MAX_SAMPLE_LEN;
@@ -1840,18 +1894,32 @@ static int32_t SDLCALL loadWAVSample(void *ptr)
 
 	fclose(f);
 
-	// if loaded in instrument mode
-	if (loadAsInstrFlag)
-		clearInstr(editor.curInstr);
-
-	s = &instr[editor.curInstr].samp[sampleSlot];
-
 	lockMixerCallback();
-	freeSample(s);
-	memcpy(s, &tmpSmp, sizeof (sampleTyp));
-	fixSample(s);
+	if (loadAsInstrFlag) // if loaded in instrument mode
+	{
+		freeInstr(editor.curInstr);
+		memset(song.instrName[editor.curInstr], 0, 23);
+	}
+
+	if (instr[editor.curInstr] == NULL)
+		allocateInstr(editor.curInstr);
+
+	if (instr[editor.curInstr] != NULL)
+	{
+		s = &instr[editor.curInstr]->samp[sampleSlot];
+
+		freeSample(editor.curInstr, sampleSlot);
+		memcpy(s, &tmpSmp, sizeof (sampleTyp));
+		fixSample(s);
+	}
+	else
+	{
+		okBoxThreadSafe(0, "System message", "Not enough memory!");
+		goto wavLoadError;
+	}
 	unlockMixerCallback();
 
+	fixSampleName(editor.curInstr);
 	setSongModifiedFlag();
 	stereoSampleLoadMode = -1;
 
@@ -1872,7 +1940,7 @@ wavLoadError:
 
 bool loadSample(UNICHAR *filenameU, uint8_t smpNr, bool instrFlag)
 {
-	char tmpBuffer[16 + 1];
+	char tmpBuffer[16+1];
 	FILE *f;
 
 	if (sampleIsLoading)

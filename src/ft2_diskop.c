@@ -1693,10 +1693,9 @@ static uint8_t numDigits32(uint32_t x)
 static void printFormattedFilesize(uint16_t x, uint16_t y, uint32_t bufEntry)
 {
 	char sizeStrBuffer[16];
-	int32_t filesize;
+	int32_t filesize, printFilesize;
 
 	filesize = FReq_Buffer[bufEntry].filesize;
-	
 	if (filesize == -1)
 	{
 		x += 6;
@@ -1704,25 +1703,29 @@ static void printFormattedFilesize(uint16_t x, uint16_t y, uint32_t bufEntry)
 		return;
 	}
 
-	if (filesize < 0)
-		filesize = 0;
+	assert(filesize >= 0);
 
-	if (filesize >= 1000*1000*10) // >= 10MB?
+	if (filesize >= 1024*1024*10) // >= 10MB?
 	{
-		filesize /= 1000*1000;
-		x += (4 - numDigits32(filesize)) * 7;
-		sprintf(sizeStrBuffer, "%dM", filesize);
+forceMB:
+		printFilesize = (int32_t)ceil(filesize / (1024.0*1024.0));
+		x += (4 - numDigits32(printFilesize)) * (FONT1_CHAR_W - 1);
+		sprintf(sizeStrBuffer, "%dM", printFilesize);
 	}
-	else if (filesize >= 1000*10) // >= 10kB?
+	else if (filesize >= 1024*10) // >= 10kB?
 	{
-		filesize /= 1000;
-		x += (4 - numDigits32(filesize)) * 7;
-		sprintf(sizeStrBuffer, "%dk", filesize);
+		printFilesize = (int32_t)ceil(filesize / 1024.0);
+		if (printFilesize > 9999)
+			goto forceMB; // ceil visual overflow kludge
+
+		x += (4 - numDigits32(printFilesize)) * (FONT1_CHAR_W - 1);
+		sprintf(sizeStrBuffer, "%dk", printFilesize);
 	}
 	else // bytes
 	{
-		x += (5 - numDigits32(filesize)) * 7;
-		sprintf(sizeStrBuffer, "%d", filesize);
+		printFilesize = filesize;
+		x += (5 - numDigits32(printFilesize)) * (FONT1_CHAR_W - 1);
+		sprintf(sizeStrBuffer, "%d", printFilesize);
 	}
 
 	textOut(x, y, PAL_BLCKTXT, sizeStrBuffer);

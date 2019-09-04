@@ -247,6 +247,7 @@ int16_t okBox(int16_t typ, char *headline, char *text)
 				{
 					returnVal = 1;
 					editor.ui.sysReqShown = false;
+					keyb.ignoreCurrKeyUp = true; // don't handle key up event for any keys that were pressed
 				}
 
 				for (i = 0; i < knp; i++)
@@ -255,6 +256,7 @@ int16_t okBox(int16_t typ, char *headline, char *text)
 					{
 						returnVal = i + 1;
 						editor.ui.sysReqShown = false;
+						keyb.ignoreCurrKeyUp = true; // don't handle key up event for any keys that were pressed
 						break;
 					}
 				}
@@ -320,8 +322,6 @@ int16_t okBox(int16_t typ, char *headline, char *text)
 	showBottomScreen();
 
 	SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
-
-	keyb.ignoreCurrKeyUp = true; // don't handle key up event for any keys that were pressed
 	return returnVal;
 }
 
@@ -487,6 +487,7 @@ int16_t inputBox(int16_t typ, char *headline, char *edText, uint16_t maxStrLen)
 				{
 					returnVal = 1;
 					editor.ui.sysReqShown = false;
+					keyb.ignoreCurrKeyUp = true; // don't handle key up event for any keys that were pressed
 				}
 
 				if (editor.editTextFlag)
@@ -501,6 +502,7 @@ int16_t inputBox(int16_t typ, char *headline, char *edText, uint16_t maxStrLen)
 						{
 							returnVal = i + 1;
 							editor.ui.sysReqShown = false;
+							keyb.ignoreCurrKeyUp = true; // don't handle key up event for any keys that were pressed
 							break;
 						}
 					}
@@ -567,8 +569,6 @@ int16_t inputBox(int16_t typ, char *headline, char *edText, uint16_t maxStrLen)
 	showBottomScreen();
 
 	SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
-
-	keyb.ignoreCurrKeyUp = true; // don't handle key up event for any keys that were pressed
 	return returnVal;
 }
 

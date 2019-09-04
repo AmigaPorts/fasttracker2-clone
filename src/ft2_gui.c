@@ -810,6 +810,18 @@ void vLine(uint16_t x, uint16_t y, uint16_t h, uint8_t paletteIndex)
 	}
 }
 
+void hLineDouble(uint16_t x, uint16_t y, uint16_t w, uint8_t paletteIndex)
+{
+	hLine(x, y, w, paletteIndex);
+	hLine(x, y+1, w, paletteIndex);
+}
+
+void vLineDouble(uint16_t x, uint16_t y, uint16_t h, uint8_t paletteIndex)
+{
+	vLine(x, y, h, paletteIndex);
+	vLine(x+1, y, h, paletteIndex);
+}
+
 void line(int16_t x1, int16_t x2, int16_t y1, int16_t y2, uint8_t paletteIndex)
 {
 	int16_t d, x, y, sx, sy, dx, dy;

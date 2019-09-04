@@ -7,6 +7,7 @@
 #define SAMPLE_AREA_WIDTH 632
 #define SAMPLE_AREA_Y_CENTER 250
 
+sampleTyp *getCurSample(void);
 void fixSample(sampleTyp *s); // adds wrapped sample after loop/end (for branchless mixer interpolation)
 void restoreSample(sampleTyp *s); // reverts wrapped sample after loop/end (for branchless mixer interpolation)
 void clearSample(void);
@@ -71,4 +72,3 @@ void smpEdStop(void);
 void testSmpEdMouseUp(void);
 
 extern int32_t smpEd_Rx1, smpEd_Rx2;
-extern sampleTyp *currSmp;

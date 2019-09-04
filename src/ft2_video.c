@@ -36,9 +36,9 @@
 // for FPS counter
 #define FPS_SCAN_FRAMES 60
 #define FPS_RENDER_W 280
-#define FPS_RENDER_H (((FONT1_CHAR_H + 1) * 8) + 3)
-#define FPS_RENDER_X ((SCREEN_W - FPS_RENDER_W) / 2)
-#define FPS_RENDER_Y 229
+#define FPS_RENDER_H (((FONT1_CHAR_H + 1) * 8) + 1)
+#define FPS_RENDER_X 2
+#define FPS_RENDER_Y 2
 
 static const uint8_t textCursorData[12] =
 {
@@ -88,13 +88,16 @@ static void drawFPSCounter(void)
 		dRunningFPS = 0.0;
 	}
 
-	drawFramework(FPS_RENDER_X-4, FPS_RENDER_Y-4, FPS_RENDER_W+4, FPS_RENDER_H+4, FRAMEWORK_TYPE1);
-	drawFramework(FPS_RENDER_X-2, FPS_RENDER_Y-2, FPS_RENDER_W+0, FPS_RENDER_H+0, FRAMEWORK_TYPE2);
+	clearRect(FPS_RENDER_X+2, FPS_RENDER_Y+2, FPS_RENDER_W, FPS_RENDER_H);
+	vLineDouble(FPS_RENDER_X, FPS_RENDER_Y+1, FPS_RENDER_H+2, PAL_FORGRND);
+	vLineDouble(FPS_RENDER_X+FPS_RENDER_W, FPS_RENDER_Y+1, FPS_RENDER_H+2, PAL_FORGRND);
+	hLineDouble(FPS_RENDER_X+1, FPS_RENDER_Y, FPS_RENDER_W, PAL_FORGRND);
+	hLineDouble(FPS_RENDER_X+1, FPS_RENDER_Y+FPS_RENDER_H+2, FPS_RENDER_W, PAL_FORGRND);
 
 	// test if enough data is collected yet
 	if (editor.framesPassed < FPS_SCAN_FRAMES)
 	{
-		textOut(FPS_RENDER_X, FPS_RENDER_Y, PAL_FORGRND, "Collecting frame information...");
+		textOut(FPS_RENDER_X+53, FPS_RENDER_Y+39, PAL_FORGRND, "Collecting frame information...");
 		return;
 	}
 
@@ -113,7 +116,7 @@ static void drawFPSCounter(void)
 	             "Audio buffer samples: %d (expected %d)\n" \
 	             "Audio channels: %d (expected %d)\n" \
 	             "Audio latency: %.1fms (expected %.1fms)\n" \
-	             "Press CTRL+SHIFT+F to close box.\n",
+	             "Press CTRL+SHIFT+F to close this box.\n",
 	             dAvgFPS, dRefreshRate,
 	             video.vsync60HzPresent ? "yes" : "no",
 	             audio.haveFreq * (1.0 / 1000.0), audio.wantFreq * (1.0 / 1000.0),
@@ -123,8 +126,8 @@ static void drawFPSCounter(void)
 
 	// draw text
 
-	xPos = FPS_RENDER_X;
-	yPos = FPS_RENDER_Y;
+	xPos = FPS_RENDER_X + 3;
+	yPos = FPS_RENDER_Y + 3;
 
 	textPtr = buf;
 	while (*textPtr != '\0')
@@ -132,8 +135,8 @@ static void drawFPSCounter(void)
 		ch = *textPtr++;
 		if (ch == '\n')
 		{
-			yPos += FONT1_CHAR_H + 1;
-			xPos = FPS_RENDER_X;
+			yPos += FONT1_CHAR_H+1;
+			xPos = FPS_RENDER_X + 3;
 			continue;
 		}
 

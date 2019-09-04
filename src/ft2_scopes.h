@@ -7,7 +7,7 @@
 void resetOldScopeRates(void);
 int32_t getSamplePosition(uint8_t ch);
 void stopAllScopes(void);
-void unmuteAllChansOnMusicLoad(void);
+void refreshScopes(void);
 bool testScopesMouseDown(void);
 void drawScopes(void);
 void drawScopeFramework(void);

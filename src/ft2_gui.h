@@ -73,6 +73,8 @@ bool setupGUI(void);
 
 void hLine(uint16_t x, uint16_t y, uint16_t width, uint8_t paletteIndex);
 void vLine(uint16_t x, uint16_t y, uint16_t h, uint8_t paletteIndex);
+void hLineDouble(uint16_t x, uint16_t y, uint16_t w, uint8_t paletteIndex);
+void vLineDouble(uint16_t x, uint16_t y, uint16_t h, uint8_t paletteIndex);
 void line(int16_t x1, int16_t x2, int16_t y1, int16_t y2, uint8_t paletteIndex);
 void clearRect(uint16_t xPos, uint16_t yPos, uint16_t w, uint16_t h);
 void fillRect(uint16_t xPos, uint16_t yPos, uint16_t w, uint16_t h, uint8_t paletteIndex);

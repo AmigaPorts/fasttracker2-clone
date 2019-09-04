@@ -2686,15 +2686,11 @@ static void zapInstrs(void)
 {
 	lockMixerCallback();
 
-	clearAllInstr();
-
-	editor.instrBankOffset = 0;
-	editor.instrBankSwapped = false;
-
-	editor.curInstr = 1;
-	editor.srcInstr = 1;
-	editor.curSmp = 0;
-	editor.srcSmp = 0;
+	for (int16_t i = 1; i <= MAX_INST; i++)
+	{
+		freeInstr(i);
+		memset(song.instrName[i], 0, 23);
+	}
 
 	updateNewInstrument();
 

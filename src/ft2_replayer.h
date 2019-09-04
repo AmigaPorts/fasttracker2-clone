@@ -225,7 +225,7 @@ typedef struct stmTyp_t
 	uint16_t fadeOutAmp, fadeOutSpeed, midiVibDepth;
 	int32_t smpStartPos;
 	sampleTyp *smpPtr;
-	instrTyp *instrPtr;
+	instrTyp *instrSeg;
 } stmTyp;
 
 typedef struct songTyp_t
@@ -256,15 +256,20 @@ typedef struct syncedChannel_t // used for audio/video sync queue
 	uint32_t voiceDelta;
 } syncedChannel_t;
 
+void fixSongName(void); // removes spaces from right side of song name
+void fixSampleName(int16_t nr); // removes spaces from right side of ins/smp names
+
 void calcReplayRate(uint32_t rate);
 void resetOldRates(void);
 void tuneSample(sampleTyp *s, uint32_t midCFreq);
 uint32_t getFrequenceValue(uint16_t period);
 int16_t relocateTon(int16_t period, int8_t relativeNote, stmTyp *ch);
-void clearInstr(uint8_t i);
-void clearAllInstr(void);
-void freeSample(sampleTyp *s);
-void freeSamples(uint16_t ins);
+
+bool allocateInstr(int16_t nr);
+void freeInstr(int16_t nr);
+void freeAllInstr(void);
+void freeSample(int16_t nr, int16_t nr2);
+
 void freeAllPatterns(void);
 void updateChanNums(void);
 bool setupReplayer(void);
@@ -293,8 +298,8 @@ void resetChannels(void);
 bool patternEmpty(uint16_t nr);
 int16_t getUsedSamples(int16_t nr);
 int16_t getRealUsedSamples(int16_t nr);
-bool instrIsEmpty(int16_t nr);
-void setDefEnvelopes(uint16_t nr);
+void setStdEnvelope(instrTyp *ins, int16_t i, uint8_t typ);
+void setNoEnvelope(instrTyp *ins);
 void setSyncedReplayerVars(void);
 void decSongPos(void);
 void incSongPos(void);
@@ -314,5 +319,5 @@ extern volatile bool replayerBusy;
 extern int16_t *note2Period, pattLens[MAX_PATTERNS];
 extern stmTyp stm[MAX_VOICES];
 extern songTyp song;
-extern instrTyp instr[1 + MAX_INST + 1];
+extern instrTyp *instr[132];
 extern tonTyp *patt[MAX_PATTERNS];

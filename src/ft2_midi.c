@@ -228,7 +228,7 @@ void recordMIDIEffect(uint8_t effTyp, uint8_t effData)
 	{
 		for (uint16_t i = 0; i < song.antChn; i++)
 		{
-			if (config.multiRecChn[i] && !editor.channelMute[i])
+			if (config.multiRecChn[i] && editor.chnMode[i])
 			{
 				if (!allocatePattern(nr))
 					return;

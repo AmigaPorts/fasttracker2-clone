@@ -450,10 +450,12 @@ void mouseButtonUpHandler(uint8_t mouseButton)
 		mouse.rightButtonPressed = false;
 		mouse.rightButtonReleased = true;
 
+		
 		if (editor.editSampleFlag)
 		{
-			if (currSmp != NULL)
-				fixSample(currSmp);
+			// right mouse button released after hand-editing sample data
+			if (instr[editor.curInstr] != NULL)
+				fixSample(&instr[editor.curInstr]->samp[editor.curSmp]);
 
 			resumeAudio();
 
@@ -569,6 +571,8 @@ void mouseButtonDownHandler(uint8_t mouseButton)
 	/* test objects like this - clickable things *never* overlap, so no need to test all
 	** other objects if we clicked on one already */
 
+	testInstrSwitcherMouseDown(); // kludge: allow right click to both change ins. and edit text
+
 	if (testTextBoxMouseDown())     return;
 	if (testPushButtonMouseDown())  return;
 	if (testCheckBoxMouseDown())    return;
@@ -579,7 +583,6 @@ void mouseButtonDownHandler(uint8_t mouseButton)
 	if (editor.ui.sysReqShown)
 		return;
 
-	if (testInstrSwitcherMouseDown())       return;
 	if (testInstrVolEnvMouseDown(false))    return;
 	if (testInstrPanEnvMouseDown(false))    return;
 	if (testDiskOpMouseDown(false))         return;
