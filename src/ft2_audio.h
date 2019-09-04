@@ -40,12 +40,12 @@ struct audio_t
 
 typedef struct
 {
-	const int8_t *sampleData8;
-	const int16_t *sampleData16;
+	const int8_t *SBase8, *SRevBase8;
+	const int16_t *SBase16, *SRevBase16;
 	bool backwards, isFadeOutVoice;
 	uint8_t SVol, SPan;
 	int32_t SLVol1, SRVol1, SLVol2, SRVol2, SLVolIP, SRVolIP, SVolIPLen, SPos, SLen, SRepS, SRepL;
-	uint32_t SPosDec, SFrq;
+	uint32_t SPosDec, SFrq, SFrqRev;
 	void (*mixRoutine)(void *, int32_t); // function pointer to mix routine
 } voice_t;
 
@@ -73,6 +73,7 @@ struct chSync
 	chSyncData_t data[SYNC_QUEUE_LEN + 1];
 } chSync;
 
+void resetOldRevFreqs(void);
 int32_t pattQueueReadSize(void);
 int32_t pattQueueWriteSize(void);
 bool pattQueuePush(pattSyncData_t t);

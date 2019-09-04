@@ -121,10 +121,10 @@ int32_t getSamplePosition(uint8_t ch)
 	len = sc->SLen;
 	sample16Bit = sc->sample16Bit;
 
-	if (len == 0)
+	if (!active || (len == 0))
 		return (-1);
 
-	if (active && (pos >= 0) && (pos < len))
+	if ((pos >= 0) && (pos < len))
 	{
 		if (sample16Bit)
 			pos <<= 1;

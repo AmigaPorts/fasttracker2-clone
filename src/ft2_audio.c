@@ -21,7 +21,7 @@
 static int8_t pmpCountDiv, pmpChannels = 2;
 static uint16_t smpBuffSize;
 static int32_t masterVol, amp, oldAudioFreq, speedVal, pmpLeft, randSeed = INITIAL_DITHER_SEED;
-static uint32_t tickTimeLen, tickTimeLenFrac;
+static uint32_t tickTimeLen, tickTimeLenFrac, oldSFrq, oldSFrqRev = 0xFFFFFFFF;
 static float fAudioAmpMul;
 static voice_t voice[MAX_VOICES * 2];
 static void (*sendAudSamplesFunc)(uint8_t *, int32_t, uint8_t); // "send mixed samples" routines
@@ -32,6 +32,12 @@ chSyncData_t *chSyncEntry;
 volatile bool pattQueueReading, pattQueueClearing, chQueueReading, chQueueClearing;
 
 extern const uint32_t panningTab[257]; // defined at the bottom of this file
+
+void resetOldRevFreqs(void)
+{
+	oldSFrq = 0;
+	oldSFrqRev = 0xFFFFFFFF;
+}
 
 void stopVoice(uint8_t i)
 {
@@ -218,7 +224,8 @@ static inline void voiceUpdateVolumes(uint8_t i, uint8_t status)
 			if ((v->SLVol2 > 0) || (v->SRVol2 > 0))
 			{
 				f = &voice[MAX_VOICES + i];
-				memcpy(f, v, sizeof (voice_t));
+
+				*f = *v; // copy voice
 
 				f->SVolIPLen = audio.quickVolSizeVal;
 				f->SLVolIP   = -f->SLVol2 / f->SVolIPLen;
@@ -277,11 +284,13 @@ static void voiceTrigger(uint8_t i, const int8_t *sampleData,
 		sampleLength     >>= 1;
 		sampleLoopLength >>= 1;
 
-		v->sampleData16 = (const int16_t *)(sampleData);
+		v->SBase16 = (const int16_t *)(sampleData);
+		v->SRevBase16 = &v->SBase16[sampleLoopBegin + (sampleLoopLength + sampleLoopBegin)];
 	}
 	else
 	{
-		v->sampleData8 = sampleData;
+		v->SBase8 = sampleData;
+		v->SRevBase8 = &v->SBase8[sampleLoopBegin + (sampleLoopLength + sampleLoopBegin)];
 	}
 
 	if (sampleLoopLength < 1)
@@ -358,7 +367,20 @@ void mix_UpdateChannelVolPanFrq(void)
 
 			// frequency change
 			if (status & IS_Period)
+			{
 				v->SFrq = getFrequenceValue(ch->finalPeriod);
+
+				if (v->SFrq != oldSFrq)
+				{
+					oldSFrq = v->SFrq;
+
+					oldSFrqRev = 0xFFFFFFFF;
+					if (oldSFrq != 0)
+						oldSFrqRev /= oldSFrq;
+				}
+
+				v->SFrqRev = oldSFrqRev;
+			}
 
 			// sample trigger (note)
 			if (status & IS_NyTon)
@@ -950,6 +972,8 @@ static void SDLCALL mixCallback(void *userdata, Uint8 *stream, int len)
 	chSyncData_t chSyncData;
 	syncedChannel_t *c;
 	stmTyp *s;
+
+	assert(len < 65536); // limitation in mixer
 
 	assert(pmpCountDiv > 0);
 	a = len / pmpCountDiv;

@@ -14,7 +14,7 @@
 #endif
 #include "ft2_replayer.h"
 
-#define BETA_VERSION 149
+#define BETA_VERSION 152
 
 // do NOT change these! It will only mess things up...
 
@@ -150,7 +150,7 @@ struct editor_t
 	bool copyMaskEnable, diskOpReadOnOpen, samplingAudioFlag;
 	bool instrBankSwapped, channelMute[MAX_VOICES], NI_Play;
 
-	uint8_t curSmpChannel, currPanEnvPoint, currVolEnvPoint, currPaletteEdit;
+	uint8_t curPlayInstr, curPlaySmp, curSmpChannel, currPanEnvPoint, currVolEnvPoint, currPaletteEdit;
 	uint8_t copyMask[5], pasteMask[5], transpMask[5], smpEd_NoteNr, instrBankOffset, sampleBankOffset;
 	uint8_t srcInstr, curInstr, srcSmp, curSmp, currHelpScreen, currConfigScreen, textCursorBlinkCounter;
 	uint8_t keyOnTab[MAX_VOICES], ID_Add, curOctave;

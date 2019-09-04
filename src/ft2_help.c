@@ -67,7 +67,7 @@ static bool getLine(char *output)
 	return (true);
 }
 
-static int16_t controlCodeToNum(char *controlCode)
+static int16_t controlCodeToNum(const char *controlCode)
 {
 	return ((((controlCode[0] - '0') % 10) * 100) + (((controlCode[1] - '0') % 10) * 10) + ((controlCode[2] - '0') % 10));
 }
@@ -264,7 +264,7 @@ skipLine:
 	free(tempText);
 }
 
-static void bigTextOutHalf(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, bool lowerHalf, char *textPtr)
+static void bigTextOutHalf(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, bool lowerHalf, const char *textPtr)
 {
 	char chr;
 	const uint8_t *srcPtr;

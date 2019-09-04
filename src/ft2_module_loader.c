@@ -283,7 +283,7 @@ static bool loadMusicMOD(FILE *f, uint32_t fileLength)
 		ai = 15;
 	}
 
-	if ((songTmp.antChn < 1) || (songTmp.antChn > 32) || (songTmp.len < 1))
+	if ((songTmp.antChn < 1) || (songTmp.antChn > MAX_VOICES) || (songTmp.len < 1))
 	{
 		fclose(f);
 		okBoxThreadSafe(0, "System message", "Error loading module: Either not a module or a non-supported .mod!");
@@ -2001,8 +2001,7 @@ static bool loadInstrHeader(FILE *f, uint16_t i)
 
 	memset(&ih, 0, INSTR_HEADER_SIZE);
 
-	if (fread(&ih.instrSize, 4, 1, f) != 1)
-		return (false);
+	fread(&ih.instrSize, 4, 1, f);
 
 	readSize = ih.instrSize;
 	if ((readSize < 4) || (readSize > INSTR_HEADER_SIZE))

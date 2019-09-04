@@ -240,7 +240,7 @@ static void nibbleWriteLevelSprite(int16_t xOut, int16_t yOut, int16_t nr)
 	video.frameBuffer[(yOut * SCREEN_W) + (xOut + 1)] = video.palette[PAL_FORGRND];
 }
 
-static void highScoreTextOutClipX(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shadowPaletteIndex, char *textPtr, uint16_t clipX)
+static void highScoreTextOutClipX(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shadowPaletteIndex, const char *textPtr, uint16_t clipX)
 {
 	char ch;
 	uint16_t i, currX;

@@ -190,7 +190,7 @@ uint8_t charWidth16(char ch)
 }
 
 // return full pixel width of a text string
-uint16_t textWidth(char *textPtr)
+uint16_t textWidth(const char *textPtr)
 {
 	uint16_t textWidth;
 
@@ -207,7 +207,7 @@ uint16_t textWidth(char *textPtr)
 	return (textWidth);
 }
 
-uint16_t textNWidth(char *textPtr, int32_t length)
+uint16_t textNWidth(const char *textPtr, int32_t length)
 {
 	char ch;
 	uint16_t textWidth;
@@ -233,7 +233,7 @@ uint16_t textNWidth(char *textPtr, int32_t length)
 }
 
 // return full pixel width of a text string (big font)
-uint16_t textWidth16(char *textPtr)
+uint16_t textWidth16(const char *textPtr)
 {
 	uint16_t textWidth;
 
@@ -448,7 +448,7 @@ static void bigCharOutShadow(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex,
 	}
 }
 
-void textOut(uint16_t x, uint16_t y, uint8_t paletteIndex, char *textPtr)
+void textOut(uint16_t x, uint16_t y, uint8_t paletteIndex, const char *textPtr)
 {
 	char chr;
 	uint16_t currX;
@@ -468,7 +468,7 @@ void textOut(uint16_t x, uint16_t y, uint8_t paletteIndex, char *textPtr)
 }
 
 // fixed width
-void textOutFixed(uint16_t x, uint16_t y, uint8_t fgPaltete, uint8_t bgPalette, char *textPtr)
+void textOutFixed(uint16_t x, uint16_t y, uint8_t fgPaltete, uint8_t bgPalette, const char *textPtr)
 {
 	char chr;
 	uint16_t currX;
@@ -487,7 +487,7 @@ void textOutFixed(uint16_t x, uint16_t y, uint8_t fgPaltete, uint8_t bgPalette, 
 	}
 }
 
-void textOutShadow(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shadowPaletteIndex, char *textPtr)
+void textOutShadow(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shadowPaletteIndex, const char *textPtr)
 {
 	char chr;
 	uint16_t currX;
@@ -506,7 +506,7 @@ void textOutShadow(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shadowP
 	}
 }
 
-void bigTextOut(uint16_t x, uint16_t y, uint8_t paletteIndex, char *textPtr)
+void bigTextOut(uint16_t x, uint16_t y, uint8_t paletteIndex, const char *textPtr)
 {
 	char chr;
 	uint16_t currX;
@@ -525,7 +525,7 @@ void bigTextOut(uint16_t x, uint16_t y, uint8_t paletteIndex, char *textPtr)
 	}
 }
 
-void bigTextOutShadow(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shadowPaletteIndex, char *textPtr)
+void bigTextOutShadow(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shadowPaletteIndex, const char *textPtr)
 {
 	char chr;
 	uint16_t currX;
@@ -544,7 +544,7 @@ void bigTextOutShadow(uint16_t x, uint16_t y, uint8_t paletteIndex, uint8_t shad
 	}
 }
 
-void textOutClipX(uint16_t x, uint16_t y, uint8_t paletteIndex, char *textPtr, uint16_t clipX)
+void textOutClipX(uint16_t x, uint16_t y, uint8_t paletteIndex, const char *textPtr, uint16_t clipX)
 {
 	char chr;
 	uint16_t currX;

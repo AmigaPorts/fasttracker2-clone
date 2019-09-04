@@ -7,7 +7,7 @@
 
 // ported from original FT2 code
 
-#define NUM_STARS      700
+#define NUM_STARS      512
 #define ABOUT_SCREEN_W 626
 #define ABOUT_SCREEN_H 167
 #define FT2_LOGO_W     449
@@ -85,7 +85,7 @@ static void aboutInit(void)
 	uint8_t type;
 	int16_t i;
 	int32_t r, n, w, h;
-	float ww;
+	double ww;
 
 	type = (uint8_t)(random32(4));
 	switch (type)
@@ -118,11 +118,11 @@ static void aboutInit(void)
 					r  = random32(30000);
 					n  = random32(5);
 					w  = ((2 * random32(2)) - 1) * sqr(random32(1000));
-					ww = (((3.1415926f * 2.0f) / 5.0f) * n) + (r / 12000.0f) + (w / 3000000.0f);
+					ww = (((M_PI * 2.0) / 5.0) * n) + (r / 12000.0) + (w / 3000000.0);
 					h  = ((sqr(r) / 30000) * (random32(10000) - 5000)) / 12000;
 
-					starcrd[i].x = (int16_t)(r * cosf(ww));
-					starcrd[i].y = (int16_t)(r * sinf(ww));
+					starcrd[i].x = (int16_t)(trunc(r * cos(ww)));
+					starcrd[i].y = (int16_t)(trunc(r * sin(ww)));
 					starcrd[i].z = (int16_t)(h);
 				}
 			}
@@ -135,8 +135,7 @@ static void aboutInit(void)
 			hastighet = 0;
 			for (i = 0; i < NUM_STARS; ++i)
 			{
-				ww = (float)(random32(500) * 500);
-				r  = (int32_t)(roundf(sqrtf(ww)));
+				r  = (int32_t)(round(sqrt(random32(500) * 500)));
 				w  = random32(3000);
 				h  = cos32767[(((w * 8) + r) / 16) & 1023] / 4;
 
@@ -222,7 +221,7 @@ void aboutFrame(void)
 
 void showAboutScreen(void) // called once when About screen is opened
 {
-	char *infoString = "Clone by Olav \"8bitbubsy\" S\025rensen - https://16-bits.org";
+	const char *infoString = "Clone by Olav \"8bitbubsy\" S\025rensen - https://16-bits.org";
 	char betaText[32];
 	uint16_t x, y;
 

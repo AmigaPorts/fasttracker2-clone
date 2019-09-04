@@ -31,7 +31,7 @@
 static void mix8bNoLoop(voice_t *v, uint32_t numSamples)
 {
 	const int8_t *CDA_LinearAdr;
-	bool mixInMono, CDA_SmpEndFlag;
+	bool mixInMono;
 	int32_t realPos, sample, *audioMixL, *audioMixR, CDA_BytesLeft;
 	register const int8_t *smpPtr;
 	register int32_t CDA_LVol, CDA_RVol;
@@ -47,6 +47,7 @@ static void mix8bNoLoop(voice_t *v, uint32_t numSamples)
 	}
 
 	GET_MIXER_VARS
+	GET_DELTA
 	SET_BASE8
 
 	CDA_BytesLeft = numSamples;
@@ -97,7 +98,7 @@ static void mix8bNoLoop(voice_t *v, uint32_t numSamples)
 static void mix8bLoop(voice_t *v, uint32_t numSamples)
 {
 	const int8_t *CDA_LinearAdr;
-	bool mixInMono, CDA_SmpEndFlag;
+	bool mixInMono;
 	int32_t realPos, sample, *audioMixL, *audioMixR, CDA_BytesLeft;
 	register const int8_t *smpPtr;
 	register int32_t CDA_LVol, CDA_RVol;
@@ -113,6 +114,7 @@ static void mix8bLoop(voice_t *v, uint32_t numSamples)
 	}
 
 	GET_MIXER_VARS
+	GET_DELTA
 	SET_BASE8
 
 	CDA_BytesLeft = numSamples;
@@ -162,13 +164,13 @@ static void mix8bLoop(voice_t *v, uint32_t numSamples)
 
 static void mix8bBidiLoop(voice_t *v, uint32_t numSamples)
 {
-	const int8_t *CDA_LinearAdr;
-	bool mixInMono, CDA_SmpEndFlag;
+	bool mixInMono;
+	const int8_t *CDA_LinearAdr, *CDA_LinAdrRev;
 	int32_t realPos, sample, *audioMixL, *audioMixR, CDA_BytesLeft;
 	register const int8_t *smpPtr;
-	register int32_t CDA_LVol, CDA_RVol;
-	register uint32_t pos, delta;
-	uint32_t i, samplesToMix;
+	register int32_t CDA_LVol, CDA_RVol, CDA_IPValL, CDA_IPValH;
+	register uint32_t pos;
+	uint32_t delta, i, samplesToMix;
 
 	GET_VOL
 
@@ -179,95 +181,58 @@ static void mix8bBidiLoop(voice_t *v, uint32_t numSamples)
 	}
 
 	GET_MIXER_VARS
-	SET_BASE8
+	SET_BASE8_BIDI
 
 	CDA_BytesLeft = numSamples;
 	while (CDA_BytesLeft > 0)
 	{
-		LIMIT_MIX_NUM_BIDI_LOOP
+		LIMIT_MIX_NUM
 		CDA_BytesLeft -= samplesToMix;
 
-		if (v->backwards)
+		START_BIDI
+		if (mixInMono)
 		{
-			if (mixInMono)
+			if (samplesToMix & 1)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_8BIT_SMP_MONO
-					DEC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_8BIT_SMP_MONO
-					DEC_POS
-					RENDER_8BIT_SMP_MONO
-					DEC_POS
-				}
+				RENDER_8BIT_SMP_MONO
+				INC_POS_BIDI
 			}
-			else
+			samplesToMix >>= 1;
+			for (i = 0; i < samplesToMix; ++i)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_8BIT_SMP
-					DEC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_8BIT_SMP
-					DEC_POS
-					RENDER_8BIT_SMP
-					DEC_POS
-				}
+				RENDER_8BIT_SMP_MONO
+				INC_POS_BIDI
+				RENDER_8BIT_SMP_MONO
+				INC_POS_BIDI
 			}
 		}
 		else
 		{
-			if (mixInMono)
+			if (samplesToMix & 1)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_8BIT_SMP_MONO
-					INC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_8BIT_SMP_MONO
-					INC_POS
-					RENDER_8BIT_SMP_MONO
-					INC_POS
-				}
+				RENDER_8BIT_SMP
+				INC_POS_BIDI
 			}
-			else
+			samplesToMix >>= 1;
+			for (i = 0; i < samplesToMix; ++i)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_8BIT_SMP
-					INC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_8BIT_SMP
-					INC_POS
-					RENDER_8BIT_SMP
-					INC_POS
-				}
+				RENDER_8BIT_SMP
+				INC_POS_BIDI
+				RENDER_8BIT_SMP
+				INC_POS_BIDI
 			}
 		}
+		END_BIDI
 
 		WRAP_BIDI_LOOP
 	}
-
 	SET_BACK_MIXER_POS
 }
 
 static void mix8bNoLoopIntrp(voice_t *v, uint32_t numSamples)
 {
 	const int8_t *CDA_LinearAdr;
-	bool mixInMono, CDA_SmpEndFlag;
+	bool mixInMono;
 	int32_t realPos, sample, sample2, *audioMixL, *audioMixR, CDA_BytesLeft;
 	register const int8_t *smpPtr;
 	register int32_t CDA_LVol, CDA_RVol;
@@ -286,6 +251,7 @@ static void mix8bNoLoopIntrp(voice_t *v, uint32_t numSamples)
 	}
 
 	GET_MIXER_VARS
+	GET_DELTA
 	SET_BASE8
 
 	CDA_BytesLeft = numSamples;
@@ -336,7 +302,7 @@ static void mix8bNoLoopIntrp(voice_t *v, uint32_t numSamples)
 static void mix8bLoopIntrp(voice_t *v, uint32_t numSamples)
 {
 	const int8_t *CDA_LinearAdr;
-	bool mixInMono, CDA_SmpEndFlag;
+	bool mixInMono;
 	int32_t realPos, sample, sample2, *audioMixL, *audioMixR, CDA_BytesLeft;
 	register const int8_t *smpPtr;
 	register int32_t CDA_LVol, CDA_RVol;
@@ -355,6 +321,7 @@ static void mix8bLoopIntrp(voice_t *v, uint32_t numSamples)
 	}
 
 	GET_MIXER_VARS
+	GET_DELTA
 	SET_BASE8
 
 	CDA_BytesLeft = numSamples;
@@ -404,13 +371,13 @@ static void mix8bLoopIntrp(voice_t *v, uint32_t numSamples)
 
 static void mix8bBidiLoopIntrp(voice_t *v, uint32_t numSamples)
 {
-	const int8_t *CDA_LinearAdr;
-	bool mixInMono, CDA_SmpEndFlag;
+	bool mixInMono;
+	const int8_t *CDA_LinearAdr, *CDA_LinAdrRev;
 	int32_t realPos, sample, sample2, *audioMixL, *audioMixR, CDA_BytesLeft;
 	register const int8_t *smpPtr;
-	register int32_t CDA_LVol, CDA_RVol;
-	register uint32_t pos, delta;
-	uint32_t i, samplesToMix;
+	register int32_t CDA_LVol, CDA_RVol, CDA_IPValL, CDA_IPValH;
+	register uint32_t pos;
+	uint32_t delta, i, samplesToMix;
 #ifndef LERPMIX
 	int32_t sample3;
 #endif
@@ -424,84 +391,48 @@ static void mix8bBidiLoopIntrp(voice_t *v, uint32_t numSamples)
 	}
 
 	GET_MIXER_VARS
-	SET_BASE8
+	SET_BASE8_BIDI
 
 	CDA_BytesLeft = numSamples;
 	while (CDA_BytesLeft > 0)
 	{
-		LIMIT_MIX_NUM_BIDI_LOOP
+		LIMIT_MIX_NUM
 		CDA_BytesLeft -= samplesToMix;
 
-		if (v->backwards)
+		START_BIDI
+		if (mixInMono)
 		{
-			if (mixInMono)
+			if (samplesToMix & 1)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_8BIT_SMP_MONO_INTRP_BACKWARDS
-					DEC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_8BIT_SMP_MONO_INTRP_BACKWARDS
-					DEC_POS
-					RENDER_8BIT_SMP_MONO_INTRP_BACKWARDS
-					DEC_POS
-				}
+				RENDER_8BIT_SMP_MONO_INTRP
+				INC_POS_BIDI
 			}
-			else
+			samplesToMix >>= 1;
+			for (i = 0; i < samplesToMix; ++i)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_8BIT_SMP_INTRP_BACKWARDS
-					DEC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_8BIT_SMP_INTRP_BACKWARDS
-					DEC_POS
-					RENDER_8BIT_SMP_INTRP_BACKWARDS
-					DEC_POS
-				}
+				RENDER_8BIT_SMP_MONO_INTRP
+				INC_POS_BIDI
+				RENDER_8BIT_SMP_MONO_INTRP
+				INC_POS_BIDI
 			}
 		}
 		else
 		{
-			if (mixInMono)
+			if (samplesToMix & 1)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_8BIT_SMP_MONO_INTRP
-					INC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_8BIT_SMP_MONO_INTRP
-					INC_POS
-					RENDER_8BIT_SMP_MONO_INTRP
-					INC_POS
-				}
+				RENDER_8BIT_SMP_INTRP
+				INC_POS_BIDI
 			}
-			else
+			samplesToMix >>= 1;
+			for (i = 0; i < samplesToMix; ++i)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_8BIT_SMP_INTRP
-					INC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_8BIT_SMP_INTRP
-					INC_POS
-					RENDER_8BIT_SMP_INTRP
-					INC_POS
-				}
+				RENDER_8BIT_SMP_INTRP
+				INC_POS_BIDI
+				RENDER_8BIT_SMP_INTRP
+				INC_POS_BIDI
 			}
 		}
+		END_BIDI
 
 		WRAP_BIDI_LOOP
 	}
@@ -512,7 +443,7 @@ static void mix8bBidiLoopIntrp(voice_t *v, uint32_t numSamples)
 static void mix8bRampNoLoop(voice_t *v, uint32_t numSamples)
 {
 	const int8_t *CDA_LinearAdr;
-	bool mixInMono, CDA_SmpEndFlag;
+	bool mixInMono;
 	int32_t realPos, sample, *audioMixL, *audioMixR, CDA_BytesLeft, CDA_LVolIP, CDA_RVolIP;
 	register const int8_t *smpPtr;
 	register int32_t CDA_LVol, CDA_RVol;
@@ -526,6 +457,7 @@ static void mix8bRampNoLoop(voice_t *v, uint32_t numSamples)
 	}
 
 	GET_MIXER_VARS_RAMP
+	GET_DELTA
 	SET_BASE8
 
 	CDA_BytesLeft = numSamples;
@@ -585,7 +517,7 @@ static void mix8bRampNoLoop(voice_t *v, uint32_t numSamples)
 static void mix8bRampLoop(voice_t *v, uint32_t numSamples)
 {
 	const int8_t *CDA_LinearAdr;
-	bool mixInMono, CDA_SmpEndFlag;
+	bool mixInMono;
 	int32_t realPos, sample, *audioMixL, *audioMixR, CDA_BytesLeft, CDA_LVolIP, CDA_RVolIP;
 	register const int8_t *smpPtr;
 	register int32_t CDA_LVol, CDA_RVol;
@@ -599,6 +531,7 @@ static void mix8bRampLoop(voice_t *v, uint32_t numSamples)
 	}
 
 	GET_MIXER_VARS_RAMP
+	GET_DELTA
 	SET_BASE8
 
 	CDA_BytesLeft = numSamples;
@@ -657,13 +590,13 @@ static void mix8bRampLoop(voice_t *v, uint32_t numSamples)
 
 static void mix8bRampBidiLoop(voice_t *v, uint32_t numSamples)
 {
-	const int8_t *CDA_LinearAdr;
-	bool mixInMono, CDA_SmpEndFlag;
+	bool mixInMono;
+	const int8_t *CDA_LinearAdr, *CDA_LinAdrRev;
 	int32_t realPos, sample, *audioMixL, *audioMixR, CDA_BytesLeft, CDA_LVolIP, CDA_RVolIP;
 	register const int8_t *smpPtr;
-	register int32_t CDA_LVol, CDA_RVol;
-	register uint32_t pos, delta;
-	uint32_t i, samplesToMix;
+	register int32_t CDA_LVol, CDA_RVol, CDA_IPValL, CDA_IPValH;
+	register uint32_t pos;
+	uint32_t delta, i, samplesToMix;
 
 	if ((v->SLVol1 | v->SRVol1 | v->SLVol2 | v->SRVol2) == 0)
 	{
@@ -672,98 +605,56 @@ static void mix8bRampBidiLoop(voice_t *v, uint32_t numSamples)
 	}
 
 	GET_MIXER_VARS_RAMP
-	SET_BASE8
+	SET_BASE8_BIDI
 
 	CDA_BytesLeft = numSamples;
 	while (CDA_BytesLeft > 0)
 	{
-		LIMIT_MIX_NUM_BIDI_LOOP
+		LIMIT_MIX_NUM
 		LIMIT_MIX_NUM_RAMP
 		CDA_BytesLeft -= samplesToMix;
 
 		GET_VOL
-		if (v->backwards)
+		START_BIDI
+		if (mixInMono)
 		{
-			if (mixInMono)
+			if (samplesToMix & 1)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_8BIT_SMP_MONO
-					VOLUME_RAMPING
-					DEC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_8BIT_SMP_MONO
-					VOLUME_RAMPING
-					DEC_POS
-					RENDER_8BIT_SMP_MONO
-					VOLUME_RAMPING
-					DEC_POS
-				}
+				RENDER_8BIT_SMP_MONO
+				VOLUME_RAMPING
+				INC_POS_BIDI
 			}
-			else
+			samplesToMix >>= 1;
+			for (i = 0; i < samplesToMix; ++i)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_8BIT_SMP
-					VOLUME_RAMPING
-					DEC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_8BIT_SMP
-					VOLUME_RAMPING
-					DEC_POS
-					RENDER_8BIT_SMP
-					VOLUME_RAMPING
-					DEC_POS
-				}
+				RENDER_8BIT_SMP_MONO
+				VOLUME_RAMPING
+				INC_POS_BIDI
+				RENDER_8BIT_SMP_MONO
+				VOLUME_RAMPING
+				INC_POS_BIDI
 			}
 		}
 		else
 		{
-			if (mixInMono)
+			if (samplesToMix & 1)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_8BIT_SMP_MONO
-					VOLUME_RAMPING
-					INC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_8BIT_SMP_MONO
-					VOLUME_RAMPING
-					INC_POS
-					RENDER_8BIT_SMP_MONO
-					VOLUME_RAMPING
-					INC_POS
-				}
+				RENDER_8BIT_SMP
+				VOLUME_RAMPING
+				INC_POS_BIDI
 			}
-			else
+			samplesToMix >>= 1;
+			for (i = 0; i < samplesToMix; ++i)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_8BIT_SMP
-					VOLUME_RAMPING
-					INC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_8BIT_SMP
-					VOLUME_RAMPING
-					INC_POS
-					RENDER_8BIT_SMP
-					VOLUME_RAMPING
-					INC_POS
-				}
+				RENDER_8BIT_SMP
+				VOLUME_RAMPING
+				INC_POS_BIDI
+				RENDER_8BIT_SMP
+				VOLUME_RAMPING
+				INC_POS_BIDI
 			}
 		}
+		END_BIDI
 		SET_VOL_BACK
 
 		WRAP_BIDI_LOOP
@@ -775,7 +666,7 @@ static void mix8bRampBidiLoop(voice_t *v, uint32_t numSamples)
 static void mix8bRampNoLoopIntrp(voice_t *v, uint32_t numSamples)
 {
 	const int8_t *CDA_LinearAdr;
-	bool mixInMono, CDA_SmpEndFlag;
+	bool mixInMono;
 	int32_t realPos, sample, sample2, *audioMixL, *audioMixR, CDA_BytesLeft, CDA_LVolIP, CDA_RVolIP;
 	register const int8_t *smpPtr;
 	register int32_t CDA_LVol, CDA_RVol;
@@ -792,6 +683,7 @@ static void mix8bRampNoLoopIntrp(voice_t *v, uint32_t numSamples)
 	}
 
 	GET_MIXER_VARS_RAMP
+	GET_DELTA
 	SET_BASE8
 
 	CDA_BytesLeft = numSamples;
@@ -851,7 +743,7 @@ static void mix8bRampNoLoopIntrp(voice_t *v, uint32_t numSamples)
 static void mix8bRampLoopIntrp(voice_t *v, uint32_t numSamples)
 {
 	const int8_t *CDA_LinearAdr;
-	bool mixInMono, CDA_SmpEndFlag;
+	bool mixInMono;
 	int32_t realPos, sample, sample2, *audioMixL, *audioMixR, CDA_BytesLeft, CDA_LVolIP, CDA_RVolIP;
 	register const int8_t *smpPtr;
 	register int32_t CDA_LVol, CDA_RVol;
@@ -868,6 +760,7 @@ static void mix8bRampLoopIntrp(voice_t *v, uint32_t numSamples)
 	}
 
 	GET_MIXER_VARS_RAMP
+	GET_DELTA
 	SET_BASE8
 
 	CDA_BytesLeft = numSamples;
@@ -926,13 +819,13 @@ static void mix8bRampLoopIntrp(voice_t *v, uint32_t numSamples)
 
 static void mix8bRampBidiLoopIntrp(voice_t *v, uint32_t numSamples)
 {
-	const int8_t *CDA_LinearAdr;
-	bool mixInMono, CDA_SmpEndFlag;
+	bool mixInMono;
+	const int8_t *CDA_LinearAdr, *CDA_LinAdrRev;
 	int32_t realPos, sample, sample2, *audioMixL, *audioMixR, CDA_BytesLeft, CDA_LVolIP, CDA_RVolIP;
 	register const int8_t *smpPtr;
-	register int32_t CDA_LVol, CDA_RVol;
-	register uint32_t pos, delta;
-	uint32_t i, samplesToMix;
+	register int32_t CDA_LVol, CDA_RVol, CDA_IPValL, CDA_IPValH;
+	register uint32_t pos;
+	uint32_t delta, i, samplesToMix;
 #ifndef LERPMIX
 	int32_t sample3;
 #endif
@@ -944,103 +837,60 @@ static void mix8bRampBidiLoopIntrp(voice_t *v, uint32_t numSamples)
 	}
 
 	GET_MIXER_VARS_RAMP
-	SET_BASE8
+	SET_BASE8_BIDI
 
 	CDA_BytesLeft = numSamples;
 	while (CDA_BytesLeft > 0)
 	{
-		LIMIT_MIX_NUM_BIDI_LOOP
+		LIMIT_MIX_NUM
 		LIMIT_MIX_NUM_RAMP
 		CDA_BytesLeft -= samplesToMix;
 
 		GET_VOL
-		if (v->backwards)
+		START_BIDI
+		if (mixInMono)
 		{
-			if (mixInMono)
+			if (samplesToMix & 1)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_8BIT_SMP_MONO_INTRP_BACKWARDS
-					VOLUME_RAMPING
-					DEC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_8BIT_SMP_MONO_INTRP_BACKWARDS
-					VOLUME_RAMPING
-					DEC_POS
-					RENDER_8BIT_SMP_MONO_INTRP_BACKWARDS
-					VOLUME_RAMPING
-					DEC_POS
-				}
+				RENDER_8BIT_SMP_MONO_INTRP
+				VOLUME_RAMPING
+				INC_POS_BIDI
 			}
-			else
+			samplesToMix >>= 1;
+			for (i = 0; i < samplesToMix; ++i)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_8BIT_SMP_INTRP_BACKWARDS
-					VOLUME_RAMPING
-					DEC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_8BIT_SMP_INTRP_BACKWARDS
-					VOLUME_RAMPING
-					DEC_POS
-					RENDER_8BIT_SMP_INTRP_BACKWARDS
-					VOLUME_RAMPING
-					DEC_POS
-				}
+				RENDER_8BIT_SMP_MONO_INTRP
+				VOLUME_RAMPING
+				INC_POS_BIDI
+				RENDER_8BIT_SMP_MONO_INTRP
+				VOLUME_RAMPING
+				INC_POS_BIDI
 			}
 		}
 		else
 		{
-			if (mixInMono)
+			if (samplesToMix & 1)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_8BIT_SMP_MONO_INTRP
-					VOLUME_RAMPING
-					INC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_8BIT_SMP_MONO_INTRP
-					VOLUME_RAMPING
-					INC_POS
-					RENDER_8BIT_SMP_MONO_INTRP
-					VOLUME_RAMPING
-					INC_POS
-				}
+				RENDER_8BIT_SMP_INTRP
+				VOLUME_RAMPING
+				INC_POS_BIDI
 			}
-			else
+			samplesToMix >>= 1;
+			for (i = 0; i < samplesToMix; ++i)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_8BIT_SMP_INTRP
-					VOLUME_RAMPING
-					INC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_8BIT_SMP_INTRP
-					VOLUME_RAMPING
-					INC_POS
-					RENDER_8BIT_SMP_INTRP
-					VOLUME_RAMPING
-					INC_POS
-				}
+				RENDER_8BIT_SMP_INTRP
+				VOLUME_RAMPING
+				INC_POS_BIDI
+				RENDER_8BIT_SMP_INTRP
+				VOLUME_RAMPING
+				INC_POS_BIDI
 			}
 		}
+		END_BIDI
 		SET_VOL_BACK
 
 		WRAP_BIDI_LOOP
 	}
-
 	SET_BACK_MIXER_POS
 }
 
@@ -1052,7 +902,7 @@ static void mix8bRampBidiLoopIntrp(voice_t *v, uint32_t numSamples)
 
 static void mix16bNoLoop(voice_t *v, uint32_t numSamples)
 {
-	bool mixInMono, CDA_SmpEndFlag;
+	bool mixInMono;
 	const int16_t *CDA_LinearAdr;
 	int32_t realPos, sample, *audioMixL, *audioMixR, CDA_BytesLeft;
 	register const int16_t *smpPtr;
@@ -1069,6 +919,7 @@ static void mix16bNoLoop(voice_t *v, uint32_t numSamples)
 	}
 
 	GET_MIXER_VARS
+	GET_DELTA
 	SET_BASE16
 
 	CDA_BytesLeft = numSamples;
@@ -1118,7 +969,7 @@ static void mix16bNoLoop(voice_t *v, uint32_t numSamples)
 
 static void mix16bLoop(voice_t *v, uint32_t numSamples)
 {
-	bool mixInMono, CDA_SmpEndFlag;
+	bool mixInMono;
 	const int16_t *CDA_LinearAdr;
 	int32_t realPos, sample, *audioMixL, *audioMixR, CDA_BytesLeft;
 	register const int16_t *smpPtr;
@@ -1135,6 +986,7 @@ static void mix16bLoop(voice_t *v, uint32_t numSamples)
 	}
 
 	GET_MIXER_VARS
+	GET_DELTA
 	SET_BASE16
 
 	CDA_BytesLeft = numSamples;
@@ -1184,13 +1036,13 @@ static void mix16bLoop(voice_t *v, uint32_t numSamples)
 
 static void mix16bBidiLoop(voice_t *v, uint32_t numSamples)
 {
-	bool mixInMono, CDA_SmpEndFlag;
-	const int16_t *CDA_LinearAdr;
+	bool mixInMono;
+	const int16_t *CDA_LinearAdr, *CDA_LinAdrRev;
 	int32_t realPos, sample, *audioMixL, *audioMixR, CDA_BytesLeft;
 	register const int16_t *smpPtr;
-	register int32_t CDA_LVol, CDA_RVol;
-	register uint32_t pos, delta;
-	uint32_t i, samplesToMix;
+	register int32_t CDA_LVol, CDA_RVol, CDA_IPValL, CDA_IPValH;
+	register uint32_t pos;
+	uint32_t delta, i, samplesToMix;
 
 	GET_VOL
 
@@ -1201,84 +1053,48 @@ static void mix16bBidiLoop(voice_t *v, uint32_t numSamples)
 	}
 
 	GET_MIXER_VARS
-	SET_BASE16
+	SET_BASE16_BIDI
 
 	CDA_BytesLeft = numSamples;
 	while (CDA_BytesLeft > 0)
 	{
-		LIMIT_MIX_NUM_BIDI_LOOP
+		LIMIT_MIX_NUM
 		CDA_BytesLeft -= samplesToMix;
 
-		if (v->backwards)
+		START_BIDI
+		if (mixInMono)
 		{
-			if (mixInMono)
+			if (samplesToMix & 1)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_16BIT_SMP_MONO
-					DEC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_16BIT_SMP_MONO
-					DEC_POS
-					RENDER_16BIT_SMP_MONO
-					DEC_POS
-				}
+				RENDER_16BIT_SMP_MONO
+				INC_POS_BIDI
 			}
-			else
+			samplesToMix >>= 1;
+			for (i = 0; i < samplesToMix; ++i)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_16BIT_SMP
-					DEC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_16BIT_SMP
-					DEC_POS
-					RENDER_16BIT_SMP
-					DEC_POS
-				}
+				RENDER_16BIT_SMP_MONO
+				INC_POS_BIDI
+				RENDER_16BIT_SMP_MONO
+				INC_POS_BIDI
 			}
 		}
 		else
 		{
-			if (mixInMono)
+			if (samplesToMix & 1)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_16BIT_SMP_MONO
-					INC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_16BIT_SMP_MONO
-					INC_POS
-					RENDER_16BIT_SMP_MONO
-					INC_POS
-				}
+				RENDER_16BIT_SMP
+				INC_POS_BIDI
 			}
-			else
+			samplesToMix >>= 1;
+			for (i = 0; i < samplesToMix; ++i)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_16BIT_SMP
-					INC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_16BIT_SMP
-					INC_POS
-					RENDER_16BIT_SMP
-					INC_POS
-				}
+				RENDER_16BIT_SMP
+				INC_POS_BIDI
+				RENDER_16BIT_SMP
+				INC_POS_BIDI
 			}
 		}
+		END_BIDI
 
 		WRAP_BIDI_LOOP
 	}
@@ -1288,7 +1104,7 @@ static void mix16bBidiLoop(voice_t *v, uint32_t numSamples)
 
 static void mix16bNoLoopIntrp(voice_t *v, uint32_t numSamples)
 {
-	bool mixInMono, CDA_SmpEndFlag;
+	bool mixInMono;
 	const int16_t *CDA_LinearAdr;
 	int32_t realPos, sample, sample2, *audioMixL, *audioMixR, CDA_BytesLeft;
 	register const int16_t *smpPtr;
@@ -1308,6 +1124,7 @@ static void mix16bNoLoopIntrp(voice_t *v, uint32_t numSamples)
 	}
 
 	GET_MIXER_VARS
+	GET_DELTA
 	SET_BASE16
 
 	CDA_BytesLeft = numSamples;
@@ -1357,7 +1174,7 @@ static void mix16bNoLoopIntrp(voice_t *v, uint32_t numSamples)
 
 static void mix16bLoopIntrp(voice_t *v, uint32_t numSamples)
 {
-	bool mixInMono, CDA_SmpEndFlag;
+	bool mixInMono;
 	const int16_t *CDA_LinearAdr;
 	int32_t realPos, sample, sample2, *audioMixL, *audioMixR, CDA_BytesLeft;
 	register const int16_t *smpPtr;
@@ -1377,6 +1194,7 @@ static void mix16bLoopIntrp(voice_t *v, uint32_t numSamples)
 	}
 
 	GET_MIXER_VARS
+	GET_DELTA
 	SET_BASE16
 
 	CDA_BytesLeft = numSamples;
@@ -1426,13 +1244,13 @@ static void mix16bLoopIntrp(voice_t *v, uint32_t numSamples)
 
 static void mix16bBidiLoopIntrp(voice_t *v, uint32_t numSamples)
 {
-	bool mixInMono, CDA_SmpEndFlag;
-	const int16_t *CDA_LinearAdr;
+	bool mixInMono;
+	const int16_t *CDA_LinearAdr, *CDA_LinAdrRev;
 	int32_t realPos, sample, sample2, *audioMixL, *audioMixR, CDA_BytesLeft;
 	register const int16_t *smpPtr;
-	register int32_t CDA_LVol, CDA_RVol;
-	register uint32_t pos, delta;
-	uint32_t i, samplesToMix;
+	register int32_t CDA_LVol, CDA_RVol, CDA_IPValL, CDA_IPValH;
+	register uint32_t pos;
+	uint32_t delta, i, samplesToMix;
 #ifndef LERPMIX
 	int32_t sample3;
 #endif
@@ -1446,84 +1264,48 @@ static void mix16bBidiLoopIntrp(voice_t *v, uint32_t numSamples)
 	}
 
 	GET_MIXER_VARS
-	SET_BASE16
+	SET_BASE16_BIDI
 
 	CDA_BytesLeft = numSamples;
 	while (CDA_BytesLeft > 0)
 	{
-		LIMIT_MIX_NUM_BIDI_LOOP
+		LIMIT_MIX_NUM
 		CDA_BytesLeft -= samplesToMix;
 
-		if (v->backwards)
+		START_BIDI
+		if (mixInMono)
 		{
-			if (mixInMono)
+			if (samplesToMix & 1)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_16BIT_SMP_MONO_INTRP_BACKWARDS
-					DEC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_16BIT_SMP_MONO_INTRP_BACKWARDS
-					DEC_POS
-					RENDER_16BIT_SMP_MONO_INTRP_BACKWARDS
-					DEC_POS
-				}
+				RENDER_16BIT_SMP_MONO_INTRP
+				INC_POS_BIDI
 			}
-			else
+			samplesToMix >>= 1;
+			for (i = 0; i < samplesToMix; ++i)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_16BIT_SMP_INTRP_BACKWARDS
-					DEC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_16BIT_SMP_INTRP_BACKWARDS
-					DEC_POS
-					RENDER_16BIT_SMP_INTRP_BACKWARDS
-					DEC_POS
-				}
+				RENDER_16BIT_SMP_MONO_INTRP
+				INC_POS_BIDI
+				RENDER_16BIT_SMP_MONO_INTRP
+				INC_POS_BIDI
 			}
 		}
 		else
 		{
-			if (mixInMono)
+			if (samplesToMix & 1)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_16BIT_SMP_MONO_INTRP
-					INC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_16BIT_SMP_MONO_INTRP
-					INC_POS
-					RENDER_16BIT_SMP_MONO_INTRP
-					INC_POS
-				}
+				RENDER_16BIT_SMP_INTRP
+				INC_POS_BIDI
 			}
-			else
+			samplesToMix >>= 1;
+			for (i = 0; i < samplesToMix; ++i)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_16BIT_SMP_INTRP
-					INC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_16BIT_SMP_INTRP
-					INC_POS
-					RENDER_16BIT_SMP_INTRP
-					INC_POS
-				}
+				RENDER_16BIT_SMP_INTRP
+				INC_POS_BIDI
+				RENDER_16BIT_SMP_INTRP
+				INC_POS_BIDI
 			}
 		}
+		END_BIDI
 
 		WRAP_BIDI_LOOP
 	}
@@ -1533,7 +1315,7 @@ static void mix16bBidiLoopIntrp(voice_t *v, uint32_t numSamples)
 
 static void mix16bRampNoLoop(voice_t *v, uint32_t numSamples)
 {
-	bool mixInMono, CDA_SmpEndFlag;
+	bool mixInMono;
 	const int16_t *CDA_LinearAdr;
 	int32_t realPos, sample, *audioMixL, *audioMixR, CDA_BytesLeft, CDA_LVolIP, CDA_RVolIP;
 	register const int16_t *smpPtr;
@@ -1548,6 +1330,7 @@ static void mix16bRampNoLoop(voice_t *v, uint32_t numSamples)
 	}
 
 	GET_MIXER_VARS_RAMP
+	GET_DELTA
 	SET_BASE16
 
 	CDA_BytesLeft = numSamples;
@@ -1606,7 +1389,7 @@ static void mix16bRampNoLoop(voice_t *v, uint32_t numSamples)
 
 static void mix16bRampLoop(voice_t *v, uint32_t numSamples)
 {
-	bool mixInMono, CDA_SmpEndFlag;
+	bool mixInMono;
 	const int16_t *CDA_LinearAdr;
 	int32_t realPos, sample, *audioMixL, *audioMixR, CDA_BytesLeft, CDA_LVolIP, CDA_RVolIP;
 	register const int16_t *smpPtr;
@@ -1621,6 +1404,7 @@ static void mix16bRampLoop(voice_t *v, uint32_t numSamples)
 	}
 
 	GET_MIXER_VARS_RAMP
+	GET_DELTA
 	SET_BASE16
 
 	CDA_BytesLeft = numSamples;
@@ -1679,13 +1463,13 @@ static void mix16bRampLoop(voice_t *v, uint32_t numSamples)
 
 static void mix16bRampBidiLoop(voice_t *v, uint32_t numSamples)
 {
-	bool mixInMono, CDA_SmpEndFlag;
-	const int16_t *CDA_LinearAdr;
+	bool mixInMono;
+	const int16_t *CDA_LinearAdr, *CDA_LinAdrRev;
 	int32_t realPos, sample, *audioMixL, *audioMixR, CDA_BytesLeft, CDA_LVolIP, CDA_RVolIP;
 	register const int16_t *smpPtr;
-	register int32_t CDA_LVol, CDA_RVol;
-	register uint32_t pos, delta;
-	uint32_t i, samplesToMix;
+	register int32_t CDA_LVol, CDA_RVol, CDA_IPValL, CDA_IPValH;
+	register uint32_t pos;
+	uint32_t delta, i, samplesToMix;
 
 	if ((v->SLVol1 | v->SRVol1 | v->SLVol2 | v->SRVol2) == 0)
 	{
@@ -1694,98 +1478,56 @@ static void mix16bRampBidiLoop(voice_t *v, uint32_t numSamples)
 	}
 
 	GET_MIXER_VARS_RAMP
-	SET_BASE16
+	SET_BASE16_BIDI
 
 	CDA_BytesLeft = numSamples;
 	while (CDA_BytesLeft > 0)
 	{
-		LIMIT_MIX_NUM_BIDI_LOOP
+		LIMIT_MIX_NUM
 		LIMIT_MIX_NUM_RAMP
 		CDA_BytesLeft -= samplesToMix;
 
 		GET_VOL
-		if (v->backwards)
+		START_BIDI
+		if (mixInMono)
 		{
-			if (mixInMono)
+			if (samplesToMix & 1)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_16BIT_SMP_MONO
-					VOLUME_RAMPING
-					DEC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_16BIT_SMP_MONO
-					VOLUME_RAMPING
-					DEC_POS
-					RENDER_16BIT_SMP_MONO
-					VOLUME_RAMPING
-					DEC_POS
-				}
+				RENDER_16BIT_SMP_MONO
+				VOLUME_RAMPING
+				INC_POS_BIDI
 			}
-			else
+			samplesToMix >>= 1;
+			for (i = 0; i < samplesToMix; ++i)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_16BIT_SMP
-					VOLUME_RAMPING
-					DEC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_16BIT_SMP
-					VOLUME_RAMPING
-					DEC_POS
-					RENDER_16BIT_SMP
-					VOLUME_RAMPING
-					DEC_POS
-				}
+				RENDER_16BIT_SMP_MONO
+				VOLUME_RAMPING
+				INC_POS_BIDI
+				RENDER_16BIT_SMP_MONO
+				VOLUME_RAMPING
+				INC_POS_BIDI
 			}
 		}
 		else
 		{
-			if (mixInMono)
+			if (samplesToMix & 1)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_16BIT_SMP_MONO
-					VOLUME_RAMPING
-					INC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_16BIT_SMP_MONO
-					VOLUME_RAMPING
-					INC_POS
-					RENDER_16BIT_SMP_MONO
-					VOLUME_RAMPING
-					INC_POS
-				}
+				RENDER_16BIT_SMP
+				VOLUME_RAMPING
+				INC_POS_BIDI
 			}
-			else
+			samplesToMix >>= 1;
+			for (i = 0; i < samplesToMix; ++i)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_16BIT_SMP
-					VOLUME_RAMPING
-					INC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_16BIT_SMP
-					VOLUME_RAMPING
-					INC_POS
-					RENDER_16BIT_SMP
-					VOLUME_RAMPING
-					INC_POS
-				}
+				RENDER_16BIT_SMP
+				VOLUME_RAMPING
+				INC_POS_BIDI
+				RENDER_16BIT_SMP
+				VOLUME_RAMPING
+				INC_POS_BIDI
 			}
 		}
+		END_BIDI
 		SET_VOL_BACK
 
 		WRAP_BIDI_LOOP
@@ -1796,7 +1538,7 @@ static void mix16bRampBidiLoop(voice_t *v, uint32_t numSamples)
 
 static void mix16bRampNoLoopIntrp(voice_t *v, uint32_t numSamples)
 {
-	bool mixInMono, CDA_SmpEndFlag;
+	bool mixInMono;
 	const int16_t *CDA_LinearAdr;
 	int32_t realPos, sample, sample2, *audioMixL, *audioMixR, CDA_BytesLeft, CDA_LVolIP, CDA_RVolIP;
 	register const int16_t *smpPtr;
@@ -1814,6 +1556,7 @@ static void mix16bRampNoLoopIntrp(voice_t *v, uint32_t numSamples)
 	}
 
 	GET_MIXER_VARS_RAMP
+	GET_DELTA
 	SET_BASE16
 
 	CDA_BytesLeft = numSamples;
@@ -1872,7 +1615,7 @@ static void mix16bRampNoLoopIntrp(voice_t *v, uint32_t numSamples)
 
 static void mix16bRampLoopIntrp(voice_t *v, uint32_t numSamples)
 {
-	bool mixInMono, CDA_SmpEndFlag;
+	bool mixInMono;
 	const int16_t *CDA_LinearAdr;
 	int32_t realPos, sample, sample2, *audioMixL, *audioMixR, CDA_BytesLeft, CDA_LVolIP, CDA_RVolIP;
 	register const int16_t *smpPtr;
@@ -1890,6 +1633,7 @@ static void mix16bRampLoopIntrp(voice_t *v, uint32_t numSamples)
 	}
 
 	GET_MIXER_VARS_RAMP
+	GET_DELTA
 	SET_BASE16
 
 	CDA_BytesLeft = numSamples;
@@ -1948,13 +1692,13 @@ static void mix16bRampLoopIntrp(voice_t *v, uint32_t numSamples)
 
 static void mix16bRampBidiLoopIntrp(voice_t *v, uint32_t numSamples)
 {
-	bool mixInMono, CDA_SmpEndFlag;
-	const int16_t *CDA_LinearAdr;
+	bool mixInMono;
+	const int16_t *CDA_LinearAdr, *CDA_LinAdrRev;
 	int32_t realPos, sample, sample2, *audioMixL, *audioMixR, CDA_BytesLeft, CDA_LVolIP, CDA_RVolIP;
 	register const int16_t *smpPtr;
-	register int32_t CDA_LVol, CDA_RVol;
-	register uint32_t pos, delta;
-	uint32_t i, samplesToMix;
+	register int32_t CDA_LVol, CDA_RVol, CDA_IPValL, CDA_IPValH;
+	register uint32_t pos;
+	uint32_t delta, i, samplesToMix;
 #ifndef LERPMIX
 	int32_t sample3;
 #endif
@@ -1966,98 +1710,56 @@ static void mix16bRampBidiLoopIntrp(voice_t *v, uint32_t numSamples)
 	}
 
 	GET_MIXER_VARS_RAMP
-	SET_BASE16
+	SET_BASE16_BIDI
 
 	CDA_BytesLeft = numSamples;
 	while (CDA_BytesLeft > 0)
 	{
-		LIMIT_MIX_NUM_BIDI_LOOP
+		LIMIT_MIX_NUM
 		LIMIT_MIX_NUM_RAMP
 		CDA_BytesLeft -= samplesToMix;
 
 		GET_VOL
-		if (v->backwards)
+		START_BIDI
+		if (mixInMono)
 		{
-			if (mixInMono)
+			if (samplesToMix & 1)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_16BIT_SMP_MONO_INTRP_BACKWARDS
-					VOLUME_RAMPING
-					DEC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_16BIT_SMP_MONO_INTRP_BACKWARDS
-					VOLUME_RAMPING
-					DEC_POS
-					RENDER_16BIT_SMP_MONO_INTRP_BACKWARDS
-					VOLUME_RAMPING
-					DEC_POS
-				}
+				RENDER_16BIT_SMP_MONO_INTRP
+				VOLUME_RAMPING
+				INC_POS_BIDI
 			}
-			else
+			samplesToMix >>= 1;
+			for (i = 0; i < samplesToMix; ++i)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_16BIT_SMP_INTRP_BACKWARDS
-					VOLUME_RAMPING
-					DEC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_16BIT_SMP_INTRP_BACKWARDS
-					VOLUME_RAMPING
-					DEC_POS
-					RENDER_16BIT_SMP_INTRP_BACKWARDS
-					VOLUME_RAMPING
-					DEC_POS
-				}
+				RENDER_16BIT_SMP_MONO_INTRP
+				VOLUME_RAMPING
+				INC_POS_BIDI
+				RENDER_16BIT_SMP_MONO_INTRP
+				VOLUME_RAMPING
+				INC_POS_BIDI
 			}
 		}
 		else
 		{
-			if (mixInMono)
+			if (samplesToMix & 1)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_16BIT_SMP_MONO_INTRP
-					VOLUME_RAMPING
-					INC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_16BIT_SMP_MONO_INTRP
-					VOLUME_RAMPING
-					INC_POS
-					RENDER_16BIT_SMP_MONO_INTRP
-					VOLUME_RAMPING
-					INC_POS
-				}
+				RENDER_16BIT_SMP_INTRP
+				VOLUME_RAMPING
+				INC_POS_BIDI
 			}
-			else
+			samplesToMix >>= 1;
+			for (i = 0; i < samplesToMix; ++i)
 			{
-				if (samplesToMix & 1)
-				{
-					RENDER_16BIT_SMP_INTRP
-					VOLUME_RAMPING
-					INC_POS
-				}
-				samplesToMix >>= 1;
-				for (i = 0; i < samplesToMix; ++i)
-				{
-					RENDER_16BIT_SMP_INTRP
-					VOLUME_RAMPING
-					INC_POS
-					RENDER_16BIT_SMP_INTRP
-					VOLUME_RAMPING
-					INC_POS
-				}
+				RENDER_16BIT_SMP_INTRP
+				VOLUME_RAMPING
+				INC_POS_BIDI
+				RENDER_16BIT_SMP_INTRP
+				VOLUME_RAMPING
+				INC_POS_BIDI
 			}
 		}
+		END_BIDI
 		SET_VOL_BACK
 
 		WRAP_BIDI_LOOP

@@ -2732,13 +2732,25 @@ static void writeSmpXORLine(int32_t x)
 
 static void writeSamplePosLine(void)
 {
+	uint8_t ins, smp;
 	int32_t smpPos, scrPos;
 	lastChInstr_t *c;
 
 	assert(editor.curSmpChannel < MAX_VOICES);
 
 	c = &lastChInstr[editor.curSmpChannel];
-	if ((c->instrNr == (MAX_INST + 1)) || ((c->instrNr == editor.curInstr) && (c->sampleNr == editor.curSmp)))
+	if (c->instrNr == (MAX_INST + 1)) // "Play Wave/Range/Display" in Smp. Ed.
+	{
+		ins = editor.curPlayInstr;
+		smp = editor.curPlaySmp;
+	}
+	else
+	{
+		ins = c->instrNr;
+		smp = c->sampleNr;
+	}
+
+	if ((editor.curInstr == ins) && (editor.curSmp == smp))
 	{
 		smpPos = getSamplePosition(editor.curSmpChannel);
 		if (smpPos != -1)

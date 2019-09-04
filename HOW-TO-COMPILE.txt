@@ -23,22 +23,23 @@ Compiled Windows/macOS binaries are always available at 16-bits.org/ft2.php
     ./make-linux.sh
     
  Note: If you want faster audio mixing (for SLOW devices), pass -DLERPMIX
-       to the GCC command line (edit make-linux.sh).
+       to the GCC command line (edit make-linux.sh). This will yield slightly
+       more blurry sound when interpolation is activated, though...
        
  Known issues: Audio recording (sampling) can update VERY slowly or not work at
                all... I have no idea why, it works really well on Windows/maCOS.
 
 == COMPILING ON WINDOWS 7 SP1 OR NEWER ==
- 1. Download and install Visual Studio Community 2017 (it's free)
- 2. Open it and install ALL updates (flag icon to the right in the window title)
- 3. Open "ft2-clone-code\vs2017_project\ft2-clone.sln"
+ 1. Download and install Visual Studio Community 2019 (it's free)
+ 2. Select the "Desktop development with C++" package and start installation
+ 3. Open "ft2-clone-code\vs2019_project\ft2-clone.sln"
  4. If you're missing the Windows 10 SDK, then you need to change the Windows
     SDK version used in the project settings for both debug and release x86/x64.
  5. Compile (make sure it's in Release mode. Also note x86/x64)
 
 
 == COMPILING ON MAC OS X 10.7 OR NEWER ==
- 1. Install XCode, it's in the App Store
+ 1. Download and install the "Command Line Tools" XCode package (google it)
  2. Download the SDL 2.0.9 framework here:
     https://www.libsdl.org/release/SDL2-2.0.9.dmg
  3. Inside the package, copy SDL2.framework to /Library/Frameworks/

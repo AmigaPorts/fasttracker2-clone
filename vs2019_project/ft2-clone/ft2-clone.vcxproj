@@ -96,6 +96,7 @@
       <PreprocessorDefinitions>__WINDOWS_MM__;NDEBUG;WIN32;_CRT_SECURE_NO_WARNINGS;_USE_MATH_DEFINES;HAVE_M_PI</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <CompileAsManaged>false</CompileAsManaged>
+      <DebugInformationFormat>None</DebugInformationFormat>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <StringPooling>true</StringPooling>
       <MinimalRebuild>false</MinimalRebuild>
@@ -116,7 +117,6 @@
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <BufferSecurityCheck>false</BufferSecurityCheck>
       <EnableEnhancedInstructionSet>StreamingSIMDExtensions</EnableEnhancedInstructionSet>
-      <DebugInformationFormat>None</DebugInformationFormat>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>
@@ -125,18 +125,19 @@
       <AdditionalDependencies>SDL2main.lib;SDL2.lib;winmm.lib;shlwapi.lib;libcmt.lib;libvcruntime.lib;libucrt.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreSpecificDefaultLibraries>
       </IgnoreSpecificDefaultLibraries>
-      <AdditionalOptions>/NODEFAULTLIB:MSVCRT "notelemetry.obj" %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/NODEFAULTLIB:MSVCRT /IGNORE:4049 %(AdditionalOptions)</AdditionalOptions>
       <TreatLinkerWarningAsErrors>true</TreatLinkerWarningAsErrors>
       <MinimumRequiredVersion>5.1</MinimumRequiredVersion>
       <FullProgramDatabaseFile>
       </FullProgramDatabaseFile>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
       <OptimizeReferences>true</OptimizeReferences>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <DataExecutionPrevention>false</DataExecutionPrevention>
+      <ProgramDatabaseFile />
       <ImageHasSafeExceptionHandlers>true</ImageHasSafeExceptionHandlers>
       <LargeAddressAware>true</LargeAddressAware>
-      <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
     <PostBuildEvent />
     <Manifest />
@@ -153,6 +154,7 @@
       <PreprocessorDefinitions>__WINDOWS_MM__;NDEBUG;WIN32;_CRT_SECURE_NO_WARNINGS;_USE_MATH_DEFINES;HAVE_M_PI</PreprocessorDefinitions>
       <MultiProcessorCompilation>true</MultiProcessorCompilation>
       <CompileAsManaged>false</CompileAsManaged>
+      <DebugInformationFormat>None</DebugInformationFormat>
       <IntrinsicFunctions>true</IntrinsicFunctions>
       <StringPooling>true</StringPooling>
       <MinimalRebuild>false</MinimalRebuild>
@@ -172,7 +174,6 @@
       <OpenMPSupport>false</OpenMPSupport>
       <InlineFunctionExpansion>AnySuitable</InlineFunctionExpansion>
       <BufferSecurityCheck>false</BufferSecurityCheck>
-      <DebugInformationFormat>None</DebugInformationFormat>
     </ClCompile>
     <Link>
       <AdditionalLibraryDirectories>
@@ -183,20 +184,21 @@
       </IgnoreAllDefaultLibraries>
       <IgnoreSpecificDefaultLibraries>
       </IgnoreSpecificDefaultLibraries>
-      <AdditionalOptions>/NODEFAULTLIB:MSVCRT "notelemetry.obj" %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/NODEFAULTLIB:MSVCRT /IGNORE:4049 %(AdditionalOptions)</AdditionalOptions>
       <TreatLinkerWarningAsErrors>true</TreatLinkerWarningAsErrors>
       <MinimumRequiredVersion>
       </MinimumRequiredVersion>
       <FullProgramDatabaseFile>
       </FullProgramDatabaseFile>
       <LinkTimeCodeGeneration>UseLinkTimeCodeGeneration</LinkTimeCodeGeneration>
+      <GenerateDebugInformation>false</GenerateDebugInformation>
       <OptimizeReferences>true</OptimizeReferences>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <DataExecutionPrevention>false</DataExecutionPrevention>
+      <ProgramDatabaseFile />
       <ImageHasSafeExceptionHandlers>
       </ImageHasSafeExceptionHandlers>
       <LargeAddressAware>true</LargeAddressAware>
-      <GenerateDebugInformation>false</GenerateDebugInformation>
     </Link>
     <PostBuildEvent>
       <Message>
@@ -236,7 +238,7 @@
       <AdditionalDependencies>SDL2main.lib;SDL2.lib;shlwapi.lib;winmm.lib;%(AdditionalDependencies)</AdditionalDependencies>
       <IgnoreSpecificDefaultLibraries>
       </IgnoreSpecificDefaultLibraries>
-      <AdditionalOptions>/NODEFAULTLIB:MSVCRT "notelemetry.obj" %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/NODEFAULTLIB:MSVCRT /IGNORE:4049 /IGNORE:4075 /IGNORE:4099 %(AdditionalOptions)</AdditionalOptions>
       <MinimumRequiredVersion>5.1</MinimumRequiredVersion>
       <GenerateDebugInformation>true</GenerateDebugInformation>
       <DataExecutionPrevention>false</DataExecutionPrevention>
@@ -285,7 +287,7 @@
       </IgnoreAllDefaultLibraries>
       <IgnoreSpecificDefaultLibraries>
       </IgnoreSpecificDefaultLibraries>
-      <AdditionalOptions>/NODEFAULTLIB:MSVCRT "notelemetry.obj" %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/NODEFAULTLIB:MSVCRT /IGNORE:4049 /IGNORE:4075 /IGNORE:4099 %(AdditionalOptions)</AdditionalOptions>
       <MinimumRequiredVersion>
       </MinimumRequiredVersion>
       <GenerateDebugInformation>true</GenerateDebugInformation>
@@ -339,7 +341,6 @@
     <ClCompile Include="..\..\src\ft2_module_saver.c" />
     <ClCompile Include="..\..\src\ft2_mouse.c" />
     <ClCompile Include="..\..\src\ft2_nibbles.c" />
-    <ClCompile Include="..\..\src\ft2_palette.c" />
     <ClCompile Include="..\..\src\ft2_pattern_ed.c" />
     <ClCompile Include="..\..\src\ft2_pattern_draw.c" />
     <ClCompile Include="..\..\src\ft2_pushbuttons.c" />

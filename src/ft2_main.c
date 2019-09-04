@@ -229,19 +229,26 @@ int main(int argc, char *argv[])
 
 static void initializeVars(void)
 {
+	int32_t i;
+
 	cpu.hasSSE  = SDL_HasSSE();
 	cpu.hasSSE2 = SDL_HasSSE2();
 
 	// clear common structs
-	memset(&video,      0, sizeof (video));
-	memset(&keyb,       0, sizeof (keyb));
-	memset(&mouse,      0, sizeof (mouse));
-	memset(&editor,     0, sizeof (editor));
-	memset(&pattMark,   0, sizeof (pattMark));
-	memset(&pattSync,   0, sizeof (pattSync));
-	memset(&chSync,     0, sizeof (chSync));
-	memset(lastChInstr, 0, sizeof (lastChInstr));
-	memset(&song,       0, sizeof (song));
+	memset(&video,    0, sizeof (video));
+	memset(&keyb,     0, sizeof (keyb));
+	memset(&mouse,    0, sizeof (mouse));
+	memset(&editor,   0, sizeof (editor));
+	memset(&pattMark, 0, sizeof (pattMark));
+	memset(&pattSync, 0, sizeof (pattSync));
+	memset(&chSync,   0, sizeof (chSync));
+	memset(&song,     0, sizeof (song));
+
+	for (i = 0; i < MAX_VOICES; ++i)
+	{
+		lastChInstr[i].instrNr  = 255;
+		lastChInstr[i].sampleNr = 255;
+	}
 
 	// now set data that must be initialized to non-zero values...
 

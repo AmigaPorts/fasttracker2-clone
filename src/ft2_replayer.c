@@ -388,7 +388,7 @@ uint32_t getFrequenceValue(uint16_t period)
 		shift = (14 - (index / 768)) & 0x1F;
 
 		// this converts to fast code even on x86 (imul + shrd)
-		rate = ((uint64_t)(logTab[index % 768]) * frequenceMulFactor) >> (32 - 8);
+		rate = ((uint64_t)(logTab[index % 768]) * (uint64_t)(frequenceMulFactor)) >> (32 - 8);
 		if (shift > 0)
 			rate >>= shift;
 	}
@@ -409,6 +409,7 @@ void resetOldRates(void)
 	oldRate   = 0;
 
 	resetOldScopeRates();
+	resetOldRevFreqs();
 }
 
 static void startTone(uint8_t ton, uint8_t effTyp, uint8_t eff, stmTyp *ch)
@@ -1266,7 +1267,7 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 
 			if (++ch->envVCnt == ins->envVP[envPos][0])
 			{
-				ch->envVAmp = (ins->envVP[envPos][1] & 0x00FF) << 8;
+				ch->envVAmp = (ins->envVP[envPos][1] & 0xFF) << 8;
 
 				envPos++;
 				if (ins->envVTyp & 4)
@@ -1280,7 +1281,7 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 							envPos = ins->envVRepS;
 
 							ch->envVCnt =  ins->envVP[envPos][0];
-							ch->envVAmp = (ins->envVP[envPos][1] & 0x00FF) << 8;
+							ch->envVAmp = (ins->envVP[envPos][1] & 0xFF) << 8;
 						}
 					}
 
@@ -1307,7 +1308,7 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 						ch->envVIPValue = 0;
 						if (ins->envVP[envPos][0] > ins->envVP[envPos - 1][0])
 						{
-							ch->envVIPValue = ((ins->envVP[envPos][1] - ins->envVP[envPos - 1][1]) & 0x00FF) << 8;
+							ch->envVIPValue = ((ins->envVP[envPos][1] - ins->envVP[envPos - 1][1]) & 0xFF) << 8;
 							ch->envVIPValue /= (ins->envVP[envPos][0] - ins->envVP[envPos - 1][0]);
 
 							envVal = ch->envVAmp;
@@ -1362,7 +1363,7 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 
 		if (++ch->envPCnt == ins->envPP[envPos][0])
 		{
-			ch->envPAmp = (ins->envPP[envPos][1] & 0x00FF) << 8;
+			ch->envPAmp = (ins->envPP[envPos][1] & 0xFF) << 8;
 
 			envPos++;
 			if (ins->envPTyp & 4)
@@ -1376,7 +1377,7 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 						envPos = ins->envPRepS;
 
 						ch->envPCnt =  ins->envPP[envPos][0];
-						ch->envPAmp = (ins->envPP[envPos][1] & 0x00FF) << 8;
+						ch->envPAmp = (ins->envPP[envPos][1] & 0xFF) << 8;
 					}
 				}
 
@@ -1403,7 +1404,7 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 					ch->envPIPValue = 0;
 					if (ins->envPP[envPos][0] > ins->envPP[envPos - 1][0])
 					{
-						ch->envPIPValue  = ((ins->envPP[envPos][1] - ins->envPP[envPos - 1][1]) & 0x00FF) << 8;
+						ch->envPIPValue  = ((ins->envPP[envPos][1] - ins->envPP[envPos - 1][1]) & 0xFF) << 8;
 						ch->envPIPValue /=  (ins->envPP[envPos][0] - ins->envPP[envPos - 1][0]);
 
 						envVal = ch->envPAmp;
@@ -2871,10 +2872,16 @@ void playSample(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t
 	uint8_t vol;
 	stmTyp *ch;
 
+	lastChInstr[stmm].instrNr = 255;
+	lastChInstr[stmm].sampleNr = 255;
+	editor.curPlayInstr = 255;
+	editor.curPlaySmp = 255;
+
 	assert((stmm < MAX_VOICES) && (inst < MAX_INST) && (smpNr < MAX_SMP_PER_INST) && (ton <= 97));
 	ch = &stm[stmm];
 
 	memcpy(&instr[MAX_INST + 1].samp[0], &instr[inst].samp[smpNr], sizeof (sampleTyp));
+
 	vol = instr[inst].samp[smpNr].vol;
 	
 	lockAudio();
@@ -2884,7 +2891,6 @@ void playSample(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t
 	ch->effTyp  = 0;
 
 	startTone(ton, 0, 0, ch);
-	ch->sampleNr = smpNr;
 
 	if (ton != 97)
 	{
@@ -2903,8 +2909,9 @@ void playSample(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t
 
 	unlockAudio();
 
-	while (ch->status & IS_NyTon); // wait for mixer to trigger voice
-	ch->instrNr = MAX_INST + 1;
+	while (ch->status & IS_NyTon); // wait for sample to latch in mixer
+	editor.curPlayInstr = editor.curInstr;
+	editor.curPlaySmp   = editor.curSmp;
 }
 
 // smp. ed.
@@ -2914,6 +2921,11 @@ void playRange(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t 
 	int32_t samplePlayOffset;
 	stmTyp *ch;
 	sampleTyp *s;
+
+	lastChInstr[stmm].instrNr = 255;
+	lastChInstr[stmm].sampleNr = 255;
+	editor.curPlayInstr = 255;
+	editor.curPlaySmp = 255;
 
 	assert((stmm < MAX_VOICES) && (inst < MAX_INST) && (smpNr < MAX_SMP_PER_INST) && (ton <= 97));
 
@@ -2946,7 +2958,6 @@ void playRange(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t 
 	ch->effTyp  = 0;
 
 	startTone(ton, 0, 0, ch);
-	ch->sampleNr = smpNr;
 
 	ch->smpStartPos = samplePlayOffset;
 
@@ -2967,8 +2978,9 @@ void playRange(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t 
 
 	unlockAudio();
 
-	while (ch->status & IS_NyTon); // wait for mixer to trigger voice
-	ch->instrNr = MAX_INST + 1;
+	while (ch->status & IS_NyTon); // wait for sample to latch in mixer
+	editor.curPlayInstr = editor.curInstr;
+	editor.curPlaySmp   = editor.curSmp;
 }
 
 void stopVoices(void)
@@ -2985,8 +2997,8 @@ void stopVoices(void)
 	{
 		ch = &stm[i];
 
-		lastChInstr[i].sampleNr = 0;
-		lastChInstr[i].instrNr  = 0;
+		lastChInstr[i].sampleNr = 255;
+		lastChInstr[i].instrNr  = 255;
 
 		ch->tonTyp       = 0;
 		ch->relTonNr     = 0;
@@ -3008,6 +3020,9 @@ void stopVoices(void)
 
 		stopVoice(i);
 	}
+
+	editor.curPlayInstr = 255;
+	editor.curPlaySmp   = 255;
 
 	stopAllScopes();
 	resetDitherSeed();
