@@ -19,7 +19,6 @@ enum
 
 #define MIN_AUDIO_FREQ 44100
 #define MAX_AUDIO_FREQ 96000
-#define MAX_SAMPLES_PER_TICK (((MAX_AUDIO_FREQ * 5) / 2) / MIN_BPM)
 
 struct audio_t
 {
@@ -98,8 +97,6 @@ void closeAudio(void);
 void pauseAudio(void);
 void resumeAudio(void);
 bool setNewAudioSettings(void);
-bool setupAudioBuffers(void);
-void freeAudioBuffers(void);
 void resetDitherSeed(void);
 void lockAudio(void);
 void unlockAudio(void);

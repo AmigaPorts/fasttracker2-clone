@@ -336,7 +336,9 @@
     <ClCompile Include="..\..\src\ft2_keyboard.c" />
     <ClCompile Include="..\..\src\ft2_main.c" />
     <ClCompile Include="..\..\src\ft2_midi.c" />
-    <ClCompile Include="..\..\src\ft2_mix.c" />
+    <ClCompile Include="..\..\src\ft2_mix.c">
+      <AssemblerOutput Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">All</AssemblerOutput>
+    </ClCompile>
     <ClCompile Include="..\..\src\ft2_module_loader.c" />
     <ClCompile Include="..\..\src\ft2_module_saver.c" />
     <ClCompile Include="..\..\src\ft2_mouse.c" />

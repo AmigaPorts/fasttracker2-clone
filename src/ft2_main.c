@@ -144,7 +144,7 @@ int main(int argc, char *argv[])
 	}
 #endif
 
-	if (!setupDiskOp() || !setupAudioBuffers())
+	if (!setupDiskOp())
 	{
 		cleanUpAndExit();
 		return (1);
@@ -296,7 +296,6 @@ static void cleanUpAndExit(void) // never call this inside the main loop!
 	}
 
 	closeAudio();
-	freeAudioBuffers();
 	closeReplayer();
 	closeVideo();
 	freeSprites();

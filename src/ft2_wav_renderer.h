@@ -3,9 +3,9 @@
 
 #include "ft2_header.h"
 
-#define MIN_WAV_AUDIO_FREQ 8000
-#define MAX_WAV_AUDIO_FREQ 192000
-#define MAX_WAV_SAMPLES_PER_TICK (((MAX_WAV_AUDIO_FREQ * 5) / 2) / MIN_BPM)
+#define MIN_WAV_RENDER_FREQ 8000
+#define MAX_WAV_RENDER_FREQ 192000
+#define MAX_WAV_RENDER_SAMPLES_PER_TICK (((MAX_WAV_RENDER_FREQ * 5) / 2) / MIN_BPM)
 
 void updateWavRendererSettings(void);
 void drawWavRenderer(void);

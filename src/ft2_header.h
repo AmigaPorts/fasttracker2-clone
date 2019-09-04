@@ -14,7 +14,7 @@
 #endif
 #include "ft2_replayer.h"
 
-#define BETA_VERSION 152
+#define BETA_VERSION 153
 
 // do NOT change these! It will only mess things up...
 

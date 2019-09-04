@@ -24,7 +24,7 @@ static int32_t masterVol, amp, oldAudioFreq, speedVal, pmpLeft, randSeed = INITI
 static uint32_t tickTimeLen, tickTimeLenFrac, oldSFrq, oldSFrqRev = 0xFFFFFFFF;
 static float fAudioAmpMul;
 static voice_t voice[MAX_VOICES * 2];
-static void (*sendAudSamplesFunc)(uint8_t *, int32_t, uint8_t); // "send mixed samples" routines
+static void (*sendAudSamplesFunc)(uint8_t *, uint32_t, uint8_t); // "send mixed samples" routines
 
 pattSyncData_t *pattSyncEntry;
 chSyncData_t *chSyncEntry;
@@ -406,10 +406,11 @@ static inline uint32_t random32(void)
 	return (randSeed);
 }
 
-static void sendSamples16BitStereo(uint8_t *stream, int32_t sampleBlockLength, uint8_t numAudioChannels)
+static void sendSamples16BitStereo(uint8_t *stream, uint32_t sampleBlockLength, uint8_t numAudioChannels)
 {
 	int16_t *streamPointer16;
-	int32_t i, out32;
+	int32_t out32;
+	uint32_t i;
 
 	streamPointer16 = (int16_t *)(stream);
 
@@ -447,10 +448,11 @@ static void sendSamples16BitStereo(uint8_t *stream, int32_t sampleBlockLength, u
 	(void)(numAudioChannels); // make compiler happy
 }
 
-static void sendSamples16BitMultiChan(uint8_t *stream, int32_t sampleBlockLength, uint8_t numAudioChannels)
+static void sendSamples16BitMultiChan(uint8_t *stream, uint32_t sampleBlockLength, uint8_t numAudioChannels)
 {
 	int16_t *streamPointer16;
-	int32_t i, j, out32;
+	int32_t out32;
+	uint32_t i, j;
 
 	streamPointer16 = (int16_t *)(stream);
 
@@ -492,10 +494,11 @@ static void sendSamples16BitMultiChan(uint8_t *stream, int32_t sampleBlockLength
 	}
 }
 
-static void sendSamples16BitDitherStereo(uint8_t *stream, int32_t sampleBlockLength, uint8_t numAudioChannels)
+static void sendSamples16BitDitherStereo(uint8_t *stream, uint32_t sampleBlockLength, uint8_t numAudioChannels)
 {
 	int16_t *streamPointer16;
-	int32_t i, dither, out32;
+	int32_t dither, out32;
+	uint32_t i;
 
 	if (masterVol == 256)
 	{
@@ -541,10 +544,11 @@ static void sendSamples16BitDitherStereo(uint8_t *stream, int32_t sampleBlockLen
 	(void)(numAudioChannels); // make compiler happy
 }
 
-static void sendSamples16BitDitherMultiChan(uint8_t *stream, int32_t sampleBlockLength, uint8_t numAudioChannels)
+static void sendSamples16BitDitherMultiChan(uint8_t *stream, uint32_t sampleBlockLength, uint8_t numAudioChannels)
 {
 	int16_t *streamPointer16;
-	int32_t i, j, dither, out32;
+	int32_t dither, out32;
+	uint32_t i, j;
 
 	streamPointer16 = (int16_t *)(stream);
 
@@ -594,9 +598,9 @@ static void sendSamples16BitDitherMultiChan(uint8_t *stream, int32_t sampleBlock
 	}
 }
 
-static void sendSamples24BitStereo(uint8_t *stream, int32_t sampleBlockLength, uint8_t numAudioChannels)
+static void sendSamples24BitStereo(uint8_t *stream, uint32_t sampleBlockLength, uint8_t numAudioChannels)
 {
-	int32_t i;
+	uint32_t i;
 	float fOut, *fStreamPointer24;
 
 	fStreamPointer24 = (float *)(stream);
@@ -616,9 +620,9 @@ static void sendSamples24BitStereo(uint8_t *stream, int32_t sampleBlockLength, u
 	(void)(numAudioChannels); // make compiler happy
 }
 
-static void sendSamples24BitMultiChan(uint8_t *stream, int32_t sampleBlockLength, uint8_t numAudioChannels)
+static void sendSamples24BitMultiChan(uint8_t *stream, uint32_t sampleBlockLength, uint8_t numAudioChannels)
 {
-	int32_t i, j;
+	uint32_t i, j;
 	float fOut, *fStreamPointer24;
 
 	fStreamPointer24 = (float *)(stream);
@@ -639,32 +643,32 @@ static void sendSamples24BitMultiChan(uint8_t *stream, int32_t sampleBlockLength
 	}
 }
 
-static void mixAudio(uint8_t *stream, int32_t sampleBlockLength, uint8_t numAudioChannels)
+static void mixAudio(uint8_t *stream, uint32_t sampleBlockLength, uint8_t numAudioChannels)
 {
-	int32_t i;
+	uint32_t i;
 	voice_t *v;
 
-	assert(sampleBlockLength <= MAX_SAMPLES_PER_TICK);
-
+	assert(sampleBlockLength <= MAX_WAV_RENDER_SAMPLES_PER_TICK);
 	memset(audio.mixBufferL, 0, sampleBlockLength * sizeof (int32_t));
 	memset(audio.mixBufferR, 0, sampleBlockLength * sizeof (int32_t));
 
 	// mix channels
+
+	v = voice;
 	for (i = 0; i < song.antChn; ++i)
 	{
-		// mix normal voice
-		v = &voice[i];
-
 		// call the mixing routine currently set for the voice
 		if (v->mixRoutine != NULL)
 		   (v->mixRoutine)((void *)(v), sampleBlockLength);
 
 		// mix fade-out voice
-		v = &voice[MAX_VOICES + i];
+		v += MAX_VOICES;
 
 		// call the mixing routine currently set for the voice
 		if (v->mixRoutine != NULL)
 		   (v->mixRoutine)((void *)(v), sampleBlockLength);
+
+		v -= (MAX_VOICES - 1); // go to next normal channel
 	}
 
 	// normalize mix buffer and send to audio stream
@@ -677,25 +681,26 @@ uint32_t mixReplayerTickToBuffer(uint8_t *stream, uint8_t bitDepth)
 	int32_t i;
 	voice_t *v;
 
+	assert(speedVal <= MAX_WAV_RENDER_SAMPLES_PER_TICK);
 	memset(audio.mixBufferL, 0, speedVal * sizeof (int32_t));
 	memset(audio.mixBufferR, 0, speedVal * sizeof (int32_t));
 
 	// mix channels
+	v = voice;
 	for (i = 0; i < song.antChn; ++i)
 	{
-		// mix normal voice
-		v = &voice[i];
-
 		// call the mixing routine currently set for the voice
 		if (v->mixRoutine != NULL)
 		   (v->mixRoutine)((void *)(v), speedVal);
 
 		// mix fade-out voice
-		v = &voice[MAX_VOICES + i];
+		v += MAX_VOICES;
 
 		// call the mixing routine currently set for the voice
 		if (v->mixRoutine != NULL)
 		   (v->mixRoutine)((void *)(v), speedVal);
+
+		v -= (MAX_VOICES - 1); // go to next normal channel
 	}
 
 	// normalize mix buffer and send to audio stream
@@ -974,8 +979,8 @@ static void SDLCALL mixCallback(void *userdata, Uint8 *stream, int len)
 	stmTyp *s;
 
 	assert(len < 65536); // limitation in mixer
-
 	assert(pmpCountDiv > 0);
+
 	a = len / pmpCountDiv;
 	if (a <= 0)
 		return;
@@ -1066,21 +1071,20 @@ static void SDLCALL mixCallback(void *userdata, Uint8 *stream, int len)
 	(void)(userdata); // make compiler happy
 }
 
-bool setupAudioBuffers(void)
+static bool setupAudioBuffers(void)
 {
-	audio.mixBufferL = (int32_t *)(malloc(MAX_SAMPLES_PER_TICK * sizeof (int32_t)));
-	audio.mixBufferR = (int32_t *)(malloc(MAX_SAMPLES_PER_TICK * sizeof (int32_t)));
+	const uint32_t sampleSize = sizeof (int32_t);
+
+	audio.mixBufferL = (int32_t *)(malloc(MAX_WAV_RENDER_SAMPLES_PER_TICK * sampleSize));
+	audio.mixBufferR = (int32_t *)(malloc(MAX_WAV_RENDER_SAMPLES_PER_TICK * sampleSize));
 
 	if ((audio.mixBufferL == NULL) || (audio.mixBufferR == NULL))
-	{
-		showErrorMsgBox("Not enough memory!");
-		return (false); // allocated memory is free'd later
-	}
+		return (false);
 
 	return (true);
 }
 
-void freeAudioBuffers(void)
+static void freeAudioBuffers(void)
 {
 	if (audio.mixBufferL != NULL)
 	{
@@ -1160,12 +1164,35 @@ static void calcAudioLatencyVars(uint16_t haveSamples, int32_t haveFreq)
 	audio.dAudioLatencyMs = dAudioLatencySecs * 1000.0;
 }
 
+static void setLastWorkingAudioDevName(void)
+{
+	uint32_t stringLen;
+
+	if (audio.lastWorkingAudioDeviceName != NULL)
+	{
+		free(audio.lastWorkingAudioDeviceName);
+		audio.lastWorkingAudioDeviceName = NULL;
+	}
+
+	if (audio.currOutputDevice != NULL)
+	{
+		stringLen = (uint32_t)(strlen(audio.currOutputDevice));
+
+		audio.lastWorkingAudioDeviceName = (char *)(malloc(stringLen + 2));
+		if (audio.lastWorkingAudioDeviceName != NULL)
+		{
+			if (stringLen > 0)
+				strcpy(audio.lastWorkingAudioDeviceName, audio.currOutputDevice);
+			audio.lastWorkingAudioDeviceName[stringLen + 1] = '\0'; // UTF-8 needs double null termination
+		}
+	}
+}
+
 bool setupAudio(bool showErrorMsg)
 {
 	int8_t newBitDepth;
 	uint8_t i;
 	uint16_t configAudioBufSize;
-	uint32_t stringLen;
 	SDL_AudioSpec want, have;
 
 	closeAudio();
@@ -1232,6 +1259,15 @@ bool setupAudio(bool showErrorMsg)
 		return (false);
 	}
 
+	if (!setupAudioBuffers())
+	{
+		if (showErrorMsg)
+			showErrorMsgBox("Out of memory!");
+
+		closeAudio();
+		return (false);
+	}
+
 	// set new bit depth flag
 
 	newBitDepth = 16;
@@ -1268,27 +1304,7 @@ bool setupAudio(bool showErrorMsg)
 	audio.lastWorkingAudioFreq = config.audioFreq;
 	audio.lastWorkingAudioBits = config.specialFlags & (BITDEPTH_16   + BITDEPTH_24   + BUFFSIZE_512 +
 														BUFFSIZE_1024 + BUFFSIZE_2048 + BUFFSIZE_4096);
-
-	// store last working audio output device name
-
-	if (audio.lastWorkingAudioDeviceName != NULL)
-	{
-		free(audio.lastWorkingAudioDeviceName);
-		audio.lastWorkingAudioDeviceName = NULL;
-	}
-
-	if (audio.currOutputDevice != NULL)
-	{
-		stringLen = (uint32_t)(strlen(audio.currOutputDevice));
-
-		audio.lastWorkingAudioDeviceName = (char *)(malloc(stringLen + 2));
-		if (audio.lastWorkingAudioDeviceName != NULL)
-		{
-			if (stringLen > 0)
-				strcpy(audio.lastWorkingAudioDeviceName, audio.currOutputDevice);
-			audio.lastWorkingAudioDeviceName[stringLen + 1] = '\0'; // UTF-8 needs double null termination
-		}
-	}
+	setLastWorkingAudioDevName();
 
 	// update config audio radio buttons if we're on that screen at the moment
 	if (editor.ui.configScreenShown && (editor.currConfigScreen == CONFIG_SCREEN_IO_DEVICES))
@@ -1297,6 +1313,7 @@ bool setupAudio(bool showErrorMsg)
 	updateWavRendererSettings();
 	setAudioAmp(config.boostLevel, config.masterVol, (config.specialFlags & BITDEPTH_24) ? true : false);
 
+	// don't call stopVoices() in this routine
 	for (i = 0; i < MAX_VOICES; ++i)
 		stopVoice(i);
 
@@ -1325,6 +1342,8 @@ void closeAudio(void)
 		SDL_CloseAudioDevice(audio.dev);
 		audio.dev = 0;
 	}
+
+	freeAudioBuffers();
 }
 
 /*
@@ -1341,8 +1360,18 @@ void benchmarkAudioChannelMixer(void) // for development testing
 #endif
 
 	char str[128];
-	uint8_t result, buffer[MAX_SAMPLES_PER_TICK * 2 * sizeof (float)];
-	uint32_t i, start, end;
+	uint8_t result, *buffer;
+	uint32_t maxSamplesPerTick, i, start, end;
+
+	maxSamplesPerTick = ((config.audioFreq * 5) / 2) / MIN_BPM;
+
+	buffer = (uint8_t *)(malloc(maxSamplesPerTick * (2 * sizeof (int32_t))));
+	if (buffer == NULL)
+	{
+		editor.programRunning = false;
+		showErrorMsgBox("Out of memory!\n");
+		return;
+	}
 
 	result = loadMusicUnthreaded(DEBUG_MOD_FILENAME);
 	if (!result)
@@ -1374,6 +1403,8 @@ void benchmarkAudioChannelMixer(void) // for development testing
 
 	stopPlaying();
 	resumeAudio();
+
+	free(buffer);
 
 	sprintf(str, "It took approximately %dms to mix %d ticks.\nRun this test again to confirm.", end - start, TICKS_TO_MIX);
 	SDL_ShowSimpleMessageBox(0, "Channel mixer benchmark result", str, video.window);

@@ -1498,7 +1498,7 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 
 		autoVibVal <<= 2;
 
-		tmp32 = ((autoVibVal * (signed)(autoVibAmp)) >> 16) & 0x8000FFFF;
+		tmp32 = ((autoVibVal * (int16_t)(autoVibAmp)) >> 16) & 0x8000FFFF;
 		tmpPeriod = ch->outPeriod + (int16_t)(tmp32);
 		if (tmpPeriod > (32000 - 1))
 			tmpPeriod = 0;

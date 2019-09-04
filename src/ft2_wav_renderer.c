@@ -18,7 +18,7 @@
 #include "ft2_audio.h"
 #include "ft2_wav_renderer.h"
 
-#define TICKS_PER_RENDER_CHUNK 64
+#define TICKS_PER_RENDER_CHUNK 32
 
 enum
 {
@@ -157,9 +157,13 @@ void exitWavRenderer(void)
 static bool dump_Init(uint32_t frq, int16_t amp, int16_t songPos)
 {
 	uint8_t i, oldMuteFlags[MAX_VOICES];
+	uint32_t maxSamplesPerTick, sampleSize;
+
+	maxSamplesPerTick = ((frq * 5) / 2) / MIN_BPM; // absolute max samples per tidck
+	sampleSize = (WDBitDepth / 8) * 2; // 2 channels
 
 	// *2 for stereo
-	wavRenderBuffer = (uint8_t *)(malloc(TICKS_PER_RENDER_CHUNK * ((MAX_WAV_SAMPLES_PER_TICK * 2) * (WDBitDepth / 8))));
+	wavRenderBuffer = (uint8_t *)(malloc((TICKS_PER_RENDER_CHUNK * maxSamplesPerTick) * sampleSize));
 	if (wavRenderBuffer == NULL)
 		return (false);
 
@@ -299,7 +303,7 @@ static int32_t SDLCALL renderWavThread(void *ptr)
 {
 	bool renderDone;
 	uint8_t *ptr8, loopCounter;
-	uint32_t i, samplesInChunk, tickSamples, sampleCounter; 
+	uint32_t i, samplesInChunk, tickSamples, sampleCounter;
 	FILE *f;
 
 	f = (FILE *)(editor.wavRendererFileHandle);
@@ -316,11 +320,11 @@ static int32_t SDLCALL renderWavThread(void *ptr)
 
 	sampleCounter = 0;
 	renderDone = false;
+	loopCounter = 0;
 
 	editor.wavReachedEndFlag = false;
 	while (!renderDone && editor.wavIsRendering)
 	{
-		loopCounter    = 0;
 		samplesInChunk = 0;
 
 		// render several ticks at once to prevent frequent disk I/O (speeds up the process)
@@ -344,7 +348,7 @@ static int32_t SDLCALL renderWavThread(void *ptr)
 			else
 				ptr8 += (tickSamples * sizeof (float));
 
-			if (++loopCounter > 32)
+			if (++loopCounter > 16)
 			{
 				loopCounter = 0;
 				updateVisuals();
@@ -437,7 +441,7 @@ void pbWavExit(void)
 
 void pbWavFreqUp(void)
 {
-	if (WDFrequency < MAX_WAV_AUDIO_FREQ)
+	if (WDFrequency < MAX_WAV_RENDER_FREQ)
 	{
 			 if (WDFrequency == 8000)  WDFrequency = 11025;
 		else if (WDFrequency == 11025) WDFrequency = 16000;
@@ -454,7 +458,7 @@ void pbWavFreqUp(void)
 
 void pbWavFreqDown(void)
 {
-	if (WDFrequency > MIN_WAV_AUDIO_FREQ)
+	if (WDFrequency > MIN_WAV_RENDER_FREQ)
 	{
 			 if (WDFrequency == 192000) WDFrequency = 96000;
 		else if (WDFrequency == 96000)  WDFrequency = 48000;
