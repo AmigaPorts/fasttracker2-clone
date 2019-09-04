@@ -57,23 +57,23 @@ static bool fileRestoreSampleData(UNICHAR *filenameU, int32_t sampleDataOffset, 
 	FILE *f;
 
 	if (!smp->fixed)
-		return (false); // nothing to fix
+		return false; // nothing to fix
 
 	f = UNICHAR_FOPEN(filenameU, "r+"); // open in read+update mode
 	if (f == NULL)
-		return (false);
+		return false;
 
 	if (smp->typ & 16)
 	{
 		// 16-bit sample
-		if (smp->fixedPos < (smp->len / 2))
+		if (smp->fixedPos < smp->len/2)
 		{
 			fseek(f, sampleDataOffset + (smp->fixedPos * 2), SEEK_SET);
 			fwrite(&smp->fixedSmp1, sizeof (int16_t), 1, f);
 		}
 
 #ifndef LERPMIX
-		if ((smp->fixedPos + 2) < (smp->len / 2))
+		if (smp->fixedPos+2 < smp->len/2)
 		{
 			fseek(f, sampleDataOffset + ((smp->fixedPos + 2) * 2), SEEK_SET);
 			fwrite(&smp->fixedSmp2, sizeof (int16_t), 1, f);
@@ -87,21 +87,21 @@ static bool fileRestoreSampleData(UNICHAR *filenameU, int32_t sampleDataOffset, 
 		{
 			fseek(f, sampleDataOffset + smp->fixedPos, SEEK_SET);
 
-			fixSpar8 = (int8_t)(smp->fixedSmp1);
+			fixSpar8 = (int8_t)smp->fixedSmp1;
 			if (editor.sampleSaveMode == SMP_SAVE_MODE_WAV) // on 8-bit WAVs the sample data is unsigned
-				fixSpar8 += 128;
+				fixSpar8 ^= 0x80;
 
 			fwrite(&fixSpar8, sizeof (int8_t), 1, f);
 		}
 
 #ifndef LERPMIX
-		if ((smp->fixedPos + 1) < smp->len)
+		if (smp->fixedPos+1 < smp->len)
 		{
 			fseek(f, sampleDataOffset + (smp->fixedPos + 1), SEEK_SET);
 
-			fixSpar8 = (int8_t)(smp->fixedSmp2);
+			fixSpar8 = (int8_t)smp->fixedSmp2;
 			if (editor.sampleSaveMode == SMP_SAVE_MODE_WAV) // on 8-bit WAVs the sample data is unsigned
-				fixSpar8 += 128;
+				fixSpar8 ^= 0x80;
 
 			fwrite(&fixSpar8, sizeof (int8_t), 1, f);
 		}
@@ -109,7 +109,7 @@ static bool fileRestoreSampleData(UNICHAR *filenameU, int32_t sampleDataOffset, 
 	}
 
 	fclose(f);
-	return (true);
+	return true;
 }
 
 static bool saveRawSample(UNICHAR *filenameU, bool saveRangedData)
@@ -120,10 +120,10 @@ static bool saveRawSample(UNICHAR *filenameU, bool saveRangedData)
 	sampleTyp *smp;
 
 	smp = &instr[editor.curInstr].samp[editor.curSmp];
-	if ((smp->pek == NULL) || (smp->len == 0))
+	if (smp->pek == NULL || smp->len == 0)
 	{
 		okBoxThreadSafe(0, "System message", "Error saving sample: The sample is empty!");
-		return (false);
+		return false;
 	}
 
 	if (saveRangedData)
@@ -141,14 +141,14 @@ static bool saveRawSample(UNICHAR *filenameU, bool saveRangedData)
 	if (f == NULL)
 	{
 		okBoxThreadSafe(0, "System message", "General I/O error during saving! Is the file in use?");
-		return (false);
+		return false;
 	}
 
 	if (fwrite(samplePtr, sampleLen, 1, f) != 1)
 	{
 		fclose(f);
 		okBoxThreadSafe(0, "System message", "Error saving sample: General I/O error!");
-		return (false);
+		return false;
 	}
 
 	fclose(f);
@@ -159,7 +159,7 @@ static bool saveRawSample(UNICHAR *filenameU, bool saveRangedData)
 	editor.diskOpReadDir = true; // force diskop re-read
 
 	setMouseBusy(false);
-	return (true);
+	return true;
 }
 
 static void iffWriteChunkHeader(FILE *f, char *chunkName, uint32_t chunkLen)
@@ -190,17 +190,17 @@ static bool saveIFFSample(UNICHAR *filenameU, bool saveRangedData)
 	sampleTyp *smp;
 
 	smp = &instr[editor.curInstr].samp[editor.curSmp];
-	if ((smp->pek == NULL) || (smp->len == 0))
+	if (smp->pek == NULL || smp->len == 0)
 	{
 		okBoxThreadSafe(0, "System message", "Error saving sample: The sample is empty!");
-		return (false);
+		return false;
 	}
 
 	f = UNICHAR_FOPEN(filenameU, "wb");
 	if (f == NULL)
 	{
 		okBoxThreadSafe(0, "System message", "General I/O error during saving! Is the file in use?");
-		return (false);
+		return false;
 	}
 
 	if (saveRangedData)
@@ -236,7 +236,7 @@ static bool saveIFFSample(UNICHAR *filenameU, bool saveRangedData)
 
 	// samplesPerSec
 	tmp32 = getSampleMiddleCRate(smp);
-	if ((tmp32 == 0) || (tmp32 > 65535))
+	if (tmp32 == 0 || tmp32 > 65535)
 		tmp32 = 16726;
 	iffWriteUint16(f, tmp32 & 0xFFFF);
 
@@ -248,8 +248,8 @@ static bool saveIFFSample(UNICHAR *filenameU, bool saveRangedData)
 
 	if (saveRangedData)
 	{
-		smpNamePtr = (char *)(rangedDataStr);
-		smpNameLen = (uint32_t)(strlen(rangedDataStr));
+		smpNamePtr = (char *)rangedDataStr;
+		smpNameLen = (uint32_t)strlen(rangedDataStr);
 	}
 	else
 	{
@@ -302,7 +302,7 @@ static bool saveIFFSample(UNICHAR *filenameU, bool saveRangedData)
 	editor.diskOpReadDir = true; // force diskop re-read
 
 	setMouseBusy(false);
-	return (true);
+	return true;
 }
 
 static bool saveWAVSample(UNICHAR *filenameU, bool saveRangedData)
@@ -321,17 +321,17 @@ static bool saveWAVSample(UNICHAR *filenameU, bool saveRangedData)
 	ins = &instr[editor.curInstr];
 
 	smp = &ins->samp[editor.curSmp];
-	if ((smp->pek == NULL) || (smp->len == 0))
+	if (smp->pek == NULL || smp->len == 0)
 	{
 		okBoxThreadSafe(0, "System message", "Error saving sample: The sample is empty!");
-		return (false);
+		return false;
 	}
 
 	f = UNICHAR_FOPEN(filenameU, "wb");
 	if (f == NULL)
 	{
 		okBoxThreadSafe(0, "System message", "General I/O error during saving! Is the file in use?");
-		return (false);
+		return false;
 	}
 
 	if (saveRangedData)
@@ -347,18 +347,18 @@ static bool saveWAVSample(UNICHAR *filenameU, bool saveRangedData)
 
 	sampleBitDepth = (smp->typ & 16) ? 16 : 8;
 
-	wavHeader.chunkID       = 0x46464952; // "RIFF"
-	wavHeader.chunkSize     = 0; // is filled later
-	wavHeader.format        = 0x45564157; // "WAVE"
-	wavHeader.subchunk1ID   = 0x20746D66; // "fmt "
+	wavHeader.chunkID = 0x46464952; // "RIFF"
+	wavHeader.chunkSize = 0; // is filled later
+	wavHeader.format = 0x45564157; // "WAVE"
+	wavHeader.subchunk1ID = 0x20746D66; // "fmt "
 	wavHeader.subchunk1Size = 16;
-	wavHeader.audioFormat   = 1;
-	wavHeader.numChannels   = 1;
-	wavHeader.sampleRate    = getSampleMiddleCRate(smp);
-	wavHeader.byteRate      = (wavHeader.sampleRate * wavHeader.numChannels * sampleBitDepth) / 8;
-	wavHeader.blockAlign    = (wavHeader.numChannels * sampleBitDepth) / 8;
+	wavHeader.audioFormat = 1;
+	wavHeader.numChannels = 1;
+	wavHeader.sampleRate = getSampleMiddleCRate(smp);
+	wavHeader.byteRate = (wavHeader.sampleRate * wavHeader.numChannels * sampleBitDepth) / 8;
+	wavHeader.blockAlign = (wavHeader.numChannels * sampleBitDepth) / 8;
 	wavHeader.bitsPerSample = sampleBitDepth;
-	wavHeader.subchunk2ID   = 0x61746164; // "data"
+	wavHeader.subchunk2ID = 0x61746164; // "data"
 	wavHeader.subchunk2Size = sampleLen;
 
 	// write main header
@@ -368,11 +368,11 @@ static bool saveWAVSample(UNICHAR *filenameU, bool saveRangedData)
 	sampleDataPos = ftell(f);
 	if (sampleBitDepth == 16)
 	{
-		fwrite((int16_t *)(samplePtr), sizeof (int16_t), sampleLen / 2, f);
+		fwrite((int16_t *)samplePtr, sizeof (int16_t), sampleLen / 2, f);
 	}
 	else
 	{
-		for (i = 0; i < sampleLen; ++i)
+		for (i = 0; i < sampleLen; i++)
 			fputc(samplePtr[i] ^ 0x80, f); // write as unsigned 8-bit data
 	}
 
@@ -384,24 +384,24 @@ static bool saveWAVSample(UNICHAR *filenameU, bool saveRangedData)
 	{
 		memset(&samplerChunk, 0, sizeof (samplerChunk));
 
-		samplerChunk.chunkID         = 0x6C706D73; // "smpl"
-		samplerChunk.chunkSize       = sizeof (samplerChunk) - 4 - 4;
-		samplerChunk.dwSamplePeriod  = 1000000000 / wavHeader.sampleRate;
+		samplerChunk.chunkID = 0x6C706D73; // "smpl"
+		samplerChunk.chunkSize = sizeof (samplerChunk) - 4 - 4;
+		samplerChunk.dwSamplePeriod = 1000000000 / wavHeader.sampleRate;
 		samplerChunk.dwMIDIUnityNote = 60; // 60 = C-4
-		samplerChunk.cSampleLoops    = 1;
-		samplerChunk.loop.dwType     = (smp->typ & 3) - 1; // 0 = forward, 1 = ping-pong
+		samplerChunk.cSampleLoops = 1;
+		samplerChunk.loop.dwType = (smp->typ & 3) - 1; // 0 = forward, 1 = ping-pong
 
 		if (sampleBitDepth == 16)
 		{
 			// divide loop points by 2 to get samples insetad of bytes
 			samplerChunk.loop.dwStart = smp->repS / 2;
-			samplerChunk.loop.dwEnd   = ((smp->repS + smp->repL) / 2) - 1;
+			samplerChunk.loop.dwEnd = ((smp->repS + smp->repL) / 2) - 1;
 		}
 		else
 		{
 			// 8-bit sample
 			samplerChunk.loop.dwStart = smp->repS;
-			samplerChunk.loop.dwEnd   = (smp->repS + smp->repL) - 1;
+			samplerChunk.loop.dwEnd = (smp->repS + smp->repL) - 1;
 		}
 
 		fwrite(&samplerChunk, sizeof (samplerChunk), 1, f);
@@ -414,16 +414,16 @@ static bool saveWAVSample(UNICHAR *filenameU, bool saveRangedData)
 	{
 		memset(&mptExtraChunk, 0, sizeof (mptExtraChunk));
 
-		mptExtraChunk.chunkID       = 0x61727478;       // "xtra"
-		mptExtraChunk.chunkSize     = sizeof (mptExtraChunk) - 4 - 4;
-		mptExtraChunk.flags         = 0x20;             // set pan flag - used when loading .WAVs in OpenMPT
-		mptExtraChunk.defaultPan    = smp->pan;         // 0..255 
-		mptExtraChunk.defaultVolume = smp->vol * 4;     // 0..256 
-		mptExtraChunk.globalVolume  = 64;               // 0..64
-		mptExtraChunk.vibratoType   = ins->vibTyp;      // 0..3    0 = sine, 1 = square, 2 = ramp up, 3 = ramp down
-		mptExtraChunk.vibratoSweep  = ins->vibSweep;    // 0..255
-		mptExtraChunk.vibratoDepth  = ins->vibDepth;    // 0..15
-		mptExtraChunk.vibratoRate   = ins->vibRate;     // 0..63
+		mptExtraChunk.chunkID = 0x61727478; // "xtra"
+		mptExtraChunk.chunkSize = sizeof (mptExtraChunk) - 4 - 4;
+		mptExtraChunk.flags = 0x20; // set pan flag - used when loading .WAVs in OpenMPT
+		mptExtraChunk.defaultPan = smp->pan; // 0..255
+		mptExtraChunk.defaultVolume = smp->vol * 4; // 0..256
+		mptExtraChunk.globalVolume = 64; // 0..64
+		mptExtraChunk.vibratoType = ins->vibTyp; // 0..3    0 = sine, 1 = square, 2 = ramp up, 3 = ramp down
+		mptExtraChunk.vibratoSweep = ins->vibSweep; // 0..255
+		mptExtraChunk.vibratoDepth = ins->vibDepth; // 0..15
+		mptExtraChunk.vibratoRate= ins->vibRate; // 0..63
 
 		fwrite(&mptExtraChunk, sizeof (mptExtraChunk), 1, f);
 		if (mptExtraChunk.chunkSize & 1)
@@ -434,8 +434,8 @@ static bool saveWAVSample(UNICHAR *filenameU, bool saveRangedData)
 
 	if (saveRangedData)
 	{
-		smpNamePtr = (char *)(rangedDataStr);
-		smpNameLen = (uint32_t)(strlen(smpNamePtr));
+		smpNamePtr = (char *)rangedDataStr;
+		smpNameLen = (uint32_t)strlen(smpNamePtr);
 	}
 	else
 	{
@@ -457,14 +457,14 @@ static bool saveWAVSample(UNICHAR *filenameU, bool saveRangedData)
 	if (smpNameLen > 0)
 		tmpLen += ((4 + 4) + (progNameLen + 1 + ((progNameLen + 1) & 1)));
 
-	fwrite("LIST",  sizeof (int32_t), 1, f);
+	fwrite("LIST", sizeof (int32_t), 1, f);
 	fwrite(&tmpLen, sizeof (int32_t), 1, f);
-	fwrite("INFO",  sizeof (int32_t), 1, f);
+	fwrite("INFO", sizeof (int32_t), 1, f);
 
 	if (smpNameLen > 0)
 	{
 		tmpLen = smpNameLen + 1;
-		fwrite("INAM",  sizeof (int32_t), 1, f);
+		fwrite("INAM", sizeof (int32_t), 1, f);
 		fwrite(&tmpLen, sizeof (int32_t), 1, f);
 		fwrite(smpNamePtr, 1, smpNameLen, f);
 		fputc(0, f); // string termination
@@ -473,7 +473,7 @@ static bool saveWAVSample(UNICHAR *filenameU, bool saveRangedData)
 	}
 
 	tmpLen = progNameLen + 1;
-	fwrite("ISFT",  sizeof (int32_t), 1, f);
+	fwrite("ISFT", sizeof (int32_t), 1, f);
 	fwrite(&tmpLen, sizeof (int32_t), 1, f);
 	fwrite(PROG_NAME_STR, 1, progNameLen, f);
 	fputc(0, f); // string termination
@@ -493,19 +493,19 @@ static bool saveWAVSample(UNICHAR *filenameU, bool saveRangedData)
 	editor.diskOpReadDir = true; // force diskop re-read
 
 	setMouseBusy(false);
-	return (true);
+	return true;
 }
 
 static int32_t SDLCALL saveSampleThread(void *ptr)
 {
 	const UNICHAR *oldPathU;
 
-	(void)(ptr);
+	(void)ptr;
 
 	if (editor.tmpFilenameU == NULL)
 	{
 		okBoxThreadSafe(0, "System message", "General I/O error during saving! Is the file in use?");
-		return (false);
+		return false;
 	}
 
 	oldPathU = getDiskOpCurPath();
@@ -516,8 +516,8 @@ static int32_t SDLCALL saveSampleThread(void *ptr)
 
 	switch (editor.sampleSaveMode)
 	{
-				 case SMP_SAVE_MODE_RAW: saveRawSample(editor.tmpFilenameU, saveRangeFlag); break;
-				 case SMP_SAVE_MODE_IFF: saveIFFSample(editor.tmpFilenameU, saveRangeFlag); break;
+		         case SMP_SAVE_MODE_RAW: saveRawSample(editor.tmpFilenameU, saveRangeFlag); break;
+		         case SMP_SAVE_MODE_IFF: saveIFFSample(editor.tmpFilenameU, saveRangeFlag); break;
 		default: case SMP_SAVE_MODE_WAV: saveWAVSample(editor.tmpFilenameU, saveRangeFlag); break;
 	}
 
@@ -525,7 +525,7 @@ static int32_t SDLCALL saveSampleThread(void *ptr)
 	if (saveRangeFlag)
 		UNICHAR_CHDIR(oldPathU);
 
-	return (true);
+	return true;
 }
 
 void saveSample(UNICHAR *filenameU, bool saveAsRange)

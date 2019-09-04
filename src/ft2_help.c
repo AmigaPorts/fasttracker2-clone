@@ -38,10 +38,10 @@ static void addText(helpRec *t, int16_t xPos, uint8_t color, char *text)
 	if (*text == '\0')
 		return;
 
-	t->xPos    = xPos;
-	t->color   = color;
+	t->xPos = xPos;
+	t->color = color;
 	t->bigFont = false;
-	t->noLine  = false;
+	t->noLine = false;
 	strcpy(t->text, text);
 	*text = '\0'; // empty old string
 
@@ -52,10 +52,10 @@ static bool getLine(char *output)
 {
 	uint8_t strLen;
 
-	if (helpBufferPos >= (int32_t)(sizeof (helpData)))
+	if (helpBufferPos >= (int32_t)sizeof (helpData))
 	{
 		*output = '\0';
-		return (false);
+		return false;
 	}
 
 	strLen = helpData[helpBufferPos++];
@@ -64,12 +64,12 @@ static bool getLine(char *output)
 
 	helpBufferPos += strLen;
 
-	return (true);
+	return true;
 }
 
 static int16_t controlCodeToNum(const char *controlCode)
 {
-	return ((((controlCode[0] - '0') % 10) * 100) + (((controlCode[1] - '0') % 10) * 10) + ((controlCode[2] - '0') % 10));
+	return (((controlCode[0]-'0')%10)*100) + (((controlCode[1]-'0')%10)*10) + ((controlCode[2]-'0')%10);
 }
 
 static char *ltrim(char *s)
@@ -77,10 +77,9 @@ static char *ltrim(char *s)
 	if (*s == '\0')
 		return (s);
 
-	while (*s == ' ')
-		s++;
+	while (*s == ' ') s++;
 
-	return (s);
+	return s;
 }
 
 static char *rtrim(char *s)
@@ -90,42 +89,42 @@ static char *rtrim(char *s)
 	if (*s == '\0')
 		return (s);
 
-	i = (int32_t)(strlen(s)) - 1;
+	i = (int32_t)strlen(s) - 1;
 	while (i >= 0)
 	{
 		if (s[i] != ' ')
 		{
-			s[i + 1] = '\0';
+			s[i+1] = '\0';
 			break;
 		}
 
 		i--;
 	}
 
-	return (s);
+	return s;
 }
 
 static void readHelp(void) // this is really messy, directly ported from Pascal code...
 {
 	char text[256], text2[256], *s, *sEnd, *s2, *s3;
 	uint8_t currColor;
-	int16_t a, b, i, k, subj, currKol, strLen;
+	int16_t a, b, i, k, currKol, strLen;
 	helpRec *tempText, *t;
 
-	tempText = (helpRec *)(malloc(HELP_SIZE * MAX_HELP_LINES));
+	tempText = (helpRec *)malloc(HELP_SIZE * MAX_HELP_LINES);
 	if (tempText == NULL)
 	{
 		okBox(0, "System message", "Not enough memory!");
 		return;
 	}
 	
-	text[0]  = '\0';
+	text[0] = '\0';
 	text2[0] = '\0';
 
 	s2 = text2;
 
 	helpBufferPos = 0;
-	for (subj = 0; subj < MAX_SUBJ; ++subj)
+	for (int16_t subj = 0; subj < MAX_SUBJ; subj++)
 	{
 		textLine  = 0;
 		currKol   = 0;
@@ -134,22 +133,29 @@ static void readHelp(void) // this is really messy, directly ported from Pascal 
 		getLine(text); s = text;
 		while (strncmp(s, "END", 3) != 0)
 		{
-			if (*s == ';') goto skipLine;
+			if (*s == ';')
+			{
+				if (!getLine(text))
+					break;
 
-			if (*((uint16_t *)(s)) == 0x4C40) // @L - "big font"
+				s = text;
+				continue;
+			}
+
+			if (*(uint16_t *)s == 0x4C40) // @L - "big font"
 			{
 				addText(&tempText[textLine], currKol, currColor, s2);
 				s += 2;
 
-				if (*((uint16_t *)(s)) == 0x5840) // @X - "change X position"
+				if (*(uint16_t *)s == 0x5840) // @X - "change X position"
 				{
 					currKol = controlCodeToNum(&s[2]);
 					s += 5;
 				}
 
-				if (*((uint16_t *)(s)) == 0x4340) // @C - "change color
+				if (*(uint16_t *)s == 0x4340) // @C - "change color
 				{
-					currColor = (uint8_t)(controlCodeToNum(&s[2]));
+					currColor = (uint8_t)controlCodeToNum(&s[2]);
 					currColor = (currColor < 2) ? PAL_FORGRND : PAL_BUTTONS;
 					s += 5;
 				}
@@ -174,15 +180,15 @@ static void readHelp(void) // this is really messy, directly ported from Pascal 
 					s++;
 				}
 
-				if (*((uint16_t *)(s)) == 0x5840) // @X - "set X position (relative to help X start)"
+				if (*(uint16_t *)s == 0x5840) // @X - "set X position (relative to help X start)"
 				{
 					currKol = controlCodeToNum(&s[2]);
 					s += 5;
 				}
 
-				if (*((uint16_t *)(s)) == 0x4340) // @C - "change color"
+				if (*(uint16_t *)s == 0x4340) // @C - "change color"
 				{
-					currColor = (uint8_t)(controlCodeToNum(&s[2]));
+					currColor = (uint8_t)controlCodeToNum(&s[2]);
 					currColor = (currColor < 2) ? PAL_FORGRND : PAL_BUTTONS;
 					s += 5;
 				}
@@ -195,7 +201,7 @@ static void readHelp(void) // this is really messy, directly ported from Pascal 
 					addText(&tempText[textLine], currKol, currColor, s2);
 				}
 
-				strLen = (int16_t)(strlen(s));
+				strLen = (int16_t)strlen(s);
 
 				sEnd = &s[strLen];
 				while (s < sEnd)
@@ -204,16 +210,16 @@ static void readHelp(void) // this is really messy, directly ported from Pascal 
 						strLen = 0;
 
 					i = 0;
-					while ((s[i] != ' ') && (i < strLen)) i++;
+					while (s[i] != ' ' && i < strLen) i++;
 					i++;
 
-					if (*((uint16_t *)(s)) == 0x5440) // @T - "set absolute X position (in the middle of text)"
+					if (*(uint16_t *)s == 0x5440) // @T - "set absolute X position (in the middle of text)"
 					{
 						k = controlCodeToNum(&s[2]);
 						s += 5; strLen -= 5;
 
 						s3 = &s2[strlen(s2)];
-						while ((textWidth(s2) + 1 + charWidth(' ')) < (k - currKol))
+						while (textWidth(s2) + charWidth(' ') + 1 < k-currKol)
 						{
 							s3[0] = ' ';
 							s3[1] = '\0';
@@ -224,13 +230,13 @@ static void readHelp(void) // this is really messy, directly ported from Pascal 
 						if (b < (k - currKol))
 						{
 							s3 = &s2[strlen(s2)];
-							for (a = 0; a < (k - b - currKol); ++a)
+							for (a = 0; a < k-b-currKol; a++)
 								s3[a] = 127; // one-pixel spacer glyph
 							s3[a] = '\0';
 						}
 					}
 
-					if ((textWidth(s2) + 1 + textNWidth(s, i) + 1) > (HELP_WIDTH - currKol))
+					if (textWidth(s2)+textNWidth(s,i)+2 > HELP_WIDTH-currKol)
 						addText(&tempText[textLine], currKol, currColor, s2);
 
 					strncat(s2, s, i);
@@ -241,16 +247,13 @@ static void readHelp(void) // this is really messy, directly ported from Pascal 
 				}
 			}
 
-			if (textLine >= MAX_HELP_LINES)
-				break;
-skipLine:
-			if (!getLine(text))
+			if (textLine >= MAX_HELP_LINES || !getLine(text))
 				break;
 
 			s = text;
 		}
 
-		subjPtrArr[subj] = (helpRec *)(malloc(HELP_SIZE * textLine));
+		subjPtrArr[subj] = (helpRec *)malloc(HELP_SIZE * textLine);
 		if (subjPtrArr[subj] == NULL)
 		{
 			okBox(0, "System message", "Not enough memory!");
@@ -268,7 +271,6 @@ static void bigTextOutHalf(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, b
 {
 	char chr;
 	const uint8_t *srcPtr;
-	uint8_t x, y;
 	uint16_t currX;
 	uint32_t *dstPtr, pixVal;
 
@@ -285,14 +287,14 @@ static void bigTextOutHalf(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, b
 		{
 			srcPtr = &font2Data[chr * FONT2_CHAR_W];
 			if (!lowerHalf)
-				srcPtr += ((FONT2_CHAR_H / 2) * FONT2_WIDTH);
+				srcPtr += (FONT2_CHAR_H / 2) * FONT2_WIDTH;
 
 			dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + currX];
 			pixVal = video.palette[paletteIndex];
 
-			for (y = 0; y < (FONT2_CHAR_H / 2); ++y)
+			for (uint32_t y = 0; y < FONT2_CHAR_H/2; y++)
 			{
-				for (x = 0; x < FONT2_CHAR_W; ++x)
+				for (uint32_t x = 0; x < FONT2_CHAR_W; x++)
 				{
 					if (srcPtr[x])
 						dstPtr[x] = pixVal;
@@ -309,14 +311,14 @@ static void bigTextOutHalf(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, b
 
 static void writeHelp(void)
 {
-	int16_t i, k;
+	int16_t k;
 	helpRec *pek;
 
 	pek = subjPtrArr[fHlp_Nr];
 	if (pek == NULL)
 		return;
 
-	for (i = 0; i < HELP_LINES; ++i)
+	for (int16_t i = 0; i < HELP_LINES; i++)
 	{
 		k = i + fHlp_Line;
 		if (k >= subjLen[fHlp_Nr])
@@ -327,7 +329,7 @@ static void writeHelp(void)
 		if (pek[k].noLine)
 		{
 			if (i == 0)
-				bigTextOutHalf(HELP_KOL + pek[k - 1].xPos, 5 + (i * 11), PAL_FORGRND, false, pek[k - 1].text);
+				bigTextOutHalf(HELP_KOL + pek[k-1].xPos, 5 + (i * 11), PAL_FORGRND, false, pek[k-1].text);
 		}
 		else
 		{
@@ -364,7 +366,7 @@ void helpScrollUp(void)
 
 void helpScrollDown(void)
 {
-	if (fHlp_Line < (subjLen[fHlp_Nr] - 1))
+	if (fHlp_Line < subjLen[fHlp_Nr]-1)
 	{
 		scrollBarScrollDown(SB_HELP_SCROLL, 1);
 		writeHelp();
@@ -373,9 +375,9 @@ void helpScrollDown(void)
 
 void helpScrollSetPos(uint32_t pos)
 {
-	if (fHlp_Line != (int16_t)(pos))
+	if (fHlp_Line != (int16_t)pos)
 	{
-		fHlp_Line = (int16_t)(pos);
+		fHlp_Line = (int16_t)pos;
 		writeHelp();
 	}
 }
@@ -446,7 +448,7 @@ void exitHelpScreen(void)
 
 static void setHelpSubject(uint8_t Nr)
 {
-	fHlp_Nr   = Nr;
+	fHlp_Nr = Nr;
 	fHlp_Line = 0;
 
 	setScrollBarEnd(SB_HELP_SCROLL, subjLen[fHlp_Nr]);
@@ -503,9 +505,7 @@ void initFTHelp(void)
 
 void windUpFTHelp(void)
 {
-	int16_t i;
-
-	for (i = 0; i < MAX_SUBJ; ++i)
+	for (int16_t i = 0; i < MAX_SUBJ; i++)
 	{
 		if (subjPtrArr[i] != NULL)
 		{

@@ -31,84 +31,81 @@ void pbTrimCalc(void);
 
 static void remapInstrInSong(uint8_t src, uint8_t dst, int16_t ap)
 {
-	int16_t i, j, k, pattLen;
+	int32_t readLen;
 	tonTyp *pattPtr, *note;
 
-	for (i = 0; i < ap; ++i)
+	for (int16_t i = 0; i < ap; i++)
 	{
 		pattPtr = patt[i];
 		if (pattPtr == NULL)
 			continue;
 
-		pattLen = pattLens[i];
-		for (j = 0; j < pattLen; ++j)
+		readLen = pattLens[i] * MAX_VOICES;
+		for (int32_t j = 0; j < readLen; j++)
 		{
-			for (k = 0; k < MAX_VOICES; ++k)
-			{
-				note = &pattPtr[(j * MAX_VOICES) + k];
-				if (note->instr == src)
-					note->instr = dst;
-			}
+			note = &pattPtr[j];
+			if (note->instr == src)
+				note->instr = dst;
 		}
 	}
 }
 
 static bool tempInstrIsEmpty(uint16_t nr)
 {
-	assert((nr != 0) && (nr < (1 + MAX_INST)));
+	assert(nr > 0 && nr <= MAX_INST);
 
 	// test if name is not empty
 	if (tmpInstrName[nr][0] != '\0')
-		return (false);
+		return false;
 
 	// test data integrity against instrument 0, which is "empty" and non-editable
 	if (memcmp(&tmpInstr[nr], &tmpInstr[0], sizeof (instrTyp)) != 0)
-		return (false);
+		return false;
 
 	// empty
-	return (true);
+	return true;
 }
 
 static int16_t getUsedTempSamples(uint16_t nr)
 {
-	int8_t i, j;
+	int8_t i;
 	instrTyp *ins;
 
 	if (tempInstrIsEmpty(nr))
-		return (0);
+		return 0;
 
 	ins = &tmpInstr[nr];
 
 	i = 16 - 1;
-	while ((i >= 0) && (ins->samp[i].pek == NULL) && (ins->samp[i].name[0] == '\0'))
+	while (i >= 0 && ins->samp[i].pek == NULL && ins->samp[i].name[0] == '\0')
 		i--;
 
 	if (i >= 0)
 	{
-		for (j = 0; j < 96; ++j)
+		for (int8_t j = 0; j < 96; j++)
 		{
 			if (ins->ta[j] > i)
 				i = ins->ta[j];
 		}
 	}
 
-	return (i + 1);
+	return i+1;
 }
 
 static int64_t getTempInsAndSmpSize(void)
 {
-	int16_t i, a, j, k, ai;
+	int16_t a, j, ai;
 	int64_t currSize64;
 	instrTyp *ins;
 
 	ai = MAX_INST;
-	while ((ai > 0) && (getUsedTempSamples(ai) == 0) && (tmpInstrName[ai][0] == '\0'))
+	while (ai > 0 && getUsedTempSamples(ai) == 0 && tmpInstrName[ai][0] == '\0')
 		ai--;
 
 	currSize64 = 0;
 
 	// count instrument and sample data size in song
-	for (i = 1; i <= ai; ++i)
+	for (int16_t i = 1; i <= ai; i++)
 	{
 		if (tempInstrIsEmpty(i))
 			j = 0;
@@ -117,19 +114,19 @@ static int64_t getTempInsAndSmpSize(void)
 
 		a = getUsedTempSamples(i);
 		if (a > 0)
-			currSize64 += (INSTR_HEADER_SIZE + (a * sizeof (sampleHeaderTyp)));
+			currSize64 += INSTR_HEADER_SIZE + (a * sizeof (sampleHeaderTyp));
 		else
-			currSize64 += (22 + 11);
+			currSize64 += 22+11;
 
 		ins = &tmpInstr[j];
-		for (k = 0; k < a; ++k)
+		for (int16_t k = 0; k < a; k++)
 		{
 			if (ins->samp[k].pek != NULL)
 				currSize64 += ins->samp[k].len;
 		}
 	}
 
-	return (currSize64);
+	return currSize64;
 }
 
 static void wipeInstrUnused(bool testWipeSize, int16_t *ai, int16_t ap, uint8_t antChn)
@@ -142,7 +139,7 @@ static void wipeInstrUnused(bool testWipeSize, int16_t *ai, int16_t ap, uint8_t 
 
 	// calculate what instruments are used (slow method)
 	memset(instrUsed, 0, numInsts);
-	for (i = 0; i < ap; ++i)
+	for (i = 0; i < ap; i++)
 	{
 		if (testWipeSize)
 		{
@@ -158,23 +155,23 @@ static void wipeInstrUnused(bool testWipeSize, int16_t *ai, int16_t ap, uint8_t 
 		if (pattPtr == NULL)
 			continue;
 
-		for (j = 0; j < pattLen; ++j)
+		for (j = 0; j < pattLen; j++)
 		{
-			for (k = 0; k < antChn; ++k)
+			for (k = 0; k < antChn; k++)
 			{
 				newInst = pattPtr[(j * MAX_VOICES) + k].instr;
-				if ((newInst > 0) && (newInst <= MAX_INST))
-					instrUsed[newInst - 1] = true;
+				if (newInst > 0 && newInst <= MAX_INST)
+					instrUsed[newInst-1] = true;
 			}
 		}
 	}
 
-	instToDel   = 0;
-	newInst     = 0;
+	instToDel = 0;
+	newInst = 0;
 	newNumInsts = 0;
 
 	memset(instrOrder, 0, numInsts);
-	for (i = 0; i < numInsts; ++i)
+	for (i = 0; i < numInsts; i++)
 	{
 		if (instrUsed[i])
 		{
@@ -195,19 +192,19 @@ static void wipeInstrUnused(bool testWipeSize, int16_t *ai, int16_t ap, uint8_t 
 		// relocate instruments
 
 		memcpy(tmpInstName, &tmpInstrName[1], MAX_INST * sizeof (song.instrName[0]));
-		memcpy(tmpInst,     &tmpInstr[1],     MAX_INST * sizeof (instrTyp));
+		memcpy(tmpInst, &tmpInstr[1], MAX_INST * sizeof (instrTyp));
 
 		memset(&tmpInstrName[1], 0, numInsts * sizeof (song.instrName[0]));
-		memset(&tmpInstr[1],     0, numInsts * sizeof (instrTyp));
+		memset(&tmpInstr[1], 0, numInsts * sizeof (instrTyp));
 
-		for (i = 0; i < numInsts; ++i)
+		for (i = 0; i < numInsts; i++)
 		{
 			if (instrUsed[i])
 			{
 				newInst = instrOrder[i];
 
-				memcpy(&tmpInstr[1 + newInst],    &tmpInst[i], sizeof (instrTyp));
-				strcpy(tmpInstrName[1 + newInst], tmpInstName[i]);
+				memcpy(&tmpInstr[1+newInst], &tmpInst[i], sizeof (instrTyp));
+				strcpy(tmpInstrName[1+newInst], tmpInstName[i]);
 			}
 		}
 
@@ -216,31 +213,31 @@ static void wipeInstrUnused(bool testWipeSize, int16_t *ai, int16_t ap, uint8_t 
 	}
 
 	// clear unused instruments
-	for (i = 0; i < numInsts; ++i)
+	for (i = 0; i < numInsts; i++)
 	{
 		if (!instrUsed[i])
-			clearInstr((uint8_t)(1 + i));
+			clearInstr(1 + (uint8_t)i);
 	}
 
 	// relocate instruments
 
 	memcpy(tmpInstName, &song.instrName[1], MAX_INST * sizeof (song.instrName[0]));
-	memcpy(tmpInst,     &instr[1],          MAX_INST * sizeof (instrTyp));
+	memcpy(tmpInst, &instr[1], MAX_INST * sizeof (instrTyp));
 
 	memset(&song.instrName[1], 0, numInsts * sizeof (song.instrName[0]));
-	memset(&instr[1],          0, numInsts * sizeof (instrTyp));
+	memset(&instr[1], 0, numInsts * sizeof (instrTyp));
 
-	for (i = 0; i < numInsts; ++i)
+	for (i = 0; i < numInsts; i++)
 	{
-		setStdEnvelope(1 + i, 0, 3); // instruments need this after clearing
+		setDefEnvelopes(1 + i); // instruments need this after clearing
 
 		if (instrUsed[i])
 		{
 			newInst = instrOrder[i];
-			remapInstrInSong(1 + (uint8_t)(i), 1 + newInst, ap);
+			remapInstrInSong(1 + (uint8_t)i, 1 + newInst, ap);
 
-			memcpy(&instr[1 + newInst], &tmpInst[i], sizeof (instrTyp));
-			strcpy(song.instrName[1 + newInst], tmpInstName[i]);
+			memcpy(&instr[1+newInst], &tmpInst[i], sizeof (instrTyp));
+			strcpy(song.instrName[1+newInst], tmpInstName[i]);
 		}
 	}
 
@@ -257,22 +254,22 @@ static void wipePattsUnused(bool testWipeSize, int16_t *ap)
 	memset(pattUsed, 0, usedPatts);
 
 	newUsedPatts = 0;
-	for (i = 0; i < song.len; ++i)
+	for (i = 0; i < song.len; i++)
 	{
 		newPatt = song.songTab[i];
-		if ((newPatt < usedPatts) && !pattUsed[newPatt])
+		if (newPatt < usedPatts && !pattUsed[newPatt])
 		{
 			pattUsed[newPatt] = true;
 			newUsedPatts++;
 		}
 	}
 
-	if ((newUsedPatts == 0) || (newUsedPatts == usedPatts))
+	if (newUsedPatts == 0 || newUsedPatts == usedPatts)
 		return; // nothing to do!
 
 	newPatt = 0;
 	memset(pattOrder, 0, usedPatts);
-	for (i = 0; i < usedPatts; ++i)
+	for (i = 0; i < usedPatts; i++)
 	{
 		if (pattUsed[i])
 			pattOrder[i] = newPatt++;
@@ -280,55 +277,51 @@ static void wipePattsUnused(bool testWipeSize, int16_t *ap)
 
 	if (testWipeSize)
 	{
-		p     = tmpPatt;
+		p = tmpPatt;
 		pLens = tmpPattLens;
 	}
 	else
 	{
-		p     = patt;
+		p = patt;
 		pLens = pattLens;
 	}
 
-	memcpy(oldPatts,    p,     usedPatts * sizeof (tonTyp *));
+	memcpy(oldPatts, p, usedPatts * sizeof (tonTyp *));
 	memcpy(oldPattLens, pLens, usedPatts * sizeof (int16_t));
-	memset(p,           0,     usedPatts * sizeof (tonTyp *));
-	memset(pLens,       0,     usedPatts * sizeof (int16_t));
+	memset(p, 0, usedPatts * sizeof (tonTyp *));
+	memset(pLens, 0, usedPatts * sizeof (int16_t));
 
 	// relocate patterns
-	for (i = 0; i < usedPatts; ++i)
+	for (i = 0; i < usedPatts; i++)
 	{
 		p[i] = NULL;
 
 		if (!pattUsed[i])
 		{
-			if (!testWipeSize)
+			if (!testWipeSize && oldPatts[i] != NULL)
 			{
-				if (oldPatts[i] != NULL)
-				{
-					free(oldPatts[i]);
-					oldPatts[i] = NULL;
-				}
+				free(oldPatts[i]);
+				oldPatts[i] = NULL;
 			}
 		}
 		else
 		{
 			newPatt = pattOrder[i];
-
-			p[newPatt]     = oldPatts[i];
+			p[newPatt] = oldPatts[i];
 			pLens[newPatt] = oldPattLens[i];
 		}
 	}
 
 	if (!testWipeSize)
 	{
-		for (i = 0; i < MAX_PATTERNS; ++i)
+		for (i = 0; i < MAX_PATTERNS; i++)
 		{
 			if (patt[i] == NULL)
 				pattLens[i] = 64;
 		}
 
 		// reorder order list (and clear unused entries)
-		for (i = 0; i < 256; ++i)
+		for (i = 0; i < 256; i++)
 		{
 			if (i < song.len)
 				song.songTab[i] = pattOrder[song.songTab[i]];
@@ -347,7 +340,7 @@ static void wipeSamplesUnused(bool testWipeSize, int16_t ai)
 	instrTyp *ins;
 	sampleTyp *s, tempSamples[16];
 
-	for (i = 1; i <= ai; ++i)
+	for (i = 1; i <= ai; i++)
 	{
 		if (!testWipeSize)
 		{
@@ -373,12 +366,12 @@ static void wipeSamplesUnused(bool testWipeSize, int16_t ai)
 		memset(smpUsed, 0, l);
 		if (l > 0)
 		{
-			for (j = 0; j < l; ++j)
+			for (j = 0; j < l; j++)
 			{
 				s = &ins->samp[j];
 
 				// check if sample is referenced in instrument
-				for (k = 0; k < 96; ++k)
+				for (k = 0; k < 96; k++)
 				{
 					if (ins->ta[k] == j)
 					{
@@ -391,7 +384,7 @@ static void wipeSamplesUnused(bool testWipeSize, int16_t ai)
 				{
 					// sample is unused
 
-					if ((s->pek != NULL) && !testWipeSize)
+					if (s->pek != NULL && !testWipeSize)
 						free(s->pek);
 
 					memset(s, 0, sizeof (sampleTyp));
@@ -402,23 +395,25 @@ static void wipeSamplesUnused(bool testWipeSize, int16_t ai)
 			// create re-order list
 			newSamp = 0;
 			memset(smpOrder, 0, l);
-			for (j = 0; j < l; ++j)
+			for (j = 0; j < l; j++)
 			{
 				if (smpUsed[j])
 					smpOrder[j] = newSamp++;
 			}
 
 			// re-order samples
+
 			memcpy(tempSamples, ins->samp, l * sizeof (sampleTyp));
-			memset(ins->samp,   0,         l * sizeof (sampleTyp));
-			for (j = 0; j < l; ++j)
+			memset(ins->samp, 0, l * sizeof (sampleTyp));
+
+			for (j = 0; j < l; j++)
 			{
 				if (smpUsed[j])
 					ins->samp[smpOrder[j]] = tempSamples[j];
 			}
 
 			// re-order note->sample list
-			for (j = 0; j < 96; ++j)
+			for (j = 0; j < 96; j++)
 			{
 				newSamp = ins->ta[j];
 				if (smpUsed[newSamp])
@@ -433,11 +428,11 @@ static void wipeSamplesUnused(bool testWipeSize, int16_t ai)
 static void wipeSmpDataAfterLoop(bool testWipeSize, int16_t ai)
 {
 	int8_t *newPtr;
-	int16_t i, j, l;
+	int16_t l;
 	instrTyp *ins;
 	sampleTyp *s;
 
-	for (i = 1; i <= ai; ++i)
+	for (int16_t i = 1; i <= ai; i++)
 	{
 		if (!testWipeSize)
 		{
@@ -447,7 +442,7 @@ static void wipeSmpDataAfterLoop(bool testWipeSize, int16_t ai)
 				l = i;
 
 			ins = &instr[l];
-			l   = getUsedSamples(i);
+			l = getUsedSamples(i);
 		}
 		else
 		{
@@ -457,13 +452,13 @@ static void wipeSmpDataAfterLoop(bool testWipeSize, int16_t ai)
 				l = i;
 
 			ins = &tmpInstr[l];
-			l   = getUsedTempSamples(i);
+			l = getUsedTempSamples(i);
 		}
 
-		for (j = 0; j < l; ++j)
+		for (int16_t j = 0; j < l; j++)
 		{
 			s = &ins->samp[j];
-			if ((s->pek != NULL) && (s->typ & 3) && (s->len > 0) && (s->len > (s->repS + s->repL)))
+			if (s->pek != NULL && s->typ & 3 && s->len > 0 && s->len > s->repS+s->repL)
 			{
 				if (!testWipeSize)
 					restoreSample(s);
@@ -479,7 +474,7 @@ static void wipeSmpDataAfterLoop(bool testWipeSize, int16_t ai)
 					}
 					else
 					{
-						newPtr = (int8_t *)(realloc(s->pek, s->len + LOOP_FIX_LEN));
+						newPtr = (int8_t *)realloc(s->pek, s->len + LOOP_FIX_LEN);
 						if (newPtr != NULL)
 							s->pek = newPtr;
 					}
@@ -495,12 +490,12 @@ static void wipeSmpDataAfterLoop(bool testWipeSize, int16_t ai)
 static void convertSamplesTo8bit(bool testWipeSize, int16_t ai)
 {
 	int8_t *dst8, smp8, *newPtr;
-	int16_t *src16, i, j, k;
-	int32_t a, newLen;
+	int16_t *src16, k;
+	int32_t newLen;
 	instrTyp *ins;
 	sampleTyp *s;
 
-	for (i = 1; i <= ai; ++i)
+	for (int16_t i = 1; i <= ai; i++)
 	{
 		if (!testWipeSize)
 		{
@@ -510,7 +505,7 @@ static void convertSamplesTo8bit(bool testWipeSize, int16_t ai)
 				k = i;
 
 			ins = &instr[k];
-			k   = getUsedSamples(i);
+			k = getUsedSamples(i);
 		}
 		else
 		{
@@ -520,18 +515,18 @@ static void convertSamplesTo8bit(bool testWipeSize, int16_t ai)
 				k = i;
 
 			ins = &tmpInstr[k];
-			k   = getUsedTempSamples(i);
+			k = getUsedTempSamples(i);
 		}
 
-		for (j = 0; j < k; ++j)
+		for (int16_t j = 0; j < k; j++)
 		{
 			s = &ins->samp[j];
-			if ((s->pek != NULL) && (s->typ & 16) && (s->len > 0))
+			if (s->pek != NULL && s->typ & 16 && s->len > 0)
 			{
 				if (testWipeSize)
 				{
-					s->typ  &= ~16;
-					s->len  /= 2;
+					s->typ &= ~16;
+					s->len /= 2;
 					s->repL /= 2;
 					s->repS /= 2;
 				}
@@ -539,22 +534,22 @@ static void convertSamplesTo8bit(bool testWipeSize, int16_t ai)
 				{
 					restoreSample(s);
 
-					src16 = (int16_t *)(s->pek);
-					dst8  = s->pek;
+					src16 = (int16_t *)s->pek;
+					dst8 = s->pek;
 
 					newLen = s->len / 2;
-					for (a = 0; a < newLen; ++a)
+					for (int32_t a = 0; a < newLen; a++)
 					{
-						smp8    = (int8_t)(src16[a] >> 8);
+						smp8 = src16[a] >> 8;
 						dst8[a] = smp8;
 					}
 
 					s->repL /= 2;
 					s->repS /= 2;
-					s->len  /= 2;
+					s->len /= 2;
 					s->typ &= ~16;
 
-					newPtr = (int8_t *)(realloc(s->pek, s->len + LOOP_FIX_LEN));
+					newPtr = (int8_t *)realloc(s->pek, s->len + LOOP_FIX_LEN);
 					if (newPtr != NULL)
 						s->pek = newPtr;
 
@@ -568,16 +563,16 @@ static void convertSamplesTo8bit(bool testWipeSize, int16_t ai)
 static uint16_t getPackedPattSize(tonTyp *pattern, uint16_t numRows, uint8_t antChn)
 {
 	uint8_t bytes[sizeof (tonTyp)], packBits, *writePtr, *firstBytePtr, *pattPtr;
-	uint16_t row, chn, totalPackLen;
+	uint16_t totalPackLen;
 
 	totalPackLen = 0;
 
-	pattPtr = (uint8_t *)(pattern);
+	pattPtr = (uint8_t *)pattern;
 
 	writePtr = pattPtr;
-	for (row = 0; row < numRows; ++row)
+	for (uint16_t row = 0; row < numRows; row++)
 	{
-		for (chn = 0; chn < antChn; ++chn)
+		for (uint16_t chn = 0; chn < antChn; chn++)
 		{
 			bytes[0] = *pattPtr++;
 			bytes[1] = *pattPtr++;
@@ -608,41 +603,41 @@ static uint16_t getPackedPattSize(tonTyp *pattern, uint16_t numRows, uint8_t ant
 		}
 
 		// skip unused channels
-		pattPtr += (sizeof (tonTyp) * (MAX_VOICES - antChn));
+		pattPtr += sizeof (tonTyp) * (MAX_VOICES - antChn);
 	}
 
-	return (totalPackLen);
+	return totalPackLen;
 }
 
 static bool tmpPatternEmpty(uint16_t nr, uint8_t antChn)
 {
 	uint8_t *scanPtr;
-	uint32_t i, j, pattLen, scanLen;
+	uint32_t pattLen, scanLen;
 
 	if (tmpPatt[nr] == NULL)
-		return (true);
+		return true;
 
-	scanPtr = (uint8_t *)(tmpPatt[nr]);
+	scanPtr = (uint8_t *)tmpPatt[nr];
 	scanLen = antChn * sizeof (tonTyp);
 	pattLen = tmpPattLens[nr];
 
-	for (i = 0; i < pattLen; ++i)
+	for (uint32_t i = 0; i < pattLen; i++)
 	{
-		for (j = 0; j < scanLen; ++j)
+		for (uint32_t j = 0; j < scanLen; j++)
 		{
 			if (scanPtr[j] != 0)
-				return (false);
+				return false;
 		}
 
-		scanPtr += (sizeof (tonTyp) * MAX_VOICES);
+		scanPtr += sizeof (tonTyp) * MAX_VOICES;
 	}
 
-	return (true);
+	return true;
 }
 
 static int64_t calculateXMSize(void)
 {
-	int16_t i, j, k, ap, ai, a;
+	int16_t i, j, ap, ai, a;
 	int64_t currSize64;
 	instrTyp *ins;
 
@@ -662,11 +657,11 @@ static int64_t calculateXMSize(void)
 
 	// count number of instruments
 	ai = MAX_INST;
-	while ((ai > 0) && (getUsedSamples(ai) == 0) && (song.instrName[ai][0] == '\0'))
+	while (ai > 0 && getUsedSamples(ai) == 0 && song.instrName[ai][0] == '\0')
 		ai--;
 
 	// count packed pattern data size in song
-	for (i = 0; i < ap; ++i)
+	for (i = 0; i < ap; i++)
 	{
 		currSize64 += sizeof (patternHeaderTyp);
 		if (!patternEmpty(i))
@@ -674,7 +669,7 @@ static int64_t calculateXMSize(void)
 	}
 
 	// count instrument and sample data size in song
-	for (i = 1; i <= ai; ++i)
+	for (i = 1; i <= ai; i++)
 	{
 		if (instrIsEmpty(i))
 			j = 0;
@@ -683,19 +678,19 @@ static int64_t calculateXMSize(void)
 
 		a = getUsedSamples(i);
 		if (a > 0)
-			currSize64 += (INSTR_HEADER_SIZE + (a * sizeof (sampleHeaderTyp)));
+			currSize64 += INSTR_HEADER_SIZE + (a * sizeof (sampleHeaderTyp));
 		else
-			currSize64 += (22 + 11);
+			currSize64 += 22+11;
 
 		ins = &instr[j];
-		for (k = 0; k < a; ++k)
+		for (int16_t k = 0; k < a; k++)
 		{
 			if (ins->samp[k].pek != NULL)
 				currSize64 += ins->samp[k].len;
 		}
 	}
 
-	return (currSize64);
+	return currSize64;
 }
 
 static int64_t calculateTrimSize(void)
@@ -706,16 +701,16 @@ static int64_t calculateTrimSize(void)
 	int64_t bytes64, oldInstrSize64, newInstrSize64;
 	tonTyp *note, *pattPtr;
 
-	antChn         = song.antChn;
-	pattDataLen    = 0;
+	antChn = song.antChn;
+	pattDataLen = 0;
 	newPattDataLen = 0;
-	bytes64        = 0;
+	bytes64 = 0;
 	oldInstrSize64 = 0;
 
 	// copy over temp data
-	memcpy(tmpPatt,      patt,           sizeof (tmpPatt));
-	memcpy(tmpPattLens,  pattLens,       sizeof (tmpPattLens));
-	memcpy(tmpInstr,     instr,          sizeof (tmpInstr));
+	memcpy(tmpPatt, patt, sizeof (tmpPatt));
+	memcpy(tmpPattLens, pattLens, sizeof (tmpPattLens));
+	memcpy(tmpInstr, instr, sizeof (tmpInstr));
 	memcpy(tmpInstrName, song.instrName, sizeof (tmpInstrName));
 
 	// get current size of all instruments and their samples
@@ -735,7 +730,7 @@ static int64_t calculateTrimSize(void)
 
 	// count number of instruments that would be saved
 	ai = MAX_INST;
-	while ((ai > 0) && (getUsedTempSamples(ai) == 0) && (tmpInstrName[ai][0] == '\0'))
+	while (ai > 0 && getUsedTempSamples(ai) == 0 && tmpInstrName[ai][0] == '\0')
 		ai--;
 
 	// calculate "remove unused samples" size
@@ -750,7 +745,7 @@ static int64_t calculateTrimSize(void)
 	// get old pattern data length
 	if (removeChans || removePatt)
 	{
-		for (i = 0; i < ap; ++i)
+		for (i = 0; i < ap; i++)
 		{
 			pattDataLen += sizeof (patternHeaderTyp);
 			if (!tmpPatternEmpty(i, antChn))
@@ -763,16 +758,16 @@ static int64_t calculateTrimSize(void)
 	{
 		// get real number of channels
 		highestChan = -1;
-		for (i = 0; i < ap; ++i)
+		for (i = 0; i < ap; i++)
 		{
 			pattPtr = tmpPatt[i];
 			if (pattPtr == NULL)
 				continue;
 
 			pattLen = tmpPattLens[i];
-			for (j = 0; j < pattLen; ++j)
+			for (j = 0; j < pattLen; j++)
 			{
-				for (k = 0; k < antChn; ++k)
+				for (k = 0; k < antChn; k++)
 				{
 					note = &pattPtr[(j * MAX_VOICES) + k];
 					if (note->eff || note->effTyp || note->instr || note->ton || note->vol)
@@ -801,7 +796,7 @@ static int64_t calculateTrimSize(void)
 	// calculate new pattern data size
 	if (removeChans || removePatt)
 	{
-		for (i = 0; i < ap; ++i)
+		for (i = 0; i < ap; i++)
 		{
 			newPattDataLen += sizeof (patternHeaderTyp);
 			if (!tmpPatternEmpty(i, antChn))
@@ -828,13 +823,15 @@ static int64_t calculateTrimSize(void)
 			bytes64 += (oldInstrSize64 - newInstrSize64);
 	}
 
-	return (bytes64);
+	return bytes64;
 }
 
 static int32_t SDLCALL trimThreadFunc(void *ptr)
 {
 	int16_t ap, ai, i, j, k, pattLen, highestChan;
 	tonTyp *pattPtr, *note;
+
+	(void)ptr;
 
 	// audio callback is not running now, so we're safe
 
@@ -851,7 +848,7 @@ static int32_t SDLCALL trimThreadFunc(void *ptr)
 
 	// count number of instruments
 	ai = MAX_INST;
-	while ((ai > 0) && (getUsedSamples(ai) == 0) && (song.instrName[ai][0] == '\0'))
+	while (ai > 0 && getUsedSamples(ai) == 0 && song.instrName[ai][0] == '\0')
 		ai--;
 
 	// remove unused samples
@@ -871,16 +868,16 @@ static int32_t SDLCALL trimThreadFunc(void *ptr)
 	{
 		// count used channels
 		highestChan = -1;
-		for (i = 0; i < ap; ++i)
+		for (i = 0; i < ap; i++)
 		{
 			pattPtr = patt[i];
 			if (pattPtr == NULL)
 				continue;
 
 			pattLen = pattLens[i];
-			for (j = 0; j < pattLen; ++j)
+			for (j = 0; j < pattLen; j++)
 			{
-				for (k = 0; k < song.antChn; ++k)
+				for (k = 0; k < song.antChn; k++)
 				{
 					note = &pattPtr[(j * MAX_VOICES) + k];
 					if (note->eff || note->effTyp || note->instr || note->ton || note->vol)
@@ -905,23 +902,22 @@ static int32_t SDLCALL trimThreadFunc(void *ptr)
 		// clear potentially unused channel data
 		if (song.antChn < MAX_VOICES)
 		{
-			for (i = 0; i < MAX_PATTERNS; ++i)
+			for (i = 0; i < MAX_PATTERNS; i++)
 			{
 				pattPtr = patt[i];
 				if (pattPtr == NULL)
 					continue;
 
 				pattLen = pattLens[i];
-				for (j = 0; j < pattLen; ++j)
-					memset(&pattPtr[(j * MAX_VOICES) + song.antChn], 0,
-						sizeof (tonTyp) * (MAX_VOICES - song.antChn));
+				for (j = 0; j < pattLen; j++)
+					memset(&pattPtr[(j * MAX_VOICES) + song.antChn], 0, sizeof (tonTyp) * (MAX_VOICES - song.antChn));
 			}
 		}
 	}
 
 	// clear unused patterns
 	if (removePatt)
-	   wipePattsUnused(false, &ap);
+		wipePattsUnused(false, &ap);
 
 	// remove unused instruments
 	if (removeInst)
@@ -929,9 +925,7 @@ static int32_t SDLCALL trimThreadFunc(void *ptr)
 
 	editor.trimThreadWasDone = true;
 
-	(void)(ptr); // prevent compiler warning
-
-	return (true);
+	return true;
 }
 
 void trimThreadDone(void)
@@ -953,12 +947,12 @@ void trimThreadDone(void)
 	{
 		if (editor.ui.patternEditorShown)
 		{
-			if (editor.ui.channelOffset > (song.antChn - editor.ui.numChannelsShown))
+			if (editor.ui.channelOffset > song.antChn-editor.ui.numChannelsShown)
 				setScrollBarPos(SB_CHAN_SCROLL, song.antChn - editor.ui.numChannelsShown, true);
 		}
 
-		if (editor.cursor.ch >= (editor.ui.channelOffset + editor.ui.numChannelsShown))
-			editor.cursor.ch  = (editor.ui.channelOffset + editor.ui.numChannelsShown) - 1;
+		if (editor.cursor.ch >= editor.ui.channelOffset+editor.ui.numChannelsShown)
+			editor.cursor.ch = editor.ui.channelOffset+editor.ui.numChannelsShown - 1;
 	}
 
 	checkMarkLimits();
@@ -981,44 +975,44 @@ static char *formatBytes(uint64_t bytes)
 	if (bytes == 0)
 	{
 		strcpy(byteFormatBuffer, "0 bytes");
-		return (byteFormatBuffer);
+		return byteFormatBuffer;
 	}
 
-	bytes %= (1000U * 1024 * 1024 * 999ULL); // wrap around gigabytes in case of overflow (uh-oh)
-	if (bytes >= (1024 * 1024 * 1024 * 9ULL))
+	bytes %= 1000ULL*1024*1024*999; // wrap around gigabytes in case of overflow (uh-oh)
+	if (bytes >= 1024ULL*1024*1024*9)
 	{
 		// gigabytes
 		dBytes = bytes / (1024.0 * 1024.0 * 1024.0);
 		if (dBytes < 100)
 			sprintf(byteFormatBuffer, "%.3fGB", dBytes);
 		else
-			sprintf(byteFormatBuffer, "%dGB", (int32_t)(round(dBytes)));
+			sprintf(byteFormatBuffer, "%dGB", (int32_t)round(dBytes));
 	}
-	else if (bytes >= (1024 * 1024 * 9))
+	else if (bytes >= 1024*1024*9)
 	{
 		// megabytes
 		dBytes = bytes / (1024.0 * 1024.0);
 		if (dBytes < 100)
 			sprintf(byteFormatBuffer, "%.3fMB", dBytes);
 		else
-			sprintf(byteFormatBuffer, "%dMB", (int32_t)(round(dBytes)));
+			sprintf(byteFormatBuffer, "%dMB", (int32_t)round(dBytes));
 	}
-	else if (bytes >= (1024 * 9))
+	else if (bytes >= 1024*9)
 	{
 		// kilobytes
 		dBytes = bytes / 1024.0;
 		if (dBytes < 100)
 			sprintf(byteFormatBuffer, "%.3fkB", dBytes);
 		else
-			sprintf(byteFormatBuffer, "%dkB", (int32_t)(round(dBytes)));
+			sprintf(byteFormatBuffer, "%dkB", (int32_t)round(dBytes));
 	}
 	else
 	{
 		// bytes
-		sprintf(byteFormatBuffer, "%dB", (int32_t)(bytes));
+		sprintf(byteFormatBuffer, "%dB", (int32_t)bytes);
 	}
 
-	return (byteFormatBuffer);
+	return byteFormatBuffer;
 }
 
 void drawTrimScreen(void)
@@ -1120,9 +1114,9 @@ void toggleTrimScreen(void)
 
 void setInitialTrimFlags(void)
 {
-	removePatt  = true;
-	removeInst  = true;
-	removeSamp  = true;
+	removePatt = true;
+	removeInst = true;
+	removeSamp = true;
 	removeChans = true;
 	removeSmpDataAfterLoop = true;
 	convSmpsTo8Bit = false;

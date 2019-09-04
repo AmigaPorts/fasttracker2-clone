@@ -28,7 +28,7 @@ static RtMidiPtr midiDev;
 
 static inline void midiInSetChannel(uint8_t status)
 {
-	recMIDIValidChn = config.recMIDIAllChn || ((status & 0x0F) == (config.recMIDIChn - 1));
+	recMIDIValidChn = (config.recMIDIAllChn || (status & 0x0F) == config.recMIDIChn -1);
 }
 
 static inline void midiInKeyAction(int8_t m, uint8_t mv)
@@ -40,58 +40,56 @@ static inline void midiInKeyAction(int8_t m, uint8_t mv)
 		vol = 64;
 
 	// FT2 bugfix: If velocity>0, and sensitivity made vol=0, set vol to 1 (prevent key off)
-	if ((mv > 0) && (vol == 0))
+	if (mv > 0 && vol == 0)
 		vol = 1;
 
-	if ((mv > 0) && !config.recMIDIVelosity)
+	if (mv > 0 && !config.recMIDIVelosity)
 		vol = -1; // don't record volume (velocity)
 
 	m -= 11;
 	if (config.recMIDITransp)
-		m += (int8_t)(config.recMIDITranspVal);
+		m += (int8_t)config.recMIDITranspVal;
 
-	if (((mv == 0) || (vol != 0)) && (m > 0) && (m < 96) && recMIDIValidChn)
-		recordNote(m, (int8_t)(vol));
+	if ((mv == 0 || vol != 0) && m > 0 && m < 96 && recMIDIValidChn)
+		recordNote(m, (int8_t)vol);
 }
 
 static inline void midiInControlChange(uint8_t data1, uint8_t data2)
 {
-	uint8_t i, vibDepth;
+	uint8_t vibDepth;
 
-	if (data1 == 1) // modulation wheel
+	if (data1 != 1) // 1 = modulation wheel
+		return;
+
+	midi.currMIDIVibDepth = data2 << 6;
+
+	if (recMIDIValidChn) // real FT2 forgot to check this here..
 	{
-		midi.currMIDIVibDepth = data2 << 6;
-
-		if (recMIDIValidChn) // real FT2 forgot to check this here..
+		for (uint8_t i = 0; i < song.antChn; i++)
 		{
-			for (i = 0; i < song.antChn; ++i)
-			{
-				if ((stm[i].midiVibDepth != 0) || (editor.keyOnTab[i] != 0))
-					stm[i].midiVibDepth = midi.currMIDIVibDepth;
-			}
+			if (stm[i].midiVibDepth != 0 || editor.keyOnTab[i] != 0)
+				stm[i].midiVibDepth = midi.currMIDIVibDepth;
 		}
-
-		vibDepth = (midi.currMIDIVibDepth >> 9) & 0x0F;
-		if ((vibDepth > 0) && recMIDIValidChn)
-			recordMIDIEffect(0x04, 0xA0 | vibDepth);
 	}
+
+	vibDepth = (midi.currMIDIVibDepth >> 9) & 0x0F;
+	if (vibDepth > 0 && recMIDIValidChn)
+		recordMIDIEffect(0x04, 0xA0 | vibDepth);
 }
 
 static inline void midiInPitchBendChange(uint8_t data1, uint8_t data2)
 {
-	uint8_t i;
 	int16_t pitch;
 
 	pitch = (int16_t)((data2 << 7) | data1) - 8192; // -8192..8191
 	pitch >>= 6; // -128..127
 
 	midi.currMIDIPitch = pitch;
-
 	if (recMIDIValidChn)
 	{
-		for (i = 0; i < song.antChn; ++i)
+		for (uint8_t i = 0; i < song.antChn; i++)
 		{
-			if ((stm[i].midiPitch != 0) || (editor.keyOnTab[i] != 0))
+			if (stm[i].midiPitch != 0 || editor.keyOnTab[i] != 0)
 				stm[i].midiPitch = midi.currMIDIPitch;
 		}
 	}
@@ -101,11 +99,14 @@ static void midiInCallback(double dTimeStamp, const unsigned char *message, size
 {
 	uint8_t byte[3];
 
-	if (!midi.enable || (messageSize < 2))
+	(void)dTimeStamp;
+	(void)userData;
+
+	if (!midi.enable || messageSize < 2)
 		return;
 
 	byte[0] = message[0];
-	if ((byte[0] > 127) && (byte[0] < 240))
+	if (byte[0] > 127 && byte[0] < 240)
 	{
 		byte[1] = message[1] & 0x7F;
 
@@ -116,23 +117,19 @@ static void midiInCallback(double dTimeStamp, const unsigned char *message, size
 
 		midiInSetChannel(byte[0]);
 
-			 if ((byte[0] >= 128) && (byte[0] <= (128 + 15)))       midiInKeyAction(byte[1], 0);
-		else if ((byte[0] >= 144) && (byte[0] <= (144 + 15)))       midiInKeyAction(byte[1], byte[2]);
-		else if ((byte[0] >= 176) && (byte[0] <= (176 + 15)))   midiInControlChange(byte[1], byte[2]);
-		else if ((byte[0] >= 224) && (byte[0] <= (224 + 15))) midiInPitchBendChange(byte[1], byte[2]);
+		     if (byte[0] >= 128 && byte[0] <= 128+15)       midiInKeyAction(byte[1], 0);
+		else if (byte[0] >= 144 && byte[0] <= 144+15)       midiInKeyAction(byte[1], byte[2]);
+		else if (byte[0] >= 176 && byte[0] <= 176+15)   midiInControlChange(byte[1], byte[2]);
+		else if (byte[0] >= 224 && byte[0] <= 224+15) midiInPitchBendChange(byte[1], byte[2]);
 	}
-
-	// prevent compiler warnings
-	(void)(dTimeStamp);
-	(void)(userData);
 }
 
 static uint32_t getNumMidiInDevices(void)
 {
 	if (midiDev == NULL)
-		return (0);
+		return 0;
 
-	return (rtmidi_get_port_count(midiDev));
+	return rtmidi_get_port_count(midiDev);
 }
 
 static char *getMidiInDeviceName(uint32_t deviceID)
@@ -140,13 +137,13 @@ static char *getMidiInDeviceName(uint32_t deviceID)
 	char *devStr;
 
 	if (midiDev == NULL)
-		return (NULL);
+		return NULL;
 
-	devStr = (char *)(rtmidi_get_port_name(midiDev, deviceID));
+	devStr = (char *)rtmidi_get_port_name(midiDev, deviceID);
 	if (!midiDev->ok)
-		return (NULL);
+		return NULL;
 
-	return (devStr);
+	return devStr;
 }
 
 void closeMidiInDevice(void)
@@ -179,57 +176,57 @@ void freeMidiIn(void)
 bool initMidiIn(void)
 {
 	if (midiDev != NULL)
-		return (false); // already initialized
+		return false; // already initialized
 
 	midiDev = rtmidi_in_create_default();
 	if (!midiDev->ok)
 	{
 		midiDev = NULL;
-		return (false);
+		return false;
 	}
 
 	midiDeviceOpened = false;
-	return (true);
+	return true;
 }
 
 bool openMidiInDevice(uint32_t deviceID)
 {
 	if (midiDev == NULL)
-		return (false);
+		return false;
 
 	if (getNumMidiInDevices() == 0)
-		return (false);
+		return false;
 
 	rtmidi_open_port(midiDev, deviceID, "FT2 Clone MIDI Port");
 	if (!midiDev->ok)
-		return (false);
+		return false;
 
 	rtmidi_in_set_callback(midiDev, midiInCallback, NULL);
 	if (!midiDev->ok)
 	{
 		rtmidi_close_port(midiDev);
-		return (false);
+		return false;
 	}
 
 	rtmidi_in_ignore_types(midiDev, true, true, true);
 
 	midiDeviceOpened = true;
-	return (true);
+	return true;
 }
 
 void recordMIDIEffect(uint8_t effTyp, uint8_t effData)
 {
-	int16_t nr, i;
+	int16_t nr;
 	tonTyp *note;
 
 	// only handle this in record mode
-	if (!midi.enable || ((playMode != PLAYMODE_RECSONG) && (playMode != PLAYMODE_RECPATT)))
+	if (!midi.enable || (playMode != PLAYMODE_RECSONG && playMode != PLAYMODE_RECPATT))
 		return;
 
 	nr = editor.editPattern;
 	if (config.multiRec)
 	{
-		for (i = 0; i < song.antChn; ++i)
+		for (uint16_t i = 0; i < song.antChn; i++)
 		{
 			if (config.multiRecChn[i] && !editor.channelMute[i])
 			{
@@ -253,7 +250,7 @@ void recordMIDIEffect(uint8_t effTyp, uint8_t effData)
 			return;
 
 		note = &patt[nr][(editor.pattPos * MAX_VOICES) + editor.cursor.ch];
-		if ((note->effTyp != effTyp) || (note->eff != effData))
+		if (note->effTyp != effTyp || note->eff != effData)
 			setSongModifiedFlag();
 
 		note->effTyp = effTyp;
@@ -267,29 +264,29 @@ bool saveMidiInputDeviceToConfig(void)
 	uint32_t numDevices;
 	FILE *f;
 
-	if (!midi.initThreadDone || (midiDev == NULL) || !midiDeviceOpened)
-		return (false);
+	if (!midi.initThreadDone || midiDev == NULL || !midiDeviceOpened)
+		return false;
 
 	numDevices = getNumMidiInDevices();
 	if (numDevices == 0)
-		return (false);
+		return false;
 
 	midiInStr = getMidiInDeviceName(midi.inputDevice);
 	if (midiInStr == NULL)
-		return (false);
+		return false;
 
 	f = UNICHAR_FOPEN(editor.midiConfigFileLocation, "w");
 	if (f == NULL)
 	{
 		free(midiInStr);
-		return (false);
+		return false;
 	}
 
 	fputs(midiInStr, f);
 	free(midiInStr);
 
 	fclose(f);
-	return (true);
+	return true;
 }
 
 bool setMidiInputDeviceFromConfig(void)
@@ -300,6 +297,9 @@ bool setMidiInputDeviceFromConfig(void)
 	uint32_t i, numDevices;
 	FILE *f;
 
+	if (midi.inputDeviceName != NULL)
+		free(midi.inputDeviceName);
+
 	numDevices = getNumMidiInDevices();
 	if (numDevices == 0)
 		goto setDefMidiInputDev;
@@ -308,7 +308,7 @@ bool setMidiInputDeviceFromConfig(void)
 	if (f == NULL)
 		goto setDefMidiInputDev;
 
-	devString = (char *)(calloc(MAX_DEV_STR_LEN + 4, sizeof (char)));
+	devString = (char *)calloc(MAX_DEV_STR_LEN + 4, sizeof (char));
 	if (devString == NULL)
 	{
 		fclose(f);
@@ -324,12 +324,9 @@ bool setMidiInputDeviceFromConfig(void)
 
 	fclose(f);
 
-	if (midi.inputDeviceName != NULL)
-		free(midi.inputDeviceName);
-
 	// scan for device in list
 	midiInStr = NULL;
-	for (i = 0; i < numDevices; ++i)
+	for (i = 0; i < numDevices; i++)
 	{
 		midiInStr = getMidiInDeviceName(i);
 		if (midiInStr == NULL)
@@ -352,7 +349,7 @@ bool setMidiInputDeviceFromConfig(void)
 	midi.inputDeviceName = midiInStr;
 	midi.numInputDevices = numDevices;
 
-	return (true);
+	return true;
 
 	// couldn't load device, set default
 setDefMidiInputDev:
@@ -360,14 +357,12 @@ setDefMidiInputDev:
 	midi.inputDeviceName = strdup("RtMidi");
 	midi.numInputDevices = numDevices;
 
-	return (false);
+	return false;
 }
 
 void freeMidiInputDeviceList(void)
 {
-	uint8_t i;
-
-	for (i = 0; i < MAX_MIDI_DEVICES; ++i)
+	for (int32_t i = 0; i < MAX_MIDI_DEVICES; i++)
 	{
 		if (midi.inputDeviceNames[i] != NULL)
 		{
@@ -382,7 +377,6 @@ void freeMidiInputDeviceList(void)
 void rescanMidiInputDevices(void)
 {
 	char *deviceName;
-	int32_t i;
 
 	freeMidiInputDeviceList();
 
@@ -390,7 +384,7 @@ void rescanMidiInputDevices(void)
 	if (midi.numInputDevices > MAX_MIDI_DEVICES)
 		midi.numInputDevices = MAX_MIDI_DEVICES;
 
-	for (i = 0; i < midi.numInputDevices; ++i)
+	for (int32_t i = 0; i < midi.numInputDevices; i++)
 	{
 		deviceName = getMidiInDeviceName(i);
 		if (deviceName == NULL)
@@ -412,40 +406,39 @@ void drawMidiInputList(void)
 {
 	char *tmpString;
 	uint16_t y;
-	int32_t i, deviceEntry;
+	int32_t deviceEntry;
 
 	clearRect(114, 4, 365, 164);
 
-	if (!midi.initThreadDone || (midiDev == NULL) || (midi.numInputDevices == 0))
+	if (!midi.initThreadDone || midiDev == NULL || midi.numInputDevices == 0)
 	{
 		textOut(114, 4 + (0 * 11), PAL_FORGRND, "No MIDI input devices found!");
 		textOut(114, 4 + (1 * 11), PAL_FORGRND, "Either wait a few seconds for MIDI to initialize, or restart the");
 		textOut(114, 4 + (2 * 11), PAL_FORGRND, "tracker if you recently plugged in a MIDI device.");
+		return;
 	}
-	else
+
+	for (uint16_t i = 0; i < 15; i++)
 	{
-		for (i = 0; i < 15; ++i)
+		deviceEntry = getScrollBarPos(SB_MIDI_INPUT_SCROLL) + i;
+		if (deviceEntry < midi.numInputDevices)
 		{
-			deviceEntry = getScrollBarPos(SB_MIDI_INPUT_SCROLL) + i;
-			if (deviceEntry < midi.numInputDevices)
+			if (midi.inputDeviceNames[deviceEntry] == NULL)
+				continue;
+
+			y = 4 + (i * 11);
+
+			if (midi.inputDeviceName != NULL)
 			{
-				if (midi.inputDeviceNames[deviceEntry] == NULL)
-					continue;
+				if (_stricmp(midi.inputDeviceName, midi.inputDeviceNames[deviceEntry]) == 0)
+					fillRect(114, y, 365, 10, PAL_BUTTONS); // selection background color
+			}
 
-				y = (uint16_t)(4 + (i * 11));
-
-				if (midi.inputDeviceName != NULL)
-				{
-					if (_stricmp(midi.inputDeviceName, midi.inputDeviceNames[deviceEntry]) == 0)
-						fillRect(114, y, 365, 10, PAL_BUTTONS); // selection background color
-				}
-
-				tmpString = utf8ToCp437(midi.inputDeviceNames[deviceEntry], true);
-				if (tmpString != NULL)
-				{
-					textOutClipX(114, y, PAL_FORGRND, tmpString, 479);
-					free(tmpString);
-				}
+			tmpString = utf8ToCp437(midi.inputDeviceNames[deviceEntry], true);
+			if (tmpString != NULL)
+			{
+				textOutClipX(114, y, PAL_FORGRND, tmpString, 479);
+				free(tmpString);
 			}
 		}
 	}
@@ -463,9 +456,9 @@ void scrollMidiInputDevListDown(void)
 
 void sbMidiInputSetPos(uint32_t pos)
 {
-	(void)(pos); // prevent compiler warning
+	(void)pos;
 
-	if (editor.ui.configScreenShown && (editor.currConfigScreen == CONFIG_SCREEN_MIDI_INPUT))
+	if (editor.ui.configScreenShown && editor.currConfigScreen == CONFIG_SCREEN_MIDI_INPUT)
 		drawMidiInputList();
 }
 
@@ -473,26 +466,26 @@ bool testMidiInputDeviceListMouseDown(void)
 {
 	int32_t mx, my, deviceNum;
 
-	if (!editor.ui.configScreenShown || (editor.currConfigScreen != CONFIG_SCREEN_MIDI_INPUT))
-		return (false); // we didn't click the area
+	if (!editor.ui.configScreenShown || editor.currConfigScreen != CONFIG_SCREEN_MIDI_INPUT)
+		return false; // we didn't click the area
 
 	if (!midi.initThreadDone)
-		return (true);
+		return true;
 
 	mx = mouse.x;
 	my = mouse.y;
 
-	if ((my < 4) || (my > 166) || (mx < 114) || (mx > 479))
-		return (false); // we didn't click the area
+	if (my < 4 || my > 166 || mx < 114 || mx > 479)
+		return false; // we didn't click the area
 
-	deviceNum = (int32_t)(scrollBars[SB_MIDI_INPUT_SCROLL].pos) + ((my - 4) / 11);
-	if ((midi.numInputDevices <= 0) || (deviceNum >= midi.numInputDevices))
-		return (true);
+	deviceNum = (int32_t)scrollBars[SB_MIDI_INPUT_SCROLL].pos + ((my - 4) / 11);
+	if (midi.numInputDevices <= 0 || deviceNum >= midi.numInputDevices)
+		return true;
 
 	if (midi.inputDeviceName != NULL)
 	{
 		if (!_stricmp(midi.inputDeviceName, midi.inputDeviceNames[deviceNum]))
-			return (true); // we clicked the currently selected device, do nothing
+			return true; // we clicked the currently selected device, do nothing
 
 		free(midi.inputDeviceName);
 	}
@@ -506,11 +499,13 @@ bool testMidiInputDeviceListMouseDown(void)
 	openMidiInDevice(midi.inputDevice);
 
 	drawMidiInputList();
-	return (true);
+	return true;
 }
 
 int32_t SDLCALL initMidiFunc(void *ptr)
 {
+	(void)ptr;
+
 	midi.closeMidiOnExit = true;
 
 	midi.initThreadDone = false;
@@ -521,6 +516,5 @@ int32_t SDLCALL initMidiFunc(void *ptr)
 
 	midi.rescanDevicesFlag = true;
 
-	(void)(ptr); // make compiler happy
-	return (true);
+	return true;
 }

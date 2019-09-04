@@ -69,23 +69,23 @@ int main(int argc, char *argv[])
 	// on Windows and macOS, test what version SDL2.DLL is (against library version used in compilation)
 #if defined _WIN32 || defined __APPLE__
 	SDL_GetVersion(&sdlVer);
-	if ((sdlVer.major != SDL_MAJOR_VERSION) || (sdlVer.minor != SDL_MINOR_VERSION) || (sdlVer.patch != SDL_PATCHLEVEL))
+	if (sdlVer.major != SDL_MAJOR_VERSION || sdlVer.minor != SDL_MINOR_VERSION || sdlVer.patch != SDL_PATCHLEVEL)
 	{
 #ifdef _WIN32
 		showErrorMsgBox("SDL2.dll is not the expected version, the program will terminate.\n\n" \
-						"Loaded dll version: %d.%d.%d\n" \
-						"Required (compiled with) version: %d.%d.%d\n\n" \
-						"The needed SDL2.dll is located in the .zip from 16-bits.org/ft2.php.\n",
-						sdlVer.major, sdlVer.minor, sdlVer.patch,
-						SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_PATCHLEVEL);
+		                "Loaded dll version: %d.%d.%d\n" \
+		                "Required (compiled with) version: %d.%d.%d\n\n" \
+		                "The needed SDL2.dll is located in the .zip from 16-bits.org/ft2.php.\n",
+		                sdlVer.major, sdlVer.minor, sdlVer.patch,
+		                SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_PATCHLEVEL);
 #else
 		showErrorMsgBox("The loaded SDL2 library is not the expected version, the program will terminate.\n\n" \
-						"Loaded library version: %d.%d.%d\n" \
-						"Required (compiled with) version: %d.%d.%d",
-						sdlVer.major, sdlVer.minor, sdlVer.patch,
-						SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_PATCHLEVEL);
+		                "Loaded library version: %d.%d.%d\n" \
+		                "Required (compiled with) version: %d.%d.%d",
+		                sdlVer.major, sdlVer.minor, sdlVer.patch,
+		                SDL_MAJOR_VERSION, SDL_MINOR_VERSION, SDL_PATCHLEVEL);
 #endif
-		return (0);
+		return 0;
 	}
 #endif
 
@@ -97,8 +97,8 @@ int main(int argc, char *argv[])
 	if (!cpu.hasSSE)
 	{
 		showErrorMsgBox("Your computer's processor doesn't have the SSE instruction set\n" \
-						"which is needed for this program to run. Sorry!");
-		return (0);
+		                "which is needed for this program to run. Sorry!");
+		return 0;
 	}
 
 	setupWin32Usleep();
@@ -109,14 +109,14 @@ int main(int argc, char *argv[])
 	** (even if you don't use it) or else weird things happen like random stutters, keyboard (rarely) being
 	** reinitialized in Windows and what not.
 	** Ref.: https://bugzilla.libsdl.org/show_bug.cgi?id=4391 */
-#if defined _WIN32 && (SDL_PATCHLEVEL == 9)
+#if defined _WIN32 && SDL_PATCHLEVEL == 9
 	if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO | SDL_INIT_JOYSTICK) != 0)
 #else
 	if (SDL_Init(SDL_INIT_AUDIO | SDL_INIT_VIDEO) != 0)
 #endif
 	{
 		showErrorMsgBox("Couldn't initialize SDL:\n%s", SDL_GetError());
-		return (1);
+		return 1;
 	}
 
 	/* Text input is started by default in SDL2, turn it off to remove ~2ms spikes per key press.
@@ -133,7 +133,7 @@ int main(int argc, char *argv[])
 	if (!setupWindow() || !setupRenderer())
 	{
 		cleanUpAndExit();
-		return (1);
+		return 1;
 	}
 
 #ifdef _WIN32
@@ -141,18 +141,18 @@ int main(int argc, char *argv[])
 	if (handleSingleInstancing(argc, argv))
 	{
 		cleanUpAndExit();
-		return (0); // close current instance, the main instance got a message now
+		return 0; // close current instance, the main instance got a message now
 	}
 #endif
 
 	if (!setupDiskOp())
 	{
 		cleanUpAndExit();
-		return (1);
+		return 1;
 	}
 
 	audio.currOutputDevice = getAudioOutputDeviceFromConfig();
-	audio.currInputDevice  = getAudioInputDeviceFromConfig();
+	audio.currInputDevice = getAudioInputDeviceFromConfig();
 
 	setupPerfFreq();
 
@@ -172,14 +172,14 @@ int main(int argc, char *argv[])
 		if (!setupAudio(CONFIG_SHOW_ERRORS))
 		{
 			cleanUpAndExit(); // still no go...
-			return (1);
+			return 1;
 		}
 	}
 
 	if (!setupReplayer() || !setupGUI() || !initScopes())
 	{
 		cleanUpAndExit();
-		return (1);
+		return 1;
 	}
 
 	pauseAudio();
@@ -201,16 +201,14 @@ int main(int argc, char *argv[])
 	{
 		showErrorMsgBox("Couldn't create MIDI initialization thread!");
 		cleanUpAndExit();
-		return (1);
+		return 1;
 	}
 	SDL_DetachThread(initMidiThread); // don't wait for this thread, let it clean up when done
 
 	SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 
 	setupWaitVBL();
-
 	handleModuleLoadFromArg(argc, argv);
-
 	while (editor.programRunning)
 	{
 		beginFPSCounter();
@@ -226,7 +224,7 @@ int main(int argc, char *argv[])
 		saveConfig(CONFIG_HIDE_ERRORS);
 
 	cleanUpAndExit();
-	return (0);
+	return 0;
 }
 
 static void initializeVars(void)
@@ -246,9 +244,9 @@ static void initializeVars(void)
 	memset(&chSync,   0, sizeof (chSync));
 	memset(&song,     0, sizeof (song));
 
-	for (i = 0; i < MAX_VOICES; ++i)
+	for (i = 0; i < MAX_VOICES; i++)
 	{
-		lastChInstr[i].instrNr  = 255;
+		lastChInstr[i].instrNr = 255;
 		lastChInstr[i].sampleNr = 255;
 	}
 
@@ -268,10 +266,10 @@ static void initializeVars(void)
 
 	mouse.lastUsedObjectID = OBJECT_ID_NONE;
 
-	editor.ID_Add       = 1;
-	editor.srcInstr     = 1;
-	editor.curInstr     = 1;
-	editor.curOctave    = 4;
+	editor.ID_Add = 1;
+	editor.srcInstr = 1;
+	editor.curInstr = 1;
+	editor.curOctave = 4;
 	editor.smpEd_NoteNr = 48 + 1; // middle-C
 
 	editor.ptnJumpPos[0] = 0x00;
@@ -351,14 +349,14 @@ static void osxSetDirToProgramDirFromArgs(char **argv)
 	*/
 
 	// if we launched from the terminal, argv[0][0] would be '.'
-	if ((argv[0] != NULL) && (argv[0][0] == DIR_DELIMITER)) // don't do the hack if we launched from the terminal
+	if (argv[0] != NULL && argv[0][0] == DIR_DELIMITER) // don't do the hack if we launched from the terminal
 	{
 		tmpPath = strdup(argv[0]);
 		if (tmpPath != NULL)
 		{
 			// cut off program filename
 			tmpPathLen = strlen(tmpPath);
-			for (i = tmpPathLen - 1; i >= 0; --i)
+			for (i = tmpPathLen - 1; i >= 0; i--)
 			{
 				if (tmpPath[i] == DIR_DELIMITER)
 				{
@@ -367,7 +365,7 @@ static void osxSetDirToProgramDirFromArgs(char **argv)
 				}
 			}
 
-			chdir(tmpPath);     // path to binary
+			chdir(tmpPath); // path to binary
 			chdir("../../../"); // we should now be in the directory where the config can be
 
 			free(tmpPath);
@@ -382,7 +380,7 @@ static void setupPerfFreq(void)
 	double dInt, dFrac;
 
 	perfFreq64 = SDL_GetPerformanceFrequency(); assert(perfFreq64 != 0);
-	editor.dPerfFreq = (double)(perfFreq64);
+	editor.dPerfFreq = (double)perfFreq64;
 	editor.dPerfFreqMulMicro = 1000000.0 / editor.dPerfFreq;
 	editor.dPerfFreqMulMs = 1.0 / (editor.dPerfFreq / 1000.0);
 
@@ -390,12 +388,12 @@ static void setupPerfFreq(void)
 	dFrac = modf(editor.dPerfFreq / VBLANK_HZ, &dInt);
 
 	// integer part
-	video.vblankTimeLen = (uint32_t)(dInt);
+	video.vblankTimeLen = (uint32_t)dInt;
 
 	// fractional part scaled to 0..2^32-1
-	dFrac *= (UINT32_MAX + 1.0);
-	if (dFrac > (double)(UINT32_MAX))
-		dFrac = (double)(UINT32_MAX);
+	dFrac *= UINT32_MAX + 1.0;
+	if (dFrac > (double)UINT32_MAX)
+		dFrac = (double)UINT32_MAX;
 	double2int32_round(video.vblankTimeLenFrac, dFrac);
 }
 
@@ -408,10 +406,10 @@ static void disableWasapi(void)
 	// disable problematic WASAPI SDL2 audio driver on Windows (causes clicks/pops sometimes...)
 
 	numAudioDrivers = SDL_GetNumAudioDrivers();
-	for (i = 0; i < numAudioDrivers; ++i)
+	for (i = 0; i < numAudioDrivers; i++)
 	{
 		audioDriver = SDL_GetAudioDriver(i);
-		if ((audioDriver != NULL) && (strcmp("directsound", audioDriver) == 0))
+		if (audioDriver != NULL && strcmp("directsound", audioDriver) == 0)
 		{
 			SDL_setenv("SDL_AUDIODRIVER", "directsound", true);
 			audio.rescanAudioDevicesSupported = false;
@@ -422,10 +420,10 @@ static void disableWasapi(void)
 	if (i == numAudioDrivers)
 	{
 		// directsound is not available, try winmm
-		for (i = 0; i < numAudioDrivers; ++i)
+		for (i = 0; i < numAudioDrivers; i++)
 		{
 			audioDriver = SDL_GetAudioDriver(i);
-			if ((audioDriver != NULL) && (strcmp("winmm", audioDriver) == 0))
+			if (audioDriver != NULL && strcmp("winmm", audioDriver) == 0)
 			{
 				SDL_setenv("SDL_AUDIODRIVER", "winmm", true);
 				audio.rescanAudioDevicesSupported = false;

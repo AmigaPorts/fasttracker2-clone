@@ -33,15 +33,6 @@
 #include "ft2_module_loader.h"
 #include "ft2_midi.h"
 
-typedef struct pal16_t
-{
-	uint8_t r, g, b;
-} pal16;
-
-// these two are defined at the bottom of this file
-extern const uint8_t textCursorData[12];
-extern const pal16 palTable[12][13];
-
 // for FPS counter
 #define FPS_SCAN_FRAMES 60
 #define FPS_RENDER_W 280
@@ -49,12 +40,20 @@ extern const pal16 palTable[12][13];
 #define FPS_RENDER_X ((SCREEN_W - FPS_RENDER_W) / 2)
 #define FPS_RENDER_Y 229
 
+static const uint8_t textCursorData[12] =
+{
+	PAL_FORGRND, PAL_FORGRND, PAL_FORGRND,
+	PAL_FORGRND, PAL_FORGRND, PAL_FORGRND,
+	PAL_FORGRND, PAL_FORGRND, PAL_FORGRND,
+	PAL_FORGRND, PAL_FORGRND, PAL_FORGRND
+};
+
 static bool songIsModified;
-static char buf[1024];
-static uint32_t paletteTemp[PAL_NUM];
+static char buf[1024], wndTitle[128 + PATH_MAX];
 static uint64_t frameStartTime, timeNext64, timeNext64Frac;
 static sprite_t sprites[SPRITE_NUM];
 static double dRunningFPS, dFrameTime, dAvgFPS;
+
 static void drawReplayerData(void);
 
 void resetFPSCounter(void)
@@ -80,10 +79,10 @@ static void drawFPSCounter(void)
 	if (!video.showFPSCounter)
 		return;
 
-	if ((editor.framesPassed >= FPS_SCAN_FRAMES) && ((editor.framesPassed % FPS_SCAN_FRAMES) == 0))
+	if (editor.framesPassed >= FPS_SCAN_FRAMES && (editor.framesPassed % FPS_SCAN_FRAMES) == 0)
 	{
 		dAvgFPS = dRunningFPS * (1.0 / FPS_SCAN_FRAMES);
-		if ((dAvgFPS < 0.0) || (dAvgFPS > 99999999.9999))
+		if (dAvgFPS < 0.0 || dAvgFPS > 99999999.9999)
 			dAvgFPS = 99999999.9999; // prevent number from overflowing text box
 
 		dRunningFPS = 0.0;
@@ -100,27 +99,27 @@ static void drawFPSCounter(void)
 	}
 
 	dRefreshRate = video.dMonitorRefreshRate;
-	if ((dRefreshRate < 0.0) || (dRefreshRate > 9999.9))
+	if (dRefreshRate < 0.0 || dRefreshRate > 9999.9)
 		dRefreshRate = 9999.9; // prevent number from overflowing text box
 
 	dAudLatency = audio.dAudioLatencyMs;
-	if ((dAudLatency < 0.0) || (dAudLatency > 999999999.9999))
+	if (dAudLatency < 0.0 || dAudLatency > 999999999.9999)
 		dAudLatency = 999999999.9999; // prevent number from overflowing text box
 
 	sprintf(buf, "Frames per second: %.4f\n" \
-				 "Monitor refresh rate: %.1fHz (+/-)\n" \
-				 "59..61Hz GPU VSync used: %s\n" \
-				 "Audio frequency: %.1fkHz (expected %.1fkHz)\n" \
-				 "Audio buffer samples: %d (expected %d)\n" \
-				 "Audio channels: %d (expected %d)\n" \
-				 "Audio latency: %.1fms (expected %.1fms)\n" \
-				 "Press CTRL+SHIFT+F to close box.\n",
-				 dAvgFPS, dRefreshRate,
-				 video.vsync60HzPresent ? "yes" : "no",
-				 audio.haveFreq * (1.0 / 1000.0), audio.wantFreq * (1.0 / 1000.0),
-				 audio.haveSamples, audio.wantSamples,
-				 audio.haveChannels, audio.wantChannels,
-				 dAudLatency, ((audio.wantSamples * 1000.0) / audio.wantFreq));
+	             "Monitor refresh rate: %.1fHz (+/-)\n" \
+	             "59..61Hz GPU VSync used: %s\n" \
+	             "Audio frequency: %.1fkHz (expected %.1fkHz)\n" \
+	             "Audio buffer samples: %d (expected %d)\n" \
+	             "Audio channels: %d (expected %d)\n" \
+	             "Audio latency: %.1fms (expected %.1fms)\n" \
+	             "Press CTRL+SHIFT+F to close box.\n",
+	             dAvgFPS, dRefreshRate,
+	             video.vsync60HzPresent ? "yes" : "no",
+	             audio.haveFreq * (1.0 / 1000.0), audio.wantFreq * (1.0 / 1000.0),
+	             audio.haveSamples, audio.wantSamples,
+	             audio.haveChannels, audio.wantChannels,
+	             dAudLatency, ((audio.wantSamples * 1000.0) / audio.wantFreq));
 
 	// draw text
 
@@ -133,7 +132,7 @@ static void drawFPSCounter(void)
 		ch = *textPtr++;
 		if (ch == '\n')
 		{
-			yPos += (FONT1_CHAR_H + 1);
+			yPos += FONT1_CHAR_H + 1;
 			xPos = FPS_RENDER_X;
 			continue;
 		}
@@ -148,7 +147,7 @@ void endFPSCounter(void)
 	uint64_t frameTimeDiff;
 	double dHz;
 
-	if (!video.showFPSCounter || (frameStartTime == 0))
+	if (!video.showFPSCounter || frameStartTime == 0)
 		return;
 
 	frameTimeDiff = SDL_GetPerformanceCounter() - frameStartTime;
@@ -236,8 +235,8 @@ void updateRenderSizeVars(void)
 			// retina high-DPI hackery (SDL2 is bad at reporting actual rendering sizes on macOS w/ high-DPI)
 			SDL_GL_GetDrawableSize(video.window, &actualScreenW, &actualScreenH);
 
-			dXUpscale = ((double)(actualScreenW) / video.displayW);
-			dYUpscale = ((double)(actualScreenH) / video.displayH);
+			dXUpscale = (double)actualScreenW / video.displayW;
+			dYUpscale = (double)actualScreenH / video.displayH;
 
 			// downscale back to correct sizes
 			if (dXUpscale != 0.0) video.renderW = (int32_t)(video.renderW / dXUpscale);
@@ -261,7 +260,7 @@ void enterFullscreen(void)
 	SDL_DisplayMode dm;
 
 	strcpy(editor.ui.fullscreenButtonText, "Go windowed");
-	if (editor.ui.configScreenShown && (editor.currConfigScreen == CONFIG_SCREEN_MISCELLANEOUS))
+	if (editor.ui.configScreenShown && editor.currConfigScreen == CONFIG_SCREEN_MISCELLANEOUS)
 		showConfigScreen(); // redraw so that we can see the new button text
 
 	if (config.windowFlags & FILTERING)
@@ -286,7 +285,7 @@ void enterFullscreen(void)
 void leaveFullScreen(void)
 {
 	strcpy(editor.ui.fullscreenButtonText, "Go fullscreen");
-	if (editor.ui.configScreenShown && (editor.currConfigScreen == CONFIG_SCREEN_MISCELLANEOUS))
+	if (editor.ui.configScreenShown && editor.currConfigScreen == CONFIG_SCREEN_MISCELLANEOUS)
 		showConfigScreen(); // redraw so that we can see the new button text
 
 	SDL_SetWindowFullscreen(video.window, 0);
@@ -312,182 +311,8 @@ void toggleFullScreen(void)
 		leaveFullScreen();
 }
 
-static float palPow(float fX, float fY)
-{
-	if (fY == 1.0f)
-		return (fX);
-
-	fY *= logf(fabsf(fX));
-	fY  = CLAMP(fY, -86.0f, 86.0f);
-
-	return (expf(fY));
-}
-
-static uint8_t palMax(float fC)
-{
-	int32_t x;
-
-	x = (int32_t)(fC);
-	return ((uint8_t)(CLAMP(x, 0, 63)));
-}
-
-void updatePaletteContrast(void)
-{
-	uint8_t r, g, b, newR, newG, newB;
-	float fContrast;
-
-	if (editor.currPaletteEdit == 4)
-	{
-		// get 8-bit RGB values and convert to 6-bit
-		r = P8_TO_P6(RGB_R(video.palette[PAL_DESKTOP]));
-		g = P8_TO_P6(RGB_G(video.palette[PAL_DESKTOP]));
-		b = P8_TO_P6(RGB_B(video.palette[PAL_DESKTOP]));
-
-		fContrast = editor.ui.desktopContrast / 40.0f;
-
-		// generate shade
-		newR = palMax(roundf(r * palPow(0.5f, fContrast)));
-		newG = palMax(roundf(g * palPow(0.5f, fContrast)));
-		newB = palMax(roundf(b * palPow(0.5f, fContrast)));
-		config.palDesktop2R = (uint8_t)(newR);
-		config.palDesktop2G = (uint8_t)(newG);
-		config.palDesktop2B = (uint8_t)(newB);
-
-		// convert 6-bit RGB values to 24-bit RGB
-		video.palette[PAL_DSKTOP2] = (PAL_DSKTOP2 << 24) | TO_RGB(P6_TO_P8(newR), P6_TO_P8(newG), P6_TO_P8(newB));
-
-		// generate shade
-		newR = palMax(roundf(r * palPow(1.5f, fContrast)));
-		newG = palMax(roundf(g * palPow(1.5f, fContrast)));
-		newB = palMax(roundf(b * palPow(1.5f, fContrast)));
-
-		config.palDesktop1R = (uint8_t)(newR);
-		config.palDesktop1G = (uint8_t)(newG);
-		config.palDesktop1B = (uint8_t)(newB);
-
-		// convert 6-bit RGB values to 24-bit RGB
-		video.palette[PAL_DSKTOP1] = (PAL_DSKTOP1 << 24) | TO_RGB(P6_TO_P8(newR), P6_TO_P8(newG), P6_TO_P8(newB));
-		video.customPaletteContrasts[0] = editor.ui.desktopContrast;
-	}
-	else if (editor.currPaletteEdit == 5)
-	{
-		// get 8-bit RGB values and convert to 6-bit
-		r = P8_TO_P6(RGB_R(video.palette[PAL_BUTTONS]));
-		g = P8_TO_P6(RGB_G(video.palette[PAL_BUTTONS]));
-		b = P8_TO_P6(RGB_B(video.palette[PAL_BUTTONS]));
-
-		fContrast = editor.ui.buttonContrast / 40.0f;
-
-		// generate shade
-		newR = palMax(roundf(r * palPow(0.5f, fContrast)));
-		newG = palMax(roundf(g * palPow(0.5f, fContrast)));
-		newB = palMax(roundf(b * palPow(0.5f, fContrast)));
-		config.palButtons2R = (uint8_t)(newR);
-		config.palButtons2G = (uint8_t)(newG);
-		config.palButtons2B = (uint8_t)(newB);
-
-		// convert 6-bit RGB values to 24-bit RGB
-		video.palette[PAL_BUTTON2] = (PAL_BUTTON2 << 24) | TO_RGB(P6_TO_P8(newR), P6_TO_P8(newG), P6_TO_P8(newB));
-
-		// generate shade
-		newR = palMax(roundf(r * palPow(1.5f, fContrast)));
-		newG = palMax(roundf(g * palPow(1.5f, fContrast)));
-		newB = palMax(roundf(b * palPow(1.5f, fContrast)));
-		config.palButtons1R = (uint8_t)(newR);
-		config.palButtons1G = (uint8_t)(newG);
-		config.palButtons1B = (uint8_t)(newB);
-
-		// convert 6-bit RGB values to 24-bit RGB
-		video.palette[PAL_BUTTON1] = (PAL_BUTTON1 << 24) | TO_RGB(P6_TO_P8(newR), P6_TO_P8(newG), P6_TO_P8(newB));
-		video.customPaletteContrasts[1] = editor.ui.buttonContrast;
-	}
-}
-
-static void changePaletteTempEntry(uint8_t paletteEntry, uint8_t r6, uint8_t g6, uint8_t b6)
-{
-	assert(paletteEntry < PAL_NUM);
-
-	if (r6 > 0x3F) r6 = 0x3F;
-	if (g6 > 0x3F) g6 = 0x3F;
-	if (b6 > 0x3F) b6 = 0x3F;
-
-	paletteTemp[paletteEntry] = (paletteEntry << 24) | TO_RGB(P6_TO_P8(r6), P6_TO_P8(g6), P6_TO_P8(b6));
-}
-
-void setPalettePreset(int16_t palNum)
-{
-	uint8_t palPattTextR, palPattTextG, palPattTextB;
-	uint8_t palBlockMarkR, palBlockMarkG, palBlockMarkB;
-	uint8_t palTextOnBlockR, palTextOnBlockG, palTextOnBlockB;
-	uint8_t palDesktopR, palDesktopG, palDesktopB;
-	uint8_t palButtonsR, palButtonsG, palButtonsB;
-	uint8_t palDesktop2R, palDesktop2G, palDesktop2B;
-	uint8_t palDesktop1R, palDesktop1G, palDesktop1B;
-	uint8_t palButtons2R, palButtons2G, palButtons2B;
-	uint8_t palButtons1R, palButtons1G, palButtons1B;
-	uint8_t palMouseR, palMouseG, palMouseB;
-
-	if (palNum >= PAL_USER_DEFINED)
-	{
-		palPattTextR    = config.palPattTextR;    palPattTextG    = config.palPattTextG;    palPattTextB    = config.palPattTextB;
-		palBlockMarkR   = config.palBlockMarkR;   palBlockMarkG   = config.palBlockMarkG;   palBlockMarkB   = config.palBlockMarkB;
-		palTextOnBlockR = config.palTextOnBlockR; palTextOnBlockG = config.palTextOnBlockG; palTextOnBlockB = config.palTextOnBlockB;
-		palDesktopR     = config.palDesktopR;     palDesktopG     = config.palDesktopG;     palDesktopB     = config.palDesktopB;
-		palButtonsR     = config.palButtonsR;     palButtonsG     = config.palButtonsG;     palButtonsB     = config.palButtonsB;
-		palDesktop2R    = config.palDesktop2R;    palDesktop2G    = config.palDesktop2G;    palDesktop2B    = config.palDesktop2B;
-		palDesktop1R    = config.palDesktop1R;    palDesktop1G    = config.palDesktop1G;    palDesktop1B    = config.palDesktop1B;
-		palButtons2R    = config.palButtons2R;    palButtons2G    = config.palButtons2G;    palButtons2B    = config.palButtons2B;
-		palButtons1R    = config.palButtons1R;    palButtons1G    = config.palButtons1G;    palButtons1B    = config.palButtons1B;
-		palMouseR       = config.palMouseR;       palMouseG       = config.palMouseG;       palMouseB       = config.palMouseB;
-
-		editor.ui.desktopContrast = video.customPaletteContrasts[0];
-		editor.ui.buttonContrast  = video.customPaletteContrasts[1];
-	}
-	else
-	{
-		palPattTextR    = palTable[palNum][1].r;  palPattTextG    = palTable[palNum][1].g;  palPattTextB    = palTable[palNum][1].b;
-		palBlockMarkR   = palTable[palNum][2].r;  palBlockMarkG   = palTable[palNum][2].g;  palBlockMarkB   = palTable[palNum][2].b;
-		palTextOnBlockR = palTable[palNum][3].r;  palTextOnBlockG = palTable[palNum][3].g;  palTextOnBlockB = palTable[palNum][3].b;
-		palDesktopR     = palTable[palNum][4].r;  palDesktopG     = palTable[palNum][4].g;  palDesktopB     = palTable[palNum][4].b;
-		palButtonsR     = palTable[palNum][6].r;  palButtonsG     = palTable[palNum][6].g;  palButtonsB     = palTable[palNum][6].b;
-		palDesktop2R    = palTable[palNum][8].r;  palDesktop2G    = palTable[palNum][8].g;  palDesktop2B    = palTable[palNum][8].b;
-		palDesktop1R    = palTable[palNum][9].r;  palDesktop1G    = palTable[palNum][9].g;  palDesktop1B    = palTable[palNum][9].b;
-		palButtons2R    = palTable[palNum][10].r; palButtons2G    = palTable[palNum][10].g; palButtons2B    = palTable[palNum][10].b;
-		palButtons1R    = palTable[palNum][11].r; palButtons1G    = palTable[palNum][11].g; palButtons1B    = palTable[palNum][11].b;
-		palMouseR       = palTable[palNum][12].r; palMouseG       = palTable[palNum][12].g; palMouseB       = palTable[palNum][12].b;
-	}
-
-	// these can never change, so set them up like this
-	paletteTemp[PAL_BCKGRND] = (PAL_BCKGRND << 24) | 0x000000;
-	paletteTemp[PAL_FORGRND] = (PAL_FORGRND << 24) | 0xFFFFFF;
-	paletteTemp[PAL_BTNTEXT] = (PAL_BTNTEXT << 24) | 0x000000;
-	paletteTemp[PAL_TEXTMRK] = (PAL_TEXTMRK << 24) | 0x0078D7;
-
-	changePaletteTempEntry(PAL_PATTEXT, palPattTextR,    palPattTextG,    palPattTextB);
-	changePaletteTempEntry(PAL_BLCKMRK, palBlockMarkR,   palBlockMarkG,   palBlockMarkB);
-	changePaletteTempEntry(PAL_BLCKTXT, palTextOnBlockR, palTextOnBlockG, palTextOnBlockB);
-	changePaletteTempEntry(PAL_DESKTOP, palDesktopR,     palDesktopG,     palDesktopB);
-	changePaletteTempEntry(PAL_BUTTONS, palButtonsR,     palButtonsG,     palButtonsB);
-	changePaletteTempEntry(PAL_DSKTOP2, palDesktop2R,    palDesktop2G,    palDesktop2B);
-	changePaletteTempEntry(PAL_DSKTOP1, palDesktop1R,    palDesktop1G,    palDesktop1B);
-	changePaletteTempEntry(PAL_BUTTON2, palButtons2R,    palButtons2G,    palButtons2B);
-	changePaletteTempEntry(PAL_BUTTON1, palButtons1R,    palButtons1G,    palButtons1B);
-	changePaletteTempEntry(PAL_MOUSEPT, palMouseR,       palMouseG,       palMouseB);
-
-	// set new palette
-	memcpy(video.palette, paletteTemp, sizeof (video.palette));
-	updateLoopPinPalette();
-
-	if (video.frameBuffer != NULL) // this routine may be called before video is up
-	{
-		showTopScreen(false);
-		showBottomScreen();
-	}
-}
-
 bool setupSprites(void)
 {
-	uint8_t i;
 	sprite_t *s;
 
 	memset(sprites, 0, sizeof (sprites));
@@ -518,14 +343,14 @@ bool setupSprites(void)
 	hideSprite(SPRITE_TEXT_CURSOR);
 
 	// setup refresh buffer (used to clear sprites after each frame)
-	for (i = 0; i < SPRITE_NUM; ++i)
+	for (uint32_t i = 0; i < SPRITE_NUM; i++)
 	{
-		sprites[i].refreshBuffer = (uint32_t *)(malloc((sprites[i].w * sprites[i].h) * sizeof (int32_t)));
+		sprites[i].refreshBuffer = (uint32_t *)malloc((sprites[i].w * sprites[i].h) * sizeof (int32_t));
 		if (sprites[i].refreshBuffer == NULL)
-			return (false);
+			return false;
 	}
 
-	return (true);
+	return true;
 }
 
 void changeSpriteData(uint8_t sprite, const uint8_t *data)
@@ -536,9 +361,7 @@ void changeSpriteData(uint8_t sprite, const uint8_t *data)
 
 void freeSprites(void)
 {
-	uint8_t i;
-
-	for (i = 0; i < SPRITE_NUM; ++i)
+	for (uint32_t i = 0; i < SPRITE_NUM; i++)
 	{
 		if (sprites[i].refreshBuffer != NULL)
 		{
@@ -560,7 +383,7 @@ void setRightLoopPinState(bool clicked)
 
 int32_t getSpritePosX(uint8_t sprite)
 {
-	return (sprites[sprite].x);
+	return sprites[sprite].x;
 }
 
 void setSpritePos(uint8_t sprite, int16_t x, int16_t y)
@@ -582,14 +405,13 @@ void eraseSprites(void)
 	uint32_t *dst32;
 	sprite_t *s;
 
-	for (i = (SPRITE_NUM - 1); i >= 0; --i) // erasing must be done in reverse order
+	for (i = (SPRITE_NUM - 1); i >= 0; i--) // erasing must be done in reverse order
 	{
 		s = &sprites[i];
-
 		if (s->x >= SCREEN_W) // sprite is hidden, don't erase
 			continue;
 
-		assert((s->y >= 0) && (s->refreshBuffer != NULL));
+		assert(s->y >= 0 && s->refreshBuffer != NULL);
 
 		sw = s->w;
 		sh = s->h;
@@ -600,21 +422,21 @@ void eraseSprites(void)
 		if (x < 0)
 		{
 			sw += x; // subtraction
-			x   = 0;
+			x = 0;
 		}
 
 		src32 = s->refreshBuffer;
 		dst32 = &video.frameBuffer[(y * SCREEN_W) + x];
 
-		if ((y + sh) >= SCREEN_H) sh = SCREEN_H - y;
-		if ((x + sw) >= SCREEN_W) sw = SCREEN_W - x;
+		if (y+sh >= SCREEN_H) sh = SCREEN_H - y;
+		if (x+sw >= SCREEN_W) sw = SCREEN_W - x;
 
-		srcPitch = s->w     - sw;
+		srcPitch = s->w - sw;
 		dstPitch = SCREEN_W - sw;
 
-		for (y = 0; y < sh; ++y)
+		for (y = 0; y < sh; y++)
 		{
-			for (x = 0; x < sw; ++x)
+			for (x = 0; x < sw; x++)
 				*dst32++ = *src32++;
 
 			src32 += srcPitch;
@@ -630,16 +452,15 @@ void renderSprites(void)
 	uint32_t i, *clr32, *dst32, windowFlags;
 	sprite_t *s;
 
-	for (i = 0; i < SPRITE_NUM; ++i)
+	for (i = 0; i < SPRITE_NUM; i++)
 	{
-		if ((i == SPRITE_LEFT_LOOP_PIN) || (i == SPRITE_RIGHT_LOOP_PIN))
+		if (i == SPRITE_LEFT_LOOP_PIN || i == SPRITE_RIGHT_LOOP_PIN)
 			continue; // these need special drawing (done elsewhere)
 
 		// don't render the text edit cursor if window is inactive
 		if (i == SPRITE_TEXT_CURSOR)
 		{
 			assert(video.window != NULL);
-
 			windowFlags = SDL_GetWindowFlags(video.window);
 			if (!(windowFlags & SDL_WINDOW_INPUT_FOCUS))
 				continue;
@@ -654,34 +475,33 @@ void renderSprites(void)
 		if (s->x >= SCREEN_W) // sprite is hidden, don't draw nor fill clear buffer
 			continue;
 
-		assert((s->x >= 0) && (s->y >= 0) && (s->data != NULL) && (s->refreshBuffer != NULL));
+		assert(s->x >= 0 && s->y >= 0 && s->data != NULL && s->refreshBuffer != NULL);
 
-		sw    = s->w;
-		sh    = s->h;
-		src8  = s->data;
+		sw = s->w;
+		sh = s->h;
+		src8 = s->data;
 		dst32 = &video.frameBuffer[(s->y * SCREEN_W) + s->x];
 		clr32 = s->refreshBuffer;
 
 		// handle xy clipping
-		if ((s->y + sh) >= SCREEN_H) sh = SCREEN_H - s->y;
-		if ((s->x + sw) >= SCREEN_W) sw = SCREEN_W - s->x;
+		if (s->y+sh >= SCREEN_H) sh = SCREEN_H - s->y;
+		if (s->x+sw >= SCREEN_W) sw = SCREEN_W - s->x;
 
-		srcPitch = s->w     - sw;
+		srcPitch = s->w - sw;
 		dstPitch = SCREEN_W - sw;
 
-		if (mouse.mouseOverTextBox && (i == SPRITE_MOUSE_POINTER))
+		if (mouse.mouseOverTextBox && i == SPRITE_MOUSE_POINTER)
 		{
 			// text edit mouse pointer (has color changing depending on content under it)
-
-			for (y = 0; y < sh; ++y)
+			for (y = 0; y < sh; y++)
 			{
-				for (x = 0; x < sw; ++x)
+				for (x = 0; x < sw; x++)
 				{
 					*clr32++ = *dst32; // fill clear buffer
 
 					if (*src8 != PAL_TRANSPR)
 					{
-						if (!(*dst32 & 0x00FFFFFF) || (*dst32 == video.palette[PAL_TEXTMRK]))
+						if (!(*dst32 & 0xFFFFFF) || *dst32 == video.palette[PAL_TEXTMRK])
 							*dst32 = 0xB3DBF6;
 						else
 							*dst32 = 0x004ECE;
@@ -692,17 +512,16 @@ void renderSprites(void)
 				}
 
 				clr32 += srcPitch;
-				src8  += srcPitch;
+				src8 += srcPitch;
 				dst32 += dstPitch;
 			}
 		}
 		else
 		{
 			// normal sprites
-
-			for (y = 0; y < sh; ++y)
+			for (y = 0; y < sh; y++)
 			{
-				for (x = 0; x < sw; ++x)
+				for (x = 0; x < sw; x++)
 				{
 					*clr32++ = *dst32; // fill clear buffer
 
@@ -717,7 +536,7 @@ void renderSprites(void)
 				}
 
 				clr32 += srcPitch;
-				src8  += srcPitch;
+				src8 += srcPitch;
 				dst32 += dstPitch;
 			}
 		}
@@ -736,7 +555,7 @@ void renderLoopPins(void)
 	// left loop pin
 
 	s = &sprites[SPRITE_LEFT_LOOP_PIN];
-	assert((s->data != NULL) && (s->refreshBuffer != NULL));
+	assert(s->data != NULL && s->refreshBuffer != NULL);
 
 	// set new sprite position
 	s->x = s->newX;
@@ -748,28 +567,28 @@ void renderLoopPins(void)
 		sh = s->h;
 		sx = s->x;
 
-		src8  = s->data;
+		src8 = s->data;
 		clr32 = s->refreshBuffer;
 
 		// if x is negative, adjust variables
 		if (sx < 0)
 		{
-			sw   += sx; // subtraction
+			sw += sx; // subtraction
 			src8 -= sx; // addition
-			sx    = 0;
+			sx = 0;
 		}
 
 		dst32 = &video.frameBuffer[(s->y * SCREEN_W) + sx];
 
 		// handle x clipping
-		if ((s->x + sw) >= SCREEN_W) sw = SCREEN_W - s->x;
+		if (s->x+sw >= SCREEN_W) sw = SCREEN_W - s->x;
 
-		srcPitch = s->w     - sw;
+		srcPitch = s->w - sw;
 		dstPitch = SCREEN_W - sw;
 
-		for (y = 0; y < sh; ++y)
+		for (y = 0; y < sh; y++)
 		{
-			for (x = 0; x < sw; ++x)
+			for (x = 0; x < sw; x++)
 			{
 				*clr32++ = *dst32; // fill clear buffer
 
@@ -783,7 +602,7 @@ void renderLoopPins(void)
 				src8++;
 			}
 
-			src8  += srcPitch;
+			src8 += srcPitch;
 			clr32 += srcPitch;
 			dst32 += dstPitch;
 		}
@@ -792,7 +611,7 @@ void renderLoopPins(void)
 	// right loop pin
 
 	s = &sprites[SPRITE_RIGHT_LOOP_PIN];
-	assert((s->data != NULL) && (s->refreshBuffer != NULL));
+	assert(s->data != NULL && s->refreshBuffer != NULL);
 
 	// set new sprite position
 	s->x = s->newX;
@@ -807,47 +626,43 @@ void renderLoopPins(void)
 		sh = s->h;
 		sx = s->x;
 
-		src8  = s->data;
+		src8 = s->data;
 		clr32 = s->refreshBuffer;
 
 		// if x is negative, adjust variables
 		if (sx < 0)
 		{
-			sw   += sx; // subtraction
+			sw += sx; // subtraction
 			src8 -= sx; // addition
-			sx    = 0;
+			sx = 0;
 		}
 
 		dst32 = &video.frameBuffer[(s->y * SCREEN_W) + sx];
 
 		// handle x clipping
-		if ((s->x + sw) >= SCREEN_W) sw = SCREEN_W - s->x;
+		if (s->x+sw >= SCREEN_W) sw = SCREEN_W - s->x;
 
-		srcPitch = s->w     - sw;
+		srcPitch = s->w - sw;
 		dstPitch = SCREEN_W - sw;
 
-		for (y = 0; y < sh; ++y)
+		for (y = 0; y < sh; y++)
 		{
-			for (x = 0; x < sw; ++x)
+			for (x = 0; x < sw; x++)
 			{
 				*clr32++ = *dst32;
 
 				if (*src8 != PAL_TRANSPR)
 				{
-					if ((y < 9) && (*src8 == PAL_LOOPPIN))
+					assert(*src8 < PAL_NUM);
+					if (y < 9 && *src8 == PAL_LOOPPIN)
 					{
 						// don't draw marker line on top of left loop pin's thumb graphics
-
 						pal = *dst32 >> 24;
-						if ((pal != PAL_DESKTOP) && (pal != PAL_DSKTOP1) && (pal != PAL_DSKTOP2))
-						{
-							assert(*src8 < PAL_NUM);
+						if (pal != PAL_DESKTOP && pal != PAL_DSKTOP1 && pal != PAL_DSKTOP2)
 							*dst32 = video.palette[*src8];
-						}
 					}
 					else
 					{
-						assert(*src8 < PAL_NUM);
 						*dst32 = video.palette[*src8];
 					}
 				}
@@ -856,7 +671,7 @@ void renderLoopPins(void)
 				src8++;
 			}
 
-			src8  += srcPitch;
+			src8 += srcPitch;
 			clr32 += srcPitch;
 			dst32 += dstPitch;
 		}
@@ -866,14 +681,13 @@ void renderLoopPins(void)
 void setupWaitVBL(void)
 {
 	// set next frame time
-	timeNext64     = SDL_GetPerformanceCounter() + video.vblankTimeLen;
+	timeNext64 = SDL_GetPerformanceCounter() + video.vblankTimeLen;
 	timeNext64Frac = video.vblankTimeLenFrac;
 }
 
 void waitVBL(void)
 {
 	// this routine almost never delays if we have 60Hz vsync, but it's still needed in some occasions
-
 	int32_t time32;
 	uint32_t diff32;
 	uint64_t time64;
@@ -882,7 +696,7 @@ void waitVBL(void)
 	time64 = SDL_GetPerformanceCounter();
 	if (time64 < timeNext64)
 	{
-		assert((timeNext64 - time64) <= 0xFFFFFFFFULL);
+		assert(timeNext64-time64 <= 0xFFFFFFFFULL);
 		diff32 = (uint32_t)(timeNext64 - time64);
 
 		// convert and round to microseconds
@@ -901,8 +715,8 @@ void waitVBL(void)
 	timeNext64Frac += video.vblankTimeLenFrac;
 	if (timeNext64Frac >= (1ULL << 32))
 	{
-		timeNext64++;
 		timeNext64Frac &= 0xFFFFFFFF;
+		timeNext64++;
 	}
 }
 
@@ -946,10 +760,10 @@ void setWindowSizeFromConfig(bool updateRenderer)
 		// find out which upscaling factor is the biggest to fit on screen
 		if (SDL_GetDesktopDisplayMode(0, &dm) == 0)
 		{
-			for (i = MAX_UPSCALE_FACTOR; i >= 1; --i)
+			for (i = MAX_UPSCALE_FACTOR; i >= 1; i--)
 			{
 				// slightly bigger than 632x400 because of window title, window borders and taskbar/menu
-				if ((dm.w >= (640 * i)) && (dm.h >= (450 * i)))
+				if (dm.w >= 640*i && dm.h >= 450*i)
 				{
 					video.upscaleFactor = i;
 					break;
@@ -985,10 +799,9 @@ void setWindowSizeFromConfig(bool updateRenderer)
 
 void updateWindowTitle(bool forceUpdate)
 {
-	char wndTitle[128 + PATH_MAX];
 	char *songTitle;
 
-	if (!forceUpdate && (songIsModified == song.isModified))
+	if (!forceUpdate && songIsModified == song.isModified)
 		return; // window title is already set to the same
 
 	songTitle = getCurrSongFilename();
@@ -1028,11 +841,11 @@ bool recreateTexture(void)
 	if (video.texture == NULL)
 	{
 		showErrorMsgBox("Couldn't create a %dx%d GPU texture:\n%s\n\nIs your GPU (+ driver) too old?", SCREEN_W, SCREEN_H, SDL_GetError());
-		return (false);
+		return false;
 	}
 
 	SDL_SetTextureBlendMode(video.texture, SDL_BLENDMODE_NONE);
-	return (true);
+	return true;
 }
 
 bool setupWindow(void)
@@ -1050,26 +863,26 @@ bool setupWindow(void)
 #endif
 
 	SDL_GetDesktopDisplayMode(0, &dm);
-	video.dMonitorRefreshRate = (double)(dm.refresh_rate);
+	video.dMonitorRefreshRate = (double)dm.refresh_rate;
 
-	if ((dm.refresh_rate >= 59) && (dm.refresh_rate <= 61))
+	if (dm.refresh_rate >= 59 && dm.refresh_rate <= 61)
 		video.vsync60HzPresent = true;
 
 	if (config.windowFlags & FORCE_VSYNC_OFF)
 		video.vsync60HzPresent = false;
 
 	video.window = SDL_CreateWindow("", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-					   SCREEN_W * video.upscaleFactor, SCREEN_H * video.upscaleFactor,
-					   windowFlags);
+					SCREEN_W * video.upscaleFactor, SCREEN_H * video.upscaleFactor,
+					windowFlags);
 
 	if (video.window == NULL)
 	{
 		showErrorMsgBox("Couldn't create SDL window:\n%s", SDL_GetError());
-		return (false);
+		return false;
 	}
 
 	updateWindowTitle(true);
-	return (true);
+	return true;
 }
 
 bool setupRenderer(void)
@@ -1096,7 +909,7 @@ bool setupRenderer(void)
 		{
 			showErrorMsgBox("Couldn't create SDL renderer:\n%s\n\nIs your GPU (+ driver) too old?",
 				SDL_GetError());
-			return (false);
+			return false;
 		}
 	}
 
@@ -1112,25 +925,25 @@ bool setupRenderer(void)
 	{
 		showErrorMsgBox("Couldn't create a %dx%d GPU texture:\n%s\n\nIs your GPU (+ driver) too old?",
 			SCREEN_W, SCREEN_H, SDL_GetError());
-		return (false);
+		return false;
 	}
 
 	// framebuffer used by SDL (for texture)
-	video.frameBuffer = (uint32_t *)(malloc(SCREEN_W * SCREEN_H * sizeof (int32_t)));
+	video.frameBuffer = (uint32_t *)malloc(SCREEN_W * SCREEN_H * sizeof (int32_t));
 	if (video.frameBuffer == NULL)
 	{
 		showErrorMsgBox("Not enough memory!");
-		return (false);
+		return false;
 	}
 
 	if (!setupSprites())
-		return (false);
+		return false;
 
 	updateRenderSizeVars();
 	updateMouseScaling();
 
 	SDL_ShowCursor(SDL_FALSE);
-	return (true);
+	return true;
 }
 
 void handleRedrawing(void)
@@ -1173,7 +986,7 @@ void handleRedrawing(void)
 					{
 						fillRect(115, 80, 74, 10, PAL_DESKTOP);
 
-							 if (playMode == PLAYMODE_PATT)    textOut(115, 80, PAL_FORGRND, "> Play ptn. <");
+						     if (playMode == PLAYMODE_PATT)    textOut(115, 80, PAL_FORGRND, "> Play ptn. <");
 						else if (playMode == PLAYMODE_EDIT)    textOut(121, 80, PAL_FORGRND, "> Editing <");
 						else if (playMode == PLAYMODE_RECSONG) textOut(114, 80, PAL_FORGRND, "> Rec. sng. <");
 						else if (playMode == PLAYMODE_RECPATT) textOut(115, 80, PAL_FORGRND, "> Rec. ptn. <");
@@ -1186,24 +999,24 @@ void handleRedrawing(void)
 				if (!editor.ui.diskOpShown)
 					drawPlaybackTime();
 
-					 if (editor.ui.sampleEditorExtShown) handleSampleEditorExtRedrawing();
-				else if (editor.ui.scopesShown)          drawScopes();
+				     if (editor.ui.sampleEditorExtShown) handleSampleEditorExtRedrawing();
+				else if (editor.ui.scopesShown) drawScopes();
 			}
 		}
 	}
 
 	drawReplayerData();
 
-		 if (editor.ui.instEditorShown)   handleInstEditorRedrawing();
+	     if (editor.ui.instEditorShown) handleInstEditorRedrawing();
 	else if (editor.ui.sampleEditorShown) handleSamplerRedrawing();
 
 	// blink text edit cursor
-	if (editor.editTextFlag && (mouse.lastEditBox != -1))
+	if (editor.editTextFlag && mouse.lastEditBox != -1)
 	{
-		assert((mouse.lastEditBox >= 0) && (mouse.lastEditBox < NUM_TEXTBOXES));
+		assert(mouse.lastEditBox >= 0 && mouse.lastEditBox < NUM_TEXTBOXES);
 
 		txt = &textBoxes[mouse.lastEditBox];
-		if ((editor.textCursorBlinkCounter < (256 / 2)) && !textIsMarked() && !(mouse.leftButtonPressed | mouse.rightButtonPressed))
+		if (editor.textCursorBlinkCounter < 256/2 && !textIsMarked() && !(mouse.leftButtonPressed | mouse.rightButtonPressed))
 			setSpritePos(SPRITE_TEXT_CURSOR, getTextCursorX(txt), getTextCursorY(txt) - 1); // show text cursor
 		else
 			hideSprite(SPRITE_TEXT_CURSOR); // hide text cursor
@@ -1226,7 +1039,6 @@ static void drawReplayerData(void)
 		if (editor.ui.drawReplayerPianoFlag)
 		{
 			editor.ui.drawReplayerPianoFlag = false;
-
 			if (editor.ui.instEditorShown)
 			{
 				if (chSyncEntry != NULL)
@@ -1290,87 +1102,3 @@ static void drawReplayerData(void)
 			writePattern(editor.pattPos, editor.editPattern);
 	}
 }
-
-const uint8_t textCursorData[12] =
-{
-	PAL_FORGRND, PAL_FORGRND, PAL_FORGRND,
-	PAL_FORGRND, PAL_FORGRND, PAL_FORGRND,
-	PAL_FORGRND, PAL_FORGRND, PAL_FORGRND,
-	PAL_FORGRND, PAL_FORGRND, PAL_FORGRND
-};
-
-const pal16 palTable[12][13] =
-{
-	{
-		{0, 0, 0},{30, 38, 63},{0, 0, 17},{63, 63, 63},
-		{27, 36, 40},{63, 63, 63},{40, 40, 40},{0, 0, 0},
-		{10, 13, 14},{49, 63, 63},{15, 15, 15},{63, 63, 63},
-		{63, 63, 63},
-	},
-	{
-		{0, 0, 0},{21, 40, 63},{0, 0, 17},{63, 63, 63},
-		{6, 39, 35},{63, 63, 63},{40, 40, 40},{0, 0, 0},
-		{2, 14, 13},{11, 63, 63},{16, 16, 16},{63, 63, 63},
-		{63, 63, 63},
-	},
-	{
-		{0, 0, 0},{39, 52, 63},{8, 8, 13},{57, 57, 63},
-		{10, 21, 33},{63, 63, 63},{37, 37, 45},{0, 0, 0},
-		{4, 8, 13},{18, 37, 58},{13, 13, 16},{63, 63, 63},
-		{63, 63, 63},
-	},
-	{
-		{0, 0, 0},{47, 47, 47},{9, 9, 9},{63, 63, 63},
-		{37, 29, 7},{63, 63, 63},{40, 40, 40},{0, 0, 0},
-		{11, 9, 2},{63, 58, 14},{15, 15, 15},{63, 63, 63},
-		{63, 63, 63},
-	},
-	{
-		{0, 0, 0},{46, 45, 46},{13, 9, 9},{63, 63, 63},
-		{22, 19, 22},{63, 63, 63},{36, 32, 34},{0, 0, 0},
-		{8, 7, 8},{39, 34, 39},{13, 12, 12},{63, 58, 62},
-		{63, 63, 63},
-	},
-	{
-		{0, 0, 0},{19, 49, 54},{0, 11, 7},{52, 63, 61},
-		{9, 31, 21},{63, 63, 63},{40, 40, 40},{0, 0, 0},
-		{4, 13, 9},{15, 50, 34},{15, 15, 15},{63, 63, 63},
-		{63, 63, 63},
-	},
-	{
-		{0, 0, 0},{27, 37, 53},{0, 0, 20},{63, 63, 63},
-		{7, 12, 21},{63, 63, 63},{38, 39, 39},{0, 0, 0},
-		{2, 4, 7},{14, 23, 41},{13, 13, 13},{63, 63, 63},
-		{63, 63, 63},
-	},
-	{
-		{0, 0, 0},{63, 54, 62},{18, 3, 3},{63, 63, 63},
-		{36, 19, 25},{63, 63, 63},{40, 40, 40},{0, 0, 0},
-		{11, 6, 8},{63, 38, 50},{15, 15, 15},{63, 63, 63},
-		{63, 63, 63},
-	},
-	{
-		{0, 0, 0},{63, 0, 63},{0, 21, 0},{63, 44, 0},
-		{0, 63, 0},{63, 63, 63},{63, 0, 0},{0, 0, 0},
-		{0, 28, 0},{0, 63, 0},{23, 0, 0},{63, 0, 0},
-		{0, 63, 63},
-	},
-	{
-		{0, 0, 0},{50, 46, 63},{15, 0, 16},{59, 58, 63},
-		{34, 21, 41},{63, 63, 63},{40, 40, 40},{0, 0, 0},
-		{13, 8, 15},{61, 37, 63},{15, 15, 15},{63, 63, 63},
-		{63, 63, 63},
-	},
-	{
-		{0, 0, 0},{63, 63, 32},{10, 10, 10},{63, 63, 63},
-		{18, 29, 32},{63, 63, 63},{39, 39, 39},{0, 0, 0},
-		{6, 10, 11},{34, 54, 60},{15, 15, 15},{63, 63, 63},
-		{63, 63, 63},
-	},
-	{
-		{0, 0, 0},{36, 47, 63},{9, 9, 16},{63, 63, 63},
-		{19, 24, 38},{63, 63, 63},{39, 39, 39},{0, 0, 0},
-		{8, 10, 15},{32, 41, 63},{15, 15, 15},{63, 63, 63},
-		{63, 63, 63},
-	}
-};

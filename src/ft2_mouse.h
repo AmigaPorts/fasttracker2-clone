@@ -1,5 +1,4 @@
-#ifndef __FT2_MOUSE_H
-#define __FT2_MOUSE_H
+#pragma once
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -11,7 +10,7 @@ enum
 	MOUSE_MODE_RENAME = 2,
 
 	MOUSE_WHEEL_DOWN = 0,
-	MOUSE_WHEEL_UP   = 1
+	MOUSE_WHEEL_UP = 1
 };
 
 struct mouse_t
@@ -45,5 +44,3 @@ void animateBusyMouse(void);
 void handleLastGUIObjectDown(void);
 void readMouseXY(void);
 void resetMouseBusyAnimation(void);
-
-#endif

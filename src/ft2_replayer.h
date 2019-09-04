@@ -1,5 +1,4 @@
-#ifndef __FT2_REPLAYER_H
-#define __FT2_REPLAYER_H
+#pragma once
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -8,29 +7,29 @@
 enum
 {
 	// voice flags
-	IS_Vol       =  1, // set volume
-	IS_Period    =  2, // set resampling rate
-	IS_NyTon     =  4, // trigger new sample
-	IS_Pan       =  8, // set panning
-	IS_QuickVol  = 16, // 5ms volramp instead of tick ms
+	IS_Vol = 1, // set volume
+	IS_Period = 2, // set resampling rate
+	IS_NyTon = 4, // trigger new sample
+	IS_Pan = 8, // set panning
+	IS_QuickVol = 16, // 5ms volramp instead of tick ms
 
 	// tracker playback modes
-	PLAYMODE_IDLE    = 0,
-	PLAYMODE_EDIT    = 1,
-	PLAYMODE_SONG    = 2,
-	PLAYMODE_PATT    = 3,
+	PLAYMODE_IDLE = 0,
+	PLAYMODE_EDIT = 1,
+	PLAYMODE_SONG = 2,
+	PLAYMODE_PATT = 3,
 	PLAYMODE_RECSONG = 4,
 	PLAYMODE_RECPATT = 5,
 
 	// note cursor positions
-	CURSOR_NOTE  = 0,
+	CURSOR_NOTE = 0,
 	CURSOR_INST1 = 1,
 	CURSOR_INST2 = 2,
-	CURSOR_VOL1  = 3,
-	CURSOR_VOL2  = 4,
-	CURSOR_EFX0  = 5,
-	CURSOR_EFX1  = 6,
-	CURSOR_EFX2  = 7
+	CURSOR_VOL1 = 3,
+	CURSOR_VOL2 = 4,
+	CURSOR_EFX0 = 5,
+	CURSOR_EFX1 = 6,
+	CURSOR_EFX2 = 7
 };
 
 // DO NOT TOUCH!
@@ -44,20 +43,20 @@ enum
 #define MAX_SMP_PER_INST 16
 #define MAX_ORDERS 256
 #define STD_ENV_SIZE ((6*2*12*2*2) + (6*8*2) + (6*5*2) + (6*2*2))
-#define INSTR_SIZE           232
-#define INSTR_HEADER_SIZE    263
+#define INSTR_SIZE 232
+#define INSTR_HEADER_SIZE 263
 #define INSTR_XI_HEADER_SIZE 298
 #define MAX_SAMPLE_LEN 0x3FFFFFFF
 #define PROG_NAME_STR "Fasttracker II clone"
 
-/* some of the following structs must be packed (e.g. not padded) since they
+/* Some of the following structs must be packed (e.g. not padded) since they
 ** are loaded directly into with fread and stuff. */
 
 #ifdef _MSC_VER
 #pragma pack(push)
 #pragma pack(1)
 #endif
-typedef struct songHeaderTyp_t  // DO NOT TOUCH!
+typedef struct songHeaderTyp_t // DO NOT TOUCH!
 {
 	char sig[17], name[21], progName[20];
 	uint16_t ver;
@@ -295,7 +294,7 @@ bool patternEmpty(uint16_t nr);
 int16_t getUsedSamples(int16_t nr);
 int16_t getRealUsedSamples(int16_t nr);
 bool instrIsEmpty(int16_t nr);
-void setStdEnvelope(uint16_t nr, uint16_t i, uint8_t typ);
+void setDefEnvelopes(uint16_t nr);
 void setSyncedReplayerVars(void);
 void decSongPos(void);
 void incSongPos(void);
@@ -317,5 +316,3 @@ extern stmTyp stm[MAX_VOICES];
 extern songTyp song;
 extern instrTyp instr[1 + MAX_INST + 1];
 extern tonTyp *patt[MAX_PATTERNS];
-
-#endif

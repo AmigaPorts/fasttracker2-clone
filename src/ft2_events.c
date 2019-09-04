@@ -33,8 +33,8 @@
 #include "ft2_sample_ed_features.h"
 
 #define CRASH_TEXT "Oh no!\nThe Fasttracker II clone has crashed...\n\nA backup .xm was hopefully " \
-				   "saved to the current module directory.\n\nPlease report this to 8bitbubsy " \
-				   "(IRC or olav.sorensen@live.no).\nTry to mention what you did before the crash happened."
+                   "saved to the current module directory.\n\nPlease report this to 8bitbubsy " \
+                   "(IRC or olav.sorensen@live.no).\nTry to mention what you did before the crash happened."
 
 static bool backupMadeAfterCrash;
 
@@ -62,13 +62,13 @@ void usleep(uint32_t usec)
 	if (NtDelayExecution == NULL)
 	{
 		// NtDelayExecution() is not available (shouldn't happen), use regular sleep()
-		Sleep((uint32_t)((usec / 1000.0) + 0.5));
+		Sleep(usec / 1000);
 	}
 	else
 	{
-		// this prevents a 64-bit MUL (will not overflow with typical values anyway)
+		// this prevents a 64-bit MUL (will not overflow with the ranges we use anyway)
 		lpDueTime.HighPart = 0xFFFFFFFF;
-		lpDueTime.LowPart  = (DWORD)(-10 * (int32_t)(usec));
+		lpDueTime.LowPart  = (DWORD)(-10 * (int32_t)usec);
 
 		NtDelayExecution(false, &lpDueTime);
 	}
@@ -76,7 +76,7 @@ void usleep(uint32_t usec)
 
 void setupWin32Usleep(void)
 {
-	NtDelayExecution = (NTSTATUS (__stdcall *)(BOOL, PLARGE_INTEGER))(GetProcAddress(GetModuleHandle("ntdll.dll"), "NtDelayExecution"));
+	NtDelayExecution = (NTSTATUS (__stdcall *)(BOOL, PLARGE_INTEGER))GetProcAddress(GetModuleHandle("ntdll.dll"), "NtDelayExecution");
 	timeBeginPeriod(0); // enter highest timer resolution
 }
 
@@ -111,7 +111,7 @@ void handleEvents(void)
 		midi.rescanDevicesFlag = false;
 
 		rescanMidiInputDevices();
-		if (editor.ui.configScreenShown && (editor.currConfigScreen == CONFIG_SCREEN_MIDI_INPUT))
+		if (editor.ui.configScreenShown && editor.currConfigScreen == CONFIG_SCREEN_MIDI_INPUT)
 			drawMidiInputList();
 	}
 
@@ -163,8 +163,8 @@ void handleEvents(void)
 	handleLoadMusicEvents();
 
 	if (editor.samplingAudioFlag) handleSamplingUpdates();
-	if (editor.ui.setMouseBusy)   mouseAnimOn();
-	if (editor.ui.setMouseIdle)   mouseAnimOff();
+	if (editor.ui.setMouseBusy) mouseAnimOn();
+	if (editor.ui.setMouseIdle) mouseAnimOff();
 
 	if (editor.updateWindowTitle)
 	{
@@ -179,22 +179,22 @@ static bool instanceAlreadyOpen(void)
 {
 	hMapFile = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, SHARED_HWND_NAME);
 	if (hMapFile != NULL)
-		return (true); // another instance is already open
+		return true; // another instance is already open
 
 	// no instance is open, let's created a shared memory file with hWnd in it
 	oneInstHandle = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, sizeof (HWND), SHARED_HWND_NAME);
 	if (oneInstHandle != NULL)
 	{
-		sharedMemBuf = (LPTSTR)(MapViewOfFile(oneInstHandle, FILE_MAP_ALL_ACCESS, 0, 0, sizeof (HWND)));
+		sharedMemBuf = (LPTSTR)MapViewOfFile(oneInstHandle, FILE_MAP_ALL_ACCESS, 0, 0, sizeof (HWND));
 		if (sharedMemBuf != NULL)
 		{
-			CopyMemory((PVOID)(sharedMemBuf), &video.hWnd, sizeof (HWND));
+			CopyMemory((PVOID)sharedMemBuf, &video.hWnd, sizeof (HWND));
 			UnmapViewOfFile(sharedMemBuf);
 			sharedMemBuf = NULL;
 		}
 	}
 
-	return (false);
+	return false;
 }
 
 bool handleSingleInstancing(int32_t argc, char **argv)
@@ -203,53 +203,51 @@ bool handleSingleInstancing(int32_t argc, char **argv)
 
 	SDL_VERSION(&wmInfo.version);
 	if (!SDL_GetWindowWMInfo(video.window, &wmInfo))
-		return (false);
+		return false;
 
 	video.hWnd = wmInfo.info.win.window;
-	if (instanceAlreadyOpen())
+	if (instanceAlreadyOpen() && argc >= 2 && argv[1][0] != '\0')
 	{
-		if ((argc >= 2) && (argv[1][0] != '\0'))
+		sharedMemBuf = (LPTSTR)MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS, 0, 0, sizeof (HWND));
+		if (sharedMemBuf != NULL)
 		{
-			sharedMemBuf = (LPTSTR)(MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS, 0, 0, sizeof (HWND)));
-			if (sharedMemBuf != NULL)
-			{
-				memcpy(&hWnd, sharedMemBuf, sizeof (HWND));
-				UnmapViewOfFile(sharedMemBuf);
-				sharedMemBuf = NULL;
+			memcpy(&hWnd, sharedMemBuf, sizeof (HWND));
 
-				CloseHandle(hMapFile);
-				hMapFile = NULL;
-
-				hMapFile = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, ARGV_SHARED_MEM_MAX_LEN, SHARED_FILENAME);
-				if (hMapFile != NULL)
-				{
-					sharedMemBuf = (LPTSTR)(MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS, 0, 0, ARGV_SHARED_MEM_MAX_LEN));
-					if (sharedMemBuf != NULL)
-					{
-						strcpy((char *)(sharedMemBuf), argv[1]);
-						UnmapViewOfFile(sharedMemBuf);
-						sharedMemBuf = NULL;
-
-						SendMessage(hWnd, SYSMSG_FILE_ARG, 0, 0);
-						Sleep(80); // wait a bit to make sure first instance received msg
-
-						CloseHandle(hMapFile);
-						hMapFile = NULL;
-
-						return (true); // quit instance now
-					}
-				}
-
-				return (true);
-			}
-
+			UnmapViewOfFile(sharedMemBuf);
+			sharedMemBuf = NULL;
 			CloseHandle(hMapFile);
 			hMapFile = NULL;
+
+			hMapFile = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, ARGV_SHARED_MEM_MAX_LEN, SHARED_FILENAME);
+			if (hMapFile != NULL)
+			{
+				sharedMemBuf = (LPTSTR)MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS, 0, 0, ARGV_SHARED_MEM_MAX_LEN);
+				if (sharedMemBuf != NULL)
+				{
+					strcpy((char *)sharedMemBuf, argv[1]);
+
+					UnmapViewOfFile(sharedMemBuf);
+					sharedMemBuf = NULL;
+
+					SendMessage(hWnd, SYSMSG_FILE_ARG, 0, 0);
+					Sleep(80); // wait a bit to make sure first instance received msg
+
+					CloseHandle(hMapFile);
+					hMapFile = NULL;
+
+					return true; // quit instance now
+				}
+			}
+
+			return true;
 		}
+
+		CloseHandle(hMapFile);
+		hMapFile = NULL;
 	}
 
 	SDL_EventState(SDL_SYSWMEVENT, SDL_ENABLE);
-	return (false);
+	return false;
 }
 
 static void handleSysMsg(SDL_Event inputEvent)
@@ -259,16 +257,16 @@ static void handleSysMsg(SDL_Event inputEvent)
 	if (inputEvent.type == SDL_SYSWMEVENT)
 	{
 		wmMsg = inputEvent.syswm.msg;
-		if ((wmMsg->subsystem == SDL_SYSWM_WINDOWS) && (wmMsg->msg.win.msg == SYSMSG_FILE_ARG))
+		if (wmMsg->subsystem == SDL_SYSWM_WINDOWS && wmMsg->msg.win.msg == SYSMSG_FILE_ARG)
 		{
 			hMapFile = OpenFileMapping(FILE_MAP_READ, FALSE, SHARED_FILENAME);
 			if (hMapFile != NULL)
 			{
-				sharedMemBuf = (LPTSTR)(MapViewOfFile(hMapFile, FILE_MAP_READ, 0, 0, ARGV_SHARED_MEM_MAX_LEN));
+				sharedMemBuf = (LPTSTR)MapViewOfFile(hMapFile, FILE_MAP_READ, 0, 0, ARGV_SHARED_MEM_MAX_LEN);
 				if (sharedMemBuf != NULL)
 				{
 					editor.autoPlayOnDrop = true;
-					loadDroppedFile((char *)(sharedMemBuf), true);
+					loadDroppedFile((char *)sharedMemBuf, true);
 
 					UnmapViewOfFile(sharedMemBuf);
 					sharedMemBuf = NULL;
@@ -298,17 +296,17 @@ static LONG WINAPI exceptionHandler(EXCEPTION_POINTERS *ptr)
 	UNICHAR *fileNameU;
 	struct stat statBuffer;
 
-	(void)(ptr);
+	(void)ptr;
 
 	if (oneInstHandle != NULL)
 		CloseHandle(oneInstHandle);
 
 	if (!backupMadeAfterCrash)
 	{
-		if ((getDiskOpModPath() != NULL) && (UNICHAR_CHDIR(getDiskOpModPath()) == 0))
+		if (getDiskOpModPath() != NULL && UNICHAR_CHDIR(getDiskOpModPath()) == 0)
 		{
 			// find a free filename
-			for (i = 1; i < 1000; ++i)
+			for (i = 1; i < 1000; i++)
 			{
 				sprintf(fileName, "backup%03d.xm", i);
 				if (stat(fileName, &statBuffer) != 0)
@@ -330,7 +328,7 @@ static LONG WINAPI exceptionHandler(EXCEPTION_POINTERS *ptr)
 		showErrorMsgBox(CRASH_TEXT);
 	}
 
-	return (EXCEPTION_CONTINUE_SEARCH);
+	return EXCEPTION_CONTINUE_SEARCH;
 }
 #else
 static void exceptionHandler(int32_t signal)
@@ -346,10 +344,10 @@ static void exceptionHandler(int32_t signal)
 
 	if (!backupMadeAfterCrash)
 	{
-		if ((getDiskOpModPath() != NULL) && (UNICHAR_CHDIR(getDiskOpModPath()) == 0))
+		if (getDiskOpModPath() != NULL && UNICHAR_CHDIR(getDiskOpModPath()) == 0)
 		{
 			// find a free filename
-			for (i = 1; i < 1000; ++i)
+			for (i = 1; i < 1000; i++)
 			{
 				sprintf(fileName, "backup%03d.xm", i);
 				if (stat(fileName, &statBuffer) != 0)
@@ -384,12 +382,12 @@ void setupCrashHandler(void)
 
 	memset(&act, 0, sizeof (act));
 	act.sa_handler = exceptionHandler;
-	act.sa_flags   = SA_RESETHAND;
+	act.sa_flags = SA_RESETHAND;
 
 	sigaction(SIGILL | SIGABRT | SIGFPE | SIGSEGV, &act, &oldAct);
-	sigaction(SIGILL,  &act, &oldAct);
+	sigaction(SIGILL, &act, &oldAct);
 	sigaction(SIGABRT, &act, &oldAct);
-	sigaction(SIGFPE,  &act, &oldAct);
+	sigaction(SIGFPE, &act, &oldAct);
 	sigaction(SIGSEGV, &act, &oldAct);
 #endif
 #endif
@@ -412,7 +410,7 @@ static void handleInput(void)
 		{
 			/* if we minimize the window and vsync is present, vsync is temporarily turned off.
 			** recalc waitVBL() vars so that it can sleep properly in said mode. */
-			if ((inputEvent.type == SDL_WINDOWEVENT) && (inputEvent.window.event == SDL_WINDOWEVENT_MINIMIZED))
+			if (inputEvent.type == SDL_WINDOWEVENT && inputEvent.window.event == SDL_WINDOWEVENT_MINIMIZED)
 				setupWaitVBL();
 		}
 
@@ -422,23 +420,21 @@ static void handleInput(void)
 			key = inputEvent.key.keysym.scancode;
 
 			/* The Echo tool in Smp. Ed. can literally take forever if abused,
-			** let mouse buttons/ESC/SIGTERM force-stop it.
-			*/
-			if ((eventType == SDL_MOUSEBUTTONDOWN) || (eventType == SDL_QUIT) ||
-				((eventType == SDL_KEYUP) && (key == SDL_SCANCODE_ESCAPE)))
+			** let mouse buttons/ESC/SIGTERM force-stop it. */
+			if (eventType == SDL_MOUSEBUTTONDOWN || eventType == SDL_QUIT ||
+				(eventType == SDL_KEYUP && key == SDL_SCANCODE_ESCAPE))
 			{
 				handleEchoToolPanic();
 			}
 
 			// let certain mouse buttons or keyboard keys stop certain events
-			if ((eventType == SDL_MOUSEBUTTONDOWN) || ((eventType == SDL_KEYDOWN) &&
-				(key != SDL_SCANCODE_MUTE) &&
-				(key != SDL_SCANCODE_AUDIOMUTE) &&
-				(key != SDL_SCANCODE_VOLUMEDOWN) &&
-				(key != SDL_SCANCODE_VOLUMEUP)))
+			if (eventType == SDL_MOUSEBUTTONDOWN ||
+				(eventType == SDL_KEYDOWN && key != SDL_SCANCODE_MUTE &&
+				 key != SDL_SCANCODE_AUDIOMUTE && key != SDL_SCANCODE_VOLUMEDOWN &&
+				 key != SDL_SCANCODE_VOLUMEUP))
 			{
 				// only let keyboard keys interrupt audio sampling
-				if (editor.samplingAudioFlag && (eventType != SDL_MOUSEBUTTONDOWN))
+				if (editor.samplingAudioFlag && eventType != SDL_MOUSEBUTTONDOWN)
 					stopSampling();
 
 				editor.wavIsRendering = false;
@@ -473,7 +469,7 @@ static void handleInput(void)
 		}
 		else if (inputEvent.type == SDL_MOUSEWHEEL)
 		{
-				 if (inputEvent.wheel.y > 0) mouseWheelHandler(MOUSE_WHEEL_UP);
+			     if (inputEvent.wheel.y > 0) mouseWheelHandler(MOUSE_WHEEL_UP);
 			else if (inputEvent.wheel.y < 0) mouseWheelHandler(MOUSE_WHEEL_DOWN);
 		}
 		else if (inputEvent.type == SDL_DROPFILE)

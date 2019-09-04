@@ -12,10 +12,8 @@
 #include "ft2_sample_ed.h"
 #include "ft2_module_loader.h"
 
-/*
-** These savers are directly ported, so they should act identical to FT2
-** except for some very minor changes.
-*/
+/* These savers are directly ported, so they should act identical to FT2
+** except for some very minor changes. */
 
 static SDL_Thread *thread;
 
@@ -43,7 +41,7 @@ bool saveXM(UNICHAR *filenameU)
 	if (f == NULL)
 	{
 		okBoxThreadSafe(0, "System message", "Error opening file for saving, is it in use?");
-		return (false);
+		return false;
 	}
 
 	memcpy(h.sig, "Extended Module: ", 17);
@@ -73,7 +71,7 @@ bool saveXM(UNICHAR *filenameU)
 
 	// count number of instruments
 	ai = MAX_INST;
-	while ((ai > 0) && (getUsedSamples(ai) == 0) && (song.instrName[ai][0] == '\0'))
+	while (ai > 0 && getUsedSamples(ai) == 0 && song.instrName[ai][0] == '\0')
 		ai--;
 	h.antInstrs = ai;
 
@@ -84,10 +82,10 @@ bool saveXM(UNICHAR *filenameU)
 	{
 		fclose(f);
 		okBoxThreadSafe(0, "System message", "Error saving module: general I/O error!");
-		return (false);
+		return false;
 	}
 
-	for (i = 0; i < ap; ++i)
+	for (i = 0; i < ap; i++)
 	{
 		if (patternEmpty(i))
 		{
@@ -111,21 +109,21 @@ bool saveXM(UNICHAR *filenameU)
 			{
 				fclose(f);
 				okBoxThreadSafe(0, "System message", "Error saving module: general I/O error!");
-				return (false);
+				return false;
 			}
 		}
 		else
 		{
-			c = packPatt((uint8_t *)(patt[i]), pattLens[i]);
+			c = packPatt((uint8_t *)patt[i], pattLens[i]);
 			b = pattLens[i] * TRACK_WIDTH;
 			ph.dataLen = c;
 
-			result  = fwrite(&ph,     ph.patternHeaderSize, 1, f);
-			result += fwrite(patt[i], ph.dataLen,           1, f);
+			result = fwrite(&ph, ph.patternHeaderSize, 1, f);
+			result += fwrite(patt[i], ph.dataLen, 1, f);
 
-			pattPtr = (uint8_t *)(patt[i]);
+			pattPtr = (uint8_t *)patt[i];
 
-			memcpy(&pattPtr[b - c], patt[i], c);
+			memcpy(&pattPtr[b-c], patt[i], c);
 			unpackPatt(pattPtr, b - c, pattLens[i], song.antChn);
 			clearUnusedChannels(patt[i], pattLens[i], song.antChn);
 
@@ -133,12 +131,12 @@ bool saveXM(UNICHAR *filenameU)
 			{
 				fclose(f);
 				okBoxThreadSafe(0, "System message", "Error saving module: general I/O error!");
-				return (false);
+				return false;
 			}
 		}
 	}
 
-	for (i = 1; i <= ai; ++i)
+	for (i = 1; i <= ai; i++)
 	{
 		ins = &instr[i];
 
@@ -147,8 +145,8 @@ bool saveXM(UNICHAR *filenameU)
 		memset(ih.name, 0, 22);
 		memcpy(ih.name, song.instrName[i], strlen(song.instrName[i]));
 
-		ih.typ        = 0;
-		ih.antSamp    = a;
+		ih.typ = 0;
+		ih.antSamp = a;
 		ih.sampleSize = sizeof (sampleHeaderTyp);
 
 		if (a > 0)
@@ -156,14 +154,14 @@ bool saveXM(UNICHAR *filenameU)
 			memcpy(ih.ta, ins, INSTR_SIZE);
 			ih.instrSize = INSTR_HEADER_SIZE;
 			
-			for (k = 0; k < a; ++k)
+			for (k = 0; k < a; k++)
 			{
 				srcSmp = &ins->samp[k];
 				dstSmp = &ih.samp[k];
 
 				memset(dstSmp->name, ' ', sizeof (dstSmp->name));
 
-				memcpy(dstSmp, srcSmp, 12 + 4 + 2 + strlen(srcSmp->name));
+				memcpy(dstSmp, srcSmp, 12+4+2 + strlen(srcSmp->name));
 				if (srcSmp->pek == NULL)
 					dstSmp->len = 0;
 			}
@@ -177,10 +175,10 @@ bool saveXM(UNICHAR *filenameU)
 		{
 			fclose(f);
 			okBoxThreadSafe(0, "System message", "Error saving module: general I/O error!");
-			return (false);
+			return false;
 		}
 
-		for (k = 0; k < a; ++k)
+		for (k = 0; k < a; k++)
 		{
 			srcSmp = &ins->samp[k];
 			if (srcSmp->pek != NULL)
@@ -193,11 +191,11 @@ bool saveXM(UNICHAR *filenameU)
 				delta2Samp(srcSmp->pek, srcSmp->len, srcSmp->typ);
 				fixSample(srcSmp);
 
-				if (result != (size_t)(srcSmp->len)) // write not OK
+				if (result != (size_t)srcSmp->len) // write not OK
 				{
 					fclose(f);
 					okBoxThreadSafe(0, "System message", "Error saving module: general I/O error!");
-					return (false);
+					return false;
 				}
 			}
 		}
@@ -210,7 +208,7 @@ bool saveXM(UNICHAR *filenameU)
 	editor.diskOpReadDir = true; // force diskop re-read
 
 	setMouseBusy(false);
-	return (true);
+	return true;
 }
 
 static bool saveMOD(UNICHAR *filenameU)
@@ -226,11 +224,12 @@ static bool saveMOD(UNICHAR *filenameU)
 	tonTyp *t;
 	songMOD31HeaderTyp hm;
 
-	tooManyInstr  = false;
-	incompatEfx   = false;
+	tooManyInstr = false;
+	incompatEfx = false;
 	noteUnderflow = false;
 
-	if (linearFrqTab) okBoxThreadSafe(0, "System message", "Linear frequency table used!");
+	if (linearFrqTab)
+		okBoxThreadSafe(0, "System message", "Linear frequency table used!");
 
 	// sanity checking
 
@@ -238,7 +237,7 @@ static bool saveMOD(UNICHAR *filenameU)
 	if (song.len > 128)
 		test = true;
 
-	for (i = 100; i < 256; ++i)
+	for (i = 100; i < 256; i++)
 	{
 		if (patt[i] != NULL)
 		{
@@ -248,7 +247,7 @@ static bool saveMOD(UNICHAR *filenameU)
 	}
 	if (test) okBoxThreadSafe(0, "System message", "Too many patterns!");
 
-	for (i = 32; i < 128; ++i)
+	for (i = 32; i < 128; i++)
 	{
 		if (getRealUsedSamples(i) > 0)
 		{
@@ -258,7 +257,7 @@ static bool saveMOD(UNICHAR *filenameU)
 	}
 
 	test = false;
-	for (i = 1; i <= 31; ++i)
+	for (i = 1; i <= 31; i++)
 	{
 		ins = &instr[i];
 		smp = &ins->samp[0];
@@ -272,9 +271,8 @@ static bool saveMOD(UNICHAR *filenameU)
 
 		if (j == 1)
 		{
-			if ((smp->len > 65534)  || (ins->envVTyp != 0)   ||
-				(ins->envPTyp != 0) || ((smp->typ & 3) == 2) ||
-				(smp->relTon  != 0) || ins->midiOn)
+			if (smp->len > 65534 || ins->envVTyp != 0 || ins->envPTyp != 0 ||
+			    (smp->typ & 3) == 2 || smp->relTon != 0 || ins->midiOn)
 			{
 				test = true;
 				break;
@@ -283,30 +281,30 @@ static bool saveMOD(UNICHAR *filenameU)
 	}
 	if (test) okBoxThreadSafe(0, "System message", "Incompatible instruments!");
 
-	for (i = 0; i < 99; ++i)
+	for (i = 0; i < 99; i++)
 	{
 		if (patt[i] != NULL)
 		{
 			if (pattLens[i] != 64)
 			{
 				okBoxThreadSafe(0, "System message", "Unable to convert module. (Illegal pattern length)");
-				return (false);
+				return false;
 			}
 
-			for (j = 0; j < 64; ++j)
+			for (j = 0; j < 64; j++)
 			{
-				for (k = 0; k < song.antChn; ++k)
+				for (k = 0; k < song.antChn; k++)
 				{
 					t = &patt[i][(j * MAX_VOICES) + k];
 
 					if (t->instr > 31)
 						tooManyInstr = true;
 
-					if ((t->effTyp > 15) || (t->vol != 0))
+					if (t->effTyp > 15 || t->vol != 0)
 						incompatEfx = true;
 
 					// added security that wasn't present in FT2
-					if ((t->ton > 0) && (t->ton < 10))
+					if (t->ton > 0 && t->ton < 10)
 						noteUnderflow = true;
 				}
 			}
@@ -319,15 +317,15 @@ static bool saveMOD(UNICHAR *filenameU)
 	// setup header buffer
 	memset(&hm, 0, sizeof (hm));
 	memcpy(hm.name, song.name, sizeof (hm.name));
-	hm.len = (uint8_t)(song.len);
+	hm.len = (uint8_t)song.len;
 	if (hm.len > 128) hm.len = 128;
-	hm.repS = (uint8_t)(song.repS);
+	hm.repS = (uint8_t)song.repS;
 	if (hm.repS > 127) hm.repS = 0;
 	memcpy(hm.songTab, song.songTab, song.len);
 
 	// calculate number of patterns
 	ap = 0;
-	for (i = 0; i < song.len; ++i)
+	for (i = 0; i < song.len; i++)
 	{
 		if (song.songTab[i] > ap)
 			ap = song.songTab[i];
@@ -336,17 +334,17 @@ static bool saveMOD(UNICHAR *filenameU)
 	if (song.antChn == 4)
 		memcpy(hm.sig, (ap > 64) ? "M!K!" : "M.K.", 4);
 	else
-		memcpy(hm.sig, modSig[song.antChn - 1], 4);
+		memcpy(hm.sig, modSig[song.antChn-1], 4);
 
 	// read sample information into header buffer
-	for (i = 0; i < 31; ++i)
+	for (i = 0; i < 31; i++)
 	{
-		memcpy(hm.instr[i].name, song.instrName[1 + i], sizeof (hm.instr[0].name));
+		memcpy(hm.instr[i].name, song.instrName[1+i], sizeof (hm.instr[0].name));
 		if (getRealUsedSamples(1 + i) != 0)
 		{
-			smp = &instr[1 + i].samp[0];
+			smp = &instr[1+i].samp[0];
 
-			l1 = smp->len  / 2;
+			l1 = smp->len / 2;
 			l2 = smp->repS / 2;
 			l3 = smp->repL / 2;
 
@@ -363,7 +361,7 @@ static bool saveMOD(UNICHAR *filenameU)
 			if (l2 > l1)
 				l2 = l1;
 
-			if ((l2 + l3) > l1)
+			if (l2+l3 > l1)
 				l3 = l1 - l2;
 
 			// FT2 bug-fix
@@ -373,9 +371,9 @@ static bool saveMOD(UNICHAR *filenameU)
 				l3 = 1;
 			}
 
-			hm.instr[i].len  = (uint16_t)(SWAP16(l1));
+			hm.instr[i].len = (uint16_t)(SWAP16(l1));
 			hm.instr[i].fine = ((smp->fine + 128) >> 4) ^ 8;
-			hm.instr[i].vol  = smp->vol;
+			hm.instr[i].vol = smp->vol;
 
 			if ((smp->typ & 3) == 0)
 			{
@@ -401,19 +399,18 @@ static bool saveMOD(UNICHAR *filenameU)
 	if (f == NULL)
 	{
 		okBoxThreadSafe(0, "System message", "Error opening file for saving, is it in use?");
-		return (false);
+		return false;
 	}
 
 	// write header
 	if (fwrite(&hm, 1, sizeof (hm), f) != sizeof (hm))
 	{
-		fclose(f);
 		okBoxThreadSafe(0, "System message", "Error saving module: general I/O error!");
-		return (false);
+		goto modSaveError;
 	}
 
 	// write pattern data
-	for (i = 0; i <= ap; ++i)
+	for (i = 0; i <= ap; i++)
 	{
 		if (patt[i] == NULL)
 		{
@@ -423,14 +420,14 @@ static bool saveMOD(UNICHAR *filenameU)
 		else
 		{
 			a = 0;
-			for (j = 0; j < 64; ++j)
+			for (j = 0; j < 64; j++)
 			{
-				for (k = 0; k < song.antChn; ++k)
+				for (k = 0; k < song.antChn; k++)
 				{
 					t = &patt[i][(j * MAX_VOICES) + k];
 
 					inst = t->instr;
-					ton  = t->ton;
+					ton = t->ton;
 
 					// FT2 bugfix: prevent overflow
 					if (inst > 31)
@@ -441,30 +438,30 @@ static bool saveMOD(UNICHAR *filenameU)
 						ton = 0;
 
 					// FT2 bugfix: clamp notes below 10 (A-0) to prevent 12-bit period overflow
-					if ((ton > 0) && (ton < 10))
+					if (ton > 0 && ton < 10)
 						ton = 10;
 
 					if (ton == 0)
 					{
-						pattBuff[a + 0] = inst & 0xF0;
-						pattBuff[a + 1] = 0;
+						pattBuff[a+0] = inst & 0xF0;
+						pattBuff[a+1] = 0;
 					}
 					else
 					{
-						pattBuff[a + 0] = (inst & 0xF0) | ((amigaPeriod[ton - 1] >> 8) & 0x0F);
-						pattBuff[a + 1] = amigaPeriod[ton - 1] & 0xFF;
+						pattBuff[a+0] = (inst & 0xF0) | ((amigaPeriod[ton-1] >> 8) & 0x0F);
+						pattBuff[a+1] = amigaPeriod[ton - 1] & 0xFF;
 					}
 
 					// FT2 bugfix: if effect is overflowing (0xF in .MOD), set effect and param to 0
 					if (t->effTyp > 0x0F)
 					{
-						pattBuff[a + 2] = (inst & 0x0F) << 4;
-						pattBuff[a + 3] = 0;
+						pattBuff[a+2] = (inst & 0x0F) << 4;
+						pattBuff[a+3] = 0;
 					}
 					else
 					{
-						pattBuff[a + 2] = ((inst & 0x0F) << 4) | (t->effTyp & 0x0F);
-						pattBuff[a + 3] = t->eff;
+						pattBuff[a+2] = ((inst & 0x0F) << 4) | (t->effTyp & 0x0F);
+						pattBuff[a+3] = t->eff;
 					}
 
 					a += 4;
@@ -474,19 +471,18 @@ static bool saveMOD(UNICHAR *filenameU)
 
 		if (fwrite(pattBuff, 1, song.antChn * (64 * 4), f) != (size_t)(song.antChn * (64 * 4)))
 		{
-			fclose(f);
 			okBoxThreadSafe(0, "System message", "Error saving module: general I/O error!");
-			return (false);
+			goto modSaveError;
 		}
 	}
 
 	// write sample data
-	for (i = 0; i < 31; ++i)
+	for (i = 0; i < 31; i++)
 	{
 		if (getRealUsedSamples(1 + i) != 0)
 		{
-		   smp = &instr[1 + i].samp[0];
-		   if ((smp->pek == NULL) || (smp->len <= 0))
+			smp = &instr[1+i].samp[0];
+			if (smp->pek == NULL || smp->len <= 0)
 				continue;
 
 			restoreSample(smp);
@@ -498,26 +494,25 @@ static bool saveMOD(UNICHAR *filenameU)
 					l1 = 65534;
 
 				// let's borrow "pattBuff" here
-				dstPtr = (int8_t *)(pattBuff);
+				dstPtr = (int8_t *)pattBuff;
 
 				writeLen = l1;
 				bytesWritten = 0;
 				while (bytesWritten < writeLen) // write in 8K blocks
 				{
 	 				bytesToWrite = sizeof (pattBuff);
-					if ((bytesWritten + bytesToWrite) > writeLen)
+					if (bytesWritten+bytesToWrite > writeLen)
 						bytesToWrite = writeLen - bytesWritten;
 
 					srcPtr = &smp->pek[(bytesWritten << 1) + 1]; // +1 to align to high byte
-					for (j = 0; j < bytesToWrite; ++j)
+					for (j = 0; j < bytesToWrite; j++)
 						dstPtr[j] = srcPtr[j << 1];
 
-					if (fwrite(dstPtr, 1, bytesToWrite, f) != (size_t)(bytesToWrite))
+					if (fwrite(dstPtr, 1, bytesToWrite, f) != (size_t)bytesToWrite)
 					{
 						fixSample(smp);
-						fclose(f);
 						okBoxThreadSafe(0, "System message", "Error saving module: general I/O error!");
-						return (false);
+						goto modSaveError;
 					}
 
 					bytesWritten += bytesToWrite;
@@ -531,12 +526,11 @@ static bool saveMOD(UNICHAR *filenameU)
 					l1 = 32767;
 				l1 *= 2;
 
-				if (fwrite(smp->pek, 1, l1, f) != (size_t)(l1))
+				if (fwrite(smp->pek, 1, l1, f) != (size_t)l1)
 				{
 					fixSample(smp);
-					fclose(f);
 					okBoxThreadSafe(0, "System message", "Error saving module: general I/O error!");
-					return (false);
+					goto modSaveError;
 				}
 			}
 
@@ -550,16 +544,20 @@ static bool saveMOD(UNICHAR *filenameU)
 	editor.diskOpReadDir = true; // force diskop re-read
 
 	setMouseBusy(false);
-	return (true);
+	return true;
+
+modSaveError:
+	fclose(f);
+	return false;
 }
 
 static int32_t SDLCALL saveMusicThread(void *ptr)
 {
-	(void)(ptr);
+	(void)ptr;
 
-	assert(editor.tmpFilenameU != NULL);;
+	assert(editor.tmpFilenameU != NULL);
 	if (editor.tmpFilenameU == NULL)
-		return (false);
+		return false;
 
 	pauseAudio();
 
@@ -569,8 +567,7 @@ static int32_t SDLCALL saveMusicThread(void *ptr)
 		saveMOD(editor.tmpFilenameU);
 
 	resumeAudio();
-
-	return (true);
+	return true;
 }
 
 void saveMusic(UNICHAR *filenameU)
@@ -591,17 +588,17 @@ void saveMusic(UNICHAR *filenameU)
 static uint16_t packPatt(uint8_t *pattPtr, uint16_t numRows)
 {
 	uint8_t bytes[5], packBits, *writePtr, *firstBytePtr;
-	uint16_t row, chn, totalPackLen;
+	uint16_t totalPackLen;
 
 	totalPackLen = 0;
 
 	if (pattPtr == NULL)
-		return (0);
+		return 0;
 
 	writePtr = pattPtr;
-	for (row = 0; row < numRows; ++row)
+	for (uint16_t row = 0; row < numRows; row++)
 	{
-		for (chn = 0; chn < song.antChn; ++chn)
+		for (uint16_t chn = 0; chn < song.antChn; chn++)
 		{
 			bytes[0] = *pattPtr++;
 			bytes[1] = *pattPtr++;
@@ -641,8 +638,8 @@ static uint16_t packPatt(uint8_t *pattPtr, uint16_t numRows)
 		}
 
 		// skip unused channels
-		pattPtr += (sizeof (tonTyp) * (MAX_VOICES - song.antChn));
+		pattPtr += sizeof (tonTyp) * (MAX_VOICES - song.antChn);
 	}
 
-	return (totalPackLen);
+	return totalPackLen;
 }

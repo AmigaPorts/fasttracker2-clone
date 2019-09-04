@@ -54,7 +54,7 @@ static void drawNoteBig(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, int1
 
 void drawPatternBorders(void)
 {
-	uint8_t i, chans;
+	uint8_t chans;
 	uint16_t xOffs, chanWidth;
 	int32_t clearSize;
 	const pattCoord2_t *pattCoord;
@@ -72,7 +72,7 @@ void drawPatternBorders(void)
 	// in some configurations, there will be two empty channels to the right, fix that
 	if (chans == 2)
 		chans = 4;
-	else if ((chans == 10) && !config.ptnS3M)
+	else if (chans == 10 && !config.ptnS3M)
 		chans = 12;
 
 	chanWidth = chanWidths[(chans / 2) - 1] + 2;
@@ -124,16 +124,16 @@ void drawPatternBorders(void)
 		fillRect(2, pattCoord->lowerRowsY - 9, 628, 9, PAL_DESKTOP);
 
 		// fill row number boxes
-		drawFramework(2,   pattCoord->upperRowsY, 25, pattCoord->upperRowsH, FRAMEWORK_TYPE2); // top left
+		drawFramework(2, pattCoord->upperRowsY, 25, pattCoord->upperRowsH, FRAMEWORK_TYPE2); // top left
 		drawFramework(604, pattCoord->upperRowsY, 26, pattCoord->upperRowsH, FRAMEWORK_TYPE2); // top right
-		drawFramework(2,   pattCoord->lowerRowsY, 25, pattCoord->lowerRowsH, FRAMEWORK_TYPE2); // bottom left
+		drawFramework(2, pattCoord->lowerRowsY, 25, pattCoord->lowerRowsH, FRAMEWORK_TYPE2); // bottom left
 		drawFramework(604, pattCoord->lowerRowsY, 26, pattCoord->lowerRowsH, FRAMEWORK_TYPE2); // bottom right
 
 		// draw channels
 		xOffs = 28;
-		for (i = 0; i < chans; ++i)
+		for (uint8_t i = 0; i < chans; i++)
 		{
-			vLine(xOffs - 1, pattCoord->upperRowsY, pattCoord->upperRowsH,     PAL_DESKTOP);
+			vLine(xOffs - 1, pattCoord->upperRowsY, pattCoord->upperRowsH, PAL_DESKTOP);
 			vLine(xOffs - 1, pattCoord->lowerRowsY, pattCoord->lowerRowsH + 1, PAL_DESKTOP);
 
 			drawFramework(xOffs, pattCoord->upperRowsY, chanWidth, pattCoord->upperRowsH, FRAMEWORK_TYPE2); // top part
@@ -142,7 +142,7 @@ void drawPatternBorders(void)
 			xOffs += (chanWidth + 1);
 		}
 
-		vLine(xOffs - 1, pattCoord->upperRowsY, pattCoord->upperRowsH,     PAL_DESKTOP);
+		vLine(xOffs - 1, pattCoord->upperRowsY, pattCoord->upperRowsH, PAL_DESKTOP);
 		vLine(xOffs - 1, pattCoord->lowerRowsY, pattCoord->lowerRowsH + 1, PAL_DESKTOP);
 	}
 	else
@@ -152,12 +152,12 @@ void drawPatternBorders(void)
 		if (editor.ui.extended)
 		{
 			clearSize = editor.ui.pattChanScrollShown ? (SCREEN_W * sizeof (int32_t) * 330) : (SCREEN_W * sizeof (int32_t) * 347);
-			memset(&video.frameBuffer[53 * SCREEN_W], 0, clearSize); // has to be *FAST*, don't use clearRect()
+			memset(&video.frameBuffer[53 * SCREEN_W], 0, clearSize);
 		}
 		else
 		{
 			clearSize = editor.ui.pattChanScrollShown ? (SCREEN_W * sizeof(int32_t) * 210) : (SCREEN_W * sizeof(int32_t) * 227);
-			memset(&video.frameBuffer[173 * SCREEN_W], 0, clearSize); // has to be *FAST*, don't use clearRect()
+			memset(&video.frameBuffer[173 * SCREEN_W], 0, clearSize);
 		}
 
 		drawFramework(0, pattCoord->lowerRowsY - 10, SCREEN_W, 11, FRAMEWORK_TYPE1);
@@ -181,20 +181,20 @@ void drawPatternBorders(void)
 
 static void writeCursor(void)
 {
-	uint32_t *dstPtr, xPos, x, y, width, tabOffset;
+	uint32_t *dstPtr, xPos, width, tabOffset;
 
 	tabOffset = (config.ptnS3M * 32) + (columnModeTab[editor.ui.numChannelsShown - 1] * 8) + editor.cursor.object;
 
-	xPos  = pattCursorXTab[tabOffset];
+	xPos = pattCursorXTab[tabOffset];
 	width = pattCursorWTab[tabOffset];
 
-	assert((editor.ptnCursorY > 0) && (xPos > 0) && (width > 0));
+	assert(editor.ptnCursorY > 0 && xPos > 0 && width > 0);
 	xPos += ((editor.cursor.ch - editor.ui.channelOffset) * editor.ui.patternChannelWidth);
 
 	dstPtr = &video.frameBuffer[(editor.ptnCursorY * SCREEN_W) + xPos];
-	for (y = 0; y < 9; ++y)
+	for (uint32_t y = 0; y < 9; y++)
 	{
-		for (x = 0; x < width; ++x)
+		for (uint32_t x = 0; x < width; x++)
 			dstPtr[x] = video.palette[(dstPtr[x] >> 24) ^ 4]; // ">> 24" to get palette, XOR 4 to change to cursor palette
 
 		dstPtr += SCREEN_W;
@@ -206,26 +206,23 @@ static void writePatternBlockMark(int16_t currRow, uint16_t rowHeight, const pat
 	uint8_t startCh, endCh;
 	int16_t startRow, endRow, x1, x2, y1, y2;
 	uint16_t pattYStart, pattYEnd;
-	uint32_t x, y, w, h, *ptr32;
+	uint32_t w, h, *ptr32;
 	const markCoord_t *markCoord;
 
 	// this can happen (buggy FT2 code), treat like no mark
 	if (pattMark.markY1 > pattMark.markY2)
 		return;
 
-	startCh  = editor.ui.channelOffset;
-	endCh    = editor.ui.channelOffset + (editor.ui.numChannelsShown - 1);
+	startCh = editor.ui.channelOffset;
+	endCh = editor.ui.channelOffset + (editor.ui.numChannelsShown - 1);
 	startRow = currRow - pattCoord->numUpperRows;
-	endRow   = currRow + pattCoord->numLowerRows;
+	endRow = currRow + pattCoord->numLowerRows;
 
 	// test if pattern marking is outside of visible area (don't draw)
-	if ((pattMark.markX1 >  endCh) || (pattMark.markX2 <  startCh) ||
-		(pattMark.markY1 > endRow) || (pattMark.markY2 < startRow))
-	{
+	if (pattMark.markX1 > endCh || pattMark.markX2 < startCh || pattMark.markY1 > endRow || pattMark.markY2 < startRow)
 		return;
-	}
 
-	markCoord  = &markCoordTable[config.ptnUnpressed][editor.ui.pattChanScrollShown][editor.ui.extended];
+	markCoord = &markCoordTable[config.ptnUnpressed][editor.ui.pattChanScrollShown][editor.ui.extended];
 	pattYStart = markCoord->upperRowsY;
 
 	// X1
@@ -259,11 +256,11 @@ static void writePatternBlockMark(int16_t currRow, uint16_t rowHeight, const pat
 
 	// Y2
 
-	if ((pattMark.markY2 - 1) < currRow)
+	if (pattMark.markY2-1 < currRow)
 	{
 		y2 = pattYStart + ((pattMark.markY2 - startRow) * rowHeight);
 	}
-	else if ((pattMark.markY2 - 1) == currRow)
+	else if (pattMark.markY2-1 == currRow)
 	{
 		y2 = markCoord->midRowY + 11;
 	}
@@ -279,7 +276,7 @@ static void writePatternBlockMark(int16_t currRow, uint16_t rowHeight, const pat
 	// kludge! (some mark situations could overwrite illegal areas)
 	if (config.ptnUnpressed && editor.ui.pattChanScrollShown)
 	{
-		if ((y1 == (pattCoord->upperRowsY - 1)) || (y1 == (pattCoord->lowerRowsY - 1)))
+		if (y1 == pattCoord->upperRowsY-1 || y1 == pattCoord->lowerRowsY-1)
 			y1++;
 
 		if (y2 == 384)
@@ -290,20 +287,20 @@ static void writePatternBlockMark(int16_t currRow, uint16_t rowHeight, const pat
 			return;
 	}
 
-	assert((x1 > 0) && (x1 < SCREEN_W) && (x2 > 0) && (x2 < SCREEN_W) &&
-		   (y1 > 0) && (y1 < SCREEN_H) && (y2 > 0) && (y2 < SCREEN_H));
+	assert(x1 > 0 && x1 < SCREEN_W && x2 > 0 && x2 < SCREEN_W &&
+	       y1 > 0 && y1 < SCREEN_H && y2 > 0 && y2 < SCREEN_H);
 
 	// pattern mark drawing
 
 	w = x2 - x1;
 	h = y2 - y1;
 
-	assert(((x1 + w) <= SCREEN_W) && ((y1 + h) <= SCREEN_H));
+	assert(x1+w <= SCREEN_W && y1+h <= SCREEN_H);
 
 	ptr32 = &video.frameBuffer[(y1 * SCREEN_W) + x1];
-	for (y = 0; y < h; ++y)
+	for (uint32_t y = 0; y < h; y++)
 	{
-		for (x = 0; x < w; ++x)
+		for (uint32_t x = 0; x < w; x++)
 			ptr32[x] = video.palette[(ptr32[x] >> 24) ^ 2]; // ">> 24" to get palette of pixel, XOR 2 to change to mark palette
 
 		ptr32 += SCREEN_W;
@@ -312,11 +309,11 @@ static void writePatternBlockMark(int16_t currRow, uint16_t rowHeight, const pat
 
 static void drawChannelNumbering(uint16_t yPos)
 {
-	uint8_t chNum, i;
+	uint8_t chNum;
 	uint16_t xPos;
 
 	xPos = 29;
-	for (i = 0; i < editor.ui.numChannelsShown; ++i)
+	for (uint8_t i = 0; i < editor.ui.numChannelsShown; i++)
 	{
 		chNum = editor.ui.channelOffset + i + 1;
 		if (chNum < 10)
@@ -325,7 +322,7 @@ static void drawChannelNumbering(uint16_t yPos)
 		}
 		else
 		{
-			charOutOutlined(xPos,     yPos, PAL_MOUSEPT, '0' + (chNum / 10));
+			charOutOutlined(xPos, yPos, PAL_MOUSEPT, '0' + (chNum / 10));
 			charOutOutlined(xPos + 9, yPos, PAL_MOUSEPT, '0' + (chNum % 10));
 		}
 
@@ -340,7 +337,7 @@ static void drawRowNum(uint16_t yPos, uint16_t row, bool middleRowFlag)
 	// set color based on some conditions
 	if (middleRowFlag)
 		pal = PAL_FORGRND;
-	else if (((row & 3) == 0) && config.ptnLineLight)
+	else if ((row & 3) == 0 && config.ptnLineLight)
 		pal = PAL_BLCKTXT;
 	else
 		pal = PAL_PATTEXT;
@@ -389,20 +386,20 @@ static void showInstrNum(uint8_t pal, uint16_t xPos, uint16_t yPos, uint8_t ins)
 	if (editor.ui.numChannelsShown <= 4)
 	{
 		fontType = FONT_TYPE4;
-		charW    = FONT4_CHAR_W;
-		xPos    += 67;
+		charW = FONT4_CHAR_W;
+		xPos += 67;
 	}
 	else if (editor.ui.numChannelsShown <= 6)
 	{
 		fontType = FONT_TYPE4;
-		charW    = FONT4_CHAR_W;
-		xPos     += 27;
+		charW = FONT4_CHAR_W;
+		xPos += 27;
 	}
 	else
 	{
 		fontType = FONT_TYPE3;
-		charW    = FONT3_CHAR_W;
-		xPos     += 31;
+		charW = FONT3_CHAR_W;
+		xPos += 31;
 	}
 
 	if (config.ptnInstrZero)
@@ -418,7 +415,7 @@ static void showInstrNum(uint8_t pal, uint16_t xPos, uint16_t yPos, uint8_t ins)
 		if (chr1 > 0)
 			pattCharOut(xPos, yPos, pal, chr1, fontType);
 
-		if ((chr1 > 0) || (chr2 > 0))
+		if (chr1 > 0 || chr2 > 0)
 			pattCharOut(xPos + charW, yPos, pal, chr2, fontType);
 	}
 }
@@ -430,8 +427,8 @@ static void showVolEfx(uint8_t pal, uint16_t xPos, uint16_t yPos, uint8_t vol)
 	if (editor.ui.numChannelsShown <= 4)
 	{
 		fontType = FONT_TYPE4;
-		charW    = FONT4_CHAR_W;
-		xPos    += 91;
+		charW = FONT4_CHAR_W;
+		xPos += 91;
 
 		char1 = vol2charTab1[vol >> 4];
 		if (vol < 0x10)
@@ -442,8 +439,8 @@ static void showVolEfx(uint8_t pal, uint16_t xPos, uint16_t yPos, uint8_t vol)
 	else if (editor.ui.numChannelsShown <= 6)
 	{
 		fontType = FONT_TYPE4;
-		charW    = FONT4_CHAR_W;
-		xPos    += 51;
+		charW = FONT4_CHAR_W;
+		xPos += 51;
 
 		char1 = vol2charTab1[vol >> 4];
 		if (vol < 0x10)
@@ -454,8 +451,8 @@ static void showVolEfx(uint8_t pal, uint16_t xPos, uint16_t yPos, uint8_t vol)
 	else
 	{
 		fontType = FONT_TYPE3;
-		charW    = FONT3_CHAR_W;
-		xPos    += 43;
+		charW = FONT3_CHAR_W;
+		xPos += 43;
 
 		char1 = vol2charTab2[vol >> 4];
 		if (vol < 0x10)
@@ -475,20 +472,20 @@ static void showEfx(uint8_t pal, uint16_t xPos, uint16_t yPos, uint8_t effTyp, u
 	if (editor.ui.numChannelsShown <= 4)
 	{
 		fontType = FONT_TYPE4;
-		charW    = FONT4_CHAR_W;
-		xPos    += 115;
+		charW = FONT4_CHAR_W;
+		xPos += 115;
 	}
 	else if (editor.ui.numChannelsShown <= 6)
 	{
 		fontType = FONT_TYPE4;
-		charW    = FONT4_CHAR_W;
-		xPos    += 67;
+		charW = FONT4_CHAR_W;
+		xPos += 67;
 	}
 	else
 	{
 		fontType = FONT_TYPE3;
-		charW    = FONT3_CHAR_W;
-		xPos    += 55;
+		charW = FONT3_CHAR_W;
+		xPos += 55;
 	}
 
 	pattCharOut(xPos,               yPos, pal, effTyp,     fontType);
@@ -538,26 +535,26 @@ static void showInstrNumNoVolColumn(uint8_t pal, uint16_t xPos, uint16_t yPos, u
 	if (editor.ui.numChannelsShown <= 4)
 	{
 		fontType = FONT_TYPE5;
-		charW    = FONT5_CHAR_W;
-		xPos    += 59;
+		charW = FONT5_CHAR_W;
+		xPos += 59;
 	}
 	else if (editor.ui.numChannelsShown <= 6)
 	{
 		fontType = FONT_TYPE4;
-		charW    = FONT4_CHAR_W;
-		xPos    += 51;
+		charW = FONT4_CHAR_W;
+		xPos += 51;
 	}
 	else if (editor.ui.numChannelsShown <= 8)
 	{
 		fontType = FONT_TYPE4;
-		charW    = FONT4_CHAR_W;
-		xPos    += 27;
+		charW = FONT4_CHAR_W;
+		xPos += 27;
 	}
 	else
 	{
 		fontType = FONT_TYPE3;
-		charW    = FONT3_CHAR_W;
-		xPos    += 23;
+		charW = FONT3_CHAR_W;
+		xPos += 23;
 	}
 
 	if (config.ptnInstrZero)
@@ -573,7 +570,7 @@ static void showInstrNumNoVolColumn(uint8_t pal, uint16_t xPos, uint16_t yPos, u
 		if (chr1 > 0)
 			pattCharOut(xPos, yPos, pal, chr1, fontType);
 
-		if ((chr1 > 0) || (chr2 > 0))
+		if (chr1 > 0 || chr2 > 0)
 			pattCharOut(xPos + charW, yPos, pal, chr2, fontType);
 	}
 }
@@ -581,10 +578,10 @@ static void showInstrNumNoVolColumn(uint8_t pal, uint16_t xPos, uint16_t yPos, u
 static void showNoVolEfx(uint8_t pal, uint16_t xPos, uint16_t yPos, uint8_t vol)
 {
 	// make compiler happy
-	(void)(pal);
-	(void)(xPos);
-	(void)(yPos);
-	(void)(vol);
+	(void)pal;
+	(void)xPos;
+	(void)yPos;
+	(void)vol;
 }
 
 static void showEfxNoVolColumn(uint8_t pal, uint16_t xPos, uint16_t yPos, uint8_t effTyp, uint8_t eff)
@@ -594,26 +591,26 @@ static void showEfxNoVolColumn(uint8_t pal, uint16_t xPos, uint16_t yPos, uint8_
 	if (editor.ui.numChannelsShown <= 4)
 	{
 		fontType = FONT_TYPE5;
-		charW    = FONT5_CHAR_W;
-		xPos    += 91;
+		charW = FONT5_CHAR_W;
+		xPos += 91;
 	}
 	else if (editor.ui.numChannelsShown <= 6)
 	{
 		fontType = FONT_TYPE4;
-		charW    = FONT4_CHAR_W;
-		xPos    += 67;
+		charW = FONT4_CHAR_W;
+		xPos += 67;
 	}
 	else if (editor.ui.numChannelsShown <= 8)
 	{
 		fontType = FONT_TYPE4;
-		charW    = FONT4_CHAR_W;
-		xPos    += 43;
+		charW = FONT4_CHAR_W;
+		xPos += 43;
 	}
 	else
 	{
 		fontType = FONT_TYPE3;
-		charW    = FONT3_CHAR_W;
-		xPos    += 31;
+		charW = FONT3_CHAR_W;
+		xPos += 31;
 	}
 
 	pattCharOut(xPos,               yPos, pal, effTyp,     fontType);
@@ -633,7 +630,7 @@ static void drawRowNumbers(const pattCoord_t *pattCoord, int16_t currRow, uint16
 			numRows = pattCoord->numUpperRows;
 
 		rowYPos = upperRowsYEnd;
-		for (j = 0; j < numRows; ++j)
+		for (j = 0; j < numRows; j++)
 		{
 			drawRowNum(rowYPos, currRow - j - 1, false);
 			rowYPos -= rowHeight;
@@ -651,7 +648,7 @@ static void drawRowNumbers(const pattCoord_t *pattCoord, int16_t currRow, uint16
 			numRows = pattCoord->numLowerRows;
 
 		rowYPos = pattCoord->lowerRowsTextY;
-		for (j = 0; j < numRows; ++j)
+		for (j = 0; j < numRows; j++)
 		{
 			drawRowNum(rowYPos, currRow + j + 1, false);
 			rowYPos += rowHeight;
@@ -661,7 +658,7 @@ static void drawRowNumbers(const pattCoord_t *pattCoord, int16_t currRow, uint16
 
 void writePattern(int16_t currRow, int16_t pattern)
 {
-	uint8_t i, chans, chNum;
+	uint8_t chans, chNum;
 	int16_t numRows, j;
 	uint16_t pattLen, xPos, rowYPos, rowHeight, chanWidth, upperRowsYEnd;
 	tonTyp *note, *pattPtr;
@@ -683,8 +680,8 @@ void writePattern(int16_t currRow, int16_t pattern)
 	editor.ui.patternChannelWidth = chanWidth + 3;
 
 	// get heights/pos/rows depending on configuration
-	pattCoord     = &pattCoordTable[config.ptnUnpressed][editor.ui.pattChanScrollShown][editor.ui.extended];
-	rowHeight     = config.ptnUnpressed ? 11 : 8;
+	pattCoord = &pattCoordTable[config.ptnUnpressed][editor.ui.pattChanScrollShown][editor.ui.extended];
+	rowHeight = config.ptnUnpressed ? 11 : 8;
 	upperRowsYEnd = pattCoord->upperRowsTextY + ((pattCoord->numUpperRows - 1) * rowHeight);
 
 	pattPtr = patt[pattern];
@@ -696,23 +693,23 @@ void writePattern(int16_t currRow, int16_t pattern)
 	// set up function pointers for drawing
 	if (config.ptnS3M)
 	{
-		drawNote   = showNoteNum;
-		drawInst   = showInstrNum;
+		drawNote = showNoteNum;
+		drawInst = showInstrNum;
 		drawVolEfx = showVolEfx;
-		drawEfx    = showEfx;
+		drawEfx = showEfx;
 	}
 	else
 	{
-		drawNote   = showNoteNumNoVolColumn;
-		drawInst   = showInstrNumNoVolColumn;
+		drawNote = showNoteNumNoVolColumn;
+		drawInst = showInstrNumNoVolColumn;
 		drawVolEfx = showNoVolEfx;
-		drawEfx    = showEfxNoVolColumn;
+		drawEfx = showEfxNoVolColumn;
 	}
 
 	// draw pattern data
 
 	xPos = 29;
-	for (i = 0; i < editor.ui.numChannelsShown; ++i)
+	for (uint8_t i = 0; i < editor.ui.numChannelsShown; i++)
 	{
 		chNum = editor.ui.channelOffset + i;
 
@@ -730,12 +727,12 @@ void writePattern(int16_t currRow, int16_t pattern)
 			else
 				note = &pattPtr[((currRow - 1) * MAX_VOICES) + chNum];
 
-			for (j = 0; j < numRows; ++j)
+			for (j = 0; j < numRows; j++)
 			{
-				drawNote(PAL_PATTEXT,   xPos, rowYPos, note->ton);
-				drawInst(PAL_PATTEXT,   xPos, rowYPos, note->instr);
+				drawNote(PAL_PATTEXT, xPos, rowYPos, note->ton);
+				drawInst(PAL_PATTEXT, xPos, rowYPos, note->instr);
 				drawVolEfx(PAL_PATTEXT, xPos, rowYPos, note->vol);
-				drawEfx(PAL_PATTEXT,    xPos, rowYPos, note->effTyp, note->eff);
+				drawEfx(PAL_PATTEXT, xPos, rowYPos, note->effTyp, note->eff);
 
 				if (pattPtr != NULL)
 					note -= MAX_VOICES;
@@ -751,14 +748,12 @@ void writePattern(int16_t currRow, int16_t pattern)
 		else
 			note = &pattPtr[(currRow * MAX_VOICES) + chNum];
 
-		{
-			rowYPos = pattCoord->midRowTextY;
+		rowYPos = pattCoord->midRowTextY;
 
-			drawNote(PAL_FORGRND,   xPos, rowYPos, note->ton);
-			drawInst(PAL_FORGRND,   xPos, rowYPos, note->instr);
-			drawVolEfx(PAL_FORGRND, xPos, rowYPos, note->vol);
-			drawEfx(PAL_FORGRND,    xPos, rowYPos, note->effTyp, note->eff);
-		}
+		drawNote(PAL_FORGRND, xPos, rowYPos, note->ton);
+		drawInst(PAL_FORGRND, xPos, rowYPos, note->instr);
+		drawVolEfx(PAL_FORGRND, xPos, rowYPos, note->vol);
+		drawEfx(PAL_FORGRND, xPos, rowYPos, note->effTyp, note->eff);
 
 		// lower rows
 		numRows = (pattLen - 1) - currRow;
@@ -774,12 +769,12 @@ void writePattern(int16_t currRow, int16_t pattern)
 			else
 				note = &pattPtr[((currRow + 1) * MAX_VOICES) + chNum];
 
-			for (j = 0; j < numRows; ++j)
+			for (j = 0; j < numRows; j++)
 			{
-				drawNote(PAL_PATTEXT,   xPos, rowYPos, note->ton);
-				drawInst(PAL_PATTEXT,   xPos, rowYPos, note->instr);
+				drawNote(PAL_PATTEXT, xPos, rowYPos, note->ton);
+				drawInst(PAL_PATTEXT, xPos, rowYPos, note->instr);
 				drawVolEfx(PAL_PATTEXT, xPos, rowYPos, note->vol);
-				drawEfx(PAL_PATTEXT,    xPos, rowYPos, note->effTyp, note->eff);
+				drawEfx(PAL_PATTEXT, xPos, rowYPos, note->effTyp, note->eff);
 
 				if (pattPtr != NULL)
 					note += MAX_VOICES;
@@ -806,7 +801,6 @@ void writePattern(int16_t currRow, int16_t pattern)
 void pattTwoHexOut(uint32_t xPos, uint32_t yPos, uint8_t paletteIndex, uint8_t val)
 {
 	const uint8_t *ch1Ptr, *ch2Ptr;
-	uint8_t x, y;
 	uint32_t *dstPtr, pixVal, offset;
 
 	pixVal = video.palette[paletteIndex];
@@ -815,9 +809,9 @@ void pattTwoHexOut(uint32_t xPos, uint32_t yPos, uint8_t paletteIndex, uint8_t v
 	ch2Ptr = &font4Data[((val & 0x0F) * FONT4_CHAR_W) + offset];
 	dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 
-	for (y = 0; y < FONT4_CHAR_H; ++y)
+	for (uint32_t y = 0; y < FONT4_CHAR_H; y++)
 	{
-		for (x = 0; x < FONT4_CHAR_W; ++x)
+		for (uint32_t x = 0; x < FONT4_CHAR_W; x++)
 		{
 			if (ch1Ptr[x]) dstPtr[x] = pixVal;
 			if (ch2Ptr[x]) dstPtr[FONT4_CHAR_W + x] = pixVal;
@@ -832,7 +826,7 @@ void pattTwoHexOut(uint32_t xPos, uint32_t yPos, uint8_t paletteIndex, uint8_t v
 static void rowNumOut(uint32_t yPos, uint8_t paletteIndex, uint8_t rowChar1, uint8_t rowChar2)
 {
 	const uint8_t *ch1Ptr, *ch2Ptr;
-	uint32_t x, y, *dstPtr, pixVal, offset;
+	uint32_t *dstPtr, pixVal, offset;
 
 	pixVal = video.palette[paletteIndex];
 	offset = config.ptnFont * (FONT4_WIDTH * FONT4_CHAR_H);
@@ -840,19 +834,19 @@ static void rowNumOut(uint32_t yPos, uint8_t paletteIndex, uint8_t rowChar1, uin
 	ch2Ptr = &font4Data[(rowChar2 * FONT4_CHAR_W) + offset];
 	dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + 8];
 
-	for (y = 0; y < FONT4_CHAR_H; ++y)
+	for (uint32_t y = 0; y < FONT4_CHAR_H; y++)
 	{
-		for (x = 0; x < FONT4_CHAR_W; ++x)
+		for (uint32_t x = 0; x < FONT4_CHAR_W; x++)
 		{
 			if (ch1Ptr[x])
 			{
-				dstPtr[x]       = pixVal; // left side
+				dstPtr[x] = pixVal; // left side
 				dstPtr[600 + x] = pixVal; // right side
 			}
 
 			if (ch2Ptr[x])
 			{
-				dstPtr[       FONT4_CHAR_W  + x] = pixVal; // left side
+				dstPtr[ FONT4_CHAR_W + x] = pixVal; // left side
 				dstPtr[(600 + FONT4_CHAR_W) + x] = pixVal; // right side
 			}
 		}
@@ -874,9 +868,9 @@ static void pattCharOut(uint32_t xPos, uint32_t yPos, uint8_t paletteIndex, uint
 	if (fontType == FONT_TYPE3)
 	{
 		srcPtr = &font3Data[chr * FONT3_CHAR_W];
-		for (y = 0; y < FONT3_CHAR_H; ++y)
+		for (y = 0; y < FONT3_CHAR_H; y++)
 		{
-			for (x = 0; x < FONT3_CHAR_W; ++x)
+			for (x = 0; x < FONT3_CHAR_W; x++)
 			{
 				if (srcPtr[x])
 					dstPtr[x] = pixVal;
@@ -889,9 +883,9 @@ static void pattCharOut(uint32_t xPos, uint32_t yPos, uint8_t paletteIndex, uint
 	else if (fontType == FONT_TYPE4)
 	{
 		srcPtr = &font4Data[(chr * FONT4_CHAR_W) + (config.ptnFont * (FONT4_WIDTH * FONT4_CHAR_H))];
-		for (y = 0; y < FONT4_CHAR_H; ++y)
+		for (y = 0; y < FONT4_CHAR_H; y++)
 		{
-			for (x = 0; x < FONT4_CHAR_W; ++x)
+			for (x = 0; x < FONT4_CHAR_W; x++)
 			{
 				if (srcPtr[x])
 					dstPtr[x] = pixVal;
@@ -904,9 +898,9 @@ static void pattCharOut(uint32_t xPos, uint32_t yPos, uint8_t paletteIndex, uint
 	else if (fontType == FONT_TYPE5)
 	{
 		srcPtr = &font5Data[(chr * FONT5_CHAR_W) + (config.ptnFont * (FONT5_WIDTH * FONT5_CHAR_H))];
-		for (y = 0; y < FONT5_CHAR_H; ++y)
+		for (y = 0; y < FONT5_CHAR_H; y++)
 		{
-			for (x = 0; x < FONT5_CHAR_W; ++x)
+			for (x = 0; x < FONT5_CHAR_W; x++)
 			{
 				if (srcPtr[x])
 					dstPtr[x] = pixVal;
@@ -919,9 +913,9 @@ static void pattCharOut(uint32_t xPos, uint32_t yPos, uint8_t paletteIndex, uint
 	else
 	{
 		srcPtr = &font7Data[chr * FONT7_CHAR_W];
-		for (y = 0; y < FONT7_CHAR_H; ++y)
+		for (y = 0; y < FONT7_CHAR_H; y++)
 		{
-			for (x = 0; x < FONT7_CHAR_W; ++x)
+			for (x = 0; x < FONT7_CHAR_W; x++)
 			{
 				if (srcPtr[x])
 					dstPtr[x] = pixVal;
@@ -936,15 +930,15 @@ static void pattCharOut(uint32_t xPos, uint32_t yPos, uint8_t paletteIndex, uint
 static void drawEmptyNoteSmall(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex)
 {
 	const uint8_t *srcPtr;
-	uint32_t x, y, *dstPtr, pixVal;
+	uint32_t *dstPtr, pixVal;
 
 	pixVal = video.palette[paletteIndex];
 	srcPtr = &font7Data[18 * FONT7_CHAR_W];
 	dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 
-	for (y = 0; y < FONT7_CHAR_H; ++y)
+	for (uint32_t y = 0; y < FONT7_CHAR_H; y++)
 	{
-		for (x = 0; x < (FONT7_CHAR_W * 3); ++x)
+		for (uint32_t x = 0; x < FONT7_CHAR_W*3; x++)
 		{
 			if (srcPtr[x])
 				dstPtr[x] = pixVal;
@@ -958,15 +952,15 @@ static void drawEmptyNoteSmall(uint16_t xPos, uint16_t yPos, uint8_t paletteInde
 static void drawKeyOffSmall(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex)
 {
 	const uint8_t *srcPtr;
-	uint32_t x, y, *dstPtr, pixVal;
+	uint32_t *dstPtr, pixVal;
 
 	pixVal = video.palette[paletteIndex];
 	srcPtr = &font7Data[21 * FONT7_CHAR_W];
 	dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + (xPos + 2)];
 
-	for (y = 0; y < FONT7_CHAR_H; ++y)
+	for (uint32_t y = 0; y < FONT7_CHAR_H; y++)
 	{
-		for (x = 0; x < (FONT7_CHAR_W * 2); ++x)
+		for (uint32_t x = 0; x < FONT7_CHAR_W*2; x++)
 		{
 			if (srcPtr[x])
 				dstPtr[x] = pixVal;
@@ -981,9 +975,9 @@ static void drawNoteSmall(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, in
 {
 	const uint8_t *ch1Ptr, *ch2Ptr, *ch3Ptr;
 	uint8_t note;
-	uint32_t x, y, *dstPtr, pixVal, char1, char2, char3;
+	uint32_t *dstPtr, pixVal, char1, char2, char3;
 
-	assert((ton >= 1) && (ton <= 97));
+	assert(ton >= 1 && ton <= 97);
 
 	ton--;
 
@@ -1007,9 +1001,9 @@ static void drawNoteSmall(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, in
 	ch3Ptr = &font7Data[char3];
 	dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 
-	for (y = 0; y < FONT7_CHAR_H; ++y)
+	for (uint32_t y = 0; y < FONT7_CHAR_H; y++)
 	{
-		for (x = 0; x < FONT7_CHAR_W; ++x)
+		for (uint32_t x = 0; x < FONT7_CHAR_W; x++)
 		{
 			if (ch1Ptr[x]) dstPtr[ (FONT7_CHAR_W * 0)      + x] = pixVal;
 			if (ch2Ptr[x]) dstPtr[ (FONT7_CHAR_W * 1)      + x] = pixVal;
@@ -1026,15 +1020,15 @@ static void drawNoteSmall(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, in
 static void drawEmptyNoteMedium(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex)
 {
 	const uint8_t *srcPtr;
-	uint32_t x, y, *dstPtr, pixVal;
+	uint32_t *dstPtr, pixVal;
 
 	pixVal = video.palette[paletteIndex];
 	dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 	srcPtr = &font4Data[(43 * FONT4_CHAR_W) + (config.ptnFont * (FONT4_WIDTH * FONT4_CHAR_H))];
 
-	for (y = 0; y < FONT4_CHAR_H; ++y)
+	for (uint32_t y = 0; y < FONT4_CHAR_H; y++)
 	{
-		for (x = 0; x < (FONT4_CHAR_W * 3); ++x)
+		for (uint32_t x = 0; x < FONT4_CHAR_W*3; x++)
 		{
 			if (srcPtr[x])
 				dstPtr[x] = pixVal;
@@ -1048,15 +1042,15 @@ static void drawEmptyNoteMedium(uint16_t xPos, uint16_t yPos, uint8_t paletteInd
 static void drawKeyOffMedium(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex)
 {
 	const uint8_t *srcPtr;
-	uint32_t x, y, *dstPtr, pixVal;
+	uint32_t *dstPtr, pixVal;
 
 	pixVal = video.palette[paletteIndex];
 	srcPtr = &font4Data[(40 * FONT4_CHAR_W) + (config.ptnFont * (FONT4_WIDTH * FONT4_CHAR_H))];
 	dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 
-	for (y = 0; y < FONT4_CHAR_H; ++y)
+	for (uint32_t y = 0; y < FONT4_CHAR_H; y++)
 	{
-		for (x = 0; x < (FONT4_CHAR_W * 3); ++x)
+		for (uint32_t x = 0; x < FONT4_CHAR_W*3; x++)
 		{
 			if (srcPtr[x])
 				dstPtr[x] = pixVal;
@@ -1071,9 +1065,9 @@ static void drawNoteMedium(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, i
 {
 	const uint8_t *ch1Ptr, *ch2Ptr, *ch3Ptr;
 	uint8_t note;
-	uint32_t x, y, *dstPtr, pixVal, fontOffset, char1, char2, char3;
+	uint32_t *dstPtr, pixVal, fontOffset, char1, char2, char3;
 
-	assert((ton >= 1) && (ton <= 97));
+	assert(ton >= 1 && ton <= 97);
 
 	ton--;
 
@@ -1091,16 +1085,16 @@ static void drawNoteMedium(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, i
 		char2 = flatNote2Char_med[note];
 	}
 
-	pixVal     = video.palette[paletteIndex];
+	pixVal = video.palette[paletteIndex];
 	fontOffset = config.ptnFont * (FONT4_WIDTH * FONT4_CHAR_H);
-	ch1Ptr     = &font4Data[char1 + fontOffset];
-	ch2Ptr     = &font4Data[char2 + fontOffset];
-	ch3Ptr     = &font4Data[char3 + fontOffset];
-	dstPtr     = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
+	ch1Ptr = &font4Data[char1 + fontOffset];
+	ch2Ptr = &font4Data[char2 + fontOffset];
+	ch3Ptr = &font4Data[char3 + fontOffset];
+	dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 
-	for (y = 0; y < FONT4_CHAR_H; ++y)
+	for (uint32_t y = 0; y < FONT4_CHAR_H; y++)
 	{
-		for (x = 0; x < FONT4_CHAR_W; ++x)
+		for (uint32_t x = 0; x < FONT4_CHAR_W; x++)
 		{
 			if (ch1Ptr[x]) dstPtr[(FONT4_CHAR_W * 0) + x] = pixVal;
 			if (ch2Ptr[x]) dstPtr[(FONT4_CHAR_W * 1) + x] = pixVal;
@@ -1117,15 +1111,15 @@ static void drawNoteMedium(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, i
 static void drawEmptyNoteBig(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex)
 {
 	const uint8_t *srcPtr;
-	uint32_t x, y, *dstPtr, pixVal;
+	uint32_t *dstPtr, pixVal;
 
 	pixVal = video.palette[paletteIndex];
 	srcPtr = &font4Data[(67 * FONT4_CHAR_W) + (config.ptnFont * (FONT4_WIDTH * FONT4_CHAR_H))];
 	dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 
-	for (y = 0; y < FONT4_CHAR_H; ++y)
+	for (uint32_t y = 0; y < FONT4_CHAR_H; y++)
 	{
-		for (x = 0; x < (FONT4_CHAR_W * 6); ++x)
+		for (uint32_t x = 0; x < FONT4_CHAR_W*6; x++)
 		{
 			if (srcPtr[x])
 				dstPtr[x] = pixVal;
@@ -1139,15 +1133,15 @@ static void drawEmptyNoteBig(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex)
 static void drawKeyOffBig(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex)
 {
 	const uint8_t *srcPtr;
-	uint32_t x, y, *dstPtr, pixVal;
+	uint32_t *dstPtr, pixVal;
 
 	pixVal = video.palette[paletteIndex];
 	srcPtr = &font4Data[(61 * FONT4_CHAR_W) + (config.ptnFont * (FONT4_WIDTH * FONT4_CHAR_H))];
 	dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 
-	for (y = 0; y < FONT4_CHAR_H; ++y)
+	for (uint32_t y = 0; y < FONT4_CHAR_H; y++)
 	{
-		for (x = 0; x < (FONT4_CHAR_W * 6); ++x)
+		for (uint32_t x = 0; x < FONT4_CHAR_W*6; x++)
 		{
 			if (srcPtr[x])
 				dstPtr[x] = pixVal;
@@ -1162,9 +1156,9 @@ static void drawNoteBig(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, int1
 {
 	const uint8_t *ch1Ptr, *ch2Ptr, *ch3Ptr;
 	uint8_t note;
-	uint32_t x, y, *dstPtr, pixVal, fontOffset, char1, char2, char3;
+	uint32_t *dstPtr, pixVal, fontOffset, char1, char2, char3;
 
-	assert((ton >= 1) && (ton <= 97));
+	assert(ton >= 1 && ton <= 97);
 
 	ton--;
 
@@ -1182,16 +1176,16 @@ static void drawNoteBig(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, int1
 		char2 = flatNote2Char_big[note];
 	}
 
-	pixVal     = video.palette[paletteIndex];
+	pixVal = video.palette[paletteIndex];
 	fontOffset = config.ptnFont * (FONT5_WIDTH * FONT5_CHAR_H);
-	ch1Ptr     = &font5Data[char1 + fontOffset];
-	ch2Ptr     = &font5Data[char2 + fontOffset];
-	ch3Ptr     = &font5Data[char3 + fontOffset];
-	dstPtr     = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
+	ch1Ptr = &font5Data[char1 + fontOffset];
+	ch2Ptr = &font5Data[char2 + fontOffset];
+	ch3Ptr = &font5Data[char3 + fontOffset];
+	dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 
-	for (y = 0; y < FONT5_CHAR_H; ++y)
+	for (uint32_t y = 0; y < FONT5_CHAR_H; y++)
 	{
-		for (x = 0; x < FONT5_CHAR_W; ++x)
+		for (uint32_t x = 0; x < FONT5_CHAR_W; x++)
 		{
 			if (ch1Ptr[x]) dstPtr[(FONT5_CHAR_W * 0) + x] = pixVal;
 			if (ch2Ptr[x]) dstPtr[(FONT5_CHAR_W * 1) + x] = pixVal;

@@ -59,7 +59,7 @@ enum
 {
 	LFF_DONE = 0,
 	LFF_SKIP = 1,
-	LFF_OK   = 2
+	LFF_OK = 2
 };
 
 typedef struct DirRec
@@ -93,14 +93,14 @@ int32_t getFileSize(UNICHAR *fileName) // returning -1 = filesize over 2GB
 #ifdef _WIN32
 	f = UNICHAR_FOPEN(fileName, "rb");
 	if (f == NULL)
-		return (0);
+		return 0;
 
 	_fseeki64(f, 0, SEEK_END);
 	fSize = _ftelli64(f);
 	fclose(f);
 #else
 	if (stat(fileName, &st) != 0)
-		return (0);
+		return 0;
 
 	fSize = (int64_t)(st.st_size);
 #endif
@@ -108,19 +108,19 @@ int32_t getFileSize(UNICHAR *fileName) // returning -1 = filesize over 2GB
 		fSize = 0;
 
 	if (fSize > INT32_MAX)
-		return (-1);
+		return -1;
 	
-	return (fSize & 0xFFFFFFFF);
+	return fSize & 0xFFFFFFFF;
 }
 
 uint8_t getDiskOpItem(void)
 {
-	return (FReq_Item);
+	return FReq_Item;
 }
 
 char *getCurrSongFilename(void) // for window title
 {
-	return (modTmpFNameUTF8);
+	return modTmpFNameUTF8;
 }
 
 void updateCurrSongFilename(void) // for window title
@@ -150,22 +150,22 @@ static uint32_t driveIndexes[DISKOP_MAX_DRIVE_BUTTONS];
 
 char *getDiskOpFilename(void)
 {
-	return (FReq_FileName);
+	return FReq_FileName;
 }
 
 const UNICHAR *getDiskOpCurPath(void)
 {
-	return (FReq_CurPathU);
+	return FReq_CurPathU;
 }
 
 const UNICHAR *getDiskOpModPath(void)
 {
-	return (FReq_ModCurPathU);
+	return FReq_ModCurPathU;
 }
 
 const UNICHAR *getDiskOpSmpPath(void)
 {
-	return (FReq_SmpCurPathU);
+	return FReq_SmpCurPathU;
 }
 
 static void setupInitialPaths(void)
@@ -212,11 +212,9 @@ static void setupInitialPaths(void)
 
 static void freeDirRecBuffer(void)
 {
-	int32_t i;
-
 	if (FReq_Buffer != NULL)
 	{
-		for (i = 0; i < FReq_FileCount; ++i)
+		for (int32_t i = 0; i < FReq_FileCount; i++)
 		{
 			if (FReq_Buffer[i].nameU != NULL)
 				free(FReq_Buffer[i].nameU);
@@ -243,47 +241,44 @@ void freeDiskOp(void)
 		editor.tmpInstrFilenameU = NULL;
 	}
 
-	if (modTmpFName      != NULL) { free(modTmpFName);      modTmpFName      = NULL; }
-	if (insTmpFName      != NULL) { free(insTmpFName);      insTmpFName      = NULL; }
-	if (smpTmpFName      != NULL) { free(smpTmpFName);      smpTmpFName      = NULL; }
-	if (patTmpFName      != NULL) { free(patTmpFName);      patTmpFName      = NULL; }
-	if (trkTmpFName      != NULL) { free(trkTmpFName);      trkTmpFName      = NULL; }
-	if (FReq_NameTemp    != NULL) { free(FReq_NameTemp);    FReq_NameTemp    = NULL; }
+	if (modTmpFName != NULL) { free(modTmpFName); modTmpFName = NULL; }
+	if (insTmpFName != NULL) { free(insTmpFName); insTmpFName = NULL; }
+	if (smpTmpFName != NULL) { free(smpTmpFName); smpTmpFName = NULL; }
+	if (patTmpFName != NULL) { free(patTmpFName); patTmpFName = NULL; }
+	if (trkTmpFName != NULL) { free(trkTmpFName); trkTmpFName = NULL; }
+	if (FReq_NameTemp != NULL) { free(FReq_NameTemp); FReq_NameTemp = NULL; }
 	if (FReq_ModCurPathU != NULL) { free(FReq_ModCurPathU); FReq_ModCurPathU = NULL; }
 	if (FReq_InsCurPathU != NULL) { free(FReq_InsCurPathU); FReq_InsCurPathU = NULL; }
 	if (FReq_SmpCurPathU != NULL) { free(FReq_SmpCurPathU); FReq_SmpCurPathU = NULL; }
 	if (FReq_PatCurPathU != NULL) { free(FReq_PatCurPathU); FReq_PatCurPathU = NULL; }
 	if (FReq_TrkCurPathU != NULL) { free(FReq_TrkCurPathU); FReq_TrkCurPathU = NULL; }
-	if (modTmpFNameUTF8  != NULL) { free(modTmpFNameUTF8);  modTmpFNameUTF8  = NULL; }
+	if (modTmpFNameUTF8 != NULL) { free(modTmpFNameUTF8); modTmpFNameUTF8 = NULL; }
 
 	freeDirRecBuffer();
 }
 
 bool setupDiskOp(void)
 {
-	modTmpFName      =    (char *)(calloc(PATH_MAX + 1, sizeof (char)));
-	insTmpFName      =    (char *)(calloc(PATH_MAX + 1, sizeof (char)));
-	smpTmpFName      =    (char *)(calloc(PATH_MAX + 1, sizeof (char)));
-	patTmpFName      =    (char *)(calloc(PATH_MAX + 1, sizeof (char)));
-	trkTmpFName      =    (char *)(calloc(PATH_MAX + 1, sizeof (char)));
-	FReq_NameTemp    =    (char *)(calloc(PATH_MAX + 1, sizeof (char)));
-	FReq_ModCurPathU = (UNICHAR *)(calloc(PATH_MAX + 2, sizeof (UNICHAR)));
-	FReq_InsCurPathU = (UNICHAR *)(calloc(PATH_MAX + 2, sizeof (UNICHAR)));
-	FReq_SmpCurPathU = (UNICHAR *)(calloc(PATH_MAX + 2, sizeof (UNICHAR)));
-	FReq_PatCurPathU = (UNICHAR *)(calloc(PATH_MAX + 2, sizeof (UNICHAR)));
-	FReq_TrkCurPathU = (UNICHAR *)(calloc(PATH_MAX + 2, sizeof (UNICHAR)));
+	modTmpFName = (char *)calloc(PATH_MAX + 1, sizeof (char));
+	insTmpFName = (char *)calloc(PATH_MAX + 1, sizeof (char));
+	smpTmpFName = (char *)calloc(PATH_MAX + 1, sizeof (char));
+	patTmpFName = (char *)calloc(PATH_MAX + 1, sizeof (char));
+	trkTmpFName = (char *)calloc(PATH_MAX + 1, sizeof (char));
+	FReq_NameTemp = (char *)calloc(PATH_MAX + 1, sizeof (char));
+	FReq_ModCurPathU = (UNICHAR *)calloc(PATH_MAX + 2, sizeof (UNICHAR));
+	FReq_InsCurPathU = (UNICHAR *)calloc(PATH_MAX + 2, sizeof (UNICHAR));
+	FReq_SmpCurPathU = (UNICHAR *)calloc(PATH_MAX + 2, sizeof (UNICHAR));
+	FReq_PatCurPathU = (UNICHAR *)calloc(PATH_MAX + 2, sizeof (UNICHAR));
+	FReq_TrkCurPathU = (UNICHAR *)calloc(PATH_MAX + 2, sizeof (UNICHAR));
 
-	if ((modTmpFName      == NULL) || (insTmpFName      == NULL) ||
-		(smpTmpFName      == NULL) || (patTmpFName      == NULL) ||
-		(trkTmpFName      == NULL) || (FReq_NameTemp    == NULL) ||
-		(FReq_ModCurPathU == NULL) || (FReq_InsCurPathU == NULL) ||
-		(FReq_SmpCurPathU == NULL) || (FReq_PatCurPathU == NULL) ||
-		(FReq_TrkCurPathU == NULL)
-	   )
+	if (modTmpFName      == NULL || insTmpFName      == NULL || smpTmpFName      == NULL ||
+		patTmpFName      == NULL || trkTmpFName      == NULL || FReq_NameTemp    == NULL ||
+		FReq_ModCurPathU == NULL || FReq_InsCurPathU == NULL || FReq_SmpCurPathU == NULL ||
+		FReq_PatCurPathU == NULL || FReq_TrkCurPathU == NULL)
 	{
 		// allocated memory is free'd lateron
 		showErrorMsgBox("Not enough memory!");
-		return (false);
+		return false;
 	}
 
 	strcpy(modTmpFName, "untitled.xm");
@@ -298,34 +293,32 @@ bool setupDiskOp(void)
 	updateCurrSongFilename(); // for window title
 	updateWindowTitle(true);
 
-	return (true);
+	return true;
 }
 
 int32_t getExtOffset(char *s, int32_t stringLen) // get byte offset of file extension (last '.')
 {
-	int32_t i;
+	if (s == NULL || stringLen < 1)
+		return -1;
 
-	if ((s == NULL) || (stringLen < 1))
-		return (-1);
-
-	for (i = stringLen - 1; i >= 0; --i)
+	for (int32_t i = stringLen - 1; i >= 0; i--)
 	{
-		if ((i != 0) && (s[i] == '.'))
-			return (i);
+		if (i != 0 && s[i] == '.')
+			return i;
 	}
 
-	return (-1);
+	return -1;
 }
 
-static void removeQuestionMarksFromString(char *s)
+static void removeQuestionmarksFromString(char *s)
 {
-	int32_t i, len;
+	int32_t len;
 
-	if ((s == NULL) || (*s == '\0'))
+	if (s == NULL || *s == '\0')
 		return;
 
-	len = (int32_t)(strlen(s));
-	for (i = 0; i < len; ++i)
+	len = (int32_t)strlen(s);
+	for (int32_t i = 0; i < len; i++)
 	{
 		if (s[i] == '?')
 			s[i] = ' ' ;
@@ -341,12 +334,12 @@ bool fileExistsAnsi(char *str)
 
 	strU = cp437ToUnichar(str);
 	if (strU == NULL)
-		return (false);
+		return false;
 
 	retVal = PathFileExistsW(strU);
 	free(strU);
 
-	return (retVal);
+	return retVal;
 }
 
 static bool deleteDirRecursive(UNICHAR *strU)
@@ -368,7 +361,7 @@ static bool makeDirAnsi(char *str)
 
 	strU = cp437ToUnichar(str);
 	if (strU == NULL)
-		return (false);
+		return false;
 
 	retVal = _wmkdir(strU);
 	free(strU);
@@ -383,7 +376,7 @@ static bool renameAnsi(UNICHAR *oldNameU, char *newName)
 
 	newNameU = cp437ToUnichar(newName);
 	if (newNameU == NULL)
-		return (false);
+		return false;
 
 	retVal = UNICHAR_RENAME(oldNameU, newNameU);
 	free(newNameU);
@@ -402,7 +395,7 @@ static void setupDiskOpDrives(void) // Windows only
 
 	// get number of drives and drive names
 	drivesBitmask = GetLogicalDrives();
-	for (i = 0; i < (8 * sizeof (uint32_t)); i++)
+	for (i = 0; i < 8*sizeof (uint32_t); i++)
 	{
 		if ((drivesBitmask & (1 << i)) != 0)
 		{
@@ -413,11 +406,11 @@ static void setupDiskOpDrives(void) // Windows only
 	}
 
 	// hide all buttons
-	for (i = 0; i < DISKOP_MAX_DRIVE_BUTTONS; ++i)
+	for (i = 0; i < DISKOP_MAX_DRIVE_BUTTONS; i++)
 		hidePushButton(PB_DISKOP_DRIVE1 + i);
 
 	// set button names and show buttons
-	for (i = 0; i < numLogicalDrives; ++i)
+	for (i = 0; i < numLogicalDrives; i++)
 	{
 		pushButtons[PB_DISKOP_DRIVE1 + i].caption = logicalDriveNames[driveIndexes[i]];
 		showPushButton(PB_DISKOP_DRIVE1 + i);
@@ -432,7 +425,7 @@ static void openDrive(char *str) // Windows only
 		return;
 	}
 
-	if ((str == NULL) || (*str == '\0'))
+	if (str == NULL || *str == '\0')
 	{
 		okBox(0, "System message", "Couldn't open drive!");
 		return;
@@ -453,7 +446,7 @@ bool fileExistsAnsi(char *str)
 
 	strU = cp437ToUnichar(str);
 	if (strU == NULL)
-		return (false);
+		return false;
 
 	retVal = access(strU, F_OK);
 	free(strU);
@@ -472,7 +465,7 @@ static bool deleteDirRecursive(UNICHAR *strU)
 
 	ftsp = fts_open(files, FTS_NOCHDIR | FTS_PHYSICAL | FTS_XDEV, NULL);
 	if (!ftsp)
-		return (false);
+		return false;
 
 	ret = true;
 	while ((curr = fts_read(ftsp)))
@@ -508,7 +501,7 @@ static bool deleteDirRecursive(UNICHAR *strU)
 	if (ftsp != NULL)
 		fts_close(ftsp);
 
-	return (ret);
+	return ret;
 }
 
 static bool makeDirAnsi(char *str)
@@ -518,7 +511,7 @@ static bool makeDirAnsi(char *str)
 
 	strU = cp437ToUnichar(str);
 	if (strU == NULL)
-		return (false);
+		return false;
 
 	retVal = mkdir(str, S_IRWXU | S_IRWXG | S_IROTH | S_IXOTH);
 	free(strU);
@@ -533,7 +526,7 @@ static bool renameAnsi(UNICHAR *oldNameU, char *newName)
 
 	newNameU = cp437ToUnichar(newName);
 	if (newNameU == NULL)
-		return (false);
+		return false;
 
 	retVal = UNICHAR_RENAME(oldNameU, newNameU);
 	free(newNameU);
@@ -544,7 +537,7 @@ static bool renameAnsi(UNICHAR *oldNameU, char *newName)
 
 static void openDirectory(UNICHAR *strU)
 {
-	if ((strU == NULL) || (UNICHAR_STRLEN(strU) == 0))
+	if (strU == NULL || UNICHAR_STRLEN(strU) == 0)
 	{
 		okBox(0, "System message", "Couldn't open directory! No permission or in use?");
 		return;
@@ -563,10 +556,10 @@ bool diskOpGoParent(void)
 		editor.diskOpReadDir = true;
 		FReq_EntrySelected = -1;
 
-		return (true);
+		return true;
 	}
 
-	return (false);
+	return false;
 }
 
 static char *getFilenameFromPath(char *p)
@@ -576,21 +569,21 @@ static char *getFilenameFromPath(char *p)
 	if (p == NULL)
 		return (p);
 
-	len = (int32_t)(strlen(p));
-	if ((len < 2) || (p[len - 1] == DIR_DELIMITER))
+	len = (int32_t)strlen(p);
+	if (len < 2 || p[len-1] == DIR_DELIMITER)
 		return (p);
 
 	// search for last directory delimiter
-	for (i = len - 1; i >= 0; --i)
+	for (i = len - 1; i >= 0; i--)
 	{
 		if (p[i] == DIR_DELIMITER)
 			break;
 	}
 
 	if (i != 0)
-		p += (i + 1); // we found a directory delimiter - skip to the last one
+		p += i + 1; // we found a directory delimiter - skip to the last one
 
-	return (p);
+	return p;
 }
 
 void sanitizeFilename(const char *src)
@@ -599,11 +592,11 @@ void sanitizeFilename(const char *src)
 	const char illegalChars[] = "\\/:*?\"<>|";
 	char *ptr;
 
-	if ((src == NULL) || (*src == '\0'))
+	if (src == NULL || *src == '\0')
 		return;
 
 	// convert illegal characters to space (for making a filename the OS will accept)
-	while ((ptr = (char *)(strpbrk(src, illegalChars))) != NULL)
+	while ((ptr = (char *)strpbrk(src, illegalChars)) != NULL)
 		*ptr = ' ';
 }
 
@@ -616,7 +609,7 @@ void diskOpSetFilename(uint8_t type, UNICHAR *pathU)
 		return;
 
 	filename = getFilenameFromPath(ansiPath);
-	if (strlen(filename) > (PATH_MAX - 1))
+	if (strlen(filename) > PATH_MAX-1)
 	{
 		free(ansiPath);
 		return; // filename is too long, don't bother to copy it over
@@ -693,7 +686,7 @@ static void openFile(UNICHAR *filenameU, bool songModifiedCheck)
 		return;
 	}
 
-	if (filesize >= (128L * 1024 * 1024)) // 128MB
+	if (filesize >= 128L*1024*1024) // 128MB
 	{
 		if (okBox(2, "System request", "Are you sure you want to load such a big file?") != 1)
 			return;
@@ -720,10 +713,10 @@ static void openFile(UNICHAR *filenameU, bool songModifiedCheck)
 		}
 		break;
 
-		case DISKOP_ITEM_INSTR:   loadInstr(filenameU);                        break;
+		case DISKOP_ITEM_INSTR:   loadInstr(filenameU); break;
 		case DISKOP_ITEM_SAMPLE:  loadSample(filenameU, editor.curSmp, false); break;
-		case DISKOP_ITEM_PATTERN: loadPattern(filenameU);                      break;
-		case DISKOP_ITEM_TRACK:   loadTrack(filenameU);                        break;
+		case DISKOP_ITEM_PATTERN: loadPattern(filenameU); break;
+		case DISKOP_ITEM_TRACK:   loadTrack(filenameU); break;
 	}
 }
 
@@ -731,10 +724,10 @@ static void removeFilenameExt(char *name)
 {
 	int32_t extOffset, len;
 
-	if ((name == NULL) || (*name == '\0'))
+	if (name == NULL || *name == '\0')
 		return;
 
-	len = (int32_t)(strlen(name));
+	len = (int32_t)strlen(name);
 
 	extOffset = getExtOffset(name, len);
 	if (extOffset != -1)
@@ -745,16 +738,16 @@ void changeFilenameExt(char *name, char *ext, int32_t nameMaxLen)
 {
 	int32_t len, extLen;
 
-	 if ((name == NULL) || (name[0] == '\0') || (ext == NULL))
+	 if (name == NULL || name[0] == '\0' || ext == NULL)
 		 return;
 
 	 removeFilenameExt(name);
 
-	 len    = (int32_t)(strlen(name));
-	 extLen = (int32_t)(strlen(ext));
+	 len    = (int32_t)strlen(name);
+	 extLen = (int32_t)strlen(ext);
 
-	 if ((len + extLen) > (nameMaxLen - 1))
-		 name[(nameMaxLen - 1) - extLen] = '\0';
+	 if (len + extLen > nameMaxLen-1)
+		 name[(nameMaxLen-1) - extLen] = '\0';
 
 	 strcat(name, ext);
 
@@ -774,33 +767,32 @@ void trimEntryName(char *name, bool isDir)
 	char extBuffer[24];
 	int32_t j, extOffset, extLen;
 
-	j = (int32_t)(strlen(name));
+	j = (int32_t)strlen(name);
 	extOffset = getExtOffset(name, j);
-	extLen    = (int32_t)(strlen(&name[extOffset]));
+	extLen = (int32_t)strlen(&name[extOffset]);
 	j--;
 
 	if (isDir)
 	{
 		// directory
-		while ((textWidth(name) > (160 - 8)) && (j >= 2))
+		while (textWidth(name) > 160-8 && j >= 2)
 		{
-			name[j - 2] = '.';
-			name[j - 1] = '.';
-			name[j - 0] = '\0';
+			name[j-2] = '.';
+			name[j-1] = '.';
+			name[j-0] = '\0';
 			j--;
 		}
 
 		return;
 	}
 
-	if ((extOffset != -1) && (extLen <= 4))
+	if (extOffset != -1 && extLen <= 4)
 	{
 		// has extension
-
 		sprintf(extBuffer, ".. %s", &name[extOffset]); // "testtestte... .xm"
 
-		extLen = (int32_t)(strlen(extBuffer));
-		while ((textWidth(name) >= (FILESIZE_TEXT_X -  FILENAME_TEXT_X)) && (j >= (1 + extLen)))
+		extLen = (int32_t)strlen(extBuffer);
+		while (textWidth(name) >= FILESIZE_TEXT_X-FILENAME_TEXT_X && j >= extLen+1)
 		{
 			memcpy(&name[j - extLen], extBuffer, extLen + 1);
 			j--;
@@ -809,11 +801,11 @@ void trimEntryName(char *name, bool isDir)
 	else
 	{
 		// no extension
-		while (textWidth(name) >= (FILESIZE_TEXT_X -  FILENAME_TEXT_X) && (j >= 2))
+		while (textWidth(name) >= FILESIZE_TEXT_X-FILENAME_TEXT_X && j >= 2)
 		{
-			name[j - 2] = '.';
-			name[j - 1] = '.';
-			name[j - 0] = '\0';
+			name[j-2] = '.';
+			name[j-1] = '.';
+			name[j-0] = '\0';
 			j--;
 		}
 	}
@@ -825,7 +817,7 @@ static void createOverwriteText(char *name)
 	uint32_t nameLen;
 
 	// read entry name to a small buffer
-	nameLen = (uint32_t)(strlen(name));
+	nameLen = (uint32_t)strlen(name);
 	memcpy(nameTmp, name, (nameLen >= sizeof (nameTmp)) ? sizeof (nameTmp) : (nameLen + 1));
 	nameTmp[sizeof (nameTmp) - 1] = '\0';
 
@@ -852,7 +844,7 @@ static void diskOpSave(bool checkOverwrite)
 	}
 
 	// test for illegal file name
-	if ((FReq_FileName[0] == '\0') || (strpbrk(FReq_FileName, "\\/:*?\"<>|") != NULL))
+	if (FReq_FileName[0] == '\0' || strpbrk(FReq_FileName, "\\/:*?\"<>|") != NULL)
 	{
 		okBox(0, "System message", "The filename can't contain the following characters: \\ / : * ? \" < > |");
 		return;
@@ -865,9 +857,9 @@ static void diskOpSave(bool checkOverwrite)
 		{
 			switch (editor.moduleSaveMode)
 			{
-						 case MOD_SAVE_MODE_MOD: diskOpChangeFilenameExt(".mod"); break;
+				         case MOD_SAVE_MODE_MOD: diskOpChangeFilenameExt(".mod"); break;
 				default: case MOD_SAVE_MODE_XM:  diskOpChangeFilenameExt(".xm");  break;
-						 case MOD_SAVE_MODE_WAV: diskOpChangeFilenameExt(".wav"); break;
+				         case MOD_SAVE_MODE_WAV: diskOpChangeFilenameExt(".wav"); break;
 			}
 
 			// enter WAV renderer if needed
@@ -926,8 +918,8 @@ static void diskOpSave(bool checkOverwrite)
 		{
 			switch (editor.sampleSaveMode)
 			{
-						 case SMP_SAVE_MODE_RAW: diskOpChangeFilenameExt(".raw"); break;
-						 case SMP_SAVE_MODE_IFF: diskOpChangeFilenameExt(".iff"); break;
+				         case SMP_SAVE_MODE_RAW: diskOpChangeFilenameExt(".raw"); break;
+				         case SMP_SAVE_MODE_IFF: diskOpChangeFilenameExt(".iff"); break;
 				default: case SMP_SAVE_MODE_WAV: diskOpChangeFilenameExt(".wav"); break;
 			}
 
@@ -1012,7 +1004,7 @@ static void fileListPressed(int32_t index)
 	DirRec *dirEntry;
 
 	entryIndex = FReq_DirPos + index;
-	if ((entryIndex >= FReq_FileCount) || (FReq_FileCount == 0))
+	if (entryIndex >= FReq_FileCount || FReq_FileCount == 0)
 		return; // illegal entry
 
 	mode = mouse.mode;
@@ -1042,7 +1034,7 @@ static void fileListPressed(int32_t index)
 		// delete file/folder
 		case MOUSE_MODE_DELETE:
 		{
-			if (!(dirEntry->isDir && !UNICHAR_STRCMP(dirEntry->nameU, PARENT_DIR_STR))) // don't handle ".." dir
+			if (!dirEntry->isDir || UNICHAR_STRCMP(dirEntry->nameU, PARENT_DIR_STR)) // don't handle ".." dir
 			{
 				nameTmp = unicharToCp437(dirEntry->nameU, true);
 				if (nameTmp == NULL)
@@ -1083,7 +1075,7 @@ static void fileListPressed(int32_t index)
 		// rename file/folder
 		case MOUSE_MODE_RENAME:
 		{
-			if (!(dirEntry->isDir && !UNICHAR_STRCMP(dirEntry->nameU, PARENT_DIR_STR))) // don't handle ".." dir
+			if (dirEntry->isDir || UNICHAR_STRCMP(dirEntry->nameU, PARENT_DIR_STR)) // don't handle ".." dir
 			{
 				nameTmp = unicharToCp437(dirEntry->nameU, true);
 				if (nameTmp == NULL)
@@ -1093,7 +1085,7 @@ static void fileListPressed(int32_t index)
 				free(nameTmp);
 
 				// in case of UTF8 -> CP437 encoding failure, there can be question marks. Remove them...
-				removeQuestionMarksFromString(FReq_NameTemp);
+				removeQuestionmarksFromString(FReq_NameTemp);
 
 				if (inputBox(2, dirEntry->isDir ? "Enter new directoryname:" : "Enter new filename:", FReq_NameTemp, PATH_MAX - 1) == 1)
 				{
@@ -1125,8 +1117,8 @@ bool testDiskOpMouseDown(bool mouseHeldDlown)
 {
 	int32_t tmpEntry, max;
 
-	if (!editor.ui.diskOpShown || (FReq_FileCount == 0))
-		return (false);
+	if (!editor.ui.diskOpShown || FReq_FileCount == 0)
+		return false;
 
 	max = FReq_FileCount - FReq_DirPos;
 	if (max > DISKOP_ENTRY_NUM) // needed kludge when mouse-scrolling
@@ -1136,21 +1128,20 @@ bool testDiskOpMouseDown(bool mouseHeldDlown)
 	{
 		FReq_EntrySelected = -1;
 
-		if ((mouse.x >= 169) && (mouse.x <= 331) &&
-			(mouse.y >=   4) && (mouse.y <= 168))
+		if (mouse.x >= 169 && mouse.x <= 331 && mouse.y >= 4 && mouse.y <= 168)
 		{
 			tmpEntry = (mouse.y - 4) / (FONT1_CHAR_H + 1);
-			if ((tmpEntry >= 0) && (tmpEntry < max))
+			if (tmpEntry >= 0 && tmpEntry < max)
 			{
 				FReq_EntrySelected = tmpEntry;
 				diskOp_DrawDirectory();
 			}
 
 			mouse.lastUsedObjectType = OBJECT_DISKOPLIST;
-			return (true);
+			return true;
 		}
 
-		return (false);
+		return false;
 	}
 
 	// handle scrolling if outside of disk op. list area
@@ -1166,17 +1157,17 @@ bool testDiskOpMouseDown(bool mouseHeldDlown)
 	}
 
 	if (mouse.y == lastMouseY)
-		return (true);
+		return true;
 
 	lastMouseY = mouse.y;
 
 	tmpEntry = (mouse.y - 4) / (FONT1_CHAR_H + 1);
-	if ((mouse.y < 4) || (tmpEntry < 0) || (tmpEntry >= max) || (mouse.x < 169) || (mouse.x > 331))
+	if (mouse.x < 169 || mouse.x > 331 || mouse.y < 4 || tmpEntry < 0 || tmpEntry >= max)
 	{
 		FReq_EntrySelected = -1;
 		diskOp_DrawDirectory();
 
-		return (true);
+		return true;
 	}
 
 	if (tmpEntry != FReq_EntrySelected)
@@ -1185,14 +1176,14 @@ bool testDiskOpMouseDown(bool mouseHeldDlown)
 		diskOp_DrawDirectory();
 	}
 
-	return (true);
+	return true;
 }
 
 void testDiskOpMouseRelease(void)
 {
-	if (editor.ui.diskOpShown && (FReq_EntrySelected != -1))
+	if (editor.ui.diskOpShown && FReq_EntrySelected != -1)
 	{
-		if ((mouse.x >= 169) && (mouse.x <= 329) && (mouse.y >= 4) && (mouse.y <= 168))
+		if (mouse.x >= 169 && mouse.x <= 329 && mouse.y >= 4 && mouse.y <= 168)
 			fileListPressed((mouse.y - 4) / (FONT1_CHAR_H + 1));
 
 		FReq_EntrySelected = -1;
@@ -1207,35 +1198,33 @@ static uint8_t handleEntrySkip(UNICHAR *nameU, bool isDir)
 
 	// skip if illegal name or filesize >32-bit
 	if (nameU == NULL)
-		return (true);
+		return true;
 
 	name = unicharToCp437(nameU, false);
 	if (name == NULL)
-		return (true);
+		return true;
 
-	nameLen = (int32_t)(strlen(name));
+	nameLen = (int32_t)strlen(name);
 	if (nameLen == 0)
 	{
 		free(name);
-		return (true);
+		return true;
 	}
 
 	// skip ".name" dirs/files
-	if (!((name[0] == '.') && (name[1] == '.') && (name[2] == '\0')))
+	if (nameLen >= 2 && name[0] == '.' && name[1] != '.')
 	{
-		if ((nameLen > 1) && (name[0] == '.'))
-		{
-			free(name);
-			return (true);
-		}
+		free(name);
+		return true;
 	}
 
 	if (isDir)
 	{
-		if (!strcmp(name, "."))
+		// skip '.' directory
+		if (nameLen == 1 && name[0] == '.')
 		{
 			free(name);
-			return (true); // skip '.' directory
+			return true;
 		}
 	}
 	else if (!FReq_ShowAllFiles)
@@ -1244,14 +1233,14 @@ static uint8_t handleEntrySkip(UNICHAR *nameU, bool isDir)
 		if (extOffset == -1)
 		{
 			free(name);
-			return (true);
+			return true;
 		}
 
-		extLen = (int32_t)(strlen(&name[extOffset]));
-		if ((extLen < 3) || (extLen > 5))
+		extLen = (int32_t)strlen(&name[extOffset]);
+		if (extLen < 3 || extLen > 5)
 		{
 			free(name);
-			return (true); // no possibly known extensions to filter out
+			return true; // no possibly known extensions to filter out
 		}
 
 		extPtr = &name[extOffset];
@@ -1267,7 +1256,7 @@ static uint8_t handleEntrySkip(UNICHAR *nameU, bool isDir)
 					if (_stricmp(".xm", extPtr) && _stricmp(".ft", extPtr))
 					{
 						free(name);
-						return (true); // skip, none of the extensions above
+						return true; // skip, none of the extensions above
 					}
 				}
 				else if (extLen == 4)
@@ -1277,13 +1266,13 @@ static uint8_t handleEntrySkip(UNICHAR *nameU, bool isDir)
 						_stricmp(".fst", extPtr) && _stricmp(".wav", extPtr))
 					{
 						free(name);
-						return (true); // skip, none of the extensions above
+						return true; // skip, none of the extensions above
 					}
 				}
 				else
 				{
 					free(name);
-					return (true);
+					return true;
 				}
 			}
 			break;
@@ -1295,7 +1284,7 @@ static uint8_t handleEntrySkip(UNICHAR *nameU, bool isDir)
 					if (_stricmp(".xi", extPtr))
 					{
 						free(name);
-						return (true); // skip, none of the extensions above
+						return true; // skip, none of the extensions above
 					}
 				}
 				else if (extLen == 4)
@@ -1306,7 +1295,7 @@ static uint8_t handleEntrySkip(UNICHAR *nameU, bool isDir)
 						_stricmp(".aif", extPtr) && _stricmp(".pat", extPtr))
 					{
 						free(name);
-						return (true); // skip, none of the extensions above
+						return true; // skip, none of the extensions above
 					}
 				}
 				else if (extLen == 5)
@@ -1314,13 +1303,13 @@ static uint8_t handleEntrySkip(UNICHAR *nameU, bool isDir)
 					if (_stricmp(".aiff", extPtr))
 					{
 						free(name);
-						return (true); // skip, not the extension above
+						return true; // skip, not the extension above
 					}
 				}
 				else
 				{
 					free(name);
-					return (true);
+					return true;
 				}
 			}
 			break;
@@ -1335,7 +1324,7 @@ static uint8_t handleEntrySkip(UNICHAR *nameU, bool isDir)
 						_stricmp(".aif", extPtr))
 					{
 						free(name);
-						return (true); // skip, none of the extensions above
+						return true; // skip, none of the extensions above
 					}
 				}
 				else if (extLen == 5)
@@ -1343,13 +1332,13 @@ static uint8_t handleEntrySkip(UNICHAR *nameU, bool isDir)
 					if (_stricmp(".aiff", extPtr))
 					{
 						free(name);
-						return (true); // skip, not the extension above
+						return true; // skip, not the extension above
 					}
 				}
 				else
 				{
 					free(name);
-					return (true);
+					return true;
 				}
 			}
 			break;
@@ -1361,13 +1350,13 @@ static uint8_t handleEntrySkip(UNICHAR *nameU, bool isDir)
 					if (_stricmp(".xp", extPtr))
 					{
 						free(name);
-						return (true); // skip, not the extension above
+						return true; // skip, not the extension above
 					}
 				}
 				else
 				{
 					free(name);
-					return (true);
+					return true;
 				}
 			}
 			break;
@@ -1379,13 +1368,13 @@ static uint8_t handleEntrySkip(UNICHAR *nameU, bool isDir)
 					if (_stricmp(".xt", extPtr))
 					{
 						free(name);
-						return (true); // skip, not the extension above
+						return true; // skip, not the extension above
 					}
 				}
 				else
 				{
 					free(name);
-					return (true);
+					return true;
 				}
 			}
 			break;
@@ -1393,7 +1382,7 @@ static uint8_t handleEntrySkip(UNICHAR *nameU, bool isDir)
 	}
 
 	free(name);
-	return (false); // "Show All Files" mode is enabled, don't skip entry
+	return false; // "Show All Files" mode is enabled, don't skip entry
 }
 
 static int8_t findFirst(DirRec *searchRec)
@@ -1410,36 +1399,36 @@ static int8_t findFirst(DirRec *searchRec)
 
 #ifdef _WIN32
 	hFind = FindFirstFileW(L"*", &fData);
-	if ((hFind == NULL) || (hFind == INVALID_HANDLE_VALUE))
-		return (LFF_DONE);
+	if (hFind == NULL || hFind == INVALID_HANDLE_VALUE)
+		return LFF_DONE;
 
 	searchRec->nameU = UNICHAR_STRDUP(fData.cFileName);
 	if (searchRec->nameU == NULL)
-		return (LFF_SKIP);
+		return LFF_SKIP;
 
 	searchRec->filesize = (fData.nFileSizeHigh > 0) ? -1 : fData.nFileSizeLow;
 	searchRec->isDir = (fData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? true : false;
 #else
 	hFind = opendir(".");
 	if (hFind == NULL)
-		return (LFF_DONE);
+		return LFF_DONE;
 
 	fData = readdir(hFind);
 	if (fData == NULL)
-		return (LFF_DONE);
+		return LFF_DONE;
 
 	searchRec->nameU = UNICHAR_STRDUP(fData->d_name);
 	if (searchRec->nameU == NULL)
-		return (LFF_SKIP);
+		return LFF_SKIP;
 
 	searchRec->filesize = 0;
 	searchRec->isDir = (fData->d_type == DT_DIR) ? true : false;
 
-	if ((fData->d_type == DT_UNKNOWN) || (fData->d_type == DT_LNK))
+	if (fData->d_type == DT_UNKNOWN || fData->d_type == DT_LNK)
 	{
 		if (stat(fData->d_name, &st) == 0)
 		{
-			fSize = (int64_t)(st.st_size);
+			fSize = (int64_t)st.st_size;
 			searchRec->filesize = (fSize > INT32_MAX) ? -1 : (fSize & 0xFFFFFFFF);
 
 			if ((st.st_mode & S_IFMT) == S_IFDIR)
@@ -1450,7 +1439,7 @@ static int8_t findFirst(DirRec *searchRec)
 	{
 		if (stat(fData->d_name, &st) == 0)
 		{
-			fSize = (int64_t)(st.st_size);
+			fSize = (int64_t)st.st_size;
 			searchRec->filesize = (fSize > INT32_MAX) ? -1 : (fSize & 0xFFFFFFFF);
 		}
 	}
@@ -1462,10 +1451,10 @@ static int8_t findFirst(DirRec *searchRec)
 		free(searchRec->nameU);
 		searchRec->nameU = NULL;
 
-		return (LFF_SKIP);
+		return LFF_SKIP;
 	}
 
-	return (LFF_OK);
+	return LFF_OK;
 }
 
 static int8_t findNext(DirRec *searchRec)
@@ -1481,31 +1470,31 @@ static int8_t findNext(DirRec *searchRec)
 	searchRec->nameU = NULL; // important
 
 #ifdef _WIN32
-	if ((hFind == NULL) || (FindNextFileW(hFind, &fData) == 0))
-		return (LFF_DONE);
+	if (hFind == NULL || FindNextFileW(hFind, &fData) == 0)
+		return LFF_DONE;
 
 	searchRec->nameU = UNICHAR_STRDUP(fData.cFileName);
 	if (searchRec->nameU == NULL)
-		return (LFF_SKIP);
+		return LFF_SKIP;
 
 	searchRec->filesize = (fData.nFileSizeHigh > 0) ? -1 : fData.nFileSizeLow;
 	searchRec->isDir = (fData.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY) ? true : false;
 #else
-	if ((hFind == NULL) || ((fData = readdir(hFind)) == NULL))
-		return (LFF_DONE);
+	if (hFind == NULL || (fData = readdir(hFind)) == NULL)
+		return LFF_DONE;
 
 	searchRec->nameU = UNICHAR_STRDUP(fData->d_name);
 	if (searchRec->nameU == NULL)
-		return (LFF_SKIP);
+		return LFF_SKIP;
 
 	searchRec->filesize = 0;
 	searchRec->isDir = (fData->d_type == DT_DIR) ? true : false;
 
-	if ((fData->d_type == DT_UNKNOWN) || (fData->d_type == DT_LNK))
+	if (fData->d_type == DT_UNKNOWN || fData->d_type == DT_LNK)
 	{
 		if (stat(fData->d_name, &st) == 0)
 		{
-			fSize = (int64_t)(st.st_size);
+			fSize = (int64_t)st.st_size;
 			searchRec->filesize = (fSize > INT32_MAX) ? -1 : (fSize & 0xFFFFFFFF);
 
 			if ((st.st_mode & S_IFMT) == S_IFDIR)
@@ -1516,7 +1505,7 @@ static int8_t findNext(DirRec *searchRec)
 	{
 		if (stat(fData->d_name, &st) == 0)
 		{
-			fSize = (int64_t)(st.st_size);
+			fSize = (int64_t)st.st_size;
 			searchRec->filesize = (fSize > INT32_MAX) ? -1 : (fSize & 0xFFFFFFFF);
 		}
 	}
@@ -1528,10 +1517,10 @@ static int8_t findNext(DirRec *searchRec)
 		free(searchRec->nameU);
 		searchRec->nameU = NULL;
 
-		return (LFF_SKIP);
+		return LFF_SKIP;
 	}
 
-	return (LFF_OK);
+	return LFF_OK;
 }
 
 static void findClose(void)
@@ -1551,14 +1540,14 @@ static bool swapBufferEntry(int32_t a, int32_t b) // used for sorting
 {
 	DirRec tmpBuffer;
 
-	if ((a >= FReq_FileCount) || (b >= FReq_FileCount))
-		return (false);
+	if (a >= FReq_FileCount || b >= FReq_FileCount)
+		return false;
 
-	memcpy(&tmpBuffer,      &FReq_Buffer[a], sizeof (DirRec));
-	memcpy(&FReq_Buffer[a], &FReq_Buffer[b], sizeof (DirRec));
-	memcpy(&FReq_Buffer[b],      &tmpBuffer, sizeof (DirRec));
+	tmpBuffer = FReq_Buffer[a];
+	FReq_Buffer[a] = FReq_Buffer[b];
+	FReq_Buffer[b] = tmpBuffer;
 
-	return (true);
+	return true;
 }
 
 static char *ach(int32_t rad) // used for sortDirectory()
@@ -1571,77 +1560,78 @@ static char *ach(int32_t rad) // used for sortDirectory()
 
 	name = unicharToCp437(dirEntry->nameU, true);
 	if (name == NULL)
-		return (NULL);
+		return NULL;
 
-	nameLen = (int32_t)(strlen(name));
+	nameLen = (int32_t)strlen(name);
 	if (nameLen == 0)
 	{
 		free(name);
-		return (NULL);
+		return NULL;
 	}
 
-	p = (char *)(malloc(1 + nameLen + 1));
+	p = (char *)malloc(nameLen + 2);
 	if (p == NULL)
 	{
 		free(name);
-		return (NULL);
+		return NULL;
 	}
 
 	if (dirEntry->isDir)
 	{
 		// directory
 
-		if (!strcmp(name, ".."))
-			p[0] = 0x01; // make first priority
+		if (nameLen == 2 && name[0] == '.' && name[1] == '.')
+			p[0] = 0x01; // make ".." directory first priority
 		else
 			p[0] = 0x02; // make second priority
 
 		strcpy(&p[1], name);
 
 		free(name);
-		return (p);
+		return p;
 	}
 	else
 	{
 		// file
 
 		i = getExtOffset(name, nameLen);
-		if ((config.cfg_SortPriority == 1) || (i == -1))
+		if (config.cfg_SortPriority == 1 || i == -1)
 		{
+			// sort by filename
 			strcpy(p, name);
-
 			free(name);
-			return (p);
+			return p;
 		}
 		else
 		{
-			extLen = (int32_t)(strlen(&name[i]));
+			// sort by filename extension
+			extLen = nameLen - i;
 			if (extLen <= 1)
 			{
 				strcpy(p, name);
-
 				free(name);
-				return (p);
+				return p;
 			}
 
-			// string = "[FILEEXT][FILENAME]"
-			memcpy(p, &name[i + 1], extLen - 1);
-			memcpy(&p[extLen - 1], name, i);
-			p[nameLen - 1] = '\0';
+			// FILENAME.EXT -> EXT.FILENAME (for sorting)
+			memcpy(p, &name[i+1], extLen - 1);
+			memcpy(&p[extLen-1], name, i);
+			p[nameLen-1] = '\0';
 
 			free(name);
-			return (p);
+			return p;
 		}
 	}
 }
 
 static void sortDirectory(void)
 {
+	bool didSwap;
 	char *p1, *p2;
-	int32_t offset, limit, swapped, i;
+	uint32_t offset, limit, i;
 
 	if (FReq_FileCount < 2)
-		return;
+		return; // no need to sort
 
 	offset = FReq_FileCount / 2;
 	while (offset > 0)
@@ -1649,50 +1639,60 @@ static void sortDirectory(void)
 		limit = FReq_FileCount - offset;
 		do
 		{
-			swapped = 0;
-			for (i = 1; i <= limit; ++i)
+			didSwap = false;
+			for (i = 0; i < limit; i++)
 			{
-				p1 = ach(i - 1);
-				p2 = ach((i + offset) - 1);
+				p1 = ach(i);
+				p2 = ach(offset + i);
 
-				if ((p1 == NULL) || (p2 == NULL))
+				if (p1 == NULL || p2 == NULL)
 				{
 					if (p1 != NULL) free(p1);
 					if (p2 != NULL) free(p2);
-
-					freeDirRecBuffer();
 					okBox(0, "System message", "Not enough memory!");
-
 					return;
 				}
 
 				if (_stricmp(p1, p2) > 0)
 				{
-					if (!swapBufferEntry(i - 1 , (i + offset) - 1))
+					if (!swapBufferEntry(i, offset + i))
+					{
+						free(p1);
+						free(p2);
 						return;
+					}
 
-					swapped = i;
+					didSwap = true;
 				}
 
 				free(p1);
 				free(p2);
 			}
 		}
-		while (swapped != 0);
+		while (didSwap);
 
 		offset /= 2;
 	}
 }
 
-static inline uint32_t getNumberOfDigits(uint32_t i)
+static uint8_t numDigits32(uint32_t x)
 {
-	return (i > 0) ? ((int32_t)(log10(i)) + 1) : 1;
+	if (x >= 1000000000) return 10;
+	if (x >=  100000000) return  9;
+	if (x >=   10000000) return  8;
+	if (x >=    1000000) return  7;
+	if (x >=     100000) return  6;
+	if (x >=      10000) return  5;
+	if (x >=       1000) return  4;
+	if (x >=        100) return  3;
+	if (x >=         10) return  2;
+	
+	return 1;
 }
 
 static void printFormattedFilesize(uint16_t x, uint16_t y, uint32_t bufEntry)
 {
 	char sizeStrBuffer[16];
-	uint16_t numDigits;
 	int32_t filesize;
 
 	filesize = FReq_Buffer[bufEntry].filesize;
@@ -1707,27 +1707,21 @@ static void printFormattedFilesize(uint16_t x, uint16_t y, uint32_t bufEntry)
 	if (filesize < 0)
 		filesize = 0;
 
-	if (filesize >= (1000 * 1000 * 10)) // >= 10MB?
+	if (filesize >= 1000*1000*10) // >= 10MB?
 	{
-		filesize /= (1000 * 1000);
-		numDigits = (uint16_t)(getNumberOfDigits(filesize));
-		x += ((4 - numDigits) * 7);
-
+		filesize /= 1000*1000;
+		x += (4 - numDigits32(filesize)) * 7;
 		sprintf(sizeStrBuffer, "%dM", filesize);
 	}
-	else if (filesize >= (1000 * 10)) // >= 10kB?
+	else if (filesize >= 1000*10) // >= 10kB?
 	{
 		filesize /= 1000;
-		numDigits = (uint16_t)(getNumberOfDigits(filesize));
-		x += ((4 - numDigits) * 7);
-
+		x += (4 - numDigits32(filesize)) * 7;
 		sprintf(sizeStrBuffer, "%dk", filesize);
 	}
 	else // bytes
 	{
-		numDigits = (uint16_t)(getNumberOfDigits(filesize));
-		x += ((5 - numDigits) * 7);
-
+		x += (5 - numDigits32(filesize)) * 7;
 		sprintf(sizeStrBuffer, "%d", filesize);
 	}
 
@@ -1736,13 +1730,13 @@ static void printFormattedFilesize(uint16_t x, uint16_t y, uint32_t bufEntry)
 
 static void displayCurrPath(void)
 {
-	char tmpPath[PATH_MAX + 1], *p, *delimiter, *asciiPath;
+	char *p, *delimiter, *asciiPath;
 	int32_t j;
 	uint32_t pathLen;
 
 	fillRect(4, 145, 162, 10, PAL_DESKTOP);
 
-	pathLen = (uint32_t)(UNICHAR_STRLEN(FReq_CurPathU));
+	pathLen = (uint32_t)UNICHAR_STRLEN(FReq_CurPathU);
 	if (pathLen == 0)
 		return;
 
@@ -1763,32 +1757,32 @@ static void displayCurrPath(void)
 	{
 		// path doesn't fit, print drive + ".." + last directory
 
-		memset(tmpPath, 0, sizeof (tmpPath));
+		memset(FReq_NameTemp, 0, PATH_MAX + 1);
 #ifdef _WIN32
-		strncpy(tmpPath, p, 3);
-		strcat(tmpPath, ".\001"); // special character in font
+		strncpy(FReq_NameTemp, p, 3);
+		strcat(FReq_NameTemp, ".\001"); // special character in font
 #else
-		strcpy(tmpPath, "/");
-		strcat(tmpPath, "..");
+		strcpy(FReq_NameTemp, "/");
+		strcat(FReq_NameTemp, "..");
 #endif
 
 		delimiter = strrchr(p, DIR_DELIMITER);
 		if (delimiter != NULL)
 		{
 #ifdef _WIN32
-			strcat(tmpPath, delimiter + 1);
+			strcat(FReq_NameTemp, delimiter + 1);
 #else
-			strcat(tmpPath, delimiter);
+			strcat(FReq_NameTemp, delimiter);
 #endif
 		}
 
-		j = (int32_t)(strlen(tmpPath));
+		j = (int32_t)strlen(FReq_NameTemp);
 		if (j > 6)
 		{
 			j--;
 
-			p = tmpPath;
-			while ((j >= 6) && (textWidth(p) >= 162))
+			p = FReq_NameTemp;
+			while (j >= 6 && textWidth(p) >= 162)
 			{
 				p[j - 2] = '.';
 				p[j - 1] = '.';
@@ -1797,7 +1791,7 @@ static void displayCurrPath(void)
 			}
 		}
 
-		textOutClipX(4, 145, PAL_FORGRND, tmpPath, 165);
+		textOutClipX(4, 145, PAL_FORGRND, FReq_NameTemp, 165);
 	}
 
 	free(asciiPath);
@@ -1806,89 +1800,94 @@ static void displayCurrPath(void)
 void diskOp_DrawDirectory(void)
 {
 	char *readName;
-	uint16_t i, y;
+	uint16_t y;
 	int32_t bufEntry;
 
 	clearRect(FILENAME_TEXT_X - 1, 4, 162, 164);
 	drawTextBox(TB_DISKOP_FILENAME);
 
 	if (FReq_EntrySelected != -1)
-		fillRect(FILENAME_TEXT_X - 1, 4 + (uint16_t)(((FONT1_CHAR_H + 1) * FReq_EntrySelected)), 162, FONT1_CHAR_H, PAL_PATTEXT);
+	{
+		y = 4 + (uint16_t)((FONT1_CHAR_H + 1) * FReq_EntrySelected);
+		fillRect(FILENAME_TEXT_X - 1, y, 162, FONT1_CHAR_H, PAL_PATTEXT);
+	}
 
 	displayCurrPath();
 #ifdef _WIN32
 	setupDiskOpDrives();
 #endif
 
-	if (FReq_FileCount > 0)
+	if (FReq_FileCount == 0)
+		return;
+
+	for (uint16_t i = 0; i < DISKOP_ENTRY_NUM; i++)
 	{
-		for (i = 0; i < DISKOP_ENTRY_NUM; ++i)
+		bufEntry = FReq_DirPos + i;
+		if (bufEntry >= FReq_FileCount)
+			break;
+
+		if (FReq_Buffer[bufEntry].nameU == NULL)
+			continue;
+
+		// convert unichar name to codepage 437
+		readName = unicharToCp437(FReq_Buffer[bufEntry].nameU, true);
+		if (readName == NULL)
+			continue;
+
+		y = 4 + (i * (FONT1_CHAR_H + 1));
+
+		// shrink entry name and add ".." if it doesn't fit on screen
+		trimEntryName(readName, FReq_Buffer[bufEntry].isDir);
+
+		if (FReq_Buffer[bufEntry].isDir)
 		{
-			bufEntry = FReq_DirPos + i;
-			if (bufEntry >= FReq_FileCount)
-				break;
-
-			if (FReq_Buffer[bufEntry].nameU == NULL)
-				continue;
-
-			// convert unichar name to codepage 437
-			readName = unicharToCp437(FReq_Buffer[bufEntry].nameU, true);
-			if (readName == NULL)
-				continue;
-
-			y = 4 + (i * (FONT1_CHAR_H + 1));
-
-			// shrink entry name and add ".." if it doesn't fit on screen
-			trimEntryName(readName, FReq_Buffer[bufEntry].isDir);
-
-			if (FReq_Buffer[bufEntry].isDir)
-			{
-				// directory
-				charOut(FILENAME_TEXT_X, y, PAL_BLCKTXT, DIR_DELIMITER);
-				textOut(FILENAME_TEXT_X + FONT1_CHAR_W, y, PAL_BLCKTXT, readName);
-			}
-			else
-			{
-				// filename
-				textOut(FILENAME_TEXT_X, y, PAL_BLCKTXT, readName);
-			}
-
-			free(readName);
-
-			if (!FReq_Buffer[bufEntry].isDir)
-				printFormattedFilesize(FILESIZE_TEXT_X, y, bufEntry);
+			// directory
+			charOut(FILENAME_TEXT_X, y, PAL_BLCKTXT, DIR_DELIMITER);
+			textOut(FILENAME_TEXT_X + FONT1_CHAR_W, y, PAL_BLCKTXT, readName);
+		}
+		else
+		{
+			// filename
+			textOut(FILENAME_TEXT_X, y, PAL_BLCKTXT, readName);
 		}
 
-		setScrollBarPos(SB_DISKOP_LIST, FReq_DirPos, true);
-		setScrollBarEnd(SB_DISKOP_LIST, FReq_FileCount);
+		free(readName);
+
+		if (!FReq_Buffer[bufEntry].isDir)
+			printFormattedFilesize(FILESIZE_TEXT_X, y, bufEntry);
 	}
+
+	setScrollBarPos(SB_DISKOP_LIST, FReq_DirPos, true);
+	setScrollBarEnd(SB_DISKOP_LIST, FReq_FileCount);
 }
 
 static DirRec *bufferCreateEmptyDir(void) // special case: creates a dir entry with a ".." directory
 {
 	DirRec *dirEntry;
 
-	dirEntry = (DirRec *)(malloc(sizeof (DirRec)));
+	dirEntry = (DirRec *)malloc(sizeof (DirRec));
 	if (dirEntry == NULL)
-		return (NULL);
+		return NULL;
 
 	dirEntry->nameU = UNICHAR_STRDUP(PARENT_DIR_STR);
 	if (dirEntry->nameU == NULL)
 	{
 		free(dirEntry);
-		return (NULL);
+		return NULL;
 	}
 
 	dirEntry->isDir = true;
 	dirEntry->filesize = 0;
 
-	return (dirEntry);
+	return dirEntry;
 }
 
 static int32_t SDLCALL diskOp_ReadDirectoryThread(void *ptr)
 {
 	uint8_t lastFindFileFlag;
 	DirRec tmpBuffer, *newPtr;
+
+	(void)ptr;
 
 	FReq_DirPos = 0;
 
@@ -1897,11 +1896,13 @@ static int32_t SDLCALL diskOp_ReadDirectoryThread(void *ptr)
 
 	// read first file
 	lastFindFileFlag = findFirst(&tmpBuffer);
-	if ((lastFindFileFlag != LFF_DONE) && (lastFindFileFlag != LFF_SKIP))
+	if (lastFindFileFlag != LFF_DONE && lastFindFileFlag != LFF_SKIP)
 	{
-		FReq_Buffer = (DirRec *)(malloc(sizeof (DirRec) * (FReq_FileCount + 1)));
+		FReq_Buffer = (DirRec *)malloc(sizeof (DirRec) * (FReq_FileCount + 1));
 		if (FReq_Buffer == NULL)
 		{
+			findClose();
+
 			okBoxThreadSafe(0, "System message", "Not enough memory!");
 
 			FReq_Buffer = bufferCreateEmptyDir();
@@ -1911,7 +1912,7 @@ static int32_t SDLCALL diskOp_ReadDirectoryThread(void *ptr)
 				okBoxThreadSafe(0, "System message", "Not enough memory!");
 
 			setMouseBusy(false);
-			return (false);
+			return false;
 		}
 
 		memcpy(&FReq_Buffer[FReq_FileCount], &tmpBuffer, sizeof (DirRec));
@@ -1919,28 +1920,24 @@ static int32_t SDLCALL diskOp_ReadDirectoryThread(void *ptr)
 	}
 
 	// read remaining files
-	if (lastFindFileFlag != LFF_DONE)
+	while (lastFindFileFlag != LFF_DONE)
 	{
-		do
+		lastFindFileFlag = findNext(&tmpBuffer);
+		if (lastFindFileFlag != LFF_DONE && lastFindFileFlag != LFF_SKIP)
 		{
-			lastFindFileFlag = findNext(&tmpBuffer);
-			if ((lastFindFileFlag != LFF_DONE) && (lastFindFileFlag != LFF_SKIP))
+			newPtr = (DirRec *)realloc(FReq_Buffer, sizeof (DirRec) * (FReq_FileCount + 1));
+			if (newPtr == NULL)
 			{
-				newPtr = (DirRec *)(realloc(FReq_Buffer, sizeof (DirRec) * (FReq_FileCount + 1)));
-				if (newPtr == NULL)
-				{
-					freeDirRecBuffer();
-					okBoxThreadSafe(0, "System message", "Not enough memory!");
-					break;
-				}
-
-				FReq_Buffer = newPtr;
-
-				memcpy(&FReq_Buffer[FReq_FileCount], &tmpBuffer, sizeof (DirRec));
-				FReq_FileCount++;
+				freeDirRecBuffer();
+				okBoxThreadSafe(0, "System message", "Not enough memory!");
+				break;
 			}
+
+			FReq_Buffer = newPtr;
+
+			memcpy(&FReq_Buffer[FReq_FileCount], &tmpBuffer, sizeof (DirRec));
+			FReq_FileCount++;
 		}
-		while (lastFindFileFlag != LFF_DONE);
 	}
 
 	findClose();
@@ -1964,8 +1961,7 @@ static int32_t SDLCALL diskOp_ReadDirectoryThread(void *ptr)
 
 	setMouseBusy(false);
 
-	(void)(ptr); // prevent compiler warning
-	return (true);
+	return true;
 }
 
 void startDiskOpFillThread(void)
@@ -2051,10 +2047,10 @@ static void setDiskOpItemRadioButtons(void)
 		switch (FReq_Item)
 		{
 			default: case DISKOP_ITEM_MODULE:  showRadioButtonGroup(RB_GROUP_DISKOP_MOD_SAVEAS); break;
-					 case DISKOP_ITEM_INSTR:   showRadioButtonGroup(RB_GROUP_DISKOP_INS_SAVEAS); break;
-					 case DISKOP_ITEM_SAMPLE:  showRadioButtonGroup(RB_GROUP_DISKOP_SMP_SAVEAS); break;
-					 case DISKOP_ITEM_PATTERN: showRadioButtonGroup(RB_GROUP_DISKOP_PAT_SAVEAS); break;
-					 case DISKOP_ITEM_TRACK:   showRadioButtonGroup(RB_GROUP_DISKOP_TRK_SAVEAS); break;
+			         case DISKOP_ITEM_INSTR:   showRadioButtonGroup(RB_GROUP_DISKOP_INS_SAVEAS); break;
+			         case DISKOP_ITEM_SAMPLE:  showRadioButtonGroup(RB_GROUP_DISKOP_SMP_SAVEAS); break;
+			         case DISKOP_ITEM_PATTERN: showRadioButtonGroup(RB_GROUP_DISKOP_PAT_SAVEAS); break;
+			         case DISKOP_ITEM_TRACK:   showRadioButtonGroup(RB_GROUP_DISKOP_TRK_SAVEAS); break;
 		}
 	}
 }
@@ -2076,13 +2072,13 @@ static void setDiskOpItem(uint8_t item)
 	switch (FReq_Item)
 	{
 		default: case DISKOP_ITEM_MODULE:  FReq_FileName = modTmpFName; FReq_CurPathU = FReq_ModCurPathU; break;
-				 case DISKOP_ITEM_INSTR:   FReq_FileName = insTmpFName; FReq_CurPathU = FReq_InsCurPathU; break;
-				 case DISKOP_ITEM_SAMPLE:  FReq_FileName = smpTmpFName; FReq_CurPathU = FReq_SmpCurPathU; break;
-				 case DISKOP_ITEM_PATTERN: FReq_FileName = patTmpFName; FReq_CurPathU = FReq_PatCurPathU; break;
-				 case DISKOP_ITEM_TRACK:   FReq_FileName = trkTmpFName; FReq_CurPathU = FReq_TrkCurPathU; break;
+		         case DISKOP_ITEM_INSTR:   FReq_FileName = insTmpFName; FReq_CurPathU = FReq_InsCurPathU; break;
+		         case DISKOP_ITEM_SAMPLE:  FReq_FileName = smpTmpFName; FReq_CurPathU = FReq_SmpCurPathU; break;
+		         case DISKOP_ITEM_PATTERN: FReq_FileName = patTmpFName; FReq_CurPathU = FReq_PatCurPathU; break;
+		         case DISKOP_ITEM_TRACK:   FReq_FileName = trkTmpFName; FReq_CurPathU = FReq_TrkCurPathU; break;
 	}
 
-	pathLen = (int32_t)(UNICHAR_STRLEN(FReq_CurPathU));
+	pathLen = (int32_t)UNICHAR_STRLEN(FReq_CurPathU);
 	if (pathLen == 0)
 	{
 		memset(FReq_CurPathU, 0, (PATH_MAX + 2) * sizeof (UNICHAR));
@@ -2195,9 +2191,7 @@ void showDiskOpScreen(void)
 void hideDiskOpScreen(void)
 {
 #ifdef _WIN32
-	uint16_t i;
-
-	for (i = 0; i < DISKOP_MAX_DRIVE_BUTTONS; ++i)
+	for (uint16_t i = 0; i < DISKOP_MAX_DRIVE_BUTTONS; i++)
 		hidePushButton(PB_DISKOP_DRIVE1 + i);
 #endif
 
@@ -2243,22 +2237,22 @@ void toggleDiskOpScreen(void)
 
 void sbDiskOpSetPos(uint32_t pos)
 {
-	if ((FReq_FileCount > DISKOP_ENTRY_NUM) && ((int32_t)(pos) != FReq_DirPos))
+	if ((int32_t)pos != FReq_DirPos && FReq_FileCount > DISKOP_ENTRY_NUM)
 	{
-		FReq_DirPos = (int32_t)(pos);
+		FReq_DirPos = (int32_t)pos;
 		diskOp_DrawDirectory();
 	}
 }
 
 void pbDiskOpListUp(void)
 {
-	if ((FReq_FileCount > DISKOP_ENTRY_NUM) && (FReq_DirPos > 0))
+	if (FReq_DirPos > 0 && FReq_FileCount > DISKOP_ENTRY_NUM)
 		scrollBarScrollUp(SB_DISKOP_LIST, 1);
 }
 
 void pbDiskOpListDown(void)
 {
-	if ((FReq_FileCount > DISKOP_ENTRY_NUM) && (FReq_DirPos < (FReq_FileCount - DISKOP_ENTRY_NUM)))
+	if (FReq_DirPos < FReq_FileCount-DISKOP_ENTRY_NUM && FReq_FileCount > DISKOP_ENTRY_NUM)
 		scrollBarScrollDown(SB_DISKOP_LIST, 1);
 }
 

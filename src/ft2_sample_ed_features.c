@@ -1,10 +1,8 @@
-/*
-** This file contains the routines for the following sample editor functions:
+/* This file contains the routines for the following sample editor functions:
 ** - Resampler
 ** - Echo
 ** - Mix
-** - Volume
-*/
+** - Volume */
 
 // for finding memory leaks in debug mode with Visual Studio
 #if defined _DEBUG && defined _MSC_VER
@@ -23,6 +21,7 @@
 #include "ft2_video.h"
 #include "ft2_inst_ed.h"
 #include "ft2_sample_ed.h"
+#include "ft2_keyboard.h"
 
 static int8_t smpEd_RelReSmp, mix_Balance = 50;
 static bool stopThread, echo_AddMemory, exitFlag, outOfMemory;
@@ -39,27 +38,19 @@ static void pbExit(void)
 static void windowOpen(void)
 {
 	editor.ui.sysReqShown = true;
+	editor.ui.sysReqEnterPressed = false;
 
 #ifndef __APPLE__
 	if (!video.fullscreen) // release mouse button trap
 		SDL_SetWindowGrab(video.window, SDL_FALSE);
 #endif
 
+	unstuckLastUsedGUIElement();
 	SDL_EventState(SDL_DROPFILE, SDL_DISABLE);
-
-	unstuckAllGUIElements();
-
-	mouse.lastUsedObjectType = OBJECT_NONE;
-	mouse.lastUsedObjectID   = OBJECT_ID_NONE;
-	mouse.leftButtonPressed  = 0;
-	mouse.rightButtonPressed = 0;
 }
 
 static void windowClose(bool rewriteSample)
 {
-	mouse.lastUsedObjectID   = OBJECT_ID_NONE;
-	mouse.lastUsedObjectType = OBJECT_NONE;
-
 	SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 
 	if (exitFlag || rewriteSample)
@@ -72,11 +63,8 @@ static void windowClose(bool rewriteSample)
 
 static void sbSetResampleTones(uint32_t pos)
 {
-	int8_t val;
-
-	val = (int8_t)(pos - 36);
-	if (val != smpEd_RelReSmp)
-		smpEd_RelReSmp = val;
+	if (smpEd_RelReSmp != (int8_t)(pos - 36))
+		smpEd_RelReSmp = (int8_t)(pos - 36);
 }
 
 static void pbResampleTonesDown(void)
@@ -95,34 +83,34 @@ static int32_t SDLCALL resampleThread(void *ptr)
 {
 	int8_t *p1, *p2, *src8, *dst8;
 	int16_t *src16, *dst16;
-	uint32_t newLen, mask, i, resampleLen;
+	uint32_t newLen, mask, resampleLen;
 	uint64_t posfrac64, delta64;
 	double dNewLen, dLenMul;
 
-	(void)(ptr);
+	(void)ptr;
 
 	mask = (currSmp->typ & 16) ? 0xFFFFFFFE : 0xFFFFFFFF;
-	dLenMul = pow(2.0, smpEd_RelReSmp / 12.0);
+	dLenMul = pow(2.0, smpEd_RelReSmp * (1.0 / 12.0));
 
 	dNewLen = currSmp->len * dLenMul;
-	if (dNewLen > (double)(MAX_SAMPLE_LEN))
-		dNewLen = (double)(MAX_SAMPLE_LEN);
+	if (dNewLen > (double)MAX_SAMPLE_LEN)
+		dNewLen = (double)MAX_SAMPLE_LEN;
 
-	newLen = (int32_t)(dNewLen) & mask;
+	newLen = (int32_t)dNewLen & mask;
 
-	p2 = (int8_t *)(malloc(newLen + LOOP_FIX_LEN));
+	p2 = (int8_t *)malloc(newLen + LOOP_FIX_LEN);
 	if (p2 == NULL)
 	{
 		outOfMemory = true;
 		setMouseBusy(false);
 		editor.ui.sysReqShown = false;
-		return (true);
+		return true;
 	}
 
 	p1 = currSmp->pek;
 
 	// don't use the potentially clamped newLen value here
-	delta64 = ((uint64_t)(currSmp->len) << 32) / (uint64_t)(currSmp->len * dLenMul);
+	delta64 = ((uint64_t)currSmp->len << 32) / (uint64_t)(currSmp->len * dLenMul);
 
 	posfrac64 = 0;
 
@@ -133,11 +121,11 @@ static int32_t SDLCALL resampleThread(void *ptr)
 	{
 		if (currSmp->typ & 16)
 		{
-			src16 = (int16_t *)(p1);
-			dst16 = (int16_t *)(p2);
+			src16 = (int16_t *)p1;
+			dst16 = (int16_t *)p2;
 
 			resampleLen = newLen / 2;
-			for (i = 0; i < resampleLen; ++i)
+			for (uint32_t i = 0; i < resampleLen; i++)
 			{
 				dst16[i] = src16[posfrac64 >> 32];
 				posfrac64 += delta64;
@@ -148,7 +136,7 @@ static int32_t SDLCALL resampleThread(void *ptr)
 			src8 = p1;
 			dst8 = p2;
 
-			for (i = 0; i < newLen; ++i)
+			for (uint32_t i = 0; i < newLen; i++)
 			{
 				dst8[i] = src8[posfrac64 >> 32];
 				posfrac64 += delta64;
@@ -160,16 +148,16 @@ static int32_t SDLCALL resampleThread(void *ptr)
 
 	currSmp->relTon = CLAMP(currSmp->relTon + smpEd_RelReSmp, -48, 71);
 
-	currSmp->len  = newLen;
-	currSmp->pek  = p2;
+	currSmp->len = newLen;
+	currSmp->pek = p2;
 	currSmp->repS = (int32_t)(currSmp->repS * dLenMul) & mask;
 	currSmp->repL = (int32_t)(currSmp->repL * dLenMul) & mask;
 
 	if (currSmp->repS > currSmp->len)
 		currSmp->repS = currSmp->len;
 
-	if ((currSmp->repS + currSmp->repL) > currSmp->len)
-		currSmp->repL  = currSmp->len   - currSmp->repS;
+	if (currSmp->repS+currSmp->repL > currSmp->len)
+		currSmp->repL = currSmp->len - currSmp->repS;
 
 	if (currSmp->typ & 16)
 	{
@@ -188,7 +176,7 @@ static int32_t SDLCALL resampleThread(void *ptr)
 	setMouseBusy(false);
 
 	editor.ui.sysReqShown = false;
-	return (true);
+	return true;
 }
 
 static void pbDoResampling(void)
@@ -231,19 +219,19 @@ static void drawResampleBox(void)
 	hLine(x + 2,     y + h - 3, w - 4, PAL_BUTTON1);
 
 	mask = (currSmp->typ & 16) ? 0xFFFFFFFE : 0xFFFFFFFF;
-	dLenMul = pow(2.0, smpEd_RelReSmp / 12.0);
+	dLenMul = pow(2.0, smpEd_RelReSmp * (1.0 / 12.0));
 
 	dNewLen = currSmp->len * dLenMul;
-	if (dNewLen > (double)(MAX_SAMPLE_LEN))
-		dNewLen = (double)(MAX_SAMPLE_LEN);
+	if (dNewLen > (double)MAX_SAMPLE_LEN)
+		dNewLen = (double)MAX_SAMPLE_LEN;
 
 	textOutShadow(215, 236, PAL_FORGRND, PAL_BUTTON2, "Rel. h.tones");
 	textOutShadow(215, 250, PAL_FORGRND, PAL_BUTTON2, "New sample size");
-	hexOut(361, 250, PAL_FORGRND, (uint32_t)(dNewLen) & mask, 8);
+	hexOut(361, 250, PAL_FORGRND, (uint32_t)dNewLen & mask, 8);
 
-		 if (smpEd_RelReSmp == 0) sign = ' ';
+	     if (smpEd_RelReSmp == 0) sign = ' ';
 	else if (smpEd_RelReSmp  < 0) sign = '-';
-	else                          sign = '+';
+	else sign = '+';
 
 	val = ABS(smpEd_RelReSmp);
 	if (val > 9)
@@ -329,7 +317,7 @@ void pbSampleResample(void)
 {
 	uint16_t i;
 
-	if ((editor.curInstr == 0) || (currSmp->pek == NULL))
+	if (editor.curInstr == 0 || currSmp->pek == NULL)
 		return;
 
 	setupResampleBoxWidgets();
@@ -341,19 +329,22 @@ void pbSampleResample(void)
 	while (editor.ui.sysReqShown)
 	{
 		readInput();
+		if (editor.ui.sysReqEnterPressed)
+			pbDoResampling();
+
 		setSyncedReplayerVars();
 		handleRedrawing();
 
 		drawResampleBox();
 		setScrollBarPos(0, smpEd_RelReSmp + 36, false);
 		drawCheckBox(0);
-		for (i = 0; i < 4; ++i) drawPushButton(i);
+		for (i = 0; i < 4; i++) drawPushButton(i);
 		drawScrollBar(0);
 
 		flipFrame();
 	}
 
-	for (i = 0; i < 4; ++i) hidePushButton(i);
+	for (i = 0; i < 4; i++) hidePushButton(i);
 	hideScrollBar(0);
 
 	windowClose(false);
@@ -369,20 +360,20 @@ static void cbEchoAddMemory(void)
 
 static void sbSetEchoNumPos(uint32_t pos)
 {
-	if (echo_nEcho != (int32_t)(pos))
-		echo_nEcho = (int16_t)(pos);
+	if (echo_nEcho != (int32_t)pos)
+		echo_nEcho = (int16_t)pos;
 }
 
 static void sbSetEchoDistPos(uint32_t pos)
 {
-	if (echo_Distance != (int32_t)(pos))
-		echo_Distance = (int32_t)(pos);
+	if (echo_Distance != (int32_t)pos)
+		echo_Distance = (int32_t)pos;
 }
 
 static void sbSetEchoFadeoutPos(uint32_t pos)
 {
-	if (echo_VolChange != (int32_t)(pos))
-		echo_VolChange = (int16_t)(pos);
+	if (echo_VolChange != (int32_t)pos)
+		echo_VolChange = (int16_t)pos;
 }
 
 static void pbEchoNumDown(void)
@@ -429,16 +420,16 @@ static int32_t SDLCALL createEchoThread(void *ptr)
 	int32_t tmp32, smpOut, smpMul, echoRead, echoCycle, writeIdx;
 	double dTmp;
 
-	(void)(ptr); // prevent compiler warning
+	(void)ptr;
 
-	readLen  = currSmp->len;
-	readPtr  = currSmp->pek;
-	is16Bit  = (currSmp->typ & 16) ? true : false;
+	readLen = currSmp->len;
+	readPtr = currSmp->pek;
+	is16Bit = (currSmp->typ & 16) ? true : false;
 	distance = is16Bit ? (echo_Distance * 32) : (echo_Distance * 16);
 
 	// calculate real number of echoes
 	j = is16Bit ? 32768 : 128; i = 0;
-	while ((i < echo_nEcho) && (j > 0))
+	while (i < echo_nEcho && j > 0)
 	{
 		j = (j * echo_VolChange) / 100;
 		i++;
@@ -449,30 +440,30 @@ static int32_t SDLCALL createEchoThread(void *ptr)
 	writeLen = readLen;
 	if (echo_AddMemory)
 	{
-		dTmp = writeLen + ((double)(distance) * (numEchoes - 1));
-		if (dTmp > (double)(MAX_SAMPLE_LEN))
+		dTmp = writeLen + ((double)distance * (numEchoes - 1));
+		if (dTmp > (double)MAX_SAMPLE_LEN)
 			writeLen = MAX_SAMPLE_LEN;
 		else
-			writeLen += (distance * (numEchoes - 1));
+			writeLen += distance * (numEchoes - 1);
 
 		if (is16Bit)
 			writeLen &= 0xFFFFFFFE;
 	}
 
-	writePtr = (int8_t *)(malloc(writeLen + LOOP_FIX_LEN));
+	writePtr = (int8_t *)malloc(writeLen + LOOP_FIX_LEN);
 	if (writePtr == NULL)
 	{
 		outOfMemory = true;
 		setMouseBusy(false);
 		editor.ui.sysReqShown = false;
-		return (false);
+		return false;
 	}
 
 	pauseAudio();
 	restoreSample(currSmp);
 
 	writeIdx = 0;
-	while (!stopThread && (writeIdx < writeLen))
+	while (!stopThread && writeIdx < writeLen)
 	{
 		tmp32  = 0;
 		smpOut = 0;
@@ -481,12 +472,12 @@ static int32_t SDLCALL createEchoThread(void *ptr)
 		echoRead  = writeIdx;
 		echoCycle = numEchoes;
 
-		while (!stopThread && (echoRead > 0) && (echoCycle-- > 0))
+		while (!stopThread && echoRead > 0 && echoCycle-- > 0)
 		{
 			if (echoRead < readLen)
 			{
 				if (is16Bit)
-					tmp32 = *((int16_t *)(&readPtr[echoRead & 0xFFFFFFFE]));
+					tmp32 = *(int16_t *)&readPtr[echoRead & 0xFFFFFFFE];
 				else
 					tmp32 = readPtr[echoRead] << 8;
 
@@ -505,7 +496,7 @@ static int32_t SDLCALL createEchoThread(void *ptr)
 
 		if (is16Bit)
 		{
-			*((int16_t *)(&writePtr[writeIdx & 0xFFFFFFFE])) = (int16_t)(smpOut);
+			*(int16_t *)&writePtr[writeIdx & 0xFFFFFFFE] = (int16_t)smpOut;
 			writeIdx += 2;
 		}
 		else
@@ -520,7 +511,7 @@ static int32_t SDLCALL createEchoThread(void *ptr)
 	{
 		writeLen = writeIdx;
 
-		newPtr = (int8_t *)(realloc(writePtr, writeIdx + LOOP_FIX_LEN));
+		newPtr = (int8_t *)realloc(writePtr, writeIdx + LOOP_FIX_LEN);
 		if (newPtr != NULL)
 			currSmp->pek = newPtr;
 
@@ -543,7 +534,7 @@ static int32_t SDLCALL createEchoThread(void *ptr)
 	setMouseBusy(false);
 
 	editor.ui.sysReqShown = false;
-	return (true);
+	return true;
 }
 
 static void pbCreateEcho(void)
@@ -766,7 +757,7 @@ void pbSampleEcho(void)
 {
 	uint16_t i;
 
-	if ((editor.curInstr == 0) || (currSmp->pek == NULL))
+	if (editor.curInstr == 0 || currSmp->pek == NULL)
 		return;
 
 	setupEchoBoxWidgets();
@@ -778,23 +769,26 @@ void pbSampleEcho(void)
 	while (editor.ui.sysReqShown)
 	{
 		readInput();
+		if (editor.ui.sysReqEnterPressed)
+			pbCreateEcho();
+
 		setSyncedReplayerVars();
 		handleRedrawing();
 
 		drawEchoBox();
-		setScrollBarPos(0, echo_nEcho,     false);
-		setScrollBarPos(1, echo_Distance,  false);
+		setScrollBarPos(0, echo_nEcho, false);
+		setScrollBarPos(1, echo_Distance, false);
 		setScrollBarPos(2, echo_VolChange, false);
 		drawCheckBox(0);
-		for (i = 0; i < 8; ++i) drawPushButton(i);
-		for (i = 0; i < 3; ++i) drawScrollBar(i);
+		for (i = 0; i < 8; i++) drawPushButton(i);
+		for (i = 0; i < 3; i++) drawScrollBar(i);
 
 		flipFrame();
 	}
 
 	hideCheckBox(0);
-	for (i = 0; i < 8; ++i) hidePushButton(i);
-	for (i = 0; i < 3; ++i) hideScrollBar(i);
+	for (i = 0; i < 8; i++) hidePushButton(i);
+	for (i = 0; i < 3; i++) hideScrollBar(i);
 
 	windowClose(echo_AddMemory ? false : true);
 
@@ -811,13 +805,13 @@ static int32_t SDLCALL mixThread(void *ptr)
 	sampleTyp *srcSmp, *dstSmp;
 	double dSmp;
 
-	(void)(ptr);
+	(void)ptr;
 
-	if ((editor.curInstr == editor.srcInstr) && (editor.curSmp == editor.srcSmp))
+	if (editor.curInstr == editor.srcInstr && editor.curSmp == editor.srcSmp)
 	{
 		setMouseBusy(false);
 		editor.ui.sysReqShown = false;
-		return (true);
+		return true;
 	}
 
 	srcIns = &instr[editor.srcInstr];
@@ -836,9 +830,9 @@ static int32_t SDLCALL mixThread(void *ptr)
 		mixTyp = 0;
 	}
 
-	dstLen     = dstSmp->len;
-	dstPtr     = dstSmp->pek;
-	dstTyp     = dstSmp->typ;
+	dstLen = dstSmp->len;
+	dstPtr = dstSmp->pek;
+	dstTyp = dstSmp->typ;
 	dstRelTone = dstSmp->relTon;
 
 	if (dstPtr == NULL)
@@ -857,23 +851,23 @@ static int32_t SDLCALL mixThread(void *ptr)
 	{
 		setMouseBusy(false);
 		editor.ui.sysReqShown = false;
-		return (true);
+		return true;
 	}
 
-	p = (int8_t *)(calloc(maxLen + 2, sizeof (int8_t)));
+	p = (int8_t *)calloc(maxLen + 2, sizeof (int8_t));
 	if (p == NULL)
 	{
 		outOfMemory = true;
 		setMouseBusy(false);
 		editor.ui.sysReqShown = false;
-		return (true);
+		return true;
 	}
 
 	pauseAudio();
 	restoreSample(dstSmp);
 	restoreSample(srcSmp);
 
-	for (i = 0; i < max8Size; ++i)
+	for (i = 0; i < max8Size; i++)
 	{
 		x1 = (i >= mix8Size) ? 0 : getSampleValueNr(mixPtr, mixTyp, (mixTyp & 16) ? (i << 1) : i);
 		x2 = (i >= dst8Size) ? 0 : getSampleValueNr(dstPtr, dstTyp, (dstTyp & 16) ? (i << 1) : i);
@@ -888,7 +882,7 @@ static int32_t SDLCALL mixThread(void *ptr)
 		if (!(dstTyp & 16))
 			smp32 >>= 8;
 
-		putSampleValueNr(p, dstTyp, (dstTyp & 16) ? (i << 1) : i, (int16_t)(smp32));
+		putSampleValueNr(p, dstTyp, (dstTyp & 16) ? (i << 1) : i, (int16_t)smp32);
 	}
 
 	if (dstSmp->pek != NULL)
@@ -897,9 +891,9 @@ static int32_t SDLCALL mixThread(void *ptr)
 	if (currSmp->typ & 16)
 		maxLen &= 0xFFFFFFFE;
 
-	dstSmp->pek    = p;
-	dstSmp->len    = maxLen;
-	dstSmp->typ    = dstTyp;
+	dstSmp->pek = p;
+	dstSmp->len = maxLen;
+	dstSmp->typ = dstTyp;
 	dstSmp->relTon = dstRelTone;
 
 	if (dstSmp->repL == 0)
@@ -913,7 +907,7 @@ static int32_t SDLCALL mixThread(void *ptr)
 	setMouseBusy(false);
 
 	editor.ui.sysReqShown = false;
-	return (true);
+	return true;
 }
 
 static void pbMix(void)
@@ -931,8 +925,8 @@ static void pbMix(void)
 
 static void sbSetMixBalancePos(uint32_t pos)
 {
-	if ((int32_t)(pos) != mix_Balance)
-		mix_Balance = (int8_t)(pos);
+	if (mix_Balance != (int8_t)pos)
+		mix_Balance = (int8_t)pos;
 }
 
 static void pbMixBalanceDown(void)
@@ -1060,18 +1054,21 @@ void pbSampleMix(void)
 	while (editor.ui.sysReqShown)
 	{
 		readInput();
+		if (editor.ui.sysReqEnterPressed)
+			pbMix();
+
 		setSyncedReplayerVars();
 		handleRedrawing();
 
 		drawMixSampleBox();
 		setScrollBarPos(0, mix_Balance, false);
-		for (i = 0; i < 4; ++i) drawPushButton(i);
+		for (i = 0; i < 4; i++) drawPushButton(i);
 		drawScrollBar(0);
 
 		flipFrame();
 	}
 
-	for (i = 0; i < 4; ++i) hidePushButton(i);
+	for (i = 0; i < 4; i++) hidePushButton(i);
 	hideScrollBar(0);
 
 	windowClose(false);
@@ -1082,12 +1079,10 @@ void pbSampleMix(void)
 
 static void sbSetStartVolPos(uint32_t pos)
 {
-	int16_t val;
-
-	val = (int16_t)(pos - 500);
+	int16_t val = (int16_t)(pos - 500);
 	if (val != vol_StartVol)
 	{
-			 if (ABS(val)       < 10) val =    0;
+		     if (ABS(val)       < 10) val =    0;
 		else if (ABS(val - 100) < 10) val =  100;
 		else if (ABS(val - 200) < 10) val =  200;
 		else if (ABS(val - 300) < 10) val =  300;
@@ -1103,12 +1098,10 @@ static void sbSetStartVolPos(uint32_t pos)
 
 static void sbSetEndVolPos(uint32_t pos)
 {
-	int16_t val;
-
-	val = (int16_t)(pos - 500);
+	int16_t val = (int16_t)(pos - 500);
 	if (val != vol_EndVol)
 	{
-			 if (ABS(val)       < 10) val =    0;
+		     if (ABS(val)       < 10) val =    0;
 		else if (ABS(val - 100) < 10) val =  100;
 		else if (ABS(val - 200) < 10) val =  200;
 		else if (ABS(val - 300) < 10) val =  300;
@@ -1153,7 +1146,7 @@ static int32_t SDLCALL applyVolumeThread(void *ptr)
 	int32_t smp, x1, x2, len, i;
 	double dSmp, dVolAdjust;
 
-	(void)(ptr);
+	(void)ptr;
 
 	if (smpEd_Rx1 < smpEd_Rx2)
 	{
@@ -1170,7 +1163,7 @@ static int32_t SDLCALL applyVolumeThread(void *ptr)
 		{
 			setMouseBusy(false);
 			editor.ui.sysReqShown = false;
-			return (true);
+			return true;
 		}
 
 		if (currSmp->typ & 16)
@@ -1198,28 +1191,28 @@ static int32_t SDLCALL applyVolumeThread(void *ptr)
 	restoreSample(currSmp);
 	if (currSmp->typ & 16)
 	{
-		ptr16 = (int16_t *)(currSmp->pek);
-		for (i = x1; i < x2; ++i)
+		ptr16 = (int16_t *)currSmp->pek;
+		for (i = x1; i < x2; i++)
 		{
 			dVolAdjust = vol_StartVol + (((vol_EndVol - vol_StartVol) * (double)(i - x1)) / len);
 
 			dSmp = (ptr16[i] * dVolAdjust) / 100.0;
 			double2int32_round(smp, dSmp);
 			CLAMP16(smp);
-			ptr16[i] = (int16_t)(smp);
+			ptr16[i] = (int16_t)smp;
 		}
 	}
 	else
 	{
 		ptr8 = currSmp->pek;
-		for (i = x1; i < x2; ++i)
+		for (i = x1; i < x2; i++)
 		{
 			dVolAdjust = vol_StartVol + (((vol_EndVol - vol_StartVol) * (double)(i - x1)) / len);
 
 			dSmp = (ptr8[i] * dVolAdjust) / 100.0;
 			double2int32_round(smp, dSmp);
 			CLAMP8(smp);
-			ptr8[i] = (int8_t)(smp);
+			ptr8[i] = (int8_t)smp;
 		}
 	}
 	fixSample(currSmp);
@@ -1230,16 +1223,15 @@ static int32_t SDLCALL applyVolumeThread(void *ptr)
 	setMouseBusy(false);
 
 	editor.ui.sysReqShown = false;
-	return (true);
+	return true;
 }
 
 static void pbApplyVolume(void)
 {
-	// test if we actually need to do anything
-	if ((vol_StartVol == 100) && (vol_EndVol == 100))
+	if (vol_StartVol == 100 && vol_EndVol == 100)
 	{
 		editor.ui.sysReqShown = false;
-		return;
+		return; // we don't need to do anything
 	}
 
 	mouseAnimOn();
@@ -1259,7 +1251,7 @@ static int32_t SDLCALL getMaxScaleThread(void *ptr)
 	int16_t *ptr16;
 	int32_t vol, absSmp, x1, x2, len, i, maxAmp;
 
-	(void)(ptr);
+	(void)ptr;
 
 	if (smpEd_Rx1 < smpEd_Rx2)
 	{
@@ -1275,7 +1267,7 @@ static int32_t SDLCALL getMaxScaleThread(void *ptr)
 		if (x2 <= x1)
 		{
 			setMouseBusy(false);
-			return (true);
+			return true;
 		}
 
 		if (currSmp->typ & 16)
@@ -1300,8 +1292,8 @@ static int32_t SDLCALL getMaxScaleThread(void *ptr)
 	maxAmp = 0;
 	if (currSmp->typ & 16)
 	{
-		ptr16 = (int16_t *)(&currSmp->pek[x1]);
-		for (i = 0; i < len; ++i)
+		ptr16 = (int16_t *)&currSmp->pek[x1];
+		for (i = 0; i < len; i++)
 		{
 			absSmp = ABS(ptr16[i]);
 			if (absSmp > maxAmp)
@@ -1311,7 +1303,7 @@ static int32_t SDLCALL getMaxScaleThread(void *ptr)
 	else
 	{
 		ptr8 = &currSmp->pek[x1];
-		for (i = 0; i < len; ++i)
+		for (i = 0; i < len; i++)
 		{
 			absSmp = ABS(ptr8[i]);
 			if (absSmp > maxAmp)
@@ -1326,7 +1318,7 @@ static int32_t SDLCALL getMaxScaleThread(void *ptr)
 	if (maxAmp <= 0)
 	{
 		vol_StartVol = 0;
-		vol_EndVol   = 0;
+		vol_EndVol = 0;
 	}
 	else
 	{
@@ -1334,13 +1326,12 @@ static int32_t SDLCALL getMaxScaleThread(void *ptr)
 		if (vol > 500)
 			vol = 500;
 
-		vol_StartVol = (int16_t)(vol);
-		vol_EndVol   = (int16_t)(vol);
+		vol_StartVol = (int16_t)vol;
+		vol_EndVol = (int16_t)vol;
 	}
 
 	setMouseBusy(false);
-
-	return (true);
+	return true;
 }
 
 static void pbGetMaxScale(void)
@@ -1385,9 +1376,9 @@ static void drawSampleVolumeBox(void)
 	charOutShadow(282, 236, PAL_FORGRND, PAL_BUTTON2, '%');
 	charOutShadow(282, 250, PAL_FORGRND, PAL_BUTTON2, '%');
 
-		 if (vol_StartVol == 0) sign = ' ';
+	     if (vol_StartVol == 0) sign = ' ';
 	else if (vol_StartVol  < 0) sign = '-';
-	else                        sign = '+';
+	else sign = '+';
 
 	val = ABS(vol_StartVol);
 	if (val > 99)
@@ -1409,9 +1400,9 @@ static void drawSampleVolumeBox(void)
 		charOut(274, 236, PAL_FORGRND, '0' + (val % 10));
 	}
 
-		 if (vol_EndVol == 0) sign = ' ';
+	     if (vol_EndVol == 0) sign = ' ';
 	else if (vol_EndVol  < 0) sign = '-';
-	else                      sign = '+';
+	else sign = '+';
 
 	val = ABS(vol_EndVol);
 	if (val > 99)
@@ -1553,7 +1544,7 @@ void pbSampleVolume(void)
 {
 	uint16_t i;
 
-	if ((editor.curInstr == 0) || (currSmp->pek == NULL))
+	if (editor.curInstr == 0 || currSmp->pek == NULL)
 		return;
 
 	setupVolumeBoxWidgets();
@@ -1563,6 +1554,12 @@ void pbSampleVolume(void)
 	while (editor.ui.sysReqShown)
 	{
 		readInput();
+		if (editor.ui.sysReqEnterPressed)
+		{
+			pbApplyVolume();
+			keyb.ignoreCurrKeyUp = true; // don't handle key up event for this key release
+		}
+
 		setSyncedReplayerVars();
 		handleRedrawing();
 
@@ -1571,15 +1568,15 @@ void pbSampleVolume(void)
 
 		drawSampleVolumeBox();
 		setScrollBarPos(0, 500 + vol_StartVol, false);
-		setScrollBarPos(1, 500 + vol_EndVol,   false);
-		for (i = 0; i < 7; ++i) drawPushButton(i);
-		for (i = 0; i < 2; ++i) drawScrollBar(i);
+		setScrollBarPos(1, 500 + vol_EndVol, false);
+		for (i = 0; i < 7; i++) drawPushButton(i);
+		for (i = 0; i < 2; i++) drawScrollBar(i);
 
 		flipFrame();
 	}
 
-	for (i = 0; i < 7; ++i) hidePushButton(i);
-	for (i = 0; i < 2; ++i) hideScrollBar(i);
+	for (i = 0; i < 7; i++) hidePushButton(i);
+	for (i = 0; i < 2; i++) hideScrollBar(i);
 
 	windowClose(true);
 }

@@ -28,6 +28,7 @@
 #include "ft2_mouse.h"
 #include "ft2_edit.h"
 #include "ft2_sample_ed_features.h"
+#include "ft2_palette.h"
 
 pushButton_t pushButtons[NUM_PUSHBUTTONS] =
 {
@@ -350,32 +351,32 @@ pushButton_t pushButtons[NUM_PUSHBUTTONS] =
 	{ 483, 158, 18, 13, 1, 4, ARROW_DOWN_STRING, NULL,    scrollMidiInputDevListDown, NULL },
 
 	// ------ DISK OP. PUSHBUTTONS ------
-	//x,   y,   w,  h,  p, d, text #1,          text #2, funcOnDown,     funcOnUp
-	{  70,   2, 58, 16, 0, 0, "Save",           NULL,    NULL,           pbDiskOpSave },
-	{  70,  19, 58, 16, 0, 0, "Delete",         NULL,    NULL,           pbDiskOpDelete },
-	{  70,  36, 58, 16, 0, 0, "Rename",         NULL,    NULL,           pbDiskOpRename },
-	{  70,  53, 58, 16, 0, 0, "Makedir",        NULL,    NULL,           pbDiskOpMakeDir },
-	{  70,  70, 58, 16, 0, 0, "Refresh",        NULL,    NULL,           pbDiskOpRefresh },
-	{  70,  87, 58, 16, 0, 0, "Set path",       NULL,    NULL,           pbDiskOpSetPath },
-	{  70, 104, 58, 16, 0, 0, "Show all",       NULL,    NULL,           pbDiskOpShowAll },
-	{  70, 121, 58, 19, 0, 0, "Exit",           NULL,    NULL,           pbDiskOpExit },
+	//x,   y,   w,  h,  p, d, text #1,           text #2, funcOnDown,       funcOnUp
+	{  70,   2, 58, 16, 0, 0, "Save",            NULL,    NULL,             pbDiskOpSave },
+	{  70,  19, 58, 16, 0, 0, "Delete",          NULL,    NULL,             pbDiskOpDelete },
+	{  70,  36, 58, 16, 0, 0, "Rename",          NULL,    NULL,             pbDiskOpRename },
+	{  70,  53, 58, 16, 0, 0, "Makedir",         NULL,    NULL,             pbDiskOpMakeDir },
+	{  70,  70, 58, 16, 0, 0, "Refresh",         NULL,    NULL,             pbDiskOpRefresh },
+	{  70,  87, 58, 16, 0, 0, "Set path",        NULL,    NULL,             pbDiskOpSetPath },
+	{  70, 104, 58, 16, 0, 0, "Show all",        NULL,    NULL,             pbDiskOpShowAll },
+	{  70, 121, 58, 19, 0, 0, "Exit",            NULL,    NULL,             pbDiskOpExit },
 #ifdef _WIN32
-	{ 134,   2, 31, 13, 0, 0, ".\001",          NULL,    NULL,           pbDiskOpParent },
-	{ 134,  16, 31, 12, 0, 0, "\\",             NULL,    NULL,           pbDiskOpRoot },
-	{ 134,  29, 31, 13, 0, 0, NULL,             NULL,    NULL,           pbDiskOpDrive1 },
-	{ 134,  43, 31, 13, 0, 0, NULL,             NULL,    NULL,           pbDiskOpDrive2 },
-	{ 134,  57, 31, 13, 0, 0, NULL,             NULL,    NULL,           pbDiskOpDrive3 },
-	{ 134,  71, 31, 13, 0, 0, NULL,             NULL,    NULL,           pbDiskOpDrive4 },
-	{ 134,  85, 31, 13, 0, 0, NULL,             NULL,    NULL,           pbDiskOpDrive5 },
-	{ 134,  99, 31, 13, 0, 0, NULL,             NULL,    NULL,           pbDiskOpDrive6 },
-	{ 134, 113, 31, 13, 0, 0, NULL,             NULL,    NULL,           pbDiskOpDrive7 },
-	{ 134, 127, 31, 13, 0, 0, NULL,             NULL,    NULL,           pbDiskOpDrive8 },
+	{ 134,   2, 31, 13, 0, 0, ".\001",           NULL,    NULL,             pbDiskOpParent },
+	{ 134,  16, 31, 12, 0, 0, "\\",              NULL,    NULL,             pbDiskOpRoot },
+	{ 134,  29, 31, 13, 0, 0, NULL,              NULL,    NULL,             pbDiskOpDrive1 },
+	{ 134,  43, 31, 13, 0, 0, NULL,              NULL,    NULL,             pbDiskOpDrive2 },
+	{ 134,  57, 31, 13, 0, 0, NULL,              NULL,    NULL,             pbDiskOpDrive3 },
+	{ 134,  71, 31, 13, 0, 0, NULL,              NULL,    NULL,             pbDiskOpDrive4 },
+	{ 134,  85, 31, 13, 0, 0, NULL,              NULL,    NULL,             pbDiskOpDrive5 },
+	{ 134,  99, 31, 13, 0, 0, NULL,              NULL,    NULL,             pbDiskOpDrive6 },
+	{ 134, 113, 31, 13, 0, 0, NULL,              NULL,    NULL,             pbDiskOpDrive7 },
+	{ 134, 127, 31, 13, 0, 0, NULL,              NULL,    NULL,             pbDiskOpDrive8 },
 #else
-	{ 134,   2, 31, 13, 0, 0, "../",            NULL,    NULL,           pbDiskOpParent },
-	{ 134,  16, 31, 12, 0, 0, "/",              NULL,    NULL,           pbDiskOpRoot },
+	{ 134,   2, 31, 13, 0, 0, "../",             NULL,    NULL,             pbDiskOpParent },
+	{ 134,  16, 31, 12, 0, 0, "/",               NULL,    NULL,             pbDiskOpRoot },
 #endif
-	{ 335,   2, 18, 13, 0, 0, ARROW_UP_STRING,   NULL, pbDiskOpListUp,   NULL },
-	{ 335, 158, 18, 13, 0, 0, ARROW_DOWN_STRING, NULL, pbDiskOpListDown, NULL },
+	{ 335,   2, 18, 13, 0, 0, ARROW_UP_STRING,   NULL,    pbDiskOpListUp,   NULL },
+	{ 335, 158, 18, 13, 0, 0, ARROW_DOWN_STRING, NULL,    pbDiskOpListDown, NULL },
 
 	// ------ WAV RENDERER PUSHBUTTONS ------
 	//x,   y,   w,  h,  p, d, text #1,           text #2, funcOnDown,         funcOnUp
@@ -412,7 +413,7 @@ void drawPushButton(uint16_t pushButtonID)
 	w = b->w;
 	h = b->h;
 
-	assert((x < SCREEN_W) && (y < SCREEN_H) && (w >= 4) && (h >= 4));
+	assert(x < SCREEN_W && y < SCREEN_H && w >= 4 && h >= 4);
 
 	if (b->bitmapFlag)
 	{
@@ -448,10 +449,10 @@ void drawPushButton(uint16_t pushButtonID)
 	}
 
 	// render button text(s)
-	if ((b->caption != NULL) && (*b->caption != '\0'))
+	if (b->caption != NULL && *b->caption != '\0')
 	{
 		// button text #2
-		if ((b->caption2 != NULL) && (*b->caption2 != '\0'))
+		if (b->caption2 != NULL && *b->caption2 != '\0')
 		{
 			textW = textWidth(b->caption2);
 			textX = x + ((w - textW) / 2);
@@ -480,7 +481,6 @@ void drawPushButton(uint16_t pushButtonID)
 void showPushButton(uint16_t pushButtonID)
 {
 	assert(pushButtonID < NUM_PUSHBUTTONS);
-
 	pushButtons[pushButtonID].visible = true;
 	drawPushButton(pushButtonID);
 }
@@ -488,8 +488,7 @@ void showPushButton(uint16_t pushButtonID)
 void hidePushButton(uint16_t pushButtonID)
 {
 	assert(pushButtonID < NUM_PUSHBUTTONS);
-
-	pushButtons[pushButtonID].state   = 0;
+	pushButtons[pushButtonID].state = 0;
 	pushButtons[pushButtonID].visible = false;
 }
 
@@ -498,20 +497,19 @@ void handlePushButtonsWhileMouseDown(void)
 	int8_t buttonDelay;
 	pushButton_t *pushButton;
 
-	assert((mouse.lastUsedObjectID >= 0) && (mouse.lastUsedObjectID < NUM_PUSHBUTTONS));
-
+	assert(mouse.lastUsedObjectID >= 0 && mouse.lastUsedObjectID < NUM_PUSHBUTTONS);
 	pushButton = &pushButtons[mouse.lastUsedObjectID];
 	if (!pushButton->visible)
 		return;
 
 	pushButton->state = PUSHBUTTON_UNPRESSED;
-	if ((mouse.x >= pushButton->x) && (mouse.x < (pushButton->x + pushButton->w)))
+	if (mouse.x >= pushButton->x && mouse.x < pushButton->x+pushButton->w &&
+        mouse.y >= pushButton->y && mouse.y < pushButton->y+pushButton->h)
 	{
-		if ((mouse.y >= pushButton->y) && (mouse.y < (pushButton->y + pushButton->h)))
-			pushButton->state = PUSHBUTTON_PRESSED;
+		pushButton->state = PUSHBUTTON_PRESSED;
 	}
 
-	if ((mouse.lastX != mouse.x) || (mouse.lastY != mouse.y))
+	if (mouse.lastX != mouse.x || mouse.lastY != mouse.y)
 	{
 		mouse.lastX = mouse.x;
 		mouse.lastY = mouse.y;
@@ -519,126 +517,116 @@ void handlePushButtonsWhileMouseDown(void)
 		drawPushButton(mouse.lastUsedObjectID);
 	}
 
-	if (pushButton->callbackFuncOnDown != NULL)
+	// long delay before repeat
+	if (pushButton->preDelay && mouse.firstTimePressingButton)
 	{
-		// long delay before repeat
-		if (pushButton->preDelay && mouse.firstTimePressingButton)
-		{
-			tmpCounter = 0;
+		tmpCounter = 0;
 
-			if (++mouse.buttonCounter >= BUTTON_DOWN_DELAY)
-			{
-				mouse.buttonCounter = 0;
-				mouse.firstTimePressingButton = false;
-			}
-			else
-			{
-				return; // we're delaying
-			}
+		if (++mouse.buttonCounter >= BUTTON_DOWN_DELAY)
+		{
+			mouse.buttonCounter = 0;
+			mouse.firstTimePressingButton = false;
 		}
-
-		if (pushButton->state == PUSHBUTTON_PRESSED)
+		else
 		{
-			if (mouse.rightButtonPressed)
-				buttonDelay = pushButton->delayFrames / 2;
-			else if ((pushButton->preDelay == 2) && (!mouse.firstTimePressingButton && (++tmpCounter >= 20)))
-				buttonDelay = 0;
-			else 
-				buttonDelay = pushButton->delayFrames;
+			return; // we're delaying
+		}
+	}
 
-			// main repeat delay
-			if (++mouse.buttonCounter >= buttonDelay)
-			{
-				mouse.buttonCounter = 0;
-				if (pushButton->callbackFuncOnDown != NULL)
-				   (pushButton->callbackFuncOnDown)();
-			}
+	if (pushButton->state == PUSHBUTTON_PRESSED)
+	{
+		// button delay stuff
+		if (mouse.rightButtonPressed)
+			buttonDelay = pushButton->delayFrames / 2;
+		else if (pushButton->preDelay == 2 && (!mouse.firstTimePressingButton && ++tmpCounter >= 20)) // special mode
+			buttonDelay = 0;
+		else 
+			buttonDelay = pushButton->delayFrames;
+
+		// main repeat delay
+		if (++mouse.buttonCounter >= buttonDelay)
+		{
+			mouse.buttonCounter = 0;
+			if (pushButton->callbackFuncOnDown != NULL)
+			    pushButton->callbackFuncOnDown();
 		}
 	}
 }
 
 bool testPushButtonMouseDown(void)
 {
-	uint16_t i, start, end;
+	uint16_t start, end;
 	pushButton_t *pushButton;
 
 	if (editor.ui.sysReqShown)
 	{
 		// if a system request is open, only test the first eight pushbuttons (reserved)
 		start = 0;
-		end   = 8;
+		end = 8;
 	}
 	else
 	{
 		start = 8;
-		end   = NUM_PUSHBUTTONS;
+		end = NUM_PUSHBUTTONS;
 	}
 
-	for (i = start; i < end; ++i)
+	for (uint16_t i = start; i < end; i++)
 	{
 		pushButton = &pushButtons[i];
 		if (!pushButton->visible)
 			continue;
 
-		if ((mouse.x >= pushButton->x) && (mouse.x < (pushButton->x + pushButton->w)))
+		if (mouse.x >= pushButton->x && mouse.x < pushButton->x+pushButton->w &&
+		    mouse.y >= pushButton->y && mouse.y < pushButton->y+pushButton->h)
 		{
-			if ((mouse.y >= pushButton->y) && (mouse.y < (pushButton->y + pushButton->h)))
+			mouse.lastUsedObjectID = i;
+			mouse.lastUsedObjectType = OBJECT_PUSHBUTTON;
+
+			if (!mouse.rightButtonPressed)
 			{
-				mouse.lastUsedObjectID   = i;
-				mouse.lastUsedObjectType = OBJECT_PUSHBUTTON;
+				mouse.firstTimePressingButton = true;
+				mouse.buttonCounter = 0;
 
-				if (!mouse.rightButtonPressed)
-				{
-					mouse.firstTimePressingButton = true;
-					mouse.buttonCounter = 0;
+				pushButton->state = PUSHBUTTON_PRESSED;
+				drawPushButton(i);
 
-					pushButton->state = PUSHBUTTON_PRESSED;
-					drawPushButton(i);
-
-					if (pushButton->callbackFuncOnDown != NULL)
-					   (pushButton->callbackFuncOnDown)();
-				}
-
-				return (true);
+				if (pushButton->callbackFuncOnDown != NULL)
+					pushButton->callbackFuncOnDown();
 			}
+
+			return true;
 		}
 	}
 
-	return (false);
+	return false;
 }
 
 int16_t testPushButtonMouseRelease(bool runCallback)
 {
 	pushButton_t *pushButton;
 
-	if (mouse.lastUsedObjectType == OBJECT_PUSHBUTTON)
+	if (mouse.lastUsedObjectType != OBJECT_PUSHBUTTON || mouse.lastUsedObjectID == OBJECT_ID_NONE)
+		return -1;
+
+	assert(mouse.lastUsedObjectID < NUM_PUSHBUTTONS);
+	pushButton = &pushButtons[mouse.lastUsedObjectID];
+	if (!pushButton->visible)
+		return -1;
+
+	if (mouse.x >= pushButton->x && mouse.x < pushButton->x+pushButton->w &&
+		mouse.y >= pushButton->y && mouse.y < pushButton->y+pushButton->h)
 	{
-		if (mouse.lastUsedObjectID != OBJECT_ID_NONE)
+		pushButton->state = PUSHBUTTON_UNPRESSED;
+		drawPushButton(mouse.lastUsedObjectID);
+
+		if (runCallback)
 		{
-			assert(mouse.lastUsedObjectID < NUM_PUSHBUTTONS);
-
-			pushButton = &pushButtons[mouse.lastUsedObjectID];
-			if (pushButton->visible)
-			{
-				if ((mouse.x >= pushButton->x) && (mouse.x < (pushButton->x + pushButton->w)))
-				{
-					if ((mouse.y >= pushButton->y) && (mouse.y < (pushButton->y + pushButton->h)))
-					{
-						pushButton->state = PUSHBUTTON_UNPRESSED;
-						drawPushButton(mouse.lastUsedObjectID);
-
-						if (runCallback)
-						{
-							if (pushButton->callbackFuncOnUp != NULL)
-							   (pushButton->callbackFuncOnUp)();
-						}
-
-						return (mouse.lastUsedObjectID);
-					}
-				}
-			}
+			if (pushButton->callbackFuncOnUp != NULL)
+				pushButton->callbackFuncOnUp();
 		}
+
+		return mouse.lastUsedObjectID;
 	}
 
-	return (-1);
+	return -1;
 }

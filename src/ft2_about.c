@@ -7,13 +7,13 @@
 
 // ported from original FT2 code
 
-#define NUM_STARS      512
+#define NUM_STARS 512
 #define ABOUT_SCREEN_W 626
 #define ABOUT_SCREEN_H 167
-#define FT2_LOGO_W     449
-#define FT2_LOGO_H     75
-#define ABOUT_TEXT_W   349
-#define ABOUT_TEXT_H   29
+#define FT2_LOGO_W 449
+#define FT2_LOGO_H 75
+#define ABOUT_TEXT_W 349
+#define ABOUT_TEXT_H 29
 
 typedef struct
 {
@@ -33,7 +33,7 @@ typedef struct
 extern const uint16_t sinusTables[256 * 5]; // defined at the bottom of this file
 
 static const uint8_t starColConv[24] = { 2,2,2,2,2,2,2,2, 2,2,2,1,1,1,3,3, 3,3,3,3,3,3,3,3 };
-static const int16_t *sin32767 = (const int16_t *)(sinusTables), *cos32767 = (const int16_t *)(&sinusTables[256]);
+static const int16_t *sin32767 = (const int16_t *)sinusTables, *cos32767 = (const int16_t *)&sinusTables[256];
 static int16_t hastighet;
 static int32_t lastStarScreenPos[NUM_STARS];
 static uint32_t randSeed;
@@ -54,7 +54,7 @@ static inline int32_t random32(int32_t l)
 	randSeed += 1;
 
 	r = (int32_t)(((int64_t)(randSeed) * l) >> 32);
-	return (r);
+	return r;
 }
 
 static void fixaMatris(rotate_t a, matrix_t *mat)
@@ -77,9 +77,9 @@ static void fixaMatris(rotate_t a, matrix_t *mat)
 	mat->z.z = (cb * cc) >> 16;
 }
 
-static int32_t sqr(int32_t x)
+static inline int32_t sqr(int32_t x)
 {
-	return (x * x);
+	return x * x;
 }
 
 static void aboutInit(void)
@@ -89,17 +89,17 @@ static void aboutInit(void)
 	int32_t r, n, w, h;
 	double ww;
 
-	type = (uint8_t)(random32(4));
+	type = (uint8_t)random32(4);
 	switch (type)
 	{
 		case 0:
 		{
 			hastighet = 309;
-			for (i = 0; i < NUM_STARS; ++i)
+			for (i = 0; i < NUM_STARS; i++)
 			{
-				starcrd[i].z = (int16_t)(random32(0xFFFF)) - 0x8000;
-				starcrd[i].y = (int16_t)(random32(0xFFFF)) - 0x8000;
-				starcrd[i].x = (int16_t)(random32(0xFFFF)) - 0x8000;
+				starcrd[i].z = (int16_t)random32(0xFFFF) - 0x8000;
+				starcrd[i].y = (int16_t)random32(0xFFFF) - 0x8000;
+				starcrd[i].x = (int16_t)random32(0xFFFF) - 0x8000;
 			}
 		}
 		break;
@@ -107,13 +107,13 @@ static void aboutInit(void)
 		case 1:
 		{
 			hastighet = 0;
-			for (i = 0; i < NUM_STARS; ++i)
+			for (i = 0; i < NUM_STARS; i++)
 			{
 				if (i < (NUM_STARS / 4))
 				{
-					starcrd[i].z = (int16_t)(random32(0xFFFF)) - 0x8000;
-					starcrd[i].y = (int16_t)(random32(0xFFFF)) - 0x8000;
-					starcrd[i].x = (int16_t)(random32(0xFFFF)) - 0x8000;
+					starcrd[i].z = (int16_t)random32(0xFFFF) - 0x8000;
+					starcrd[i].y = (int16_t)random32(0xFFFF) - 0x8000;
+					starcrd[i].x = (int16_t)random32(0xFFFF) - 0x8000;
 				}
 				else
 				{
@@ -123,9 +123,9 @@ static void aboutInit(void)
 					ww = (((M_PI * 2.0) / 5.0) * n) + (r / 12000.0) + (w / 3000000.0);
 					h  = ((sqr(r) / 30000) * (random32(10000) - 5000)) / 12000;
 
-					starcrd[i].x = (int16_t)(trunc(r * cos(ww)));
-					starcrd[i].y = (int16_t)(trunc(r * sin(ww)));
-					starcrd[i].z = (int16_t)(h);
+					starcrd[i].x = (int16_t)trunc(r * cos(ww));
+					starcrd[i].y = (int16_t)trunc(r * sin(ww));
+					starcrd[i].z = (int16_t)h;
 				}
 			}
 		}
@@ -135,9 +135,9 @@ static void aboutInit(void)
 		case 3:
 		{
 			hastighet = 0;
-			for (i = 0; i < NUM_STARS; ++i)
+			for (i = 0; i < NUM_STARS; i++)
 			{
-				r  = (int32_t)(round(sqrt(random32(500) * 500)));
+				r  = (int32_t)round(sqrt(random32(500) * 500));
 				w  = random32(3000);
 				h  = cos32767[(((w * 8) + r) / 16) & 1023] / 4;
 
@@ -152,14 +152,14 @@ static void aboutInit(void)
 			break;
 	}
 
-	for (i = 0; i < NUM_STARS; ++i)
+	for (i = 0; i < NUM_STARS; i++)
 		lastStarScreenPos[i] = -1;
 }
 
 static void realStars(void)
 {
 	uint8_t col;
-	int16_t i, x, y, z, xx, xy, xz, yx, yy, yz, zx, zy, zz;
+	int16_t x, y, z, xx, xy, xz, yx, yy, yz, zx, zy, zz;
 	int32_t screenBufferPos;
 	vector_t *star;
 
@@ -167,7 +167,7 @@ static void realStars(void)
 	yx = starmat.y.x; yy = starmat.y.y; yz = starmat.y.z;
 	zx = starmat.z.x; zy = starmat.z.y; zz = starmat.z.z;
 
-	for (i = 0; i < NUM_STARS; ++i)
+	for (int16_t i = 0; i < NUM_STARS; i++)
 	{
 		// erase last star pixel
 		screenBufferPos = lastStarScreenPos[i];
@@ -188,22 +188,22 @@ static void realStars(void)
 
 		y = ((xy * star->x) >> 16) + ((yy * star->y) >> 16) + ((zy * star->z) >> 16);
 		y = (int16_t)((y << 7) / z) + 84;
-		if ((uint16_t)(y) >= (173 - 6))
+		if ((uint16_t)y >= (173 - 6))
 			continue;
 
 		x = ((xx * star->x) >> 16) + ((yx * star->y) >> 16) + ((zx * star->z) >> 16);
 		x = (int16_t)((((x >> 2) + x) << 7) / z) + (320 - 8);
-		if ((uint16_t)(x) >= (640 - 16))
+		if ((uint16_t)x >= (640 - 16))
 			continue;
 
 		// render star pixel if the pixel under it is the background
 		screenBufferPos = ((y + 4) * SCREEN_W) + (x + 4);
 		if ((video.frameBuffer[screenBufferPos] >> 24) == PAL_BCKGRND)
 		{
-			col = ((uint8_t)(~(z >> 8)) >> 3) - (22 - 8);
+			col = ((uint8_t)~(z >> 8) >> 3) - (22 - 8);
 			if (col < 24)
 			{
-				video.frameBuffer[screenBufferPos] = video.palette[starColConv[col]] & 0x00FFFFFF;
+				video.frameBuffer[screenBufferPos] = video.palette[starColConv[col]] & 0xFFFFFF;
 				lastStarScreenPos[i] = screenBufferPos;
 			}
 		}

@@ -68,6 +68,7 @@
     <ClCompile Include="..\..\src\rtmidi\rtmidi_c.cpp">
       <Filter>rtmidi</Filter>
     </ClCompile>
+    <ClCompile Include="..\..\src\ft2_palette.c" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="..\..\src\ft2_audio.h">

@@ -22,57 +22,114 @@
 #include "ft2_trim.h"
 #include "ft2_video.h"
 
-void unstuckAllGUIElements(void) // releases all GUI elements if they were held down/used
+static void releaseMouseStates(void)
 {
-	int16_t i;
+	mouse.lastUsedObjectID = OBJECT_ID_NONE;
+	mouse.lastUsedObjectType = OBJECT_NONE;
+	mouse.leftButtonPressed = false;
+	mouse.leftButtonReleased = false;
+	mouse.rightButtonPressed = false;
+	mouse.rightButtonReleased = false;
+	mouse.firstTimePressingButton = false;
+	mouse.buttonCounter = 0;
+	mouse.lastX = 0;
+	mouse.lastY = 0;
+	editor.ui.sampleDataOrLoopDrag = -1;
+	editor.ui.leftLoopPinMoving = false;
+	editor.ui.rightLoopPinMoving = false;
+}
+
+void unstuckLastUsedGUIElement(void)
+{
+	pushButton_t *p;
+	radioButton_t *r;
+	checkBox_t *c;
+	scrollBar_t *s;
 
 	if (mouse.lastUsedObjectID == OBJECT_ID_NONE)
-		return; // nothing to unstuck
-
-	mouse.lastUsedObjectID   = OBJECT_ID_NONE;
-	mouse.lastUsedObjectType = OBJECT_NONE;
-
-	for (i = 0; i < NUM_RADIOBUTTONS; ++i)
 	{
-		if (radioButtons[i].state == RADIOBUTTON_PRESSED)
+		/* if last object ID is OBJECT_ID_NONE, check if we moved the
+		** sample data loop pins, and unstuck them if so */
+
+		if (editor.ui.leftLoopPinMoving)
 		{
-			radioButtons[i].state = RADIOBUTTON_UNCHECKED;
-			if (radioButtons[i].visible)
-				drawRadioButton(i);
+			setLeftLoopPinState(false);
+			editor.ui.leftLoopPinMoving = false;
 		}
-	}
 
-	for (i = 0; i < NUM_CHECKBOXES; ++i)
-	{
-		if (checkBoxes[i].state == CHECKBOX_PRESSED)
+		if (editor.ui.rightLoopPinMoving)
 		{
-			checkBoxes[i].state = CHECKBOX_UNPRESSED;
-			if (checkBoxes[i].visible)
-				drawCheckBox(i);
+			setRightLoopPinState(false);
+			editor.ui.rightLoopPinMoving = false;
 		}
+
+		releaseMouseStates();
+		return;
 	}
 
-	for (i = 0; i < NUM_PUSHBUTTONS; ++i)
+	switch (mouse.lastUsedObjectType)
 	{
-		if (pushButtons[i].state == PUSHBUTTON_PRESSED)
+		default: break;
+
+		case OBJECT_PUSHBUTTON:
 		{
-			pushButtons[i].state = PUSHBUTTON_UNPRESSED;
-			if (pushButtons[i].visible)
-				drawPushButton(i);
+			assert(mouse.lastUsedObjectID >= 0 && mouse.lastUsedObjectID < NUM_PUSHBUTTONS);
+			p = &pushButtons[mouse.lastUsedObjectID];
+			if (p->state == PUSHBUTTON_PRESSED)
+			{
+				p->state = PUSHBUTTON_UNPRESSED;
+				if (p->visible)
+					drawPushButton(mouse.lastUsedObjectID);
+			}
 		}
+		break;
+
+		case OBJECT_RADIOBUTTON:
+		{
+			assert(mouse.lastUsedObjectID >= 0 && mouse.lastUsedObjectID < NUM_RADIOBUTTONS);
+			r = &radioButtons[mouse.lastUsedObjectID];
+			if (r->state == RADIOBUTTON_PRESSED)
+			{
+				r->state = RADIOBUTTON_UNCHECKED;
+				if (r->visible)
+					drawRadioButton(mouse.lastUsedObjectID);
+			}
+		}
+		break;
+
+		case OBJECT_CHECKBOX:
+		{
+			assert(mouse.lastUsedObjectID >= 0 && mouse.lastUsedObjectID < NUM_CHECKBOXES);
+			c = &checkBoxes[mouse.lastUsedObjectID];
+			if (c->state == CHECKBOX_PRESSED)
+			{
+				c->state = CHECKBOX_UNPRESSED;
+				if (c->visible)
+					drawCheckBox(mouse.lastUsedObjectID);
+			}
+		}
+		break;
+
+		case OBJECT_SCROLLBAR:
+		{
+			assert(mouse.lastUsedObjectID >= 0 && mouse.lastUsedObjectID < NUM_SCROLLBARS);
+			s = &scrollBars[mouse.lastUsedObjectID];
+			if (s->state == SCROLLBAR_PRESSED)
+			{
+				s->state = SCROLLBAR_UNPRESSED;
+				if (s->visible)
+					drawScrollBar(mouse.lastUsedObjectID);
+			}
+		}
+		break;
 	}
 
-	for (i = 0; i < NUM_SCROLLBARS; ++i)
-	{
-		scrollBars[i].state = SCROLLBAR_UNPRESSED;
-		if (scrollBars[i].visible)
-			drawScrollBar(i);
-	}
+	releaseMouseStates();
 }
 
 bool setupGUI(void)
 {
-	int16_t i;
+	int32_t i;
 	textBox_t *t;
 	pushButton_t *p;
 	checkBox_t *c;
@@ -81,39 +138,39 @@ bool setupGUI(void)
 
 	// all memory will be NULL-tested and free'd if we return false somewhere in this function
 
-	editor.tmpFilenameU      = (UNICHAR *)(calloc(PATH_MAX + 1,              sizeof (UNICHAR)));
-	editor.tmpInstrFilenameU = (UNICHAR *)(calloc(PATH_MAX + 1,              sizeof (UNICHAR)));
+	editor.tmpFilenameU = (UNICHAR *)calloc(PATH_MAX + 1, sizeof (UNICHAR));
+	editor.tmpInstrFilenameU = (UNICHAR *)calloc(PATH_MAX + 1, sizeof (UNICHAR));
 
-	if ((editor.tmpFilenameU == NULL) || (editor.tmpInstrFilenameU == NULL))
-		goto oom;
+	if (editor.tmpFilenameU == NULL || editor.tmpInstrFilenameU == NULL)
+		goto setupGUI_OOM;
 
 	// set uninitialized GUI struct entries
 
-	for (i = 1; i < NUM_TEXTBOXES; ++i) // skip first entry, it's reserved for inputBox())
+	for (i = 1; i < NUM_TEXTBOXES; i++) // skip first entry, it's reserved for inputBox())
 	{
 		t = &textBoxes[i];
 
-		t->visible    = false;
-		t->bufOffset  = 0;
-		t->cursorPos  = 0;
-		t->textPtr    = NULL;
+		t->visible = false;
+		t->bufOffset = 0;
+		t->cursorPos = 0;
+		t->textPtr = NULL;
 		t->renderBufW = (9 + 1) * t->maxChars; // 9 = max character/glyph width possible
 		t->renderBufH = 10; // 10 = max character height possible
-		t->renderW    = t->w - (t->tx * 2);
+		t->renderW = t->w - (t->tx * 2);
 
-		t->renderBuf = (uint8_t *)(malloc(t->renderBufW * t->renderBufH * sizeof (int8_t)));
+		t->renderBuf = (uint8_t *)malloc(t->renderBufW * t->renderBufH * sizeof (int8_t));
 		if (t->renderBuf == NULL)
-			goto oom;
+			goto setupGUI_OOM;
 	}
 
-	for (i = 0; i < NUM_PUSHBUTTONS; ++i)
+	for (i = 0; i < NUM_PUSHBUTTONS; i++)
 	{
 		p = &pushButtons[i];
 
 		p->state = 0;
 		p->visible = false;
 
-		if ((i == PB_LOGO) || (i == PB_BADGE))
+		if (i == PB_LOGO || i == PB_BADGE)
 		{
 			p->bitmapFlag = true;
 		}
@@ -125,39 +182,41 @@ bool setupGUI(void)
 		}
 	}
 
-	for (i = 0; i < NUM_CHECKBOXES; ++i)
+	for (i = 0; i < NUM_CHECKBOXES; i++)
 	{
 		c = &checkBoxes[i];
 
-		c->state   = 0;
+		c->state = 0;
 		c->checked = false;
 		c->visible = false;
 	}
 
-	for (i = 0; i < NUM_RADIOBUTTONS; ++i)
+	for (i = 0; i < NUM_RADIOBUTTONS; i++)
 	{
 		r = &radioButtons[i];
 
-		r->state   = 0;
+		r->state = 0;
 		r->visible = false;
 	}
 
-	for (i = 0; i < NUM_SCROLLBARS; ++i)
+	for (i = 0; i < NUM_SCROLLBARS; i++)
 	{
 		s = &scrollBars[i];
 
 		s->visible = false;
-		s->state   = 0;
-		s->pos     = 0;
-		s->page    = 0;
-		s->end     = 0;
-		s->thumbX  = 0;
-		s->thumbY  = 0;
-		s->thumbW  = 0;
-		s->thumbH  = 0;
+		s->state = 0;
+		s->pos = 0;
+		s->page = 0;
+		s->end  = 0;
+		s->thumbX = 0;
+		s->thumbY = 0;
+		s->thumbW = 0;
+		s->thumbH = 0;
 	}
 
-	seedAboutScreenRandom((uint32_t)(time(NULL)));
+	setPal16(palTable[config.cfg_StdPalNr], false);
+
+	seedAboutScreenRandom((uint32_t)time(NULL));
 	setupInitialTextBoxPointers();
 	setInitialTrimFlags();
 	initializeScrollBars();
@@ -168,11 +227,11 @@ bool setupGUI(void)
 	updatePatternWidth();
 	initFTHelp();
 
-	return (true);
+	return true;
 
-oom:
+setupGUI_OOM:
 	showErrorMsgBox("Not enough memory!");
-	return (false);
+	return false;
 }
 
 // TEXT ROUTINES
@@ -180,13 +239,13 @@ oom:
 // returns full pixel width of a char/glyph
 uint8_t charWidth(char ch)
 {
-	return (prop8Width[ch & 0x7F]);
+	return prop8Width[ch & 0x7F];
 }
 
 // returns full pixel width of a char/glyph (big font)
 uint8_t charWidth16(char ch)
 {
-	return (prop16Width[ch & 0x7F]);
+	return prop16Width[ch & 0x7F];
 }
 
 // return full pixel width of a text string
@@ -204,19 +263,18 @@ uint16_t textWidth(const char *textPtr)
 	if (textWidth > 0)
 		textWidth--;
 
-	return (textWidth);
+	return textWidth;
 }
 
 uint16_t textNWidth(const char *textPtr, int32_t length)
 {
 	char ch;
 	uint16_t textWidth;
-	int32_t i;
 
 	assert(textPtr != NULL);
 
 	textWidth = 0;
-	for (i = 0; i < length; ++i)
+	for (int32_t i = 0; i < length; i++)
 	{
 		ch = textPtr[i];
 		if (ch == '\0')
@@ -229,7 +287,7 @@ uint16_t textNWidth(const char *textPtr, int32_t length)
 	if (textWidth > 0)
 		textWidth--;
 
-	return (textWidth);
+	return textWidth;
 }
 
 // return full pixel width of a text string (big font)
@@ -247,16 +305,15 @@ uint16_t textWidth16(const char *textPtr)
 	if (textWidth > 0)
 		textWidth--;
 
-	return (textWidth);
+	return textWidth;
 }
 
 void charOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr)
 {
 	const uint8_t *srcPtr;
-	uint8_t x, y;
 	uint32_t *dstPtr, pixVal;
 
-	assert((xPos < SCREEN_W) && (yPos < SCREEN_H));
+	assert(xPos < SCREEN_W && yPos < SCREEN_H);
 
 	chr &= 0x7F;
 	if (chr == ' ')
@@ -266,9 +323,9 @@ void charOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr)
 	srcPtr = &font1Data[chr * FONT1_CHAR_W];
 	dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 
-	for (y = 0; y < FONT1_CHAR_H; ++y)
+	for (uint32_t y = 0; y < FONT1_CHAR_H; y++)
 	{
-		for (x = 0; x < FONT1_CHAR_W; ++x)
+		for (uint32_t x = 0; x < FONT1_CHAR_W; x++)
 		{
 			if (srcPtr[x])
 				dstPtr[x] = pixVal;
@@ -282,10 +339,9 @@ void charOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr)
 void charOutBg(uint16_t xPos, uint16_t yPos, uint8_t fgPalette, uint8_t bgPalette, char chr)
 {
 	const uint8_t *srcPtr;
-	uint8_t x, y;
 	uint32_t *dstPtr, fg, bg;
 
-	assert((xPos < SCREEN_W) && (yPos < SCREEN_H));
+	assert(xPos < SCREEN_W && yPos < SCREEN_H);
 
 	chr &= 0x7F;
 	if (chr == ' ')
@@ -297,9 +353,9 @@ void charOutBg(uint16_t xPos, uint16_t yPos, uint8_t fgPalette, uint8_t bgPalett
 	srcPtr = &font1Data[chr * FONT1_CHAR_W];
 	dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 
-	for (y = 0; y < FONT1_CHAR_H; ++y)
+	for (uint32_t y = 0; y < FONT1_CHAR_H; y++)
 	{
-		for (x = 0; x < 7; ++x)
+		for (uint32_t x = 0; x < 7; x++)
 			dstPtr[x] = srcPtr[x] ? fg : bg;
 
 		srcPtr += FONT1_WIDTH;
@@ -320,10 +376,9 @@ void charOutOutlined(uint16_t x, uint16_t y, uint8_t paletteIndex, char chr)
 void charOutShadow(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint8_t shadowPaletteIndex, char chr)
 {
 	const uint8_t *srcPtr;
-	uint8_t x, y;
 	uint32_t *dstPtr, pixVal1, pixVal2;
 
-	assert((xPos < SCREEN_W) && (yPos < SCREEN_H));
+	assert(xPos < SCREEN_W && yPos < SCREEN_H);
 
 	chr &= 0x7F;
 	if (chr == ' ')
@@ -334,13 +389,13 @@ void charOutShadow(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint8_t s
 	srcPtr  = &font1Data[chr * FONT1_CHAR_W];
 	dstPtr  = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 
-	for (y = 0; y < FONT1_CHAR_H; ++y)
+	for (uint32_t y = 0; y < FONT1_CHAR_H; y++)
 	{
-		for (x = 0; x < FONT1_CHAR_W; ++x)
+		for (uint32_t x = 0; x < FONT1_CHAR_W; x++)
 		{
 			if (srcPtr[x])
 			{
-				dstPtr[x + (SCREEN_W + 1)] = pixVal2;
+				dstPtr[x+(SCREEN_W+1)] = pixVal2;
 				dstPtr[x] = pixVal1;
 			}
 		}
@@ -353,10 +408,10 @@ void charOutShadow(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint8_t s
 void charOutClipX(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr, uint16_t clipX)
 {
 	const uint8_t *srcPtr;
-	uint16_t x, y, width;
+	uint16_t width;
 	uint32_t *dstPtr, pixVal;
 
-	assert((xPos < SCREEN_W) && (yPos < SCREEN_H));
+	assert(xPos < SCREEN_W && yPos < SCREEN_H);
 
 	if (xPos > clipX)
 		return;
@@ -370,12 +425,12 @@ void charOutClipX(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr, 
 	dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 
 	width = FONT1_CHAR_W;
-	if ((xPos + width) > clipX)
-		width = FONT1_CHAR_W - (((xPos + width) - clipX));
+	if (xPos+width > clipX)
+		width = FONT1_CHAR_W - ((xPos + width) - clipX);
 
-	for (y = 0; y < FONT1_CHAR_H; ++y)
+	for (uint32_t y = 0; y < FONT1_CHAR_H; y++)
 	{
-		for (x = 0; x < width; ++x)
+		for (uint32_t x = 0; x < width; x++)
 		{
 			if (srcPtr[x])
 				dstPtr[x] = pixVal;
@@ -389,10 +444,9 @@ void charOutClipX(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr, 
 void bigCharOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr)
 {
 	const uint8_t *srcPtr;
-	uint8_t x, y;
 	uint32_t *dstPtr, pixVal;
 
-	assert((xPos < SCREEN_W) && (yPos < SCREEN_H));
+	assert(xPos < SCREEN_W && yPos < SCREEN_H);
 
 	chr &= 0x7F;
 	if (chr == ' ')
@@ -402,9 +456,9 @@ void bigCharOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr)
 	dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 	pixVal = video.palette[paletteIndex];
 
-	for (y = 0; y < FONT2_CHAR_H; ++y)
+	for (uint32_t y = 0; y < FONT2_CHAR_H; y++)
 	{
-		for (x = 0; x < FONT2_CHAR_W; ++x)
+		for (uint32_t x = 0; x < FONT2_CHAR_W; x++)
 		{
 			if (srcPtr[x])
 				dstPtr[x] = pixVal;
@@ -418,10 +472,9 @@ void bigCharOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, char chr)
 static void bigCharOutShadow(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint8_t shadowPaletteIndex, char chr)
 {
 	const uint8_t *srcPtr;
-	uint8_t x, y;
 	uint32_t *dstPtr, pixVal1, pixVal2;
 
-	assert((xPos < SCREEN_W) && (yPos < SCREEN_H));
+	assert(xPos < SCREEN_W && yPos < SCREEN_H);
 
 	chr &= 0x7F;
 	if (chr == ' ')
@@ -432,13 +485,13 @@ static void bigCharOutShadow(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex,
 	srcPtr  = &font2Data[chr * FONT2_CHAR_W];
 	dstPtr  = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 
-	for (y = 0; y < FONT2_CHAR_H; ++y)
+	for (uint32_t y = 0; y < FONT2_CHAR_H; y++)
 	{
-		for (x = 0; x < FONT2_CHAR_W; ++x)
+		for (uint32_t x = 0; x < FONT2_CHAR_W; x++)
 		{
 			if (srcPtr[x])
 			{
-				dstPtr[x + (SCREEN_W + 1)] = pixVal2;
+				dstPtr[x+(SCREEN_W+1)] = pixVal2;
 				dstPtr[x] = pixVal1;
 			}
 		}
@@ -483,7 +536,7 @@ void textOutFixed(uint16_t x, uint16_t y, uint8_t fgPaltete, uint8_t bgPalette, 
 			break;
 
 		charOutBg(currX, y, fgPaltete, bgPalette, chr);
-		currX += 7;
+		currX += FONT1_CHAR_W-1;
 	}
 }
 
@@ -569,25 +622,21 @@ void textOutClipX(uint16_t x, uint16_t y, uint8_t paletteIndex, const char *text
 void hexOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint32_t val, uint8_t numDigits)
 {
 	const uint8_t *srcPtr;
-	int8_t i;
-	uint8_t x, y, nybble;
 	uint32_t *dstPtr, pixVal;
 
-	assert((xPos < SCREEN_W) && (yPos < SCREEN_H));
+	assert(xPos < SCREEN_W && yPos < SCREEN_H);
 
 	pixVal = video.palette[paletteIndex];
 	dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 
-	for (i = (numDigits - 1); i >= 0; --i)
+	for (int32_t i = numDigits-1; i >= 0; i--)
 	{
-		// extract current nybble and set pointer to glyph
-		nybble = (val >> (i * 4)) & 15;
-		srcPtr = &font6Data[nybble * FONT6_CHAR_W];
+		srcPtr = &font6Data[((val >> (i * 4)) & 15) * FONT6_CHAR_W];
 
 		// render glyph
-		for (y = 0; y < FONT6_CHAR_H; ++y)
+		for (uint32_t y = 0; y < FONT6_CHAR_H; y++)
 		{
-			for (x = 0; x < FONT6_CHAR_W; ++x)
+			for (uint32_t x = 0; x < FONT6_CHAR_W; x++)
 			{
 				if (srcPtr[x])
 					dstPtr[x] = pixVal;
@@ -597,40 +646,37 @@ void hexOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint32_t val, ui
 			dstPtr += SCREEN_W;
 		}
 
-		dstPtr -= ((SCREEN_W * FONT6_CHAR_H) - FONT6_CHAR_W); // xpos += FONT6_CHAR_W
+		dstPtr -= (SCREEN_W * FONT6_CHAR_H) - FONT6_CHAR_W; // xpos += FONT6_CHAR_W
 	}
 }
 
 void hexOutBg(uint16_t xPos, uint16_t yPos, uint8_t fgPalette, uint8_t bgPalette, uint32_t val, uint8_t numDigits)
 {
 	const uint8_t *srcPtr;
-	int8_t i;
-	uint8_t x, y, nybble;
 	uint32_t *dstPtr, fg, bg;
 
-	assert((xPos < SCREEN_W) && (yPos < SCREEN_H));
+	assert(xPos < SCREEN_W && yPos < SCREEN_H);
 
 	fg = video.palette[fgPalette];
 	bg = video.palette[bgPalette];
 	dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 
-	for (i = (numDigits - 1); i >= 0; --i)
+	for (int32_t i = numDigits-1; i >= 0; i--)
 	{
 		// extract current nybble and set pointer to glyph
-		nybble = (val >> (i * 4)) & 15;
-		srcPtr = &font6Data[nybble * FONT6_CHAR_W];
+		srcPtr = &font6Data[((val >> (i * 4)) & 15) * FONT6_CHAR_W];
 
 		// render glyph
-		for (y = 0; y < FONT6_CHAR_H; ++y)
+		for (uint32_t y = 0; y < FONT6_CHAR_H; y++)
 		{
-			for (x = 0; x < FONT6_CHAR_W; ++x)
+			for (uint32_t x = 0; x < FONT6_CHAR_W; x++)
 				dstPtr[x] = srcPtr[x] ? fg : bg;
 
 			srcPtr += FONT6_WIDTH;
 			dstPtr += SCREEN_W;
 		}
 
-		dstPtr -= ((SCREEN_W * FONT6_CHAR_H) - FONT6_CHAR_W); // xpos += FONT6_CHAR_W 
+		dstPtr -= (SCREEN_W * FONT6_CHAR_H) - FONT6_CHAR_W; // xpos += FONT6_CHAR_W 
 	}
 }
 
@@ -644,15 +690,14 @@ void hexOutShadow(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint8_t sh
 
 void clearRect(uint16_t xPos, uint16_t yPos, uint16_t w, uint16_t h)
 {
-	uint16_t y;
 	uint32_t *dstPtr, fillNumDwords;
 
-	assert((xPos < SCREEN_W) && (yPos < SCREEN_H) && ((xPos + w) <= SCREEN_W) && ((yPos + h) <= SCREEN_H));
+	assert(xPos < SCREEN_W && yPos < SCREEN_H && (xPos + w) <= SCREEN_W && (yPos + h) <= SCREEN_H);
 
 	fillNumDwords = w * sizeof (int32_t);
 
 	dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
-	for (y = 0; y < h; ++y)
+	for (uint32_t y = 0; y < h; y++)
 	{
 		memset(dstPtr, 0, fillNumDwords);
 		dstPtr += SCREEN_W;
@@ -661,16 +706,16 @@ void clearRect(uint16_t xPos, uint16_t yPos, uint16_t w, uint16_t h)
 
 void fillRect(uint16_t xPos, uint16_t yPos, uint16_t w, uint16_t h, uint8_t paletteIndex)
 {
-	uint32_t *dstPtr, pixVal, x, y;
+	uint32_t *dstPtr, pixVal;
 
-	assert((xPos < SCREEN_W) && (yPos < SCREEN_H) && ((xPos + w) <= SCREEN_W) && ((yPos + h) <= SCREEN_H));
+	assert(xPos < SCREEN_W && yPos < SCREEN_H && (xPos + w) <= SCREEN_W && (yPos + h) <= SCREEN_H);
 
 	pixVal = video.palette[paletteIndex];
 	dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
 
-	for (y = 0; y < h; ++y)
+	for (uint32_t y = 0; y < h; y++)
 	{
-		for (x = 0; x < w; ++x)
+		for (uint32_t x = 0; x < w; x++)
 			dstPtr[x] = pixVal;
 
 		dstPtr += SCREEN_W;
@@ -679,17 +724,17 @@ void fillRect(uint16_t xPos, uint16_t yPos, uint16_t w, uint16_t h, uint8_t pale
 
 void blit32(uint16_t xPos, uint16_t yPos, const uint32_t* srcPtr, uint16_t w, uint16_t h)
 {
-    uint32_t* dstPtr, x, y;
+    uint32_t* dstPtr;
 
-    assert((srcPtr != NULL) && (xPos < SCREEN_W) && (yPos < SCREEN_H) && ((xPos + w) <= SCREEN_W) && ((yPos + h) <= SCREEN_H));
+    assert(srcPtr != NULL && xPos < SCREEN_W && yPos < SCREEN_H && (xPos + w) <= SCREEN_W && (yPos + h) <= SCREEN_H);
 
     dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
-    for (y = 0; y < h; ++y)
+    for (uint32_t y = 0; y < h; y++)
     {
-        for (x = 0; x < w; ++x)
+        for (uint32_t x = 0; x < w; x++)
         {
             if (srcPtr[x] != 0x00FF00)
-                dstPtr[x] = 0xFF000000 | srcPtr[x];
+                dstPtr[x] = srcPtr[x] | 0xFF000000; // most significant 8 bits = palette number. 0xFF because no true palette
         }
 
         srcPtr += w;
@@ -699,18 +744,17 @@ void blit32(uint16_t xPos, uint16_t yPos, const uint32_t* srcPtr, uint16_t w, ui
 
 void blit(uint16_t xPos, uint16_t yPos, const uint8_t *srcPtr, uint16_t w, uint16_t h)
 {
-	uint32_t *dstPtr, x, y, pixel;
+	uint32_t *dstPtr;
 
-	assert((srcPtr != NULL) && (xPos < SCREEN_W) && (yPos < SCREEN_H) && ((xPos + w) <= SCREEN_W) && ((yPos + h) <= SCREEN_H));
+	assert(srcPtr != NULL && xPos < SCREEN_W && yPos < SCREEN_H && (xPos + w) <= SCREEN_W && (yPos + h) <= SCREEN_H);
 
 	dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
-	for (y = 0; y < h; ++y)
+	for (uint32_t y = 0; y < h; y++)
 	{
-		for (x = 0; x < w; ++x)
+		for (uint32_t x = 0; x < w; x++)
 		{
-			pixel = srcPtr[x];
-			if (pixel != PAL_TRANSPR)
-				dstPtr[x] = video.palette[pixel];
+			if (srcPtr[x] != PAL_TRANSPR)
+				dstPtr[x] = video.palette[srcPtr[x]];
 		}
 
 		srcPtr += w;
@@ -718,16 +762,16 @@ void blit(uint16_t xPos, uint16_t yPos, const uint8_t *srcPtr, uint16_t w, uint1
 	}
 }
 
-void blitFast(uint16_t xPos, uint16_t yPos, const uint8_t *srcPtr, uint16_t w, uint16_t h) // no colorkey
+void blitFast(uint16_t xPos, uint16_t yPos, const uint8_t *srcPtr, uint16_t w, uint16_t h) // no transparency/colorkey
 {
-	uint32_t *dstPtr, x, y;
+	uint32_t *dstPtr;
 
-	assert((srcPtr != NULL) && (xPos < SCREEN_W) && (yPos < SCREEN_H) && ((xPos + w) <= SCREEN_W) && ((yPos + h) <= SCREEN_H));
+	assert(srcPtr != NULL && xPos < SCREEN_W && yPos < SCREEN_H && (xPos + w) <= SCREEN_W && (yPos + h) <= SCREEN_H);
 
 	dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
-	for (y = 0; y < h; ++y)
+	for (uint32_t y = 0; y < h; y++)
 	{
-		for (x = 0; x < w; ++x)
+		for (uint32_t x = 0; x < w; x++)
 			dstPtr[x] = video.palette[srcPtr[x]];
 
 		srcPtr += w;
@@ -739,27 +783,27 @@ void blitFast(uint16_t xPos, uint16_t yPos, const uint8_t *srcPtr, uint16_t w, u
 
 void hLine(uint16_t x, uint16_t y, uint16_t w, uint8_t paletteIndex)
 {
-	uint32_t *dstPtr, i, pixVal;
+	uint32_t *dstPtr, pixVal;
 
-	assert((x < SCREEN_W) && (y < SCREEN_H) && ((x + w) <= SCREEN_W));
+	assert(x < SCREEN_W && y < SCREEN_H && (x + w) <= SCREEN_W);
 
 	pixVal = video.palette[paletteIndex];
 
 	dstPtr = &video.frameBuffer[(y * SCREEN_W) + x];
-	for (i = 0; i < w; ++i)
+	for (uint32_t i = 0; i < w; i++)
 		dstPtr[i] = pixVal;
 }
 
 void vLine(uint16_t x, uint16_t y, uint16_t h, uint8_t paletteIndex)
 {
-	uint32_t *dstPtr,i, pixVal;
+	uint32_t *dstPtr, pixVal;
 
-	assert((x < SCREEN_W) && (y < SCREEN_H) && ((y + h) <= SCREEN_W));
+	assert(x < SCREEN_W && y < SCREEN_H && (y + h) <= SCREEN_W);
 
 	pixVal = video.palette[paletteIndex];
 
 	dstPtr = &video.frameBuffer[(y * SCREEN_W) + x];
-	for (i = 0; i < h; ++i)
+	for (uint32_t i = 0; i < h; i++)
 	{
 		*dstPtr  = pixVal;
 		 dstPtr += SCREEN_W;
@@ -791,20 +835,14 @@ void line(int16_t x1, int16_t x2, int16_t y1, int16_t y2, uint8_t paletteIndex)
 	if (ax > ay)
 	{
 		d = ay - (ax / 2);
-
 		while (true)
 		{
-			assert((x < SCREEN_W) && (y < SCREEN_H));
-
 			*dst32 = pixVal;
 			if (x == x2)
 				break;
 
 			if (d >= 0)
 			{
-#ifdef _DEBUG
-				y += sy;
-#endif
 				d -= ax;
 				dst32 += pitch;
 			}
@@ -817,20 +855,14 @@ void line(int16_t x1, int16_t x2, int16_t y1, int16_t y2, uint8_t paletteIndex)
 	else
 	{
 		d = ax - (ay / 2);
-
 		while (true)
 		{
-			assert((x < SCREEN_W) && (y < SCREEN_H));
-
 			*dst32 = pixVal;
 			if (y == y2)
 				break;
 
 			if (d >= 0)
 			{
-#ifdef _DEBUG
-				x += sx;
-#endif
 				d -= ay;
 				dst32 += sx;
 			}
@@ -844,7 +876,7 @@ void line(int16_t x1, int16_t x2, int16_t y1, int16_t y2, uint8_t paletteIndex)
 
 void drawFramework(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint8_t type)
 {
-	assert((x < SCREEN_W) && (y < SCREEN_H) && (w >= 2) && (h >= h));
+	assert(x < SCREEN_W && y < SCREEN_H && w >= 2 && h >= h);
 
 	h--;
 	w--;
@@ -993,7 +1025,7 @@ void showTopLeftMainScreen(bool restoreScreens)
 		charOutShadow(270, 80, PAL_FORGRND, PAL_DSKTOP2, ':');
 		drawPlaybackTime();
 
-			 if (editor.ui.sampleEditorExtShown) drawSampleEditorExt();
+		     if (editor.ui.sampleEditorExtShown) drawSampleEditorExt();
 		else if (editor.ui.instEditorExtShown)   drawInstEditorExt();
 		else if (editor.ui.transposeShown)       drawTranspose();
 		else if (editor.ui.advEditShown)         drawAdvEdit();
@@ -1112,7 +1144,7 @@ void hideTopRightMainScreen(void)
 
 void setOldTopLeftScreenFlag(void)
 {
-		 if (editor.ui.diskOpShown)          editor.ui.oldTopLeftScreen = 1;
+	     if (editor.ui.diskOpShown)          editor.ui.oldTopLeftScreen = 1;
 	else if (editor.ui.sampleEditorExtShown) editor.ui.oldTopLeftScreen = 2;
 	else if (editor.ui.instEditorExtShown)   editor.ui.oldTopLeftScreen = 3;
 	else if (editor.ui.transposeShown)       editor.ui.oldTopLeftScreen = 4;
@@ -1151,22 +1183,10 @@ void showTopScreen(bool restoreScreens)
 {
 	editor.ui.scopesShown = false;
 
-	if (editor.ui.aboutScreenShown)
-	{
-		showAboutScreen();
-	}
-	else if (editor.ui.configScreenShown)
-	{
-		showConfigScreen();
-	}
-	else if (editor.ui.helpScreenShown)
-	{
-		showHelpScreen();
-	}
-	else if (editor.ui.nibblesShown)
-	{
-		showNibblesScreen();
-	}
+	     if (editor.ui.aboutScreenShown)  showAboutScreen();
+	else if (editor.ui.configScreenShown) showConfigScreen();
+	else if (editor.ui.helpScreenShown)   showHelpScreen();
+	else if (editor.ui.nibblesShown)      showNibblesScreen();
 	else
 	{
 		showTopLeftMainScreen(restoreScreens); // updates editor.ui.scopesShown

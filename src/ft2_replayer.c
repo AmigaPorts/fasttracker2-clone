@@ -20,11 +20,9 @@
 #include "ft2_mouse.h"
 #include "ft2_sample_loader.h"
 
-/*
-** This is a *huge* mess, directly ported from the original FT2 code (and modified).
+/* This is a *huge* mess, directly ported from the original FT2 code (and modified).
 ** You will experience a lot of headaches if you dig into it...
-** If something looks to be wrong, it's probably right!
-*/
+** If something looks to be wrong, it's probably right! */
 
 // TABLES AND VARIABLES
 
@@ -43,7 +41,7 @@ static tonTyp nilPatternLine;
 // globally accessed
 
 int8_t playMode = 0;
-bool linearFrqTab = false, songPlaying = false,  audioPaused = false, musicPaused = false;
+bool linearFrqTab = false, songPlaying = false, audioPaused = false, musicPaused = false;
 volatile bool replayerBusy = false;
 int16_t *note2Period = NULL, pattLens[MAX_PATTERNS];
 stmTyp stm[MAX_VOICES];
@@ -55,7 +53,6 @@ tonTyp *patt[MAX_PATTERNS];
 
 void resetChannels(void)
 {
-	uint8_t i;
 	bool audioWasntLocked;
 	stmTyp *ch;
 
@@ -64,15 +61,14 @@ void resetChannels(void)
 		lockAudio();
 
 	memset(stm, 0, sizeof (stm));
-
-	for (i = 0; i < MAX_VOICES; ++i)
+	for (uint8_t i = 0; i < MAX_VOICES; i++)
 	{
 		ch = &stm[i];
 
 		ch->instrPtr = &instr[0];
-		ch->status   = IS_Vol;
-		ch->oldPan   = 128;
-		ch->outPan   = 128;
+		ch->status = IS_Vol;
+		ch->oldPan = 128;
+		ch->outPan = 128;
 		ch->finalPan = 128;
 	}
 
@@ -98,16 +94,16 @@ void tuneSample(sampleTyp *s, uint32_t midCFreq)
 
 	if (midCFreq == 0)
 	{
-		s->fine   = 0;
+		s->fine = 0;
 		s->relTon = 0;
 	}
 	else
 	{
-		linearFreq = (int32_t)(round(log(midCFreq / 8363.0) * ((12.0 * 128.0) / M_LN2)));
+		linearFreq = (int32_t)round(log(midCFreq / 8363.0) * ((12.0 * 128.0) / M_LN2));
 		s->fine = ((linearFreq + 128) & 255) - 128;
 
-		relativeNote = (int32_t)(round((linearFreq - s->fine) / 128.0));
-		s->relTon = (int8_t)(relativeNote);
+		relativeNote = (int32_t)round((linearFreq - s->fine) / 128.0);
+		s->relTon = (int8_t)relativeNote;
 	}
 }
 
@@ -120,7 +116,7 @@ bool setPatternLen(uint16_t nr, int16_t len)
 
 	len = CLAMP(len, 1, MAX_PATT_LEN);
 	if (len == pattLens[nr])
-		return (true);
+		return true;
 
 	audioWasntLocked = !audio.locked;
 	if (audioWasntLocked)
@@ -134,7 +130,7 @@ bool setPatternLen(uint16_t nr, int16_t len)
 			song.pattLen = pattLens[nr];
 
 		if (song.pattPos >= pattLens[nr])
-			song.pattPos  = pattLens[nr] - 1;
+			song.pattPos = pattLens[nr] - 1;
 
 		editor.pattPos = song.pattPos;
 
@@ -144,12 +140,12 @@ bool setPatternLen(uint16_t nr, int16_t len)
 			unlockAudio();
 
 		editor.ui.updatePatternEditor = true;
-		editor.ui.updatePosSections   = true;
+		editor.ui.updatePosSections = true;
 
-		return (true);
+		return true;
 	}
 
-	newPtr = (tonTyp *)(realloc(patt[nr], len * TRACK_WIDTH));
+	newPtr = (tonTyp *)realloc(patt[nr], len * TRACK_WIDTH);
 	if (newPtr == NULL)
 	{
 		okBox(0, "Status message", "Not enough memory!");
@@ -157,7 +153,7 @@ bool setPatternLen(uint16_t nr, int16_t len)
 		if (audioWasntLocked)
 			unlockAudio();
 
-		return (false);
+		return false;
 	}
 
 	patt[nr] = newPtr;
@@ -180,7 +176,7 @@ bool setPatternLen(uint16_t nr, int16_t len)
 		song.pattLen = pattLens[nr];
 
 	if (song.pattPos >= pattLens[nr])
-		song.pattPos  = pattLens[nr] - 1;
+		song.pattPos = pattLens[nr] - 1;
 
 	editor.pattPos = song.pattPos;
 
@@ -190,53 +186,52 @@ bool setPatternLen(uint16_t nr, int16_t len)
 		unlockAudio();
 
 	editor.ui.updatePatternEditor = true;
-	editor.ui.updatePosSections   = true;
+	editor.ui.updatePosSections = true;
 
-	return (true);
+	return true;
 }
 
 bool instrIsEmpty(int16_t nr)
 {
 	// check if we're testing a non-editable instrument
-	if ((nr <= 0) || (nr > MAX_INST))
-		return (true);
+	if (nr <= 0 || nr > MAX_INST)
+		return true;
 
 	// test if name is not empty
 	if (song.instrName[nr][0] != '\0')
-		return (false);
+		return false;
 
 	// test data integrity against instrument 0, which is "empty" and non-editable
 	if (memcmp(&instr[nr], &instr[0], sizeof (instrTyp)) != 0)
-		return (false);
+		return false;
 
-	// empty
-	return (true);
+	return true; // empty
 }
 
 int16_t getUsedSamples(int16_t nr)
 {
-	int8_t i, j;
+	int8_t i;
 	instrTyp *ins;
 
 	if (instrIsEmpty(nr))
-		return (0);
+		return 0;
 
 	ins = &instr[nr];
 
 	i = 16 - 1;
-	while ((i >= 0) && (ins->samp[i].pek == NULL) && (ins->samp[i].name[0] == '\0'))
+	while (i >= 0 && ins->samp[i].pek == NULL && ins->samp[i].name[0] == '\0')
 		i--;
 
 	if (i >= 0)
 	{
-		for (j = 0; j < 96; ++j)
+		for (int8_t j = 0; j < 96; j++)
 		{
 			if (ins->ta[j] > i)
 				i = ins->ta[j];
 		}
 	}
 
-	return (i + 1);
+	return i+1;
 }
 
 int16_t getRealUsedSamples(int16_t nr)
@@ -244,13 +239,13 @@ int16_t getRealUsedSamples(int16_t nr)
 	int8_t i;
 
 	if (instrIsEmpty(nr))
-		return (0);
+		return 0;
 
 	i = 16 - 1;
-	while ((i >= 0) && (instr[nr].samp[i].pek == NULL))
+	while (i >= 0 && instr[nr].samp[i].pek == NULL)
 		i--;
 
-	return (i + 1);
+	return i+1;
 }
 
 void setFrqTab(bool linear)
@@ -269,15 +264,15 @@ void setFrqTab(bool linear)
 	}
 
 	// update frequency type radiobutton if it's shown
-	if (editor.ui.configScreenShown && (editor.currConfigScreen == CONFIG_SCREEN_IO_DEVICES))
+	if (editor.ui.configScreenShown && editor.currConfigScreen == CONFIG_SCREEN_IO_DEVICES)
 		setConfigIORadioButtonStates();
 }
 
 static void retrigVolume(stmTyp *ch)
 {
 	ch->realVol = ch->oldVol;
-	ch->outVol  = ch->oldVol;
-	ch->outPan  = ch->oldPan;
+	ch->outVol = ch->oldVol;
+	ch->outPan = ch->oldPan;
 	ch->status |= (IS_Vol + IS_Pan + IS_QuickVol);
 }
 
@@ -309,7 +304,7 @@ static void retrigEnvelopeVibrato(stmTyp *ch)
 	}
 
 	ch->fadeOutSpeed = ins->fadeOut; // FT2 doesn't check if fadeout is more than 4095
-	ch->fadeOutAmp   = 32768;
+	ch->fadeOutAmp = 32768;
 
 	if (ins->vibDepth > 0)
 	{
@@ -317,12 +312,12 @@ static void retrigEnvelopeVibrato(stmTyp *ch)
 
 		if (ins->vibSweep > 0)
 		{
-			ch->eVibAmp   = 0;
+			ch->eVibAmp = 0;
 			ch->eVibSweep = (ins->vibDepth << 8) / ins->vibSweep;
 		}
 		else
 		{
-			ch->eVibAmp   = ins->vibDepth << 8;
+			ch->eVibAmp = ins->vibDepth << 8;
 			ch->eVibSweep = 0;
 		}
 	}
@@ -340,18 +335,18 @@ void keyOff(stmTyp *ch)
 	if (!(ins->envPTyp & 1)) // yes, FT2 does this (!)
 	{
 		if (ch->envPCnt >= ins->envPP[ch->envPPos][0])
-			ch->envPCnt  = ins->envPP[ch->envPPos][0] - 1;
+			ch->envPCnt = ins->envPP[ch->envPPos][0] - 1;
 	}
 
 	if (ins->envVTyp & 1)
 	{
 		if (ch->envVCnt >= ins->envVP[ch->envVPos][0])
-			ch->envVCnt  = ins->envVP[ch->envVPos][0] - 1;
+			ch->envVCnt = ins->envVP[ch->envVPos][0] - 1;
 	}
 	else
 	{
 		ch->realVol = 0;
-		ch->outVol  = 0;
+		ch->outVol = 0;
 		ch->status |= (IS_Vol + IS_QuickVol);
 	}
 }
@@ -359,19 +354,19 @@ void keyOff(stmTyp *ch)
 // 100% FT2-accurate routine, do not touch!
 void calcReplayRate(uint32_t rate)
 {
-	if (rate > 0)
-	{
-		// for voice delta calculation
-		frequenceDivFactor  = (uint32_t)(round(65536.0 *  1712.0 / rate * 8363.0));
-		frequenceMulFactor  = (uint32_t)(round(256.0   * 65536.0 / rate * 8363.0));
-		audio.dScopeFreqMul = rate / (double)(SCOPE_HZ);
+	if (rate == 0)
+		return;
 
-		// for volume ramping (FT2 doesn't round here)
-		audio.quickVolSizeVal = rate / 200;
+	// for voice delta calculation
+	frequenceDivFactor = (uint32_t)round(65536.0 * 1712.0 / rate * 8363.0);
+	frequenceMulFactor = (uint32_t)round(256.0 * 65536.0 / rate * 8363.0);
+	audio.dScopeFreqMul = rate / (double)SCOPE_HZ;
 
-		// for audio/video sync
-		audio.dSpeedValMul = (1.0 / rate) * editor.dPerfFreq;
-	}
+	// for volume ramping (FT2 doesn't round here)
+	audio.quickVolSizeVal = rate / 200;
+
+	// for audio/video sync
+	audio.dSpeedValMul = (1.0 / rate) * editor.dPerfFreq;
 }
 
 // 100% FT2-accurate routine, do not touch!
@@ -382,10 +377,10 @@ uint32_t getFrequenceValue(uint16_t period)
 	uint32_t rate;
 
 	if (period == 0)
-		return (0);
+		return 0;
 
 	if (period == oldPeriod)
-		return (oldRate); // added check: prevent this calculation if it would yield the same
+		return oldRate; // added check: prevent this calculation if it would yield the same
 
 	if (linearFrqTab)
 	{
@@ -393,7 +388,7 @@ uint32_t getFrequenceValue(uint16_t period)
 		shift = (14 - (index / 768)) & 0x1F;
 
 		// this converts to fast code even on x86 (imul + shrd)
-		rate = ((uint64_t)(logTab[index % 768]) * (uint64_t)(frequenceMulFactor)) >> (32 - 8);
+		rate = ((uint64_t)logTab[index % 768] * frequenceMulFactor) >> 24;
 		if (shift > 0)
 			rate >>= shift;
 	}
@@ -403,15 +398,15 @@ uint32_t getFrequenceValue(uint16_t period)
 	}
 
 	oldPeriod = period;
-	oldRate   = rate;
+	oldRate = rate;
 
-	return (rate);
+	return rate;
 }
 
 void resetOldRates(void)
 {
 	oldPeriod = 0;
-	oldRate   = 0;
+	oldRate = 0;
 
 	resetOldScopeRates();
 	resetOldRevFreqs();
@@ -440,7 +435,7 @@ static void startTone(uint8_t ton, uint8_t effTyp, uint8_t eff, stmTyp *ch)
 
 	ch->tonNr = ton;
 
-	assert(ch->instrNr < (1 + MAX_INST + 1));
+	assert(ch->instrNr <= MAX_INST+1);
 
 	ins = &instr[ch->instrNr];
 	ch->instrPtr = ins;
@@ -449,7 +444,7 @@ static void startTone(uint8_t ton, uint8_t effTyp, uint8_t eff, stmTyp *ch)
 	if (ton > 96) // non-FT2 security (should never happen because I clamp in the patt loaders now)
 		ton = 96;
 
-	smp = ins->ta[ton - 1] & 0x0F;
+	smp = ins->ta[ton-1] & 0x0F;
 	ch->sampleNr = smp;
 
 	s = &ins->samp[smp];
@@ -457,13 +452,13 @@ static void startTone(uint8_t ton, uint8_t effTyp, uint8_t eff, stmTyp *ch)
 	ch->relTonNr = s->relTon;
 
 	ton += ch->relTonNr;
-	if (ton >= (12 * 10))
+	if (ton >= 12*10)
 		return;
 
 	ch->oldVol = s->vol;
 	ch->oldPan = s->pan;
 
-	if ((effTyp == 0x0E) && ((eff & 0xF0) == 0x50))
+	if (effTyp == 0x0E && (eff & 0xF0) == 0x50)
 		ch->fineTune = ((eff & 0x0F) * 16) - 128; // result is now -128 .. 127
 	else
 		ch->fineTune = s->fine;
@@ -476,8 +471,8 @@ static void startTone(uint8_t ton, uint8_t effTyp, uint8_t eff, stmTyp *ch)
 			assert(note2Period != NULL);
 			ch->realPeriod = note2Period[tmpTon];
 
-			ch->outPeriod       = ch->realPeriod;
-			ch->midiCurPeriod   = ch->realPeriod;
+			ch->outPeriod = ch->realPeriod;
+			ch->midiCurPeriod = ch->realPeriod;
 			ch->midiPortaPeriod = ch->realPeriod;
 		}
 	}
@@ -533,15 +528,15 @@ static void multiRetrig(stmTyp *ch)
 	}
 	vol = CLAMP(vol, 0, 64);
 
-	ch->realVol = (uint8_t)(vol);
-	ch->outVol  = ch->realVol;
+	ch->realVol = (uint8_t)vol;
+	ch->outVol = ch->realVol;
 
-	if ((ch->volKolVol >= 0x10) && (ch->volKolVol <= 0x50))
+	if (ch->volKolVol >= 0x10 && ch->volKolVol <= 0x50)
 	{
-		ch->outVol  = ch->volKolVol - 0x10;
+		ch->outVol = ch->volKolVol - 0x10;
 		ch->realVol = ch->outVol;
 	}
-	else if ((ch->volKolVol >= 0xC0) && (ch->volKolVol <= 0xCF))
+	else if (ch->volKolVol >= 0xC0 && ch->volKolVol <= 0xCF)
 	{
 		ch->outPan = (ch->volKolVol & 0x0F) << 4;
 	}
@@ -564,9 +559,9 @@ static void checkMoreEffects(stmTyp *ch) // called even if channel is muted
 	// Bxx - position jump
 	if (ch->effTyp == 11)
 	{
-		if ((playMode != PLAYMODE_PATT) && (playMode != PLAYMODE_RECPATT))
+		if (playMode != PLAYMODE_PATT && playMode != PLAYMODE_RECPATT)
 		{
-			if (((ch->eff - 1) < 0) || ((ch->eff - 1) >= song.len))
+			if (ch->eff-1 < 0 || ch->eff-1 >= song.len)
 				bxxOverflow = true; // non-FT2 security fix...
 			else
 				song.songPos = ch->eff - 1;
@@ -606,14 +601,14 @@ static void checkMoreEffects(stmTyp *ch) // called even if channel is muted
 					{
 						ch->loopCnt = ch->eff & 0x0F;
 
-						song.pBreakPos  = ch->pattPos;
+						song.pBreakPos = ch->pattPos;
 						song.pBreakFlag = true;
 					}
 					else
 					{
 						if (--ch->loopCnt > 0)
 						{
-							song.pBreakPos  = ch->pattPos;
+							song.pBreakPos = ch->pattPos;
 							song.pBreakFlag = true;
 						}
 					}
@@ -781,7 +776,7 @@ static void checkMoreEffects(stmTyp *ch) // called even if channel is muted
 		if (song.globVol > 64)
 			song.globVol = 64;
 
-		for (i = 0; i < song.antChn; ++i)
+		for (i = 0; i < song.antChn; i++) // update all voice volumes
 			stm[i].status |= IS_Vol;
 	}
 
@@ -800,7 +795,7 @@ static void checkMoreEffects(stmTyp *ch) // called even if channel is muted
 			if (ins->envVPAnt > 1)
 			{
 				envPos++;
-				for (i = 0; i < (ins->envVPAnt - 1); ++i)
+				for (i = 0; i < ins->envVPAnt-1; i++)
 				{
 					if (newEnvPos < ins->envVP[envPos][0])
 					{
@@ -813,16 +808,16 @@ static void checkMoreEffects(stmTyp *ch) // called even if channel is muted
 							break;
 						}
 
-						if (ins->envVP[envPos + 1][0] <= ins->envVP[envPos][0])
+						if (ins->envVP[envPos+1][0] <= ins->envVP[envPos][0])
 						{
 							envUpdate = true;
 							break;
 						}
 
-						ch->envVIPValue = ((ins->envVP[envPos + 1][1] - ins->envVP[envPos][1]) & 0x00FF) << 8;
-						ch->envVIPValue /= (ins->envVP[envPos + 1][0] - ins->envVP[envPos][0]);
+						ch->envVIPValue = ((ins->envVP[envPos+1][1] - ins->envVP[envPos][1]) & 0xFF) << 8;
+						ch->envVIPValue /= (ins->envVP[envPos+1][0] - ins->envVP[envPos][0]);
 
-						ch->envVAmp = (ch->envVIPValue * (newEnvPos - 1)) + ((ins->envVP[envPos][1] & 0x00FF) << 8);
+						ch->envVAmp = (ch->envVIPValue * (newEnvPos - 1)) + ((ins->envVP[envPos][1] & 0xFF) << 8);
 
 						envPos++;
 
@@ -840,7 +835,7 @@ static void checkMoreEffects(stmTyp *ch) // called even if channel is muted
 			if (envUpdate)
 			{
 				ch->envVIPValue = 0;
-				ch->envVAmp = (ins->envVP[envPos][1] & 0x00FF) << 8;
+				ch->envVAmp = (ins->envVP[envPos][1] & 0xFF) << 8;
 			}
 
 			if (envPos >= ins->envVPAnt)
@@ -865,7 +860,7 @@ static void checkMoreEffects(stmTyp *ch) // called even if channel is muted
 			if (ins->envPPAnt > 1)
 			{
 				envPos++;
-				for (i = 0; i < (ins->envPPAnt - 1); ++i)
+				for (i = 0; i < ins->envPPAnt-1; i++)
 				{
 					if (newEnvPos < ins->envPP[envPos][0])
 					{
@@ -884,10 +879,10 @@ static void checkMoreEffects(stmTyp *ch) // called even if channel is muted
 							break;
 						}
 
-						ch->envPIPValue = ((ins->envPP[envPos + 1][1] - ins->envPP[envPos][1]) & 0x00FF) << 8;
-						ch->envPIPValue /= (ins->envPP[envPos + 1][0] - ins->envPP[envPos][0]);
+						ch->envPIPValue = ((ins->envPP[envPos+1][1] - ins->envPP[envPos][1]) & 0xFF) << 8;
+						ch->envPIPValue /= (ins->envPP[envPos+1][0] - ins->envPP[envPos][0]);
 
-						ch->envPAmp = (ch->envPIPValue * (newEnvPos - 1)) + ((ins->envPP[envPos][1] & 0x00FF) << 8);
+						ch->envPAmp = (ch->envPIPValue * (newEnvPos - 1)) + ((ins->envPP[envPos][1] & 0xFF) << 8);
 
 						envPos++;
 
@@ -905,7 +900,7 @@ static void checkMoreEffects(stmTyp *ch) // called even if channel is muted
 			if (envUpdate)
 			{
 				ch->envPIPValue = 0;
-				ch->envPAmp = (ins->envPP[envPos][1] & 0x00FF) << 8;
+				ch->envPAmp = (ins->envPP[envPos][1] & 0xFF) << 8;
 			}
 
 			if (envPos >= ins->envPPAnt)
@@ -930,11 +925,11 @@ static void checkEffects(stmTyp *ch)
 	// *** VOLUME COLUMN EFFECTS (TICK 0) ***
 
 	// set volume
-	if ((ch->volKolVol >= 0x10) && (ch->volKolVol <= 0x50))
+	if (ch->volKolVol >= 0x10 && ch->volKolVol <= 0x50)
 	{
 		volKol -= 16;
 
-		ch->outVol  = volKol;
+		ch->outVol = volKol;
 		ch->realVol = volKol;
 
 		ch->status |= (IS_Vol + IS_QuickVol);
@@ -961,7 +956,7 @@ static void checkEffects(stmTyp *ch)
 		volKol = ch->volKolVol & 0x0F;
 
 		// unsigned clamp
-		if (ch->realVol <= (64 - volKol))
+		if (ch->realVol <= 64-volKol)
 			ch->realVol += volKol;
 		else
 			ch->realVol = 64;
@@ -982,13 +977,13 @@ static void checkEffects(stmTyp *ch)
 	{
 		volKol <<= 4;
 
-		ch->outPan  = volKol;
+		ch->outPan = volKol;
 		ch->status |= IS_Pan;
 	}
 
 	// *** MAIN EFFECTS (TICK 0) ***
 
-	if ((ch->effTyp == 0) && (ch->eff == 0)) return;
+	if (ch->effTyp == 0 && ch->eff == 0) return; // no effect
 
 	// Cxx - set volume
 	if (ch->effTyp == 12)
@@ -1006,7 +1001,7 @@ static void checkEffects(stmTyp *ch)
 	// 8xx - set panning
 	else if (ch->effTyp == 8)
 	{
-		ch->outPan  = ch->eff;
+		ch->outPan = ch->eff;
 		ch->status |= IS_Pan;
 
 		return;
@@ -1034,7 +1029,7 @@ static void checkEffects(stmTyp *ch)
 	}
 
 	// X1x - extra fine period slide up
-	else if ((ch->effTyp == 33) && ((ch->eff & 0xF0) == 0x10))
+	else if (ch->effTyp == 33 && (ch->eff & 0xF0) == 0x10)
 	{
 		tmpEff = ch->eff & 0x0F;
 		if (tmpEff == 0)
@@ -1053,7 +1048,7 @@ static void checkEffects(stmTyp *ch)
 	}
 
 	// X2x - extra fine period slide down
-	else if ((ch->effTyp == 33) && ((ch->eff & 0xF0) == 0x20))
+	else if (ch->effTyp == 33 && (ch->eff & 0xF0) == 0x20)
 	{
 		tmpEff = ch->eff & 0x0F;
 		if (tmpEff == 0)
@@ -1062,8 +1057,8 @@ static void checkEffects(stmTyp *ch)
 		ch->ePortaDownSpeed = tmpEff;
 
 		ch->realPeriod += tmpEff;
-		if (ch->realPeriod > (32000 - 1))
-			ch->realPeriod =  32000 - 1;
+		if (ch->realPeriod > 32000-1)
+			ch->realPeriod = 32000-1;
 
 		ch->outPeriod = ch->realPeriod;
 		ch->status |= IS_Period;
@@ -1092,9 +1087,9 @@ static void fixTonePorta(stmTyp *ch, tonTyp *p, uint8_t inst)
 				assert(note2Period != NULL);
 				ch->wantPeriod = note2Period[portaTmp];
 
-					 if (ch->wantPeriod == ch->realPeriod) ch->portaDir = 0;
+				     if (ch->wantPeriod == ch->realPeriod) ch->portaDir = 0;
 				else if (ch->wantPeriod  > ch->realPeriod) ch->portaDir = 1;
-				else                                       ch->portaDir = 2;
+				else ch->portaDir = 2;
 			}
 		}
 	}
@@ -1102,7 +1097,6 @@ static void fixTonePorta(stmTyp *ch, tonTyp *p, uint8_t inst)
 	if (inst > 0)
 	{
 		retrigVolume(ch);
-
 		if (p->ton != 97)
 			retrigEnvelopeVibrato(ch);
 	}
@@ -1121,25 +1115,25 @@ static void getNewNote(stmTyp *ch, tonTyp *p)
 		{
 			// we have an arpeggio running, set period back
 			ch->outPeriod = ch->realPeriod;
-			ch->status   |= IS_Period;
+			ch->status |= IS_Period;
 		}
 	}
 	else
 	{
-		if ((ch->effTyp == 4) || (ch->effTyp == 6))
+		if (ch->effTyp == 4 || ch->effTyp == 6)
 		{
 			// we have a vibrato running
-			if ((p->effTyp != 4) && (p->effTyp != 6))
+			if (p->effTyp != 4 && p->effTyp != 6)
 			{
 				// but it's ending at the next (this) row, so set period back
 				ch->outPeriod = ch->realPeriod;
-				ch->status   |= IS_Period;
+				ch->status |= IS_Period;
 			}
 		}
 	}
 
 	ch->effTyp = p->effTyp;
-	ch->eff    = p->eff;
+	ch->eff = p->eff;
 	ch->tonTyp = (p->instr << 8) | p->ton;
 
 	if (ch->stOff == 1)
@@ -1161,7 +1155,7 @@ static void getNewNote(stmTyp *ch, tonTyp *p)
 	checkEfx = true;
 	if (p->effTyp == 0x0E)
 	{
-		if ((p->eff >= 0xD1) && (p->eff <= 0xDF))
+		if (p->eff >= 0xD1 && p->eff <= 0xDF)
 			return; // we have a note delay (ED1..EDF)
 		else if (p->eff == 0x90)
 			checkEfx = false;
@@ -1180,9 +1174,9 @@ static void getNewNote(stmTyp *ch, tonTyp *p)
 			return;
 		}
 
-		if ((p->effTyp == 3) || (p->effTyp == 5)) // 3xx or 5xx
+		if (p->effTyp == 3 || p->effTyp == 5) // 3xx or 5xx
 		{
-			if ((p->effTyp != 5) && (p->eff != 0))
+			if (p->effTyp != 5 && p->eff != 0)
 				ch->portaSpeed = p->eff << 2;
 
 			fixTonePorta(ch, p, inst);
@@ -1191,7 +1185,7 @@ static void getNewNote(stmTyp *ch, tonTyp *p)
 			return;
 		}
 
-		if ((p->effTyp == 0x14) && (p->eff == 0)) // K00 (KeyOff - only handle tick 0 here)
+		if (p->effTyp == 0x14 && p->eff == 0) // K00 (KeyOff - only handle tick 0 here)
 		{
 			keyOff(ch);
 
@@ -1223,7 +1217,6 @@ static void getNewNote(stmTyp *ch, tonTyp *p)
 	if (inst > 0)
 	{
 		retrigVolume(ch);
-
 		if (p->ton != 97)
 			retrigEnvelopeVibrato(ch);
 	}
@@ -1257,7 +1250,7 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 		}
 		else
 		{
-			ch->fadeOutAmp   = 0;
+			ch->fadeOutAmp = 0;
 			ch->fadeOutSpeed = 0;
 		}
 	}
@@ -1282,11 +1275,10 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 
 					if (envPos == ins->envVRepE)
 					{
-						if (!(ins->envVTyp & 2) || (envPos != ins->envVSust) || ch->envSustainActive)
+						if (!(ins->envVTyp & 2) || envPos != ins->envVSust || ch->envSustainActive)
 						{
 							envPos = ins->envVRepS;
-
-							ch->envVCnt =  ins->envVP[envPos][0];
+							ch->envVCnt = ins->envVP[envPos][0];
 							ch->envVAmp = (ins->envVP[envPos][1] & 0xFF) << 8;
 						}
 					}
@@ -1299,7 +1291,7 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 					envInterpolateFlag = true;
 					if ((ins->envVTyp & 2) && ch->envSustainActive)
 					{
-						if ((envPos - 1) == ins->envVSust)
+						if (envPos-1 == ins->envVSust)
 						{
 							envPos--;
 							ch->envVIPValue = 0;
@@ -1312,10 +1304,10 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 						ch->envVPos = envPos;
 
 						ch->envVIPValue = 0;
-						if (ins->envVP[envPos][0] > ins->envVP[envPos - 1][0])
+						if (ins->envVP[envPos][0] > ins->envVP[envPos-1][0])
 						{
-							ch->envVIPValue = ((ins->envVP[envPos][1] - ins->envVP[envPos - 1][1]) & 0xFF) << 8;
-							ch->envVIPValue /= (ins->envVP[envPos][0] - ins->envVP[envPos - 1][0]);
+							ch->envVIPValue = ((ins->envVP[envPos][1] - ins->envVP[envPos-1][1]) & 0xFF) << 8;
+							ch->envVIPValue /= (ins->envVP[envPos][0] - ins->envVP[envPos-1][0]);
 
 							envVal = ch->envVAmp;
 							envDidInterpolate = true;
@@ -1335,7 +1327,7 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 				envVal = ch->envVAmp;
 				if ((envVal >> 8) > 0x40)
 				{
-					if ((envVal >> 8) > ((0x40 + 0xC0) / 2))
+					if ((envVal >> 8) > (0x40+0xC0)/2)
 						envVal = 16384;
 					else
 						envVal = 0;
@@ -1344,32 +1336,32 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 				}
 			}
 
-			/* old integer method with bad precision
+			/* old integer method with bad precision (FT2 way)
 			envVal >>= 8;
 			ch->finalVol = (song.globVol * (((envVal * ch->outVol) * ch->fadeOutAmp) >> (16 + 2))) >> 7;
 			*/
 
-			// calculate with four times more precision (+ rounding).
-			// also, env. range is now 0..16384 instead of being shifted to 0..64.
+			/* calculate with four times more precision (+ rounding).
+			** also, env. range is now 0..16384 instead of being shifted to 0..64. */
 
-			dVol  = song.globVol * ch->outVol * ch->fadeOutAmp;
+			dVol = song.globVol * ch->outVol * ch->fadeOutAmp;
 			dVol *= envVal; // we need a float mul because it would overflow 32-bit integer
-			dVol *= (1.0 / ((64.0 * 64.0 * 32768.0 * 16384.0) / 2048.0)); // 0..2048 (real FT2 is 0..256)
+			dVol *= 1.0 / ((64.0 * 64.0 * 32768.0 * 16384.0) / 2048.0); // 0..2048 (real FT2 is 0..256)
 
 			double2int32_round(vol, dVol);
 			ch->finalVol = (uint16_t)(CLAMP(vol, 0, 2048));
 
-			ch->status  |= IS_Vol;
+			ch->status |= IS_Vol;
 		}
 		else
 		{
-			/* old integer method with bad precision
+			/* old integer method with bad precision (FT2 way)
 			ch->finalVol = (song.globVol * (((ch->outVol << 4) * ch->fadeOutAmp) >> 16)) >> 7;
 			*/
 
 			// calculate with four times more precision (+ rounding)
-			dVol  = song.globVol * ch->outVol * ch->fadeOutAmp;
-			dVol *= (1.0 / ((64.0 * 64.0 * 32768.0) / 2048.0)); // 0..2048 (real FT2 is 0..256)
+			dVol = song.globVol * ch->outVol * ch->fadeOutAmp;
+			dVol *= 1.0 / ((64.0 * 64.0 * 32768.0) / 2048.0); // 0..2048 (real FT2 is 0..256)
 
 			double2int32_round(vol, dVol);
 			ch->finalVol = (uint16_t)(CLAMP(vol, 0, 2048));
@@ -1399,11 +1391,11 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 
 				if (envPos == ins->envPRepE)
 				{
-					if (!(ins->envPTyp & 2) || (envPos != ins->envPSust) || ch->envSustainActive)
+					if (!(ins->envPTyp & 2) || envPos != ins->envPSust || ch->envSustainActive)
 					{
 						envPos = ins->envPRepS;
 
-						ch->envPCnt =  ins->envPP[envPos][0];
+						ch->envPCnt = ins->envPP[envPos][0];
 						ch->envPAmp = (ins->envPP[envPos][1] & 0xFF) << 8;
 					}
 				}
@@ -1416,7 +1408,7 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 				envInterpolateFlag = true;
 				if ((ins->envPTyp & 2) && ch->envSustainActive)
 				{
-					if ((envPos - 1) == ins->envPSust)
+					if (envPos-1 == ins->envPSust)
 					{
 						envPos--;
 						ch->envPIPValue = 0;
@@ -1429,10 +1421,10 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 					ch->envPPos = envPos;
 
 					ch->envPIPValue = 0;
-					if (ins->envPP[envPos][0] > ins->envPP[envPos - 1][0])
+					if (ins->envPP[envPos][0] > ins->envPP[envPos-1][0])
 					{
-						ch->envPIPValue  = ((ins->envPP[envPos][1] - ins->envPP[envPos - 1][1]) & 0xFF) << 8;
-						ch->envPIPValue /=  (ins->envPP[envPos][0] - ins->envPP[envPos - 1][0]);
+						ch->envPIPValue = ((ins->envPP[envPos][1] - ins->envPP[envPos-1][1]) & 0xFF) << 8;
+						ch->envPIPValue /= (ins->envPP[envPos][0] - ins->envPP[envPos-1][0]);
 
 						envVal = ch->envPAmp;
 						envDidInterpolate = true;
@@ -1452,7 +1444,7 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 			envVal = ch->envPAmp;
 			if ((envVal >> 8) > 0x40)
 			{
-				if ((envVal >> 8) > ((0x40 + 0xC0) / 2))
+				if ((envVal >> 8) > (0x40+0xC0)/2)
 					envVal = 16384;
 				else
 					envVal = 0;
@@ -1468,8 +1460,8 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 
 		envVal -= (32 * 256);
 
-		ch->finalPan = ch->outPan + (int8_t)((((int16_t)(envVal) * (panTmp << 3)) >> 16) & 0xFF);
-		ch->status  |= IS_Pan;
+		ch->finalPan = ch->outPan + ((((int16_t)envVal * (panTmp << 3)) >> 16) & 0xFF);
+		ch->status |= IS_Pan;
 	}
 	else
 	{
@@ -1477,7 +1469,7 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 	}
 
 	// *** AUTO VIBRATO ***
-	if ((ch->midiVibDepth > 0) || (ins->vibDepth > 0))
+	if (ch->midiVibDepth > 0 || ins->vibDepth > 0)
 	{
 		if (ch->eVibSweep > 0)
 		{
@@ -1500,34 +1492,23 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 		}
 
 		// non-FT2 hack to make modulation wheel work when auto vibrato rate is zero
-		if ((ch->midiVibDepth > 0) && (ins->vibRate == 0))
+		if (ch->midiVibDepth > 0 && ins->vibRate == 0)
 			ins->vibRate = 0x20;
 
 		autoVibAmp += ch->midiVibDepth;
 
 		ch->eVibPos += ins->vibRate;
 
-		// square
-		if (ins->vibTyp == 1)
-			autoVibVal = (ch->eVibPos > 127) ? 64 : -64;
-
-		// ramp up
-		else if (ins->vibTyp == 2)
-			autoVibVal = (((ch->eVibPos >> 1) + 64) & 127) - 64;
-
-		// ramp down
-		else if (ins->vibTyp == 3)
-			autoVibVal = (((0 - (ch->eVibPos >> 1)) + 64) & 127) - 64;
-
-		// sine
-		else
-			autoVibVal = vibSineTab[ch->eVibPos];
+		     if (ins->vibTyp == 1) autoVibVal = (ch->eVibPos > 127) ? 64 : -64; // square
+		else if (ins->vibTyp == 2) autoVibVal = (((ch->eVibPos >> 1) + 64) & 127) - 64; // ramp up
+		else if (ins->vibTyp == 3) autoVibVal = (((0 - (ch->eVibPos >> 1)) + 64) & 127) - 64; // ramp down
+		else autoVibVal = vibSineTab[ch->eVibPos]; // sine
 
 		autoVibVal <<= 2;
 
-		tmp32 = ((autoVibVal * (int16_t)(autoVibAmp)) >> 16) & 0x8000FFFF;
-		tmpPeriod = ch->outPeriod + (int16_t)(tmp32);
-		if (tmpPeriod > (32000 - 1))
+		tmp32 = ((autoVibVal * (int16_t)autoVibAmp) >> 16) & 0x8000FFFF;
+		tmpPeriod = ch->outPeriod + (int16_t)tmp32;
+		if (tmpPeriod > 32000-1)
 			tmpPeriod = 0;
 
 		ch->finalPeriod = tmpPeriod - ch->midiPitch;
@@ -1546,14 +1527,14 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 
 int16_t relocateTon(int16_t period, int8_t relativeNote, stmTyp *ch)
 {
-	int8_t i, fineTune;
+	int8_t fineTune;
 	int32_t loPeriod, hiPeriod, tmpPeriod, tableIndex;
 
 	fineTune = (ch->fineTune >> 3) + 16;
 	hiPeriod = 8 * 12 * 16;
 	loPeriod = 0;
 
-	for (i = 0; i < 8; ++i)
+	for (int8_t i = 0; i < 8; i++)
 	{
 		tmpPeriod = (((loPeriod + hiPeriod) >> 1) & 0xFFFFFFF0) + fineTune;
 
@@ -1571,49 +1552,47 @@ int16_t relocateTon(int16_t period, int8_t relativeNote, stmTyp *ch)
 	if (tmpPeriod < 0) // added security check
 		tmpPeriod = 0;
 
-	if (tmpPeriod >= ((8 * 12 * 16) + 15) - 1) // FT2 bug: stupid off-by-one edge case
-		tmpPeriod  =  (8 * 12 * 16) + 15;
+	if (tmpPeriod >= ((8*12*16)+15)-1) // FT2 bug: off-by-one edge case
+		tmpPeriod = (8*12*16)+15;
 
-	return (note2Period[tmpPeriod]);
+	return note2Period[tmpPeriod];
 }
 
 static void tonePorta(stmTyp *ch)
 {
-	if (ch->portaDir > 0)
+	if (ch->portaDir == 0)
+		return;
+
+	if (ch->portaDir > 1)
 	{
-		if (ch->portaDir > 1)
+		ch->realPeriod -= ch->portaSpeed;
+		if (ch->realPeriod <= ch->wantPeriod)
 		{
-			ch->realPeriod -= ch->portaSpeed;
-			if (ch->realPeriod <= ch->wantPeriod)
-			{
-				ch->portaDir   = 1;
-				ch->realPeriod = ch->wantPeriod;
-			}
+			ch->portaDir = 1;
+			ch->realPeriod = ch->wantPeriod;
 		}
-		else
-		{
-			ch->realPeriod += ch->portaSpeed;
-			if (ch->realPeriod >= ch->wantPeriod)
-			{
-				ch->portaDir   = 1;
-				ch->realPeriod = ch->wantPeriod;
-			}
-		}
-
-		if (ch->glissFunk) // semi-tone slide flag
-			ch->outPeriod = relocateTon(ch->realPeriod, 0, ch);
-		else
-			ch->outPeriod = ch->realPeriod;
-
-		ch->status |= IS_Period;
 	}
+	else
+	{
+		ch->realPeriod += ch->portaSpeed;
+		if (ch->realPeriod >= ch->wantPeriod)
+		{
+			ch->portaDir = 1;
+			ch->realPeriod = ch->wantPeriod;
+		}
+	}
+
+	if (ch->glissFunk) // semi-tone slide flag
+		ch->outPeriod = relocateTon(ch->realPeriod, 0, ch);
+	else
+		ch->outPeriod = ch->realPeriod;
+
+	ch->status |= IS_Period;
 }
 
 static void volume(stmTyp *ch) // actually volume slide
 {
-	uint8_t tmpEff;
-
-	tmpEff = ch->eff;
+	uint8_t tmpEff = ch->eff;
 	if (tmpEff == 0)
 		tmpEff = ch->volSlideSpeed;
 
@@ -1630,23 +1609,21 @@ static void volume(stmTyp *ch) // actually volume slide
 	else
 	{
 		// unsigned clamp
-		if (ch->realVol <= (64 - (tmpEff >> 4)))
-			ch->realVol += (tmpEff >> 4);
+		if (ch->realVol <= 64-(tmpEff>>4))
+			ch->realVol += tmpEff>>4;
 		else
 			ch->realVol = 64;
 	}
 
-	ch->outVol  = ch->realVol;
+	ch->outVol = ch->realVol;
 	ch->status |= IS_Vol;
 }
 
 static void vibrato2(stmTyp *ch)
 {
-	uint8_t tmpVib;
+	uint8_t tmpVib = (ch->vibPos / 4) & 0x1F;
 
-	tmpVib = (ch->vibPos / 4) & 0x1F;
-
-	switch (ch->waveCtrl & 0x03)
+	switch (ch->waveCtrl & 3)
 	{
 		// 0: sine
 		case 0: tmpVib = vibTab[tmpVib]; break;
@@ -1703,11 +1680,11 @@ static void doEffects(stmTyp *ch)
 	{
 		// unsigned clamp
 		if (ch->realVol >= (ch->volKolVol & 0x0F))
-			ch->realVol -= (ch->volKolVol & 0x0F);
+			ch->realVol -= ch->volKolVol & 0x0F;
 		else
 			ch->realVol = 0;
 
-		ch->outVol  = ch->realVol;
+		ch->outVol = ch->realVol;
 		ch->status |= IS_Vol;
 	}
 
@@ -1715,12 +1692,12 @@ static void doEffects(stmTyp *ch)
 	else if ((ch->volKolVol & 0xF0) == 0x70)
 	{
 		// unsigned clamp
-		if (ch->realVol <= (64 - (ch->volKolVol & 0x0F)))
-			ch->realVol += (ch->volKolVol & 0x0F);
+		if (ch->realVol <= 64-(ch->volKolVol & 0x0F))
+			ch->realVol += ch->volKolVol & 0x0F;
 		else
 			ch->realVol = 64;
 
-		ch->outVol  = ch->realVol;
+		ch->outVol = ch->realVol;
 		ch->status |= IS_Vol;
 	}
 
@@ -1737,10 +1714,10 @@ static void doEffects(stmTyp *ch)
 	else if ((ch->volKolVol & 0xF0) == 0xD0)
 	{
 		// unsigned clamp + a bug when the parameter is 0
-		if (((ch->volKolVol & 0x0F) == 0) || (ch->outPan < (ch->volKolVol & 0x0F)))
+		if ((ch->volKolVol & 0x0F) == 0 || ch->outPan < (ch->volKolVol & 0x0F))
 			ch->outPan = 0;
 		else
-			ch->outPan -= (ch->volKolVol & 0x0F);
+			ch->outPan -= ch->volKolVol & 0x0F;
 
 		ch->status |= IS_Pan;
 	}
@@ -1749,8 +1726,8 @@ static void doEffects(stmTyp *ch)
 	else if ((ch->volKolVol & 0xF0) == 0xE0)
 	{
 		// unsigned clamp
-		if (ch->outPan <= (255 - (ch->volKolVol & 0x0F)))
-			ch->outPan += (ch->volKolVol & 0x0F);
+		if (ch->outPan <= 255-(ch->volKolVol & 0x0F))
+			ch->outPan += ch->volKolVol & 0x0F;
 		else
 			ch->outPan = 255;
 
@@ -1762,7 +1739,7 @@ static void doEffects(stmTyp *ch)
 
 	// *** MAIN EFFECTS (TICKS >0) ***
 
-	if (((ch->eff == 0) && (ch->effTyp == 0)) || (ch->effTyp >= 36)) return;
+	if ((ch->eff == 0 && ch->effTyp == 0) || ch->effTyp >= 36) return; // no effect
 
 	// 0xy - Arpeggio
 	if (ch->effTyp == 0)
@@ -1770,9 +1747,9 @@ static void doEffects(stmTyp *ch)
 		tick = song.timer;
 
 		// FT2 'out of boundary LUT read' arp simulation
-			 if (tick  < 16) tick %= 3;
-		else if (tick == 16) tick  = 0;
-		else                 tick  = 2;
+		     if (tick < 16) tick %= 3;
+		else if (tick == 16) tick = 0;
+		else tick = 2;
 
 		if (tick == 0)
 		{
@@ -1800,12 +1777,12 @@ static void doEffects(stmTyp *ch)
 
 		ch->portaUpSpeed = tmpEff;
 
-		ch->realPeriod -= (tmpEff * 4);
+		ch->realPeriod -= tmpEff * 4;
 		if (ch->realPeriod < 1)
 			ch->realPeriod = 1;
 
 		ch->outPeriod = ch->realPeriod;
-		ch->status   |= IS_Period;
+		ch->status |= IS_Period;
 	}
 
 	// 2xx - period slide down
@@ -1817,12 +1794,12 @@ static void doEffects(stmTyp *ch)
 
 		ch->portaDownSpeed = tmpEff;
 
-		ch->realPeriod += (tmpEff * 4);
-		if (ch->realPeriod > (32000 - 1))
-			ch->realPeriod =  32000 - 1;
+		ch->realPeriod += tmpEff * 4;
+		if (ch->realPeriod > 32000-1)
+			ch->realPeriod = 32000-1;
 
 		ch->outPeriod = ch->realPeriod;
-		ch->status   |= IS_Period;
+		ch->status |= IS_Period;
 	}
 
 	// 3xx - tone portamento
@@ -1856,7 +1833,6 @@ static void doEffects(stmTyp *ch)
 		}
 
 		tmpTrem = (ch->tremPos / 4) & 0x1F;
-
 		switch ((ch->waveCtrl >> 4) & 3)
 		{
 			// 0: sine
@@ -1873,7 +1849,6 @@ static void doEffects(stmTyp *ch)
 			// 2/3: square
 			default: tmpTrem = 255; break;
 		}
-
 		tmpTrem = (tmpTrem * ch->tremDepth) / 64;
 
 		if (ch->tremPos >= 128)
@@ -1905,7 +1880,7 @@ static void doEffects(stmTyp *ch)
 		{
 			if (ch->eff != 0x90) // E90 is handled in getNewNote()
 			{
-				if (((song.tempo - song.timer) % (ch->eff & 0x0F)) == 0)
+				if ((song.tempo-song.timer) % (ch->eff & 0x0F) == 0)
 				{
 					startTone(0, 0, 0, ch);
 					retrigEnvelopeVibrato(ch);
@@ -1916,9 +1891,9 @@ static void doEffects(stmTyp *ch)
 		// ECx - note cut
 		else if ((ch->eff & 0xF0) == 0xC0)
 		{
-			if (((song.tempo - song.timer) & 0xFF) == (ch->eff & 0x0F))
+			if (((song.tempo-song.timer) & 0xFF) == (ch->eff & 0x0F))
 			{
-				ch->outVol  = 0;
+				ch->outVol = 0;
 				ch->realVol = 0;
 				ch->status |= (IS_Vol + IS_QuickVol);
 			}
@@ -1927,7 +1902,7 @@ static void doEffects(stmTyp *ch)
 		// EDx - note delay
 		else if ((ch->eff & 0xF0) == 0xD0)
 		{
-			if (((song.tempo - song.timer) & 0xFF) == (ch->eff & 0x0F))
+			if (((song.tempo-song.timer) & 0xFF) == (ch->eff & 0x0F))
 			{
 				startTone(ch->tonTyp & 0xFF, 0, 0, ch);
 
@@ -1936,12 +1911,12 @@ static void doEffects(stmTyp *ch)
 
 				retrigEnvelopeVibrato(ch);
 
-				if ((ch->volKolVol >= 0x10) && (ch->volKolVol <= 0x50))
+				if (ch->volKolVol >= 0x10 && ch->volKolVol <= 0x50)
 				{
 					ch->outVol  = ch->volKolVol - 16;
 					ch->realVol = ch->outVol;
 				}
-				else if ((ch->volKolVol >= 0xC0) && (ch->volKolVol <= 0xCF))
+				else if (ch->volKolVol >= 0xC0 && ch->volKolVol <= 0xCF)
 				{
 					ch->outPan = (ch->volKolVol & 0x0F) << 4;
 				}
@@ -1969,20 +1944,20 @@ static void doEffects(stmTyp *ch)
 		else
 		{
 			// unsigned clamp
-			if (song.globVol <= (64 - (tmpEff >> 4)))
-				song.globVol += (tmpEff >> 4);
+			if (song.globVol <= 64-(tmpEff >> 4))
+				song.globVol += tmpEff >> 4;
 			else
 				song.globVol = 64;
 		}
 
-		for (i = 0; i < song.antChn; ++i)
+		for (i = 0; i < song.antChn; i++) // update all voice volumes
 			stm[i].status |= IS_Vol;
 	}
 
 	// Kxx - key off
 	else if (ch->effTyp == 20)
 	{
-		if (((song.tempo - song.timer) & 31) == (ch->eff & 0x0F))
+		if (((song.tempo-song.timer) & 31) == (ch->eff & 0x0F))
 			keyOff(ch);
 	}
 
@@ -2008,7 +1983,7 @@ static void doEffects(stmTyp *ch)
 			tmpEff >>= 4;
 
 			// unsigned clamp
-			if (ch->outPan <= (255 - tmpEff))
+			if (ch->outPan <= 255-tmpEff)
 				ch->outPan += tmpEff;
 			else
 				ch->outPan = 255;
@@ -2049,62 +2024,62 @@ static void doEffects(stmTyp *ch)
 
 		ch->tremorPos = tremorData | tremorSign;
 
-		ch->outVol  = tremorSign ? ch->realVol : 0;
+		ch->outVol = tremorSign ? ch->realVol : 0;
 		ch->status |= (IS_Vol + IS_QuickVol);
 	}
 }
 
 static void getNextPos(void)
 {
-	if (song.timer == 1)
+	if (song.timer != 1)
+		return;
+
+	song.pattPos++;
+
+	if (song.pattDelTime > 0)
 	{
-		song.pattPos++;
+		song.pattDelTime2 = song.pattDelTime;
+		song.pattDelTime = 0;
+	}
 
-		if (song.pattDelTime > 0)
+	if (song.pattDelTime2 > 0)
+	{
+		if (--song.pattDelTime2 > 0)
+			song.pattPos--;
+	}
+
+	if (song.pBreakFlag)
+	{
+		song.pBreakFlag = false;
+		song.pattPos = song.pBreakPos;
+	}
+
+	if (song.pattPos >= song.pattLen || song.posJumpFlag)
+	{
+		song.pattPos = song.pBreakPos;
+		song.pBreakPos = 0;
+		song.posJumpFlag = false;
+
+		if (playMode != PLAYMODE_PATT && playMode != PLAYMODE_RECPATT)
 		{
-			song.pattDelTime2 = song.pattDelTime;
-			song.pattDelTime  = 0;
-		}
-
-		if (song.pattDelTime2 > 0)
-		{
-			if (--song.pattDelTime2 > 0)
-				song.pattPos--;
-		}
-
-		if (song.pBreakFlag)
-		{
-			song.pBreakFlag = false;
-			song.pattPos    = song.pBreakPos;
-		}
-
-		if ((song.pattPos >= song.pattLen) || song.posJumpFlag)
-		{
-			song.pattPos     = song.pBreakPos;
-			song.pBreakPos   = 0;
-			song.posJumpFlag = false;
-
-			if ((playMode != PLAYMODE_PATT) && (playMode != PLAYMODE_RECPATT))
+			if (bxxOverflow)
 			{
-				if (bxxOverflow)
-				{
-					song.songPos = 0;
-					bxxOverflow  = false;
-				}
-				else
-				{
-					if (++song.songPos >= song.len)
-					{
-						editor.wavReachedEndFlag = true;
-						song.songPos = song.repS;
-					}
-				}
-
-				assert(song.songPos <= 255);
-
-				song.pattNr  = song.songTab[song.songPos & 0xFF];
-				song.pattLen = pattLens[song.pattNr & 0xFF];
+				song.songPos = 0;
+				bxxOverflow = false;
 			}
+			else
+			{
+				if (++song.songPos >= song.len)
+				{
+					editor.wavReachedEndFlag = true;
+					song.songPos = song.repS;
+				}
+			}
+
+			assert(song.songPos <= 255);
+
+			song.pattNr = song.songTab[song.songPos & 0xFF];
+			song.pattLen = pattLens[song.pattNr & 0xFF];
 		}
 	}
 }
@@ -2122,9 +2097,7 @@ void resumeMusic(void) // starts reading pattern data
 
 static void noNewAllChannels(void)
 {
-	uint8_t i;
-
-	for (i = 0; i < song.antChn; ++i)
+	for (uint8_t i = 0; i < song.antChn; i++)
 	{
 		doEffects(&stm[i]);
 		fixaEnvelopeVibrato(&stm[i]);
@@ -2138,65 +2111,62 @@ void mainPlayer(void) // periodically called from audio callback
 
 	if (musicPaused || !songPlaying)
 	{
-		for (i = 0; i < song.antChn; ++i)
+		for (i = 0; i < song.antChn; i++)
 			fixaEnvelopeVibrato(&stm[i]);
+
+		return;
 	}
-	else
+
+	if (song.speed > 0)
+		song.musicTime += 65536 / song.speed; // for playback counter
+
+	readNewNote = false;
+	if (--song.timer == 0)
 	{
-		if (song.speed > 0)
-			song.musicTime += (65536 / song.speed);
+		song.timer = song.tempo;
+		readNewNote = true;
+	}
 
-		readNewNote = false;
-		if (--song.timer == 0)
+	// for visuals
+	song.curReplayerTimer   = (uint8_t)song.timer;
+	song.curReplayerPattPos = (uint8_t)song.pattPos;
+	song.curReplayerPattNr  = (uint8_t)song.pattNr;
+	song.curReplayerSongPos = (uint8_t)song.songPos;
+
+	if (readNewNote)
+	{
+		if (song.pattDelTime2 == 0)
 		{
-			song.timer = song.tempo;
-			readNewNote = true;
-		}
-
-		// for visuals
-		song.curReplayerTimer   = (uint8_t)(song.timer);
-		song.curReplayerPattPos = (uint8_t)(song.pattPos);
-		song.curReplayerPattNr  = (uint8_t)(song.pattNr);
-		song.curReplayerSongPos = (uint8_t)(song.songPos);
-
-		if (readNewNote)
-		{
-			if (song.pattDelTime2 == 0)
+			for (i = 0; i < song.antChn; i++)
 			{
-				for (i = 0; i < song.antChn; ++i)
-				{
-					if (patt[song.pattNr] == NULL)
-						getNewNote(&stm[i], &nilPatternLine);
-					else
-						getNewNote(&stm[i], &patt[song.pattNr][(song.pattPos * MAX_VOICES) + i]);
+				if (patt[song.pattNr] == NULL)
+					getNewNote(&stm[i], &nilPatternLine);
+				else
+					getNewNote(&stm[i], &patt[song.pattNr][(song.pattPos * MAX_VOICES) + i]);
 
-					fixaEnvelopeVibrato(&stm[i]);
-				}
-			}
-			else
-			{
-				noNewAllChannels();
+				fixaEnvelopeVibrato(&stm[i]);
 			}
 		}
 		else
 		{
 			noNewAllChannels();
 		}
-
-		getNextPos();
 	}
+	else
+	{
+		noNewAllChannels();
+	}
+
+	getNextPos();
 }
 
 void resetMusic(void)
 {
-	bool audioWasntLocked;
-
-	song.timer = 1;
-
-	audioWasntLocked = !audio.locked;
+	bool audioWasntLocked = !audio.locked;
 	if (audioWasntLocked)
 		lockAudio();
 
+	song.timer = 1;
 	stopVoices();
 
 	if (audioWasntLocked)
@@ -2213,16 +2183,14 @@ void resetMusic(void)
 
 void setPos(int16_t songPos, int16_t pattPos)
 {
-	bool audioWasntLocked;
-
-	audioWasntLocked = !audio.locked;
+	bool audioWasntLocked = !audio.locked;
 	if (audioWasntLocked)
 		lockAudio();
 
 	if (songPos > -1)
 	{
 		song.songPos = songPos;
-		if ((song.len > 0) && (song.songPos >= song.len))
+		if (song.len > 0 && song.songPos >= song.len)
 			song.songPos = song.len - 1;
 
 		song.pattNr = song.songTab[songPos];
@@ -2236,7 +2204,7 @@ void setPos(int16_t songPos, int16_t pattPos)
 	{
 		song.pattPos = pattPos;
 		if (song.pattPos >= song.pattLen)
-			song.pattPos  = song.pattLen - 1;
+			song.pattPos = song.pattLen - 1;
 	}
 
 	// if not playing, update local position variables
@@ -2244,13 +2212,13 @@ void setPos(int16_t songPos, int16_t pattPos)
 	{
 		if (pattPos > -1)
 		{
-			editor.pattPos = (uint8_t)(pattPos);
+			editor.pattPos = (uint8_t)pattPos;
 			editor.ui.updatePatternEditor = true;
 		}
 
 		if (songPos > -1)
 		{
-			editor.editPattern = (uint8_t)(song.pattNr);
+			editor.editPattern = (uint8_t)song.pattNr;
 			editor.songPos = song.songPos;
 			editor.ui.updatePosSections = true;
 		}
@@ -2275,19 +2243,19 @@ void delta2Samp(int8_t *p, int32_t len, uint8_t typ)
 	{
 		if (typ & 16)
 		{
-			p16 = (int16_t *)(p);
+			p16 = (int16_t *)p;
 
 			olds16L = 0;
 			olds16R = 0;
 
-			for (i = 0; i < len; ++i)
+			for (i = 0; i < len; i++)
 			{
-				news16  = p16[i] + olds16L;
-				p16[i]  = news16;
+				news16 = p16[i] + olds16L;
+				p16[i] = news16;
 				olds16L = news16;
 
-				news16 = p16[len + i] + olds16R;
-				p16[len + i] = news16;
+				news16 = p16[len+i] + olds16R;
+				p16[len+i] = news16;
 				olds16R = news16;
 
 				tmp32 = olds16L + olds16R;
@@ -2296,19 +2264,19 @@ void delta2Samp(int8_t *p, int32_t len, uint8_t typ)
 		}
 		else
 		{
-			p8 = (int8_t *)(p);
+			p8 = (int8_t *)p;
 
 			olds8L = 0;
 			olds8R = 0;
 
-			for (i = 0; i < len; ++i)
+			for (i = 0; i < len; i++)
 			{
-				news8  = p8[i] + olds8L;
-				p8[i]  = news8;
+				news8 = p8[i] + olds8L;
+				p8[i] = news8;
 				olds8L = news8;
 
-				news8 = p8[len + i] + olds8R;
-				p8[len + i] = news8;
+				news8 = p8[len+i] + olds8R;
+				p8[len+i] = news8;
 				olds8R = news8;
 
 				tmp16 = olds8L + olds8R;
@@ -2320,25 +2288,25 @@ void delta2Samp(int8_t *p, int32_t len, uint8_t typ)
 	{
 		if (typ & 16)
 		{
-			p16 = (int16_t *)(p);
+			p16 = (int16_t *)p;
 
 			olds16L = 0;
-			for (i = 0; i < len; ++i)
+			for (i = 0; i < len; i++)
 			{
-				news16  = p16[i] + olds16L;
-				p16[i]  = news16;
+				news16 = p16[i] + olds16L;
+				p16[i] = news16;
 				olds16L = news16;
 			}
 		}
 		else
 		{
-			p8 = (int8_t *)(p);
+			p8 = (int8_t *)p;
 
 			olds8L = 0;
-			for (i = 0; i < len; ++i)
+			for (i = 0; i < len; i++)
 			{
-				news8  = p8[i] + olds8L;
-				p8[i]  = news8;
+				news8 = p8[i] + olds8L;
+				p8[i] = news8;
 				olds8L = news8;
 			}
 		}
@@ -2355,56 +2323,50 @@ void samp2Delta(int8_t *p, int32_t len, uint8_t typ)
 
 	if (typ & 16)
 	{
-		p16 = (int16_t *)(p);
+		p16 = (int16_t *)p;
 
 		news16 = 0;
-		for (i = 0; i < len; ++i)
+		for (i = 0; i < len; i++)
 		{
-			olds16  = p16[i];
+			olds16 = p16[i];
 			p16[i] -= news16;
-			news16  = olds16;
+			news16 = olds16;
 		}
 	}
 	else
 	{
-		p8 = (int8_t *)(p);
+		p8 = (int8_t *)p;
 
 		news8 = 0;
-		for (i = 0; i < len; ++i)
+		for (i = 0; i < len; i++)
 		{
-			olds8  = p8[i];
+			olds8 = p8[i];
 			p8[i] -= news8;
-			news8  = olds8;
+			news8 = olds8;
 		}
 	}
 }
 
 void freeSample(sampleTyp *s)
 {
-	// free sample data
 	if (s->pek != NULL)
 	{
 		free(s->pek);
 		s->pek = NULL;
 	}
 
-	// clear sample struct
 	memset(s, 0, sizeof (sampleTyp));
 }
 
 void freeSamples(uint16_t ins)
 {
-	uint8_t i;
-
-	for (i = 0; i < MAX_SMP_PER_INST; ++i)
+	for (uint8_t i = 0; i < MAX_SMP_PER_INST; i++)
 		freeSample(&instr[ins].samp[i]);
 }
 
 void freeAllPatterns(void)
 {
-	uint16_t i;
-
-	for (i = 0; i < MAX_PATTERNS; ++i)
+	for (uint16_t i = 0; i < MAX_PATTERNS; i++)
 	{
 		if (patt[i] != NULL)
 		{
@@ -2414,45 +2376,38 @@ void freeAllPatterns(void)
 	}
 }
 
-void setStdEnvelope(uint16_t nr, uint16_t i, uint8_t typ)
+void setDefEnvelopes(uint16_t nr)
 {
-	uint8_t j;
 	instrTyp *ins;
 
 	pauseMusic();
 
-	assert((nr < (1 + MAX_INST + 1)) && (i <= 5));
+	assert(nr <= MAX_INST+1);
 
 	ins = &instr[nr];
 
-	if (typ & 1)
-	{
-		ins->fadeOut  = config.stdFadeOut[i];
-		ins->envVSust = (uint8_t)(config.stdVolEnvSust[i]);
-		ins->envVRepS = (uint8_t)(config.stdVolEnvRepS[i]);
-		ins->envVRepE = (uint8_t)(config.stdVolEnvRepE[i]);
-		ins->envVPAnt = (uint8_t)(config.stdVolEnvAnt[i]);
-		ins->envVTyp  = (uint8_t)(config.stdVolEnvTyp[i]);
-		ins->vibRate  = (uint8_t)(config.stdVibRate[i]);
-		ins->vibDepth = (uint8_t)(config.stdVibDepth[i]);
-		ins->vibSweep = (uint8_t)(config.stdVibSweep[i]);
-		ins->vibTyp   = (uint8_t)(config.stdVibTyp[i]);
+	ins->fadeOut  = defConfig->stdFadeOut[0];
+	ins->envVSust = (uint8_t)defConfig->stdVolEnvSust[0];
+	ins->envVRepS = (uint8_t)defConfig->stdVolEnvRepS[0];
+	ins->envVRepE = (uint8_t)defConfig->stdVolEnvRepE[0];
+	ins->envVPAnt = (uint8_t)defConfig->stdVolEnvAnt[0];
+	ins->envVTyp  = (uint8_t)defConfig->stdVolEnvTyp[0];
+	ins->vibRate  = (uint8_t)defConfig->stdVibRate[0];
+	ins->vibDepth = (uint8_t)defConfig->stdVibDepth[0];
+	ins->vibSweep = (uint8_t)defConfig->stdVibSweep[0];
+	ins->vibTyp   = (uint8_t)defConfig->stdVibTyp[0];
 
-		memcpy(ins->envVP, config.stdEnvP[i][0], sizeof (int16_t) * 12 * 2);
-	}
+	memcpy(ins->envVP, defConfig->stdEnvP[0][0], sizeof (int16_t) * 12 * 2);
 
-	if (typ & 2)
-	{
-		ins->envPPAnt = (uint8_t)(config.stdPanEnvAnt[i]);
-		ins->envPSust = (uint8_t)(config.stdPanEnvSust[i]);
-		ins->envPRepS = (uint8_t)(config.stdPanEnvRepS[i]);
-		ins->envPRepE = (uint8_t)(config.stdPanEnvRepE[i]);
-		ins->envPTyp  = (uint8_t)(config.stdPanEnvTyp[i]);
+	ins->envPPAnt = (uint8_t)defConfig->stdPanEnvAnt[0];
+	ins->envPSust = (uint8_t)defConfig->stdPanEnvSust[0];
+	ins->envPRepS = (uint8_t)defConfig->stdPanEnvRepS[0];
+	ins->envPRepE = (uint8_t)defConfig->stdPanEnvRepE[0];
+	ins->envPTyp  = (uint8_t)defConfig->stdPanEnvTyp[0];
 
-		memcpy(ins->envPP, config.stdEnvP[i][1], sizeof (int16_t) * 12 * 2);
-	}
+	memcpy(ins->envPP, defConfig->stdEnvP[0][1], sizeof (int16_t) * 12 * 2);
 
-	for (j = 0; j < MAX_SMP_PER_INST; ++j)
+	for (uint8_t j = 0; j < MAX_SMP_PER_INST; j++)
 	{
 		ins->samp[j].vol = 64;
 		ins->samp[j].pan = 128;
@@ -2463,46 +2418,43 @@ void setStdEnvelope(uint16_t nr, uint16_t i, uint8_t typ)
 
 void clearInstr(uint8_t i)
 {
-	assert(i < (1 + MAX_INST + 1));
+	assert(i <= MAX_INST+1);
 
 	freeSamples(i);
 
-	// clear instrument and instrument name
 	memset(&instr[i], 0, sizeof (instrTyp));
 	memset(song.instrName[i], 0, sizeof (song.instrName[i]));
 
-	// set default envelope and inst values
-	setStdEnvelope(i, 0, 3);
+	setDefEnvelopes(i);
 }
 
 void clearAllInstr(void)
 {
-	uint8_t i;
-
-	for (i = 0; i < (1 + MAX_INST); ++i)
+	for (uint8_t i = 0; i <= MAX_INST; i++)
 		clearInstr(i);
 
-	memset(&instr[1 + MAX_INST], 0, sizeof (tonTyp)); // placeholder for instrument jamming
+	// placeholder for instrument jamming
+	memset(&instr[1 + MAX_INST], 0, sizeof (tonTyp)); 
 }
 
 bool patternEmpty(uint16_t nr)
 {
 	uint8_t *scanPtr;
-	uint32_t i, scanLen;
+	uint32_t scanLen;
 
 	if (patt[nr] == NULL)
-		return (true);
+		return true;
 
-	scanPtr = (uint8_t *)(patt[nr]);
+	scanPtr = (uint8_t *)patt[nr];
 	scanLen = pattLens[nr] * TRACK_WIDTH;
 
-	for (i = 0; i < scanLen; ++i)
+	for (uint32_t i = 0; i < scanLen; i++)
 	{
 		if (scanPtr[i] != 0)
-			return (false);
+			return false;
 	}
 
-	return (true);
+	return true;
 }
 
 void updateChanNums(void)
@@ -2514,14 +2466,14 @@ void updateChanNums(void)
 	pageLen = 8;
 	if (config.ptnS3M)
 	{
-			 if (song.antChn == 2) pageLen = 4;
+		     if (song.antChn == 2) pageLen = 4;
 		else if (song.antChn == 4) pageLen = 4;
 		else if (song.antChn == 6) pageLen = 6;
 		else if (song.antChn >= 8) pageLen = 8;
 	}
 	else
 	{
-			 if (song.antChn ==  2) pageLen = 4;
+		     if (song.antChn ==  2) pageLen = 4;
 		else if (song.antChn ==  4) pageLen = 4;
 		else if (song.antChn ==  6) pageLen = 6;
 		else if (song.antChn ==  8) pageLen = 8;
@@ -2562,11 +2514,11 @@ void updateChanNums(void)
 		}
 	}
 
-	editor.ui.pattChanScrollShown = song.antChn > getMaxVisibleChannels();
+	editor.ui.pattChanScrollShown = (song.antChn > getMaxVisibleChannels());
 
 	if (editor.ui.patternEditorShown)
 	{
-		if (editor.ui.channelOffset > (song.antChn - editor.ui.numChannelsShown))
+		if (editor.ui.channelOffset > song.antChn-editor.ui.numChannelsShown)
 			setScrollBarPos(SB_CHAN_SCROLL, song.antChn - editor.ui.numChannelsShown, true);
 	}
 
@@ -2593,8 +2545,8 @@ void updateChanNums(void)
 		editor.ui.channelOffset = 0;
 	}
 
-	if (editor.cursor.ch >= (editor.ui.channelOffset + editor.ui.numChannelsShown))
-		editor.cursor.ch  = (editor.ui.channelOffset + editor.ui.numChannelsShown) - 1;
+	if (editor.cursor.ch >= editor.ui.channelOffset+editor.ui.numChannelsShown)
+		editor.cursor.ch = editor.ui.channelOffset+editor.ui.numChannelsShown - 1;
 }
 
 void conv8BitSample(int8_t *p, int32_t len, bool stereo)
@@ -2608,7 +2560,7 @@ void conv8BitSample(int8_t *p, int32_t len, bool stereo)
 		len /= 2;
 
 		p2 = &p[len];
-		for (i = 0; i < len; ++i)
+		for (i = 0; i < len; i++)
 		{
 			l = p[i]  - 128;
 			r = p2[i] - 128;
@@ -2619,7 +2571,7 @@ void conv8BitSample(int8_t *p, int32_t len, bool stereo)
 	}
 	else
 	{
-		for (i = 0; i < len; ++i)
+		for (i = 0; i < len; i++)
 			p[i] -= 128;
 	}
 }
@@ -2629,7 +2581,7 @@ void conv16BitSample(int8_t *p, int32_t len, bool stereo)
 	int16_t *p16_1, *p16_2, l, r;
 	int32_t i, tmp32;
 
-	p16_1 = (int16_t *)(p);
+	p16_1 = (int16_t *)p;
 
 	len /= 2;
 
@@ -2637,8 +2589,8 @@ void conv16BitSample(int8_t *p, int32_t len, bool stereo)
 	{
 		len /= 2;
 
-		p16_2 = (int16_t *)(&p[len * 2]);
-		for (i = 0; i < len; ++i)
+		p16_2 = (int16_t *)&p[len * 2];
+		for (i = 0; i < len; i++)
 		{
 			l = p16_1[i] - 32768;
 			r = p16_2[i] - 32768;
@@ -2649,7 +2601,7 @@ void conv16BitSample(int8_t *p, int32_t len, bool stereo)
 	}
 	else
 	{
-		for (i = 0; i < len; ++i)
+		for (i = 0; i < len; i++)
 			p16_1[i] -= 32768;
 	}
 }
@@ -2680,45 +2632,45 @@ void closeReplayer(void)
 
 bool setupReplayer(void)
 {
-	uint16_t i, j, k;
+	uint16_t i, k;
 	int16_t noteVal;
 
 	// allocate memory for pointers
 
-	for (i = 0; i < MAX_PATTERNS; ++i)
+	for (i = 0; i < MAX_PATTERNS; i++)
 		pattLens[i] = 64;
 
 	if (linearPeriods == NULL)
-		linearPeriods = (int16_t *)(malloc(sizeof (int16_t) * ((12 * 10 * 16) + 16)));
+		linearPeriods = (int16_t *)malloc(sizeof (int16_t) * ((12 * 10 * 16) + 16));
 
 	if (amigaPeriods == NULL)
-		amigaPeriods = (int16_t *)(malloc(sizeof (int16_t) * ((12 * 10 * 16) + 16)));
+		amigaPeriods = (int16_t *)malloc(sizeof (int16_t) * ((12 * 10 * 16) + 16));
 
 	if (logTab == NULL)
-		logTab = (uint32_t *)(malloc(sizeof (int32_t) * 768));
+		logTab = (uint32_t *)malloc(sizeof (int32_t) * 768);
 
-	if ((linearPeriods == NULL) || (amigaPeriods == NULL) || (logTab == NULL))
+	if (linearPeriods == NULL || amigaPeriods == NULL || logTab == NULL)
 	{
 		showErrorMsgBox("Not enough memory!");
-		return (false);
+		return false;
 	}
 
 	// generate tables, bit-exact to original FT2
 
 	// log table
-	for (i = 0; i < 768; ++i)
-		logTab[i] = (uint32_t)(round(16777216.0 * exp((i / 768.0) * M_LN2)));
+	for (i = 0; i < 768; i++)
+		logTab[i] = (uint32_t)round(16777216.0 * exp((i / 768.0) * M_LN2));
 
 	// linear table
-	for (i = 0; i < ((12 * 10 * 16) + 16); ++i)
+	for (i = 0; i < (12*10*16)+16; i++)
 		linearPeriods[i] = (((12 * 10 * 16) + 16) * 4) - (i * 4);
 
 	/* Amiga period table
 	** This has a LUT read overflow in real FT2 making the last 17 values trash. We patch those later. */
 	k = 0;
-	for (i = 0; i < 10; ++i)
+	for (i = 0; i < 10; i++)
 	{
-		for (j = 0; j < 96; ++j)
+		for (uint16_t j = 0; j < 96; j++)
 		{
 			noteVal = ((amigaFinePeriod[j] * 64) + (-1 + (1 << i))) >> (i + 1);
 
@@ -2728,7 +2680,7 @@ bool setupReplayer(void)
 	}
 
 	// interpolate between points
-	for (i = 0; i < ((12 * 10 * 8) + 7); ++i)
+	for (i = 0; i < (12*10*8)+7; i++)
 		amigaPeriods[(i * 2) + 1] = (amigaPeriods[i * 2] + amigaPeriods[(i * 2) + 2]) / 2;
 
 	// the following 17 values are confirmed to be the correct table LUT overflow values in real FT2
@@ -2744,28 +2696,28 @@ bool setupReplayer(void)
 	clearAllInstr();
 	resetChannels();
 
-	song.len    = 1;
+	song.len = 1;
 	song.antChn = 8;
 
-	editor.speed      = song.speed   = 125;
-	editor.tempo      = song.tempo   = 6;
-	editor.globalVol  = song.globVol = 64;
+	editor.speed = song.speed = 125;
+	editor.tempo = song.tempo = 6;
+	editor.globalVol = song.globVol = 64;
 	song.initialTempo = song.tempo;
 
 	setFrqTab(true);
 	setPos(0, 0);
 
 	editor.tmpPattern = 65535; // pattern editor update/redraw kludge
-	return (true);
+	return true;
 }
 
 void startPlaying(int8_t mode, int16_t row)
 {
 	lockMixerCallback();
 
-	assert((mode != PLAYMODE_IDLE) && (mode != PLAYMODE_EDIT));
+	assert(mode != PLAYMODE_IDLE && mode != PLAYMODE_EDIT);
 
-	if ((mode == PLAYMODE_PATT) || (mode == PLAYMODE_RECPATT))
+	if (mode == PLAYMODE_PATT || mode == PLAYMODE_RECPATT)
 		setPos(-1, row);
 	else
 		setPos(editor.songPos, row);
@@ -2775,7 +2727,7 @@ void startPlaying(int8_t mode, int16_t row)
 	song.globVol = 64;
 	song.musicTime = 0;
 	song.pattDelTime2 = 0;
-	song.pattDelTime  = 0;
+	song.pattDelTime = 0;
 
 	// non-FT2 fix: If song speed was 0, set it back to initial speed on play
 	if (song.tempo == 0)
@@ -2783,7 +2735,7 @@ void startPlaying(int8_t mode, int16_t row)
 
 	unlockMixerCallback();
 
-	editor.ui.updatePosSections   = true;
+	editor.ui.updatePosSections = true;
 	editor.ui.updatePatternEditor = true;
 }
 
@@ -2803,12 +2755,12 @@ void stopPlaying(void)
 		unlockMixerCallback();
 
 		// prevent getFrequenceValue() from calculating the rates forever
-		for (i = 0; i < MAX_VOICES; ++i)
+		for (i = 0; i < MAX_VOICES; i++)
 			stm[i].outPeriod = 0;
 	}
 	else
 	{
-		for (i = 0; i < MAX_VOICES; ++i)
+		for (i = 0; i < MAX_VOICES; i++)
 			playTone(i, 0, 97, -1, 0, 0);
 	}
 
@@ -2817,11 +2769,11 @@ void stopPlaying(void)
 		editor.pattPos = song.pattPos;
 
 	midi.currMIDIVibDepth = 0;
-	midi.currMIDIPitch    = 0;
+	midi.currMIDIPitch = 0;
 
 	memset(editor.keyOnTab, 0, sizeof (editor.keyOnTab));
 
-	editor.ui.updatePosSections   = true;
+	editor.ui.updatePosSections = true;
 	editor.ui.updatePatternEditor = true;
 
 	// certain non-FT2 fixes
@@ -2837,38 +2789,32 @@ void playTone(uint8_t stmm, uint8_t inst, uint8_t ton, int8_t vol, uint16_t midi
 	stmTyp *ch;
 	instrTyp *ins;
 
-	assert((stmm < MAX_VOICES) && (inst < MAX_INST) && (ton <= 97));
+	assert(stmm < MAX_VOICES && inst < MAX_INST && ton <= 97);
 	ch = &stm[stmm];
 
 	if (ton != 97)
 	{
-		if ((ton < 1) || (ton > 96))
+		if (ton < 1 || ton > 96)
 			return;
 
 		ins = &instr[inst];
-		s   = &ins->samp[ins->ta[ton - 1] & 0x0F];
+		s = &ins->samp[ins->ta[ton-1] & 0x0F];
 
-		if ((s->pek == NULL) || (s->len < 1))
-			return; // prevent passing volume update flags to the mixer if we were to jam an empty sample
-
-		if (((ton + s->relTon) <= 0) || ((ton + s->relTon) >= (12 * 10)))
-			return; // FT2 doesn't do this: don't try to play overflown notes
+		if (s->pek == NULL || s->len == 0 || ton+s->relTon <= 0 || ton+s->relTon >= 12*10)
+			return;
 	}
 
 	lockAudio();
 
-	if (inst != 0)
+	if (inst != 0 && ton != 97)
 	{
-		if (ton != 97)
-		{
-			ch->tonTyp  = (inst << 8) | (ch->tonTyp & 0x00FF);
-			ch->instrNr = inst;
-		}
+		ch->tonTyp = (inst << 8) | (ch->tonTyp & 0xFF);
+		ch->instrNr = inst;
 	}
 
 	ch->tonTyp = (ch->tonTyp & 0xFF00) | ton;
 	ch->effTyp = 0;
-	ch->eff    = 0;
+	ch->eff = 0;
 
 	startTone(ton, 0, 0, ch);
 
@@ -2880,13 +2826,13 @@ void playTone(uint8_t stmm, uint8_t inst, uint8_t ton, int8_t vol, uint16_t midi
 		if (vol != -1) // if jamming note keys, vol -1 = use sample's volume
 		{
 			ch->realVol = vol;
-			ch->outVol  = vol;
-			ch->oldVol  = vol;
+			ch->outVol = vol;
+			ch->oldVol = vol;
 		}
 	}
 
 	ch->midiVibDepth = midiVibDepth;
-	ch->midiPitch    = midiPitch;
+	ch->midiPitch = midiPitch;
 
 	fixaEnvelopeVibrato(ch);
 
@@ -2899,23 +2845,24 @@ void playSample(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t
 	uint8_t vol;
 	stmTyp *ch;
 
+	// for sampling playback line in Smp. Ed.
 	lastChInstr[stmm].instrNr = 255;
 	lastChInstr[stmm].sampleNr = 255;
 	editor.curPlayInstr = 255;
 	editor.curPlaySmp = 255;
 
-	assert((stmm < MAX_VOICES) && (inst < MAX_INST) && (smpNr < MAX_SMP_PER_INST) && (ton <= 97));
+	assert(stmm < MAX_VOICES && inst < MAX_INST && smpNr < MAX_SMP_PER_INST && ton <= 97);
 	ch = &stm[stmm];
 
-	memcpy(&instr[MAX_INST + 1].samp[0], &instr[inst].samp[smpNr], sizeof (sampleTyp));
+	memcpy(&instr[MAX_INST+1].samp[0], &instr[inst].samp[smpNr], sizeof (sampleTyp));
 
 	vol = instr[inst].samp[smpNr].vol;
 	
 	lockAudio();
 
-	ch->tonTyp  = ((MAX_INST + 1) << 8) | ton;
+	ch->tonTyp = ((MAX_INST + 1) << 8) | ton;
 	ch->instrNr = MAX_INST + 1;
-	ch->effTyp  = 0;
+	ch->effTyp = 0;
 
 	startTone(ton, 0, 0, ch);
 
@@ -2925,20 +2872,22 @@ void playSample(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t
 		retrigEnvelopeVibrato(ch);
 
 		ch->realVol = vol;
-		ch->outVol  = vol;
-		ch->oldVol  = vol;
+		ch->outVol = vol;
+		ch->oldVol = vol;
 	}
 
 	ch->midiVibDepth = midiVibDepth;
-	ch->midiPitch    = midiPitch;
+	ch->midiPitch = midiPitch;
 
 	fixaEnvelopeVibrato(ch);
 
 	unlockAudio();
 
 	while (ch->status & IS_NyTon); // wait for sample to latch in mixer
+
+	// for sampling playback line in Smp. Ed.
 	editor.curPlayInstr = editor.curInstr;
-	editor.curPlaySmp   = editor.curSmp;
+	editor.curPlaySmp = editor.curSmp;
 }
 
 // smp. ed.
@@ -2949,15 +2898,16 @@ void playRange(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t 
 	stmTyp *ch;
 	sampleTyp *s;
 
+	// for sampling playback line in Smp. Ed.
 	lastChInstr[stmm].instrNr = 255;
 	lastChInstr[stmm].sampleNr = 255;
 	editor.curPlayInstr = 255;
 	editor.curPlaySmp = 255;
 
-	assert((stmm < MAX_VOICES) && (inst < MAX_INST) && (smpNr < MAX_SMP_PER_INST) && (ton <= 97));
+	assert(stmm < MAX_VOICES && inst < MAX_INST && smpNr < MAX_SMP_PER_INST && ton <= 97);
 
 	ch = &stm[stmm];
-	s  = &instr[MAX_INST + 1].samp[0];
+	s = &instr[MAX_INST+1].samp[0];
 
 	memcpy(s, &instr[inst].samp[smpNr], sizeof (sampleTyp));
 
@@ -2971,7 +2921,7 @@ void playRange(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t 
 
 	lockAudio();
 
-	s->len  = offs + len;
+	s->len = offs + len;
 	s->repS = 0;
 	s->repL = 0;
 	s->typ &= 16; // only keep 8-bit/16-bit flag (disable loop)
@@ -2980,9 +2930,9 @@ void playRange(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t 
 	if (s->typ & 16)
 		samplePlayOffset >>= 1;
 
-	ch->tonTyp  = ((MAX_INST + 1) << 8) | ton;
+	ch->tonTyp = ((MAX_INST + 1) << 8) | ton;
 	ch->instrNr = MAX_INST + 1;
-	ch->effTyp  = 0;
+	ch->effTyp = 0;
 
 	startTone(ton, 0, 0, ch);
 
@@ -2994,25 +2944,26 @@ void playRange(uint8_t stmm, uint8_t inst, uint8_t smpNr, uint8_t ton, uint16_t 
 		retrigEnvelopeVibrato(ch);
 
 		ch->realVol = vol;
-		ch->outVol  = vol;
-		ch->oldVol  = vol;
+		ch->outVol = vol;
+		ch->oldVol = vol;
 	}
 
 	ch->midiVibDepth = midiVibDepth;
-	ch->midiPitch    = midiPitch;
+	ch->midiPitch = midiPitch;
 
 	fixaEnvelopeVibrato(ch);
 
 	unlockAudio();
 
 	while (ch->status & IS_NyTon); // wait for sample to latch in mixer
+
+	// for sampling playback line in Smp. Ed.
 	editor.curPlayInstr = editor.curInstr;
-	editor.curPlaySmp   = editor.curSmp;
+	editor.curPlaySmp = editor.curSmp;
 }
 
 void stopVoices(void)
 {
-	uint8_t i;
 	bool audioWasntLocked;
 	stmTyp *ch;
 
@@ -3020,36 +2971,37 @@ void stopVoices(void)
 	if (audioWasntLocked)
 		lockAudio();
 
-	for (i = 0; i < MAX_VOICES; ++i)
+	for (uint8_t i = 0; i < MAX_VOICES; i++)
 	{
 		ch = &stm[i];
 
 		lastChInstr[i].sampleNr = 255;
-		lastChInstr[i].instrNr  = 255;
+		lastChInstr[i].instrNr = 255;
 
-		ch->tonTyp       = 0;
-		ch->relTonNr     = 0;
-		ch->instrNr      = 0;
-		ch->instrPtr     = &instr[0]; // placeholder instrument
-		ch->status       = IS_Vol;
-		ch->realVol      = 0;
-		ch->outVol       = 0;
-		ch->oldVol       = 0;
-		ch->finalVol     = 0;
-		ch->oldPan       = 128;
-		ch->outPan       = 128;
-		ch->finalPan     = 128;
-		ch->vibDepth     = 0;
+		ch->tonTyp = 0;
+		ch->relTonNr = 0;
+		ch->instrNr = 0;
+		ch->instrPtr = &instr[0]; // placeholder instrument
+		ch->status = IS_Vol;
+		ch->realVol = 0;
+		ch->outVol = 0;
+		ch->oldVol = 0;
+		ch->finalVol = 0;
+		ch->oldPan = 128;
+		ch->outPan = 128;
+		ch->finalPan = 128;
+		ch->vibDepth = 0;
 		ch->midiVibDepth = 0;
-		ch->midiPitch    = 0;
-		ch->smpPtr       = NULL;
-		ch->portaDir     = 0; // FT2 bugfix: weird 3xx behavior if not used with note
+		ch->midiPitch = 0;
+		ch->smpPtr = NULL;
+		ch->portaDir = 0; // FT2 bugfix: weird 3xx behavior if not used with note
 
 		stopVoice(i);
 	}
 
+	// for sampling playback line in Smp. Ed.
 	editor.curPlayInstr = 255;
-	editor.curPlaySmp   = 255;
+	editor.curPlaySmp = 255;
 
 	stopAllScopes();
 	resetDitherSeed();
@@ -3064,9 +3016,7 @@ void stopVoices(void)
 
 void decSongPos(void)
 {
-	bool audioWasntLocked;
-
-	audioWasntLocked = !audio.locked;
+	bool audioWasntLocked = !audio.locked;
 	if (audioWasntLocked)
 		lockAudio();
 
@@ -3079,13 +3029,11 @@ void decSongPos(void)
 
 void incSongPos(void)
 {
-	bool audioWasntLocked;
-
-	audioWasntLocked = !audio.locked;
+	bool audioWasntLocked = !audio.locked;
 	if (audioWasntLocked)
 		lockAudio();
 
-	if (song.songPos < (song.len - 1))
+	if (song.songPos < song.len-1)
 		setPos(song.songPos + 1, 0);
 
 	if (audioWasntLocked)
@@ -3094,66 +3042,66 @@ void incSongPos(void)
 
 void decCurIns(void)
 {
-	if (editor.curInstr > 1)
-	{
-		editor.curInstr--;
-		if (((editor.curInstr > 0x40) && !editor.instrBankSwapped) || ((editor.curInstr <= 0x40) && editor.instrBankSwapped))
-			pbSwapInstrBank();
+	if (editor.curInstr <= 1)
+		return;
 
-		editor.instrBankOffset = ((editor.curInstr - 1) / 8) * 8;
+	editor.curInstr--;
+	if ((editor.curInstr > 0x40 && !editor.instrBankSwapped) || (editor.curInstr <= 0x40 && editor.instrBankSwapped))
+		pbSwapInstrBank();
+
+	editor.instrBankOffset = ((editor.curInstr - 1) / 8) * 8;
  
-		updateTextBoxPointers();
-		updateNewInstrument();
+	updateTextBoxPointers();
+	updateNewInstrument();
 
-		if (editor.ui.advEditShown)
-			updateAdvEdit();
-	}
+	if (editor.ui.advEditShown)
+		updateAdvEdit();
 }
 
 void incCurIns(void)
 {
-	if (editor.curInstr < 128)
-	{
-		editor.curInstr++;
-		if (((editor.curInstr > 0x40) && !editor.instrBankSwapped) || ((editor.curInstr <= 0x40) && editor.instrBankSwapped))
-			pbSwapInstrBank();
+	if (editor.curInstr >= MAX_INST)
+		return;
 
-		editor.instrBankOffset = ((editor.curInstr - 1) / 8) * 8;
+	editor.curInstr++;
+	if ((editor.curInstr > 0x40 && !editor.instrBankSwapped) || (editor.curInstr <= 0x40 && editor.instrBankSwapped))
+		pbSwapInstrBank();
+
+	editor.instrBankOffset = ((editor.curInstr - 1) / 8) * 8;
  
-		updateTextBoxPointers();
-		updateNewInstrument();
+	updateTextBoxPointers();
+	updateNewInstrument();
 
-		if (editor.ui.advEditShown)
-			updateAdvEdit();
-	}
+	if (editor.ui.advEditShown)
+		updateAdvEdit();
 }
 
 void decCurSmp(void)
 {
-	if (editor.curSmp > 0)
-	{
-		editor.curSmp--;
+	if (editor.curSmp == 0)
+		return;
 
-		editor.sampleBankOffset = (editor.curSmp / 5) * 5;
-		setScrollBarPos(SB_SAMPLE_LIST, editor.sampleBankOffset, true);
+	editor.curSmp--;
 
-		updateTextBoxPointers();
-		updateNewSample();
-	}
+	editor.sampleBankOffset = (editor.curSmp / 5) * 5;
+	setScrollBarPos(SB_SAMPLE_LIST, editor.sampleBankOffset, true);
+
+	updateTextBoxPointers();
+	updateNewSample();
 }
 
 void incCurSmp(void)
 {
-	if (editor.curSmp < 15)
-	{
-		editor.curSmp++;
+	if (editor.curSmp >= MAX_SMP_PER_INST-1)
+		return;
 
-		editor.sampleBankOffset = (editor.curSmp / 5) * 5;
-		setScrollBarPos(SB_SAMPLE_LIST, editor.sampleBankOffset, true);
+	editor.curSmp++;
 
-		updateTextBoxPointers();
-		updateNewSample();
-	}
+	editor.sampleBankOffset = (editor.curSmp / 5) * 5;
+	setScrollBarPos(SB_SAMPLE_LIST, editor.sampleBankOffset, true);
+
+	updateTextBoxPointers();
+	updateNewSample();
 }
 
 void pbPlaySong(void)
@@ -3178,11 +3126,11 @@ void pbRecPtn(void)
 
 void setSyncedReplayerVars(void)
 {
-	uint8_t i, scopeUpdateStatus[MAX_VOICES];
+	uint8_t scopeUpdateStatus[MAX_VOICES];
 	uint64_t frameTime64;
 
 	pattSyncEntry = NULL;
-	chSyncEntry   = NULL;
+	chSyncEntry = NULL;
 
 	memset(scopeUpdateStatus, 0, sizeof (scopeUpdateStatus)); // this is needed
 
@@ -3202,7 +3150,7 @@ void setSyncedReplayerVars(void)
 		if (chSyncEntry == NULL)
 			break;
 
-		for (i = 0; i < song.antChn; ++i)
+		for (uint32_t i = 0; i < song.antChn; i++)
 			scopeUpdateStatus[i] |= chSyncEntry->channels[i].status; // yes, OR the status
 
 		if (!chQueuePop())
@@ -3212,7 +3160,7 @@ void setSyncedReplayerVars(void)
 
 	/* extra validation because of possible issues when the buffer is full
 	** and positions are being reset, which is not entirely thread safe. */
-	if ((chSyncEntry != NULL) && (chSyncEntry->timestamp == 0))
+	if (chSyncEntry != NULL && chSyncEntry->timestamp == 0)
 		chSyncEntry = NULL;
 
 	// handle pattern sync queue
@@ -3236,7 +3184,7 @@ void setSyncedReplayerVars(void)
 
 	/* extra validation because of possible issues when the buffer is full
 	** and positions are being reset, which is not entirely thread safe. */
-	if ((pattSyncEntry != NULL) && (pattSyncEntry->timestamp == 0))
+	if (pattSyncEntry != NULL && pattSyncEntry->timestamp == 0)
 		pattSyncEntry = NULL;
 
 	// do actual updates
@@ -3247,48 +3195,48 @@ void setSyncedReplayerVars(void)
 		editor.ui.drawReplayerPianoFlag = true;
 	}
 
-	if (songPlaying && (pattSyncEntry != NULL))
+	if (!songPlaying || pattSyncEntry == NULL)
+		return;
+
+	// we have a new tick
+
+	editor.timer = pattSyncEntry->timer;
+
+	if (editor.speed != pattSyncEntry->speed)
 	{
-		// we have a new tick
+		editor.speed = pattSyncEntry->speed;
+		editor.ui.drawBPMFlag = true;
+	}
 
-		editor.timer = pattSyncEntry->timer;
+	if (editor.tempo != pattSyncEntry->tempo)
+	{
+		editor.tempo = pattSyncEntry->tempo;
+		editor.ui.drawSpeedFlag = true;
+	}
 
-		if (editor.speed != pattSyncEntry->speed)
-		{
-			editor.speed = pattSyncEntry->speed;
-			editor.ui.drawBPMFlag = true;
-		}
+	if (editor.globalVol != pattSyncEntry->globalVol)
+	{
+		editor.globalVol = pattSyncEntry->globalVol;
+		editor.ui.drawGlobVolFlag = true;
+	}
 
-		if (editor.tempo != pattSyncEntry->tempo)
-		{
-			editor.tempo = pattSyncEntry->tempo;
-			editor.ui.drawSpeedFlag = true;
-		}
+	if (editor.songPos != pattSyncEntry->songPos)
+	{
+		editor.songPos = pattSyncEntry->songPos;
+		editor.ui.drawPosEdFlag = true;
+	}
 
-		if (editor.globalVol != pattSyncEntry->globalVol)
-		{
-			editor.globalVol = pattSyncEntry->globalVol;
-			editor.ui.drawGlobVolFlag = true;
-		}
+	// somewhat of a kludge...
+	if (editor.tmpPattern != pattSyncEntry->pattern || editor.pattPos != pattSyncEntry->patternPos)
+	{
+		// set pattern number
+		editor.editPattern = editor.tmpPattern = pattSyncEntry->pattern;
+		checkMarkLimits();
+		editor.ui.drawPattNumLenFlag = true;
 
-		if (editor.songPos != pattSyncEntry->songPos)
-		{
-			editor.songPos = pattSyncEntry->songPos;
-			editor.ui.drawPosEdFlag = true;
-		}
-
-		// somewhat of a kludge...
-		if ((editor.tmpPattern != pattSyncEntry->pattern) || (editor.pattPos != pattSyncEntry->patternPos))
-		{
-			// set pattern number
-			editor.editPattern = editor.tmpPattern = pattSyncEntry->pattern;
-			checkMarkLimits();
-			editor.ui.drawPattNumLenFlag = true;
-
-			// set row
-			editor.pattPos = (uint8_t)(pattSyncEntry->patternPos);
-			editor.ui.updatePatternEditor = true;
-		}
+		// set row
+		editor.pattPos = (uint8_t)pattSyncEntry->patternPos;
+		editor.ui.updatePatternEditor = true;
 	}
 }
 

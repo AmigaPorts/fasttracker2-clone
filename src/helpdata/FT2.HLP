@@ -899,9 +899,9 @@ END
 >@X010
 >@C001Sample editor:
 >@C002
->@X010- When a forward-looped sample is zoomed out in the sample editor, you
->@X021could see unwanted sample data at the loop-end point. This is because of a
-kludge for the resampling interpolation to work faster in the audio mixer, and the
+>@X010- When a looped sample is zoomed out in the sample editor, you could see
+>@X021unwanted sample data at the loop-end point. This is because of a kludge
+for the resampling interpolation to work faster in the audio mixer, and the
 original FT2 has the same problem. I have made it so that if you zoom in to
 see the individual sample points, it will look like normal.
 >@X010

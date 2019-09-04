@@ -56,14 +56,15 @@ void animateBusyMouse(void)
 			}
 			else
 			{
-				if (++mouseBusyGfxFrame >= (MOUSE_CLOCK_ANI_FRAMES - 1))
+				if (++mouseBusyGfxFrame >= MOUSE_CLOCK_ANI_FRAMES-1)
 				{
 					mouseBusyGfxFrame = MOUSE_CLOCK_ANI_FRAMES - 1;
 					mouseBusyGfxBackwards = true;
 				}
 			}
 
-			changeSpriteData(SPRITE_MOUSE_POINTER, &mouseCursorBusyClock[(mouseBusyGfxFrame % MOUSE_CLOCK_ANI_FRAMES) * (MOUSE_CURSOR_W * MOUSE_CURSOR_H)]);
+			changeSpriteData(SPRITE_MOUSE_POINTER,
+				&mouseCursorBusyClock[(mouseBusyGfxFrame % MOUSE_CLOCK_ANI_FRAMES) * (MOUSE_CURSOR_W * MOUSE_CURSOR_H)]);
 		}
 	}
 	else
@@ -71,7 +72,9 @@ void animateBusyMouse(void)
 		if ((editor.framesPassed % 5) == 4)
 		{
 			mouseBusyGfxFrame = (mouseBusyGfxFrame + 1) % MOUSE_GLASS_ANI_FRAMES;
-			changeSpriteData(SPRITE_MOUSE_POINTER, &mouseCursorBusyGlass[mouseBusyGfxFrame * (MOUSE_CURSOR_W * MOUSE_CURSOR_H)]);
+
+			changeSpriteData(SPRITE_MOUSE_POINTER,
+				&mouseCursorBusyGlass[mouseBusyGfxFrame * (MOUSE_CURSOR_W * MOUSE_CURSOR_H)]);
 		}
 	}
 }
@@ -92,10 +95,10 @@ void setMouseShape(int16_t shape)
 		gfxPtr = &mouseCursors[mouseModeGfxOffs];
 		switch (shape)
 		{
-			case MOUSE_IDLE_SHAPE_NICE:    gfxPtr += ( 0 * (MOUSE_CURSOR_W * MOUSE_CURSOR_H)); break;
-			case MOUSE_IDLE_SHAPE_UGLY:    gfxPtr += ( 1 * (MOUSE_CURSOR_W * MOUSE_CURSOR_H)); break;
-			case MOUSE_IDLE_SHAPE_AWFUL:   gfxPtr += ( 2 * (MOUSE_CURSOR_W * MOUSE_CURSOR_H)); break;
-			case MOUSE_IDLE_SHAPE_USEABLE: gfxPtr += ( 3 * (MOUSE_CURSOR_W * MOUSE_CURSOR_H)); break;
+			case MOUSE_IDLE_SHAPE_NICE:    gfxPtr += (0  * (MOUSE_CURSOR_W * MOUSE_CURSOR_H)); break;
+			case MOUSE_IDLE_SHAPE_UGLY:    gfxPtr += (1  * (MOUSE_CURSOR_W * MOUSE_CURSOR_H)); break;
+			case MOUSE_IDLE_SHAPE_AWFUL:   gfxPtr += (2  * (MOUSE_CURSOR_W * MOUSE_CURSOR_H)); break;
+			case MOUSE_IDLE_SHAPE_USEABLE: gfxPtr += (3  * (MOUSE_CURSOR_W * MOUSE_CURSOR_H)); break;
 			case MOUSE_IDLE_TEXT_EDIT:     gfxPtr += (12 * (MOUSE_CURSOR_W * MOUSE_CURSOR_H)); break;
 			default: return;
 		}
@@ -125,34 +128,34 @@ static void changeCursorIfOverTextBoxes(void)
 	textBox_t *t;
 
 	mouse.mouseOverTextBox = false;
-	if (editor.busy || (mouse.mode != MOUSE_MODE_NORMAL))
+	if (editor.busy || mouse.mode != MOUSE_MODE_NORMAL)
 		return;
 
 	mx = mouse.x;
 	my = mouse.y;
 
-	for (i = 0; i < NUM_TEXTBOXES; ++i)
+	for (i = 0; i < NUM_TEXTBOXES; i++)
 	{
-		if (editor.ui.sysReqShown && (i > 0))
+		if (editor.ui.sysReqShown && i > 0)
 			continue;
 
 		t = &textBoxes[i];
-		if (t->visible)
-		{
-			if (!t->changeMouseCursor && !(editor.editTextFlag && (i == mouse.lastEditBox)))
-				continue;
+		if (!t->visible)
+			continue;
 
-			if ((my >= t->y) && (my < (t->y + t->h)) && (mx >= t->x) && (mx < (t->x + t->w)))
-			{
-				mouse.mouseOverTextBox = true;
-				setTextEditMouse();
-				return;
-			}
+		if (!t->changeMouseCursor && (!editor.editTextFlag || i != mouse.lastEditBox))
+			continue; // some kludge of sorts
+
+		if (my >= t->y && my < t->y+t->h && mx >= t->x && mx < t->x+t->w)
+		{
+			mouse.mouseOverTextBox = true;
+			setTextEditMouse();
+			return;
 		}
 	}
 
 	// we're not inside a text edit box, set back mouse cursor
-	if ((i == NUM_TEXTBOXES) && (mouseShape == MOUSE_IDLE_TEXT_EDIT))
+	if (i == NUM_TEXTBOXES && mouseShape == MOUSE_IDLE_TEXT_EDIT)
 		clearTextEditMouse();
 }
 
@@ -173,7 +176,7 @@ void setMouseMode(uint8_t mode)
 void resetMouseBusyAnimation(void)
 {
 	mouseBusyGfxBackwards = false;
-	mouseBusyGfxFrame     = 0;
+	mouseBusyGfxFrame = 0;
 }
 
 void setMouseBusy(bool busy) // can be called from other threads
@@ -212,46 +215,41 @@ static void mouseWheelDecRow(void)
 {
 	int16_t pattPos;
 
-	if (!songPlaying)
-	{
-		pattPos = editor.pattPos - 1;
-		if (pattPos < 0)
-			pattPos = pattLens[editor.editPattern] - 1;
+	if (songPlaying)
+		return;
 
-		setPos(-1, pattPos);
-	}
+	pattPos = editor.pattPos - 1;
+	if (pattPos < 0)
+		pattPos = pattLens[editor.editPattern] - 1;
+
+	setPos(-1, pattPos);
 }
 
 static void mouseWheelIncRow(void)
 {
 	int16_t pattPos;
 
-	if (!songPlaying)
-	{
-		pattPos = editor.pattPos + 1;
-		if (pattPos > (pattLens[editor.editPattern] - 1))
-			pattPos = 0;
+	if (songPlaying)
+		return;
 
-		setPos(-1, pattPos);
-	}
+	pattPos = editor.pattPos + 1;
+	if (pattPos > (pattLens[editor.editPattern] - 1))
+		pattPos = 0;
+
+	setPos(-1, pattPos);
 }
 
 void mouseWheelHandler(bool directionUp)
 {
-	if (editor.ui.sysReqShown)
-		return;
-
-	if (editor.editTextFlag)
+	if (editor.ui.sysReqShown || editor.editTextFlag)
 		return;
 
 	if (editor.ui.extended)
 	{
 		if (mouse.y <= 52)
 		{
-			if (mouse.x <= 111)
-				directionUp ? decSongPos() : incSongPos();
-			else if (mouse.x >= 386)
-				directionUp ? decCurIns() : incCurIns();
+			     if (mouse.x <= 111) directionUp ? decSongPos() : incSongPos();
+			else if (mouse.x >= 386) directionUp ?  decCurIns() :  incCurIns();
 		}
 		else
 		{
@@ -304,7 +302,7 @@ void mouseWheelHandler(bool directionUp)
 			if (editor.currConfigScreen == CONFIG_SCREEN_IO_DEVICES)
 			{
 				// audio device selectors
-				if ((mouse.x >= 110) && (mouse.x <= 355) && (mouse.y <= 173))
+				if (mouse.x >= 110 && mouse.x <= 355 && mouse.y <= 173)
 				{
 					if (mouse.y < 87)
 						directionUp ? scrollAudOutputDevListUp() : scrollAudOutputDevListDown();
@@ -315,7 +313,7 @@ void mouseWheelHandler(bool directionUp)
 			else if (editor.currConfigScreen == CONFIG_SCREEN_MIDI_INPUT)
 			{
 				// midi input device selector
-				if ((mouse.x >= 110) && (mouse.x <= 503) && (mouse.y <= 173))
+				if (mouse.x >= 110 && mouse.x <= 503 && mouse.y <= 173)
 					directionUp ? scrollMidiInputDevListUp() : scrollMidiInputDevListDown();
 			}
 		}
@@ -323,14 +321,12 @@ void mouseWheelHandler(bool directionUp)
 		if (!editor.ui.aboutScreenShown  && !editor.ui.helpScreenShown &&
 			!editor.ui.configScreenShown && !editor.ui.nibblesShown)
 		{
-			if ((mouse.x >= 421) && (mouse.y <= 173))
+			if (mouse.x >= 421 && mouse.y <= 173)
 			{
-				if (mouse.y <= 93)
-					directionUp ? decCurIns() : incCurIns();
-				else if (mouse.y >= 94)
-					directionUp ? decCurSmp() : incCurSmp();
+				     if (mouse.y <= 93) directionUp ? decCurIns() : incCurIns();
+				else if (mouse.y >= 94) directionUp ? decCurSmp() : incCurSmp();
 			}
-			else if (!editor.ui.diskOpShown && (mouse.x <= 111) && (mouse.y <= 76))
+			else if (!editor.ui.diskOpShown && mouse.x <= 111 && mouse.y <= 76)
 			{
 				directionUp ? decSongPos() : incSongPos();
 			}
@@ -342,7 +338,7 @@ void mouseWheelHandler(bool directionUp)
 
 		if (editor.ui.sampleEditorShown)
 		{
-			if ((mouse.y >= 174) && (mouse.y <= 328))
+			if (mouse.y >= 174 && mouse.y <= 328)
 				directionUp ? mouseZoomSampleDataIn() : mouseZoomSampleDataOut();
 		}
 		else if (editor.ui.patternEditorShown)
@@ -354,16 +350,13 @@ void mouseWheelHandler(bool directionUp)
 
 static bool testSamplerDataMouseDown(void)
 {
-	if (editor.ui.sampleEditorShown)
+	if (editor.ui.sampleEditorShown && mouse.y >= 174 && mouse.y <= 327 && editor.ui.sampleDataOrLoopDrag == -1)
 	{
-		if ((mouse.y >= 174) && (mouse.y <= 327) && (editor.ui.sampleDataOrLoopDrag == -1))
-		{
-			handleSampleDataMouseDown(false);
-			return (true);
-		}
+		handleSampleDataMouseDown(false);
+		return true;
 	}
 
-	return (false);
+	return false;
 }
 
 static bool testPatternDataMouseDown(void)
@@ -375,17 +368,14 @@ static bool testPatternDataMouseDown(void)
 		y1 = editor.ui.extended ? 56 : 176;
 		y2 = editor.ui.pattChanScrollShown ? 382 : 396;
 
-		if ((mouse.y >= y1) && (mouse.y <= y2))
+		if (mouse.y >= y1 && mouse.y <= y2 && mouse.x >= 29 && mouse.x <= 602)
 		{
-			if ((mouse.x >= 29) && (mouse.x <= 602))
-			{
-				handlePatternDataMouseDown(false);
-				return (true);
-			}
+			handlePatternDataMouseDown(false);
+			return true;
 		}
 	}
 
-	return (false);
+	return false;
 }
 
 void mouseButtonUpHandler(uint8_t mouseButton)
@@ -397,7 +387,7 @@ void mouseButtonUpHandler(uint8_t mouseButton)
 
 	if (mouseButton == SDL_BUTTON_LEFT)
 	{
-		mouse.leftButtonPressed  = false;
+		mouse.leftButtonPressed = false;
 		mouse.leftButtonReleased = true;
 
 		if (editor.ui.leftLoopPinMoving)
@@ -414,7 +404,7 @@ void mouseButtonUpHandler(uint8_t mouseButton)
 	}
 	else if (mouseButton == SDL_BUTTON_RIGHT)
 	{
-		mouse.rightButtonPressed  = false;
+		mouse.rightButtonPressed = false;
 		mouse.rightButtonReleased = true;
 
 		if (editor.editSampleFlag)
@@ -457,13 +447,13 @@ void mouseButtonUpHandler(uint8_t mouseButton)
 	testRadioButtonMouseRelease();
 
 	// revert "delete/rename" mouse modes (disk op.)
-	if ((mouse.lastUsedObjectID != PB_DISKOP_DELETE) && (mouse.lastUsedObjectID != PB_DISKOP_RENAME))
+	if (mouse.lastUsedObjectID != PB_DISKOP_DELETE && mouse.lastUsedObjectID != PB_DISKOP_RENAME)
 	{
 		if (mouse.mode != MOUSE_MODE_NORMAL)
 			setMouseMode(MOUSE_MODE_NORMAL);
 	}
 
-	mouse.lastUsedObjectID   = OBJECT_ID_NONE;
+	mouse.lastUsedObjectID = OBJECT_ID_NONE;
 	mouse.lastUsedObjectType = OBJECT_NONE;
 }
 
@@ -475,11 +465,11 @@ void mouseButtonDownHandler(uint8_t mouseButton)
 #endif
 
 	// if already holding left button and clicking right, don't do mouse down handling
-	if ((mouseButton == SDL_BUTTON_RIGHT) && mouse.leftButtonPressed)
+	if (mouseButton == SDL_BUTTON_RIGHT && mouse.leftButtonPressed)
 	{
 		if (editor.ui.sampleDataOrLoopDrag == -1)
 		{
-			mouse.rightButtonPressed  = true;
+			mouse.rightButtonPressed = true;
 			mouse.rightButtonReleased = false;
 		}
 
@@ -491,7 +481,7 @@ void mouseButtonDownHandler(uint8_t mouseButton)
 	}
 
 	// if already holding right button and clicking left, don't do mouse down handling
-	if ((mouseButton == SDL_BUTTON_LEFT) && mouse.rightButtonPressed)
+	if (mouseButton == SDL_BUTTON_LEFT && mouse.rightButtonPressed)
 	{
 		if (editor.ui.sampleDataOrLoopDrag == -1)
 		{
@@ -506,18 +496,16 @@ void mouseButtonDownHandler(uint8_t mouseButton)
 		return;
 	}
 
-		 if (mouseButton == SDL_BUTTON_LEFT)  mouse.leftButtonPressed  = true;
+	     if (mouseButton == SDL_BUTTON_LEFT)  mouse.leftButtonPressed  = true;
 	else if (mouseButton == SDL_BUTTON_RIGHT) mouse.rightButtonPressed = true;
 
-	mouse.leftButtonReleased  = false;
+	mouse.leftButtonReleased = false;
 	mouse.rightButtonReleased = false;
 
 	// mouse 0,0 = open exit dialog
-	if ((mouse.x == 0) && (mouse.y == 0))
+	if (mouse.x == 0 && mouse.y == 0 && quitBox(false) == 1)
 	{
-		if (quitBox(false) == 1)
-			editor.throwExit = true;
-
+		editor.throwExit = true;
 		return;
 	}
 
@@ -526,7 +514,7 @@ void mouseButtonDownHandler(uint8_t mouseButton)
 		return;
 
 	// kludge #2
-	if ((mouse.lastUsedObjectType != OBJECT_PUSHBUTTON) && (mouse.lastUsedObjectID != OBJECT_ID_NONE))
+	if (mouse.lastUsedObjectType != OBJECT_PUSHBUTTON && mouse.lastUsedObjectID != OBJECT_ID_NONE)
 		return;
 
 	// kludge #3
@@ -538,11 +526,11 @@ void mouseButtonDownHandler(uint8_t mouseButton)
 	/* test objects like this - clickable things *never* overlap, so no need to test all
 	** other objects if we clicked on one already */
 
-	if (testTextBoxMouseDown())             return;
-	if (testPushButtonMouseDown())          return;
-	if (testCheckBoxMouseDown())            return;
-	if (testScrollBarMouseDown())           return;
-	if (testRadioButtonMouseDown())         return;
+	if (testTextBoxMouseDown())     return;
+	if (testPushButtonMouseDown())  return;
+	if (testCheckBoxMouseDown())    return;
+	if (testScrollBarMouseDown())   return;
+	if (testRadioButtonMouseDown()) return;
 
 	// from this point, we don't need to test more widgets if a system request box is shown
 	if (editor.ui.sysReqShown)
@@ -562,24 +550,37 @@ void mouseButtonDownHandler(uint8_t mouseButton)
 
 void handleLastGUIObjectDown(void)
 {
-	if ((mouse.leftButtonPressed || mouse.rightButtonPressed) && (mouse.lastUsedObjectType != OBJECT_NONE))
-	{
-		switch (mouse.lastUsedObjectType)
-		{
-			case OBJECT_PUSHBUTTON:  handlePushButtonsWhileMouseDown();  break;
-			case OBJECT_RADIOBUTTON: handleRadioButtonsWhileMouseDown(); break;
-			case OBJECT_CHECKBOX:    handleCheckBoxesWhileMouseDown();   break;
-			case OBJECT_SCROLLBAR:   handleScrollBarsWhileMouseDown();   break;
-			case OBJECT_TEXTBOX:     handleTextBoxWhileMouseDown();      break;
-			case OBJECT_INSTRSWITCH: testInstrSwitcherMouseDown();       break;
-			case OBJECT_PATTERNMARK: handlePatternDataMouseDown(true);   break;
-			case OBJECT_DISKOPLIST:  testDiskOpMouseDown(true);          break;
-			case OBJECT_SMPDATA:     handleSampleDataMouseDown(true);    break;
-			case OBJECT_PIANO:       testPianoKeysMouseDown(true);       break;
-			case OBJECT_INSVOLENV:   testInstrVolEnvMouseDown(true);     break;
-			case OBJECT_INSPANENV:   testInstrPanEnvMouseDown(true);     break;
+	if (mouse.lastUsedObjectType == OBJECT_NONE)
+		return;
 
-			default: break;
+	if (mouse.leftButtonPressed || mouse.rightButtonPressed)
+	{
+		if (mouse.lastUsedObjectID != OBJECT_ID_NONE)
+		{
+			switch (mouse.lastUsedObjectType)
+			{
+				case OBJECT_PUSHBUTTON:  handlePushButtonsWhileMouseDown();  break;
+				case OBJECT_RADIOBUTTON: handleRadioButtonsWhileMouseDown(); break;
+				case OBJECT_CHECKBOX:    handleCheckBoxesWhileMouseDown();   break;
+				case OBJECT_SCROLLBAR:   handleScrollBarsWhileMouseDown();   break;
+				case OBJECT_TEXTBOX:     handleTextBoxWhileMouseDown();      break;
+				default: break;
+			}
+		}
+		else
+		{
+			// test non-standard GUI elements
+			switch (mouse.lastUsedObjectType)
+			{
+				case OBJECT_INSTRSWITCH: testInstrSwitcherMouseDown();       break;
+				case OBJECT_PATTERNMARK: handlePatternDataMouseDown(true);   break;
+				case OBJECT_DISKOPLIST:  testDiskOpMouseDown(true);          break;
+				case OBJECT_SMPDATA:     handleSampleDataMouseDown(true);    break;
+				case OBJECT_PIANO:       testPianoKeysMouseDown(true);       break;
+				case OBJECT_INSVOLENV:   testInstrVolEnvMouseDown(true);     break;
+				case OBJECT_INSPANENV:   testInstrPanEnvMouseDown(true);     break;
+				default: break;
+			}
 		}
 	}
 }
@@ -588,11 +589,11 @@ void updateMouseScaling(void)
 {
 	double dScaleX, dScaleY;
 
-	dScaleX = video.renderW / (double)(SCREEN_W);
-	dScaleY = video.renderH / (double)(SCREEN_H);
+	dScaleX = video.renderW / (double)SCREEN_W;
+	dScaleY = video.renderH / (double)SCREEN_H;
 
-	video.xScaleMul = (dScaleX == 0.0) ? 65536 : (uint32_t)(round(65536.0 / dScaleX));
-	video.yScaleMul = (dScaleY == 0.0) ? 65536 : (uint32_t)(round(65536.0 / dScaleY));
+	video.xScaleMul = (dScaleX == 0.0) ? 65536 : (uint32_t)round(65536.0 / dScaleX);
+	video.yScaleMul = (dScaleY == 0.0) ? 65536 : (uint32_t)round(65536.0 / dScaleY);
 }
 
 void readMouseXY(void)
@@ -622,7 +623,7 @@ void readMouseXY(void)
 			mx = video.renderX;
 			SDL_WarpMouseInWindow(video.window, mx, my);
 		}
-		else if (mx >= (video.renderX + video.renderW))
+		else if (mx >= video.renderX+video.renderW)
 		{
 			mx = (video.renderX + video.renderW) - 1;
 			SDL_WarpMouseInWindow(video.window, mx, my);
@@ -633,7 +634,7 @@ void readMouseXY(void)
 			my = video.renderY;
 			SDL_WarpMouseInWindow(video.window, mx, my);
 		}
-		else if (my >= (video.renderY + video.renderH))
+		else if (my >= video.renderY+video.renderH)
 		{
 			my = (video.renderY + video.renderH) - 1;
 			SDL_WarpMouseInWindow(video.window, mx, my);
@@ -647,14 +648,14 @@ void readMouseXY(void)
 	if (my < 0) mx = 0;
 
 	// multiply coords by video scaling factors
-	mx = (int32_t)((((uint32_t)(mx) * video.xScaleMul) + (1 << (16 - 1))) >> 16);
-	my = (int32_t)((((uint32_t)(my) * video.yScaleMul) + (1 << (16 - 1))) >> 16);
+	mx = (((uint32_t)mx * video.xScaleMul) + (1 << 15)) >> 16;
+	my = (((uint32_t)my * video.yScaleMul) + (1 << 15)) >> 16;
 
 	if (mx >= SCREEN_W) mx = SCREEN_W - 1;
 	if (my >= SCREEN_H) my = SCREEN_H - 1;
 
-	x = (int16_t)(mx);
-	y = (int16_t)(my);
+	x = (int16_t)mx;
+	y = (int16_t)my;
 
 	mouse.x = x;
 	mouse.y = y;

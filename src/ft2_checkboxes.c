@@ -124,7 +124,6 @@ void drawCheckBox(uint16_t checkBoxID)
 	const uint8_t *srcPtr;
 
 	assert(checkBoxID < NUM_CHECKBOXES);
-
 	checkBox = &checkBoxes[checkBoxID];
 	if (!checkBox->visible)
 		return;
@@ -199,7 +198,6 @@ void drawCheckBox(uint16_t checkBoxID)
 void showCheckBox(uint16_t checkBoxID)
 {
 	assert(checkBoxID < NUM_CHECKBOXES);
-
 	checkBoxes[checkBoxID].visible = true;
 	drawCheckBox(checkBoxID);
 }
@@ -207,8 +205,7 @@ void showCheckBox(uint16_t checkBoxID)
 void hideCheckBox(uint16_t checkBoxID)
 {
 	assert(checkBoxID < NUM_CHECKBOXES);
-
-	checkBoxes[checkBoxID].state   = 0;
+	checkBoxes[checkBoxID].state = 0;
 	checkBoxes[checkBoxID].visible = false;
 }
 
@@ -216,20 +213,19 @@ void handleCheckBoxesWhileMouseDown(void)
 {
 	checkBox_t *checkBox;
 
-	assert((mouse.lastUsedObjectID >= 0) && (mouse.lastUsedObjectID < NUM_CHECKBOXES));
-
+	assert(mouse.lastUsedObjectID >= 0 && mouse.lastUsedObjectID < NUM_CHECKBOXES);
 	checkBox = &checkBoxes[mouse.lastUsedObjectID];
 	if (!checkBox->visible)
 		return;
 
 	checkBox->state = CHECKBOX_UNPRESSED;
-	if ((mouse.x >= checkBox->x) && (mouse.x < (checkBox->x + checkBox->clickAreaWidth)))
+	if (mouse.x >= checkBox->x && mouse.x < checkBox->x+checkBox->clickAreaWidth &&
+	    mouse.y >= checkBox->y && mouse.y < checkBox->y+checkBox->clickAreaHeight)
 	{
-		if ((mouse.y >= checkBox->y) && (mouse.y < (checkBox->y + checkBox->clickAreaHeight)))
-			checkBox->state = CHECKBOX_PRESSED;
+		checkBox->state = CHECKBOX_PRESSED;
 	}
 
-	if ((mouse.lastX != mouse.x) || (mouse.lastY != mouse.y))
+	if (mouse.lastX != mouse.x || mouse.lastY != mouse.y)
 	{
 		mouse.lastX = mouse.x;
 		mouse.lastY = mouse.y;
@@ -240,73 +236,63 @@ void handleCheckBoxesWhileMouseDown(void)
 
 bool testCheckBoxMouseDown(void)
 {
-	uint16_t i, start, end;
+	uint16_t start, end;
 	checkBox_t *checkBox;
 
 	if (editor.ui.sysReqShown)
 	{
 		// if a system request is open, only test the first three checkboxes (reserved)
 		start = 0;
-		end   = 1;
+		end = 1;
 	}
 	else
 	{
 		start = 1;
-		end   = NUM_CHECKBOXES;
+		end = NUM_CHECKBOXES;
 	}
 
-	for (i = start; i < end; ++i)
+	for (uint16_t i = start; i < end; i++)
 	{
 		checkBox = &checkBoxes[i];
 		if (!checkBox->visible)
 			continue;
 
-		if ((mouse.x >= checkBox->x) && (mouse.x < (checkBox->x + checkBox->clickAreaWidth)))
+		if (mouse.x >= checkBox->x && mouse.x < checkBox->x+checkBox->clickAreaWidth &&
+		    mouse.y >= checkBox->y && mouse.y < checkBox->y+checkBox->clickAreaHeight)
 		{
-			if ((mouse.y >= checkBox->y) && (mouse.y < (checkBox->y + checkBox->clickAreaHeight)))
-			{
-				mouse.lastUsedObjectID   = i;
-				mouse.lastUsedObjectType = OBJECT_CHECKBOX;
-
-				checkBox->state = CHECKBOX_PRESSED;
-				drawCheckBox(mouse.lastUsedObjectID);
-
-				return (true);
-			}
+			mouse.lastUsedObjectID = i;
+			mouse.lastUsedObjectType = OBJECT_CHECKBOX;
+			checkBox->state = CHECKBOX_PRESSED;
+			drawCheckBox(mouse.lastUsedObjectID);
+			return true;
 		}
 	}
 
-	return (false);
+	return false;
 }
 
 void testCheckBoxMouseRelease(void)
 {
 	checkBox_t *checkBox;
 
-	if (mouse.lastUsedObjectType == OBJECT_CHECKBOX)
+	if (mouse.lastUsedObjectType != OBJECT_CHECKBOX || mouse.lastUsedObjectID == OBJECT_ID_NONE)
+		return;
+
+	assert(mouse.lastUsedObjectID < NUM_CHECKBOXES);
+	checkBox = &checkBoxes[mouse.lastUsedObjectID];
+	if (!checkBox->visible)
+		return;
+
+	if (mouse.x >= checkBox->x && mouse.x < checkBox->x+checkBox->clickAreaWidth &&
+	    mouse.y >= checkBox->y && mouse.y < checkBox->y+checkBox->clickAreaHeight)
 	{
-		if (mouse.lastUsedObjectID != OBJECT_ID_NONE)
-		{
-			assert(mouse.lastUsedObjectID < NUM_CHECKBOXES);
+		checkBox->checked ^= 1;
 
-			checkBox = &checkBoxes[mouse.lastUsedObjectID];
-			if (checkBox->visible)
-			{
-				if ((mouse.x >= checkBox->x) && (mouse.x < (checkBox->x + checkBox->clickAreaWidth)))
-				{
-					if ((mouse.y >= checkBox->y) && (mouse.y < (checkBox->y + checkBox->clickAreaHeight)))
-					{
-						checkBox->checked ^= 1;
+		checkBox->state = CHECKBOX_UNPRESSED;
+		drawCheckBox(mouse.lastUsedObjectID);
 
-						checkBox->state = CHECKBOX_UNPRESSED;
-						drawCheckBox(mouse.lastUsedObjectID);
-
-						if (checkBox->callbackFunc != NULL)
-						   (checkBox->callbackFunc)();
-					}
-				}
-			}
-		}
+		if (checkBox->callbackFunc != NULL)
+			checkBox->callbackFunc();
 	}
 }
 

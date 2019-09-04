@@ -1,5 +1,4 @@
-#ifndef __FT2_HEADER_H
-#define __FT2_HEADER_H
+#pragma once
 
 #include <SDL2/SDL.h>
 #include <stdint.h>
@@ -14,7 +13,7 @@
 #endif
 #include "ft2_replayer.h"
 
-#define BETA_VERSION 158
+#define BETA_VERSION 161
 
 // do NOT change these! It will only mess things up...
 
@@ -84,12 +83,12 @@
 	if (cpu.hasSSE2) \
 		i = _mm_cvtsd_si32(_mm_load_sd(&d)); \
 	else \
-		i = (int32_t)(round(d));
+		i = (int32_t)round(d);
 
 #else // no SSE/SSE2, let the compiler optimize
 
-#define float2int32_round(i, f)  i = (int32_t)(roundf(f));
-#define double2int32_round(i, d) i = (int32_t)(round(d));
+#define float2int32_round(i, f)  i = (int32_t)roundf(f);
+#define double2int32_round(i, d) i = (int32_t)round(d);
 
 #endif
 
@@ -103,8 +102,8 @@ struct editor_t
 	struct ui_t
 	{
 		volatile bool setMouseBusy, setMouseIdle;
+		bool sysReqEnterPressed;
 		char fullscreenButtonText[24];
-		int8_t buttonContrast, desktopContrast;
 
 		// all screens
 		bool extended, sysReqShown;
@@ -152,7 +151,7 @@ struct editor_t
 	bool copyMaskEnable, diskOpReadOnOpen, samplingAudioFlag, editSampleFlag;
 	bool instrBankSwapped, channelMute[MAX_VOICES], NI_Play;
 
-	uint8_t curPlayInstr, curPlaySmp, curSmpChannel, currPanEnvPoint, currVolEnvPoint, currPaletteEdit;
+	uint8_t curPlayInstr, curPlaySmp, curSmpChannel, currPanEnvPoint, currVolEnvPoint;
 	uint8_t copyMask[5], pasteMask[5], transpMask[5], smpEd_NoteNr, instrBankOffset, sampleBankOffset;
 	uint8_t srcInstr, curInstr, srcSmp, curSmp, currHelpScreen, currConfigScreen, textCursorBlinkCounter;
 	uint8_t keyOnTab[MAX_VOICES], ID_Add, curOctave;
@@ -160,8 +159,6 @@ struct editor_t
 	int16_t globalVol, songPos, pattPos;
 	uint16_t tmpPattern, editPattern, speed, tempo, timer, ptnCursorY;
 	int32_t keyOffNr, keyOffTime[MAX_VOICES];
-	uint32_t framesPassed, *currPaletteEntry, wavRendererTime;
+	uint32_t framesPassed, wavRendererTime;
 	double dPerfFreq, dPerfFreqMulMicro, dPerfFreqMulMs;
 } editor;
-
-#endif

@@ -41,18 +41,18 @@ int8_t scancodeKeyToNote(SDL_Scancode scancode)
 {
 	int8_t note;
 
-	if ((scancode == SDL_SCANCODE_CAPSLOCK) || (scancode == SDL_SCANCODE_NONUSBACKSLASH))
-		return (97); // key off
+	if (scancode == SDL_SCANCODE_CAPSLOCK || scancode == SDL_SCANCODE_NONUSBACKSLASH)
+		return 97; // key off
 
 	// translate key to note
 	note = 0;
-	if ((scancode >= SDL_SCANCODE_B) && (scancode <= SDL_SCANCODE_SLASH))
-		note = scancodeKey2Note[(int32_t)(scancode) - SDL_SCANCODE_B];
+	if (scancode >= SDL_SCANCODE_B && scancode <= SDL_SCANCODE_SLASH)
+		note = scancodeKey2Note[(int32_t)scancode - SDL_SCANCODE_B];
 
 	if (note == 0)
-		return (-1); // not a note key, do further key handling (non-notes)
+		return -1; // not a note key, do further key handling (non-notes)
 
-	return (note + (editor.curOctave * 12));
+	return note + (editor.curOctave * 12);
 }
 
 void readKeyModifiers(void)
@@ -61,20 +61,20 @@ void readKeyModifiers(void)
 
 	modState = SDL_GetModState();
 
-	keyb.ctrlPressed        = (modState & (KMOD_LCTRL | KMOD_RCTRL)) ? true : false;
-	keyb.leftCtrlPressed    = (modState & KMOD_LCTRL) ? true : false;
-	keyb.leftAltPressed     = (modState & KMOD_LALT) ? true : false;
-	keyb.leftShiftPressed   = (modState & KMOD_LSHIFT) ? true : false;
+	keyb.ctrlPressed = (modState & (KMOD_LCTRL | KMOD_RCTRL)) ? true : false;
+	keyb.leftCtrlPressed = (modState & KMOD_LCTRL) ? true : false;
+	keyb.leftAltPressed = (modState & KMOD_LALT) ? true : false;
+	keyb.leftShiftPressed = (modState & KMOD_LSHIFT) ? true : false;
 #ifdef __APPLE__
-	keyb.commandPressed     = (modState & (KMOD_LGUI | KMOD_RGUI)) ? true : false;
+	keyb.commandPressed = (modState & (KMOD_LGUI | KMOD_RGUI)) ? true : false;
 	keyb.leftCommandPressed = (modState & KMOD_LGUI) ? true : false;
 #endif
-	keyb.keyModifierDown    = (modState & (KMOD_LSHIFT | KMOD_LCTRL | KMOD_LALT | KMOD_LGUI)) ? true : false;
+	keyb.keyModifierDown = (modState & (KMOD_LSHIFT | KMOD_LCTRL | KMOD_LALT | KMOD_LGUI)) ? true : false;
 }
 
 void keyUpHandler(SDL_Scancode scancode, SDL_Keycode keycode)
 {
-	(void)(keycode);
+	(void)keycode;
 
 	if (editor.editTextFlag || editor.ui.sysReqShown)
 		return; // kludge: don't handle key up!
@@ -85,7 +85,7 @@ void keyUpHandler(SDL_Scancode scancode, SDL_Keycode keycode)
 		return;
 	}
 
-	if ((editor.cursor.object == CURSOR_NOTE) && !keyb.keyModifierDown)
+	if (editor.cursor.object == CURSOR_NOTE && !keyb.keyModifierDown)
 		testNoteKeysRelease(scancode);
 
 	if (scancode == SDL_SCANCODE_KP_PLUS)
@@ -104,8 +104,8 @@ void keyDownHandler(SDL_Scancode scancode, SDL_Keycode keycode, bool keyWasRepea
 
 	if (editor.ui.sysReqShown)
 	{
-		if (keycode == SDLK_ESCAPE)
-			editor.ui.sysReqShown = false;
+		     if (keycode == SDLK_RETURN) editor.ui.sysReqEnterPressed = true;
+		else if (keycode == SDLK_ESCAPE) editor.ui.sysReqShown = false;
 
 		return;
 	}
@@ -145,8 +145,12 @@ void keyDownHandler(SDL_Scancode scancode, SDL_Keycode keycode, bool keyWasRepea
 	if (scancode == SDL_SCANCODE_KP_PLUS)
 		keyb.numPadPlusPressed = true;
 
-	if (handleEditKeys(keycode, scancode)) return;
-	if (keyb.keyModifierDown && checkModifiedKeys(keycode)) return;
+	if (handleEditKeys(keycode, scancode))
+		return;
+
+	if (keyb.keyModifierDown && checkModifiedKeys(keycode))
+		return;
+
 	handleKeys(keycode, scancode); // no pattern editing, do general key handling
 }
 
@@ -158,10 +162,8 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 	// if we're holding numpad plus but not pressing bank keys, don't check any other key
 	if (keyb.numPadPlusPressed)
 	{
-		if ((scanKey != SDL_SCANCODE_NUMLOCKCLEAR) &&
-			(scanKey != SDL_SCANCODE_KP_DIVIDE)    &&
-			(scanKey != SDL_SCANCODE_KP_MULTIPLY ) &&
-			(scanKey != SDL_SCANCODE_KP_MINUS))
+		if (scanKey != SDL_SCANCODE_NUMLOCKCLEAR && scanKey != SDL_SCANCODE_KP_DIVIDE &&
+			scanKey != SDL_SCANCODE_KP_MULTIPLY  && scanKey != SDL_SCANCODE_KP_MINUS)
 		{
 			return;
 		}
@@ -258,7 +260,7 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 				}
 				else
 				{
-					if ((editor.curInstr == 0) || instrIsEmpty(editor.curInstr))
+					if (editor.curInstr == 0 || instrIsEmpty(editor.curInstr))
 						return;
 
 					if (okBox(1, "System request", "Clear instrument?") == 1)
@@ -272,7 +274,7 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 				}
 			}
 		}
-		break;
+		return;
 
 		case SDL_SCANCODE_KP_0: setNewInstr(0);                          return;
 		case SDL_SCANCODE_KP_1: setNewInstr(editor.instrBankOffset + 1); return;
@@ -335,7 +337,7 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 		case SDLK_LESS:
 		case SDLK_CAPSLOCK:
 		{
-			if ((playMode == PLAYMODE_EDIT) || (playMode == PLAYMODE_RECPATT) || (playMode == PLAYMODE_RECSONG))
+			if (playMode == PLAYMODE_EDIT || playMode == PLAYMODE_RECPATT || playMode == PLAYMODE_RECSONG)
 			{
 				if (!allocatePattern(editor.editPattern))
 					break;
@@ -343,7 +345,7 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 				patt[editor.editPattern][(editor.pattPos * MAX_VOICES) + editor.cursor.ch].ton = 97;
 
 				pattLen = pattLens[editor.editPattern];
-				if ((playMode == PLAYMODE_EDIT) && (pattLen >= 1))
+				if (playMode == PLAYMODE_EDIT && pattLen >= 1)
 					setPos(-1, (editor.pattPos + editor.ID_Add) % pattLen);
 
 				editor.ui.updatePatternEditor = true;
@@ -403,7 +405,7 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 
 		case SDLK_F1:
 		{
-				 if (keyb.leftShiftPressed) trackTranspAllInsDn();
+			     if (keyb.leftShiftPressed) trackTranspAllInsDn();
 			else if (keyb.leftCtrlPressed)  pattTranspAllInsDn();
 			else if (keyb.leftAltPressed)   blockTranspAllInsDn();
 			else                            editor.curOctave = 0;
@@ -412,7 +414,7 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 
 		case SDLK_F2:
 		{
-				 if (keyb.leftShiftPressed) trackTranspAllInsUp();
+			     if (keyb.leftShiftPressed) trackTranspAllInsUp();
 			else if (keyb.leftCtrlPressed)  pattTranspAllInsUp();
 			else if (keyb.leftAltPressed)   blockTranspAllInsUp();
 			else                            editor.curOctave = 1;
@@ -421,7 +423,7 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 
 		case SDLK_F3:
 		{
-				 if (keyb.leftShiftPressed) cutTrack();
+			     if (keyb.leftShiftPressed) cutTrack();
 			else if (keyb.leftCtrlPressed)  cutPattern();
 			else if (keyb.leftAltPressed)   cutBlock();
 			else                            editor.curOctave = 2;
@@ -430,7 +432,7 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 
 		case SDLK_F4:
 		{
-				 if (keyb.leftShiftPressed) copyTrack();
+			     if (keyb.leftShiftPressed) copyTrack();
 			else if (keyb.leftCtrlPressed)  copyPattern();
 			else if (keyb.leftAltPressed)   copyBlock();
 			else                            editor.curOctave = 3;
@@ -439,7 +441,7 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 
 		case SDLK_F5:
 		{
-				 if (keyb.leftShiftPressed) pasteTrack();
+			     if (keyb.leftShiftPressed) pasteTrack();
 			else if (keyb.leftCtrlPressed)  pastePattern();
 			else if (keyb.leftAltPressed)   pasteBlock();
 			else                            editor.curOctave = 4;
@@ -450,7 +452,7 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 
 		case SDLK_F7:
 		{
-				 if (keyb.leftShiftPressed) trackTranspCurInsDn();
+			     if (keyb.leftShiftPressed) trackTranspCurInsDn();
 			else if (keyb.leftCtrlPressed)  pattTranspCurInsDn();
 			else if (keyb.leftAltPressed)   blockTranspCurInsDn();
 			else                            editor.curOctave = 6;
@@ -459,7 +461,7 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 
 		case SDLK_F8:
 		{
-				 if (keyb.leftShiftPressed) trackTranspCurInsUp();
+			     if (keyb.leftShiftPressed) trackTranspCurInsUp();
 			else if (keyb.leftCtrlPressed)  pattTranspCurInsUp();
 			else if (keyb.leftAltPressed)   blockTranspCurInsUp();
 			else                            editor.curOctave = 6;
@@ -472,11 +474,11 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 
 			song.pattPos = editor.ptnJumpPos[0];
 			if (song.pattPos >= song.pattLen)
-				song.pattPos  = song.pattLen - 1;
+				song.pattPos = song.pattLen - 1;
 
 			if (!songPlaying)
 			{
-				editor.pattPos = (uint8_t)(song.pattPos);
+				editor.pattPos = (uint8_t)song.pattPos;
 				editor.ui.updatePatternEditor = true;
 			}
 
@@ -490,11 +492,11 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 
 			song.pattPos = editor.ptnJumpPos[1];
 			if (song.pattPos >= song.pattLen)
-				song.pattPos  = song.pattLen - 1;
+				song.pattPos = song.pattLen - 1;
 
 			if (!songPlaying)
 			{
-				editor.pattPos = (uint8_t)(song.pattPos);
+				editor.pattPos = (uint8_t)song.pattPos;
 				editor.ui.updatePatternEditor = true;
 			}
 
@@ -512,7 +514,7 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 
 			if (!songPlaying)
 			{
-				editor.pattPos = (uint8_t)(song.pattPos);
+				editor.pattPos = (uint8_t)song.pattPos;
 				editor.ui.updatePatternEditor = true;
 			}
 
@@ -526,11 +528,11 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 
 			song.pattPos = editor.ptnJumpPos[3];
 			if (song.pattPos >= song.pattLen)
-				song.pattPos  = song.pattLen - 1;
+				song.pattPos = song.pattLen - 1;
 
 			if (!songPlaying)
 			{
-				editor.pattPos = (uint8_t)(song.pattPos);
+				editor.pattPos = (uint8_t)song.pattPos;
 				editor.ui.updatePatternEditor = true;
 			}
 
@@ -551,7 +553,7 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 
 		case SDLK_BACKSPACE:
 		{
-				 if (editor.ui.diskOpShown) diskOpGoParent();
+			     if (editor.ui.diskOpShown) diskOpGoParent();
 			else if (keyb.leftShiftPressed) deletePatternLine();
 			else                            deletePatternNote();
 		}
@@ -570,6 +572,7 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 				else
 					rowOneUpWrap();
 			}
+			break;
 		}
 		break;
 
@@ -602,7 +605,7 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 
 			if (!songPlaying)
 			{
-				editor.pattPos = (uint8_t)(song.pattPos);
+				editor.pattPos = (uint8_t)song.pattPos;
 				editor.ui.updatePatternEditor = true;
 			}
 
@@ -624,7 +627,7 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 
 			if (!songPlaying)
 			{
-				editor.pattPos = (uint8_t)(song.pattPos);
+				editor.pattPos = (uint8_t)song.pattPos;
 				editor.ui.updatePatternEditor = true;
 			}
 
@@ -642,7 +645,7 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 			song.pattPos = 0;
 			if (!songPlaying)
 			{
-				editor.pattPos = (uint8_t)(song.pattPos);
+				editor.pattPos = (uint8_t)song.pattPos;
 				editor.ui.updatePatternEditor = true;
 			}
 
@@ -660,7 +663,7 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 			song.pattPos = pattLens[song.pattNr] - 1;
 			if (!songPlaying)
 			{
-				editor.pattPos = (uint8_t)(song.pattPos);
+				editor.pattPos = (uint8_t)song.pattPos;
 				editor.ui.updatePatternEditor = true;
 			}
 
@@ -680,7 +683,6 @@ static bool checkModifiedKeys(SDL_Keycode keycode)
 
 		case SDLK_KP_ENTER:
 		case SDLK_RETURN:
-		{
 			if (keyb.leftAltPressed)
 			{
 				toggleFullScreen();
@@ -689,73 +691,63 @@ static bool checkModifiedKeys(SDL_Keycode keycode)
 #ifdef __unix__
 				SDL_Delay(100);
 #endif
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_F9:
-		{
 			if (keyb.leftCtrlPressed)
 			{
 				startPlaying(PLAYMODE_PATT, editor.ptnJumpPos[0]);
-				return (true);
+				return true;
 			}
 			else if (keyb.leftShiftPressed)
 			{
-				editor.ptnJumpPos[0] = (uint8_t)(editor.pattPos);
-				return (true);
+				editor.ptnJumpPos[0] = (uint8_t)editor.pattPos;
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_F10:
-		{
 			if (keyb.leftCtrlPressed)
 			{
 				startPlaying(PLAYMODE_PATT, editor.ptnJumpPos[1]);
-				return (true);
+				return true;
 			}
 			else if (keyb.leftShiftPressed)
 			{
-				editor.ptnJumpPos[1] = (uint8_t)(editor.pattPos);
-				return (true);
+				editor.ptnJumpPos[1] = (uint8_t)editor.pattPos;
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_F11:
-		{
 			if (keyb.leftCtrlPressed)
 			{
 				startPlaying(PLAYMODE_PATT, editor.ptnJumpPos[2]);
-				return (true);
+				return true;
 			}
 			else if (keyb.leftShiftPressed)
 			{
-				editor.ptnJumpPos[2] = (uint8_t)(editor.pattPos);
-				return (true);
+				editor.ptnJumpPos[2] = (uint8_t)editor.pattPos;
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_F12:
-		{
 			if (keyb.leftCtrlPressed)
 			{
 				startPlaying(PLAYMODE_PATT, editor.ptnJumpPos[3]);
-				return (true);
+				return true;
 			}
 			else if (keyb.leftShiftPressed)
 			{
-				editor.ptnJumpPos[3] = (uint8_t)(editor.pattPos);
-				return (true);
+				editor.ptnJumpPos[3] = (uint8_t)editor.pattPos;
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_a:
-		{
 			if (keyb.leftCtrlPressed || keyb.leftCommandPressed)
 			{
 				if (editor.ui.sampleEditorShown)
@@ -763,7 +755,7 @@ static bool checkModifiedKeys(SDL_Keycode keycode)
 				else
 					showAdvEdit();
 
-				return (true);
+				return true;
 			}
 			else if (keyb.leftAltPressed)
 			{
@@ -772,25 +764,21 @@ static bool checkModifiedKeys(SDL_Keycode keycode)
 				else
 					jumpToChannel(8);
 
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_b:
-		{
 			if (keyb.leftCtrlPressed)
 			{
 				if (!editor.ui.aboutScreenShown)
 					showAboutScreen();
 
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_c:
-		{
 			if (keyb.leftAltPressed)
 			{
 				if (editor.ui.sampleEditorShown)
@@ -808,7 +796,7 @@ static bool checkModifiedKeys(SDL_Keycode keycode)
 					editor.ui.updatePatternEditor = true;
 				}
 
-				return (true);
+				return true;
 			}
 			else if (keyb.leftCtrlPressed || keyb.leftCommandPressed)
 			{
@@ -817,34 +805,30 @@ static bool checkModifiedKeys(SDL_Keycode keycode)
 				else
 					showConfigScreen();
 
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_d:
-		{
 			if (keyb.leftAltPressed)
 			{
 				jumpToChannel(10);
-				return (true);
+				return true;
 			}
 			else if (keyb.leftCtrlPressed)
 			{
 				if (!editor.ui.diskOpShown)
 					showDiskOpScreen();
 
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_e:
-		{
 			if (keyb.leftAltPressed)
 			{
 				jumpToChannel(2);
-				return (true);
+				return true;
 			}
 			else if (keyb.leftCtrlPressed)
 			{
@@ -854,13 +838,11 @@ static bool checkModifiedKeys(SDL_Keycode keycode)
 				if (editor.ui.nibblesShown)      hideNibblesScreen();
 
 				showSampleEditorExt();
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_f:
-		{
 			if (keyb.leftShiftPressed && keyb.leftCtrlPressed)
 			{
 				resetFPSCounter();
@@ -871,73 +853,61 @@ static bool checkModifiedKeys(SDL_Keycode keycode)
 			else if (keyb.leftAltPressed)
 			{
 				jumpToChannel(11);
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_g:
-		{
 			if (keyb.leftAltPressed)
 			{
 				jumpToChannel(12);
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_h:
-		{
 			if (keyb.leftAltPressed)
 			{
 				jumpToChannel(13);
-				return (true);
+				return true;
 			}
 			else if (keyb.leftCtrlPressed)
 			{
 				showHelpScreen();
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_i:
-		{
 			if (keyb.leftAltPressed)
 			{
 				jumpToChannel(7);
-				return (true);
+				return true;
 			}
 			else if (keyb.leftCtrlPressed)
 			{
 				showInstEditor();
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_j:
-		{
 			if (keyb.leftAltPressed)
 			{
 				jumpToChannel(14);
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_k:
-		{
 			if (keyb.leftAltPressed)
 			{
 				jumpToChannel(15);
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_m:
-		{
 			if (keyb.leftCtrlPressed)
 			{
 				if (editor.ui.aboutScreenShown)  hideAboutScreen();
@@ -947,23 +917,19 @@ static bool checkModifiedKeys(SDL_Keycode keycode)
 
 				showInstEditorExt();
 
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_n:
-		{
 			if (keyb.leftCtrlPressed)
 			{
 				showNibblesScreen();
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_p:
-		{
 			if (keyb.leftCtrlPressed)
 			{
 				if (!editor.ui.patternEditorShown)
@@ -975,23 +941,19 @@ static bool checkModifiedKeys(SDL_Keycode keycode)
 					showPatternEditor();
 				}
 
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_q:
-		{
 			if (keyb.leftAltPressed)
 			{
 				jumpToChannel(0);
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_r:
-		{
 			if (keyb.leftAltPressed)
 			{
 				if (editor.ui.sampleEditorShown)
@@ -999,18 +961,16 @@ static bool checkModifiedKeys(SDL_Keycode keycode)
 				else
 					jumpToChannel(3);
 
-				return (true);
+				return true;
 			}
 			else if (keyb.leftCtrlPressed)
 			{
 				showTrimScreen();
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_s:
-		{
 			if (keyb.leftAltPressed)
 			{
 				if (editor.ui.sampleEditorShown)
@@ -1018,60 +978,50 @@ static bool checkModifiedKeys(SDL_Keycode keycode)
 				else
 					jumpToChannel(9);
 
-				return (true);
+				return true;
 			}
 			else if (keyb.leftCtrlPressed)
 			{
 				showSampleEditor();
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_t:
-		{
 			if (keyb.leftAltPressed)
 			{
 				jumpToChannel(4);
-				return (true);
+				return true;
 			}
 			else if (keyb.leftCtrlPressed)
 			{
 				showTranspose();
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_u:
-		{
 			if (keyb.leftAltPressed)
 			{
 				jumpToChannel(6);
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_v:
-		{
 			if (keyb.leftAltPressed)
 			{
-				if (editor.ui.sampleEditorShown)
-					sampPaste();
-				else if (!editor.ui.instEditorShown)
-					scaleFadeVolumeBlock();
+				     if (editor.ui.sampleEditorShown) sampPaste();
+				else if (!editor.ui.instEditorShown)  scaleFadeVolumeBlock();
 
-				return (true);
+				return true;
 			}
 			else if (keyb.leftCtrlPressed || keyb.leftCommandPressed)
 			{
-				if (editor.ui.sampleEditorShown)
-					sampPaste();
-				else if (!editor.ui.instEditorShown)
-					scaleFadeVolumePattern();
+				     if (editor.ui.sampleEditorShown) sampPaste();
+				else if (!editor.ui.instEditorShown)  scaleFadeVolumePattern();
 
-				return (true);
+				return true;
 			}
 			else if (keyb.leftShiftPressed)
 			{
@@ -1081,29 +1031,25 @@ static bool checkModifiedKeys(SDL_Keycode keycode)
 					scaleFadeVolumeTrack();
 				}
 
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_w:
-		{
 			if (keyb.leftAltPressed)
 			{
 				jumpToChannel(1);
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_x:
-		{
 			if (keyb.leftAltPressed)
 			{
 				if (editor.ui.sampleEditorShown)
 					sampCut();
 
-				return (true);
+				return true;
 			}
 			else if (keyb.leftCtrlPressed || keyb.leftCommandPressed)
 			{
@@ -1129,48 +1075,42 @@ static bool checkModifiedKeys(SDL_Keycode keycode)
 
 				showPatternEditor();
 
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_y:
-		{
 			if (keyb.leftAltPressed)
 			{
 				jumpToChannel(5);
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_z:
-		{
 			if (keyb.leftAltPressed)
 			{
 				if (editor.ui.sampleEditorShown)
 					zoomOut();
 
-				return (true);
+				return true;
 			}
 			else if (keyb.leftCtrlPressed)
 			{
 				togglePatternEditorExtended();
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_1:
-		{
 			if (keyb.leftAltPressed)
 			{
 				if (keyb.leftShiftPressed)
-					writeToMacroSlot(1 - 1);
+					writeToMacroSlot(1-1);
 				else
-					writeFromMacroSlot(1 - 1);
+					writeFromMacroSlot(1-1);
 
-				return (true);
+				return true;
 			}
 			else if (keyb.leftCtrlPressed)
 			{
@@ -1178,21 +1118,19 @@ static bool checkModifiedKeys(SDL_Keycode keycode)
 				showConfigScreen();
 				checkRadioButton(RB_CONFIG_IO_DEVICES);
 
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_2:
-		{
 			if (keyb.leftAltPressed)
 			{
 				if (keyb.leftShiftPressed)
-					writeToMacroSlot(2 - 1);
+					writeToMacroSlot(2-1);
 				else
-					writeFromMacroSlot(2 - 1);
+					writeFromMacroSlot(2-1);
 
-				return (true);
+				return true;
 			}
 			else if (keyb.leftCtrlPressed)
 			{
@@ -1200,21 +1138,19 @@ static bool checkModifiedKeys(SDL_Keycode keycode)
 				showConfigScreen();
 				checkRadioButton(RB_CONFIG_LAYOUT);
 
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_3:
-		{
 			if (keyb.leftAltPressed)
 			{
 				if (keyb.leftShiftPressed)
-					writeToMacroSlot(3 - 1);
+					writeToMacroSlot(3-1);
 				else
-					writeFromMacroSlot(3 - 1);
+					writeFromMacroSlot(3-1);
 
-				return (true);
+				return true;
 			}
 			else if (keyb.leftCtrlPressed)
 			{
@@ -1222,21 +1158,19 @@ static bool checkModifiedKeys(SDL_Keycode keycode)
 				showConfigScreen();
 				checkRadioButton(RB_CONFIG_MISCELLANEOUS);
 
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_4:
-		{
 			if (keyb.leftAltPressed)
 			{
 				if (keyb.leftShiftPressed)
-					writeToMacroSlot(4 - 1);
+					writeToMacroSlot(4-1);
 				else
-					writeFromMacroSlot(4 - 1);
+					writeFromMacroSlot(4-1);
 
-				return (true);
+				return true;
 			}
 			else if (keyb.leftCtrlPressed)
 			{
@@ -1244,135 +1178,118 @@ static bool checkModifiedKeys(SDL_Keycode keycode)
 				showConfigScreen();
 				checkRadioButton(RB_CONFIG_MIDI_INPUT);
 
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_5:
-		{
 			if (keyb.leftAltPressed)
 			{
 				if (keyb.leftShiftPressed)
-					writeToMacroSlot(5 - 1);
+					writeToMacroSlot(5-1);
 				else
-					writeFromMacroSlot(5 - 1);
+					writeFromMacroSlot(5-1);
 
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_6:
-		{
 			if (keyb.leftAltPressed)
 			{
 				if (keyb.leftShiftPressed)
-					writeToMacroSlot(6 - 1);
+					writeToMacroSlot(6-1);
 				else
-					writeFromMacroSlot(6 - 1);
+					writeFromMacroSlot(6-1);
 
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_7:
-		{
 			if (keyb.leftAltPressed)
 			{
 				if (keyb.leftShiftPressed)
-					writeToMacroSlot(7 - 1);
+					writeToMacroSlot(7-1);
 				else
-					writeFromMacroSlot(7 - 1);
+					writeFromMacroSlot(7-1);
 
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_8:
-		{
 			if (keyb.leftAltPressed)
 			{
 				if (keyb.leftShiftPressed)
-					writeToMacroSlot(8 - 1);
+					writeToMacroSlot(8-1);
 				else
-					writeFromMacroSlot(8 - 1);
+					writeFromMacroSlot(8-1);
 
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_9:
-		{
 			if (keyb.leftAltPressed)
 			{
 				if (keyb.leftShiftPressed)
-					writeToMacroSlot(9 - 1);
+					writeToMacroSlot(9-1);
 				else
-					writeFromMacroSlot(9 - 1);
+					writeFromMacroSlot(9-1);
 
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_0:
-		{
 			if (keyb.leftAltPressed)
 			{
 				if (keyb.leftShiftPressed)
-					writeToMacroSlot(10 - 1);
+					writeToMacroSlot(10-1);
 				else
-					writeFromMacroSlot(10 - 1);
+					writeFromMacroSlot(10-1);
 
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_LEFT:
-		{
 			if (keyb.leftShiftPressed)
 			{
 				decSongPos();
-				return (true);
+				return true;
 			}
 			else if (keyb.leftCtrlPressed)
 			{
 				pbEditPattDown();
-				return (true);
+				return true;
 			}
 			else if (keyb.leftAltPressed)
 			{
 				keybPattMarkLeft();
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 
 		case SDLK_RIGHT:
-		{
 			if (keyb.leftShiftPressed)
 			{
 				incSongPos();
-				return (true);
+				return true;
 			}
 			else if (keyb.leftCtrlPressed)
 			{
 				pbEditPattUp();
-				return (true);
+				return true;
 			}
 			else if (keyb.leftAltPressed)
 			{
 				keybPattMarkRight();
-				return (true);
+				return true;
 			}
-		}
-		break;
+			break;
 	}
 
-	return (false);
+	return false;
 }

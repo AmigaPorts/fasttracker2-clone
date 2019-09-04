@@ -1,5 +1,4 @@
-#ifndef __FT2_SCOPES_H
-#define __FT2_SCOPES_H
+#pragma once
 
 #include <stdint.h>
 #include <stdbool.h>
@@ -20,5 +19,3 @@ typedef struct lastChInstr_t
 } lastChInstr_t;
 
 extern lastChInstr_t lastChInstr[MAX_VOICES];
-
-#endif
