@@ -64,6 +64,7 @@ enum
 	DONT_SHOW_S3M_LOAD_WARNING_FLAG = 64,
 	DONT_SHOW_NOT_YET_APPLIED_WARNING_FLAG = 32,
 
+	// specialFlags
 	NO_VOLRAMP_FLAG = 1,
 	BITDEPTH_16 = 2,
 	BITDEPTH_24 = 4,
@@ -73,6 +74,11 @@ enum
 	BUFFSIZE_4096 = 64,
 	LINED_SCOPES = 128,
 
+	// specialFlags2
+	DITHERED_AUDIO = 1,
+	HARDWARE_MOUSE = 2,
+
+	// windowFlags
 	WINSIZE_AUTO = 1,
 	WINSIZE_1X = 2,
 	WINSIZE_2X = 4,
@@ -105,7 +111,7 @@ typedef struct config_t // exact FT2.CFG layout (with some modifications)
 	uint32_t audioFreq; // was "BIOSSum" (never used in FT2)
 	int16_t utEnhet, masterVol, inputVol, inputDev;
 	uint8_t interpolation, internMode, stereoMode;
-	uint8_t audioDither; // was lo-byte of "sample16Bit" (was used for external audio sampling)
+	uint8_t specialFlags2; // was lo-byte of "sample16Bit" (was used for external audio sampling)
 	uint8_t dontShowAgainFlags; // was hi-byte of "sample16Bit" (was used for external audio sampling)
 	int16_t inEnhet, sbPort, sbDMA, sbHiDMA, sbInt, sbOutFilter;
 	uint8_t true16Bit, ptnUnpressed, ptnHex, ptnInstrZero, ptnFrmWrk, ptnLineLight, ptnS3M, ptnChnNumbers;
@@ -197,7 +203,7 @@ void rbConfigMouseNice(void);
 void rbConfigMouseUgly(void);
 void rbConfigMouseAwful(void);
 void rbConfigMouseUseable(void);
-void rbConfigScopeOriginal(void);
+void rbConfigScopeStandard(void);
 void rbConfigMouseBusyVogue(void);
 void rbConfigMouseBusyMrH(void);
 void rbConfigScopeLined(void);
@@ -228,6 +234,7 @@ void cbConfigFramework(void);
 void cbConfigLineColors(void);
 void cbConfigChanNums(void);
 void cbConfigShowVolCol(void);
+void cbHardwareMouse(void);
 void cbSampCutToBuff(void);
 void cbPattCutToBuff(void);
 void cbKillNotesAtStop(void);

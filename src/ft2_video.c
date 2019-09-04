@@ -882,6 +882,7 @@ bool setupWindow(void)
 	}
 
 	updateWindowTitle(true);
+
 	return true;
 }
 
@@ -942,7 +943,11 @@ bool setupRenderer(void)
 	updateRenderSizeVars();
 	updateMouseScaling();
 
-	SDL_ShowCursor(SDL_FALSE);
+	if (config.specialFlags2 & HARDWARE_MOUSE)
+		SDL_ShowCursor(SDL_TRUE);
+	else
+		SDL_ShowCursor(SDL_FALSE);
+
 	return true;
 }
 

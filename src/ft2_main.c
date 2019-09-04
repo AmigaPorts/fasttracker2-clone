@@ -119,6 +119,8 @@ int main(int argc, char *argv[])
 		return 1;
 	}
 
+	createSDL2Cursors();
+
 	/* Text input is started by default in SDL2, turn it off to remove ~2ms spikes per key press.
 	** We manuallay start it again when a text edit box is activated, and stop it when done.
 	** Ref.: https://bugzilla.libsdl.org/show_bug.cgi?id=4166 */
@@ -305,6 +307,7 @@ static void cleanUpAndExit(void) // never call this inside the main loop!
 	freeMidiInputDeviceList();
 	windUpFTHelp();
 	freeTextBoxes();
+	freeSDL2Cursors();
 
 	if (midi.inputDeviceName != NULL)
 	{
@@ -394,7 +397,7 @@ static void setupPerfFreq(void)
 	dFrac *= UINT32_MAX + 1.0;
 	if (dFrac > (double)UINT32_MAX)
 		dFrac = (double)UINT32_MAX;
-	double2int32_round(video.vblankTimeLenFrac, dFrac);
+	video.vblankTimeLenFrac = (uint32_t)round(dFrac);
 }
 
 #ifdef _WIN32

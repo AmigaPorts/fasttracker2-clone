@@ -190,7 +190,7 @@
 
 #define RENDER_8BIT_SMP_INTRP \
 	assert(smpPtr >= CDA_LinearAdr && smpPtr < CDA_LinearAdr+v->SLen); \
-	sample  = smpPtr[0]; \
+	sample = smpPtr[0]; \
 	sample2 = smpPtr[1]; \
 	INTERPOLATE8(sample, sample2, pos) \
 	sample <<= 12; \
@@ -199,7 +199,7 @@
 
 #define RENDER_8BIT_SMP_MONO_INTRP \
 	assert(smpPtr >= CDA_LinearAdr && smpPtr < CDA_LinearAdr+v->SLen); \
-	sample  = smpPtr[0]; \
+	sample = smpPtr[0]; \
 	sample2 = smpPtr[1]; \
 	INTERPOLATE8(sample, sample2, pos) \
 	sample <<= 12; \
@@ -209,7 +209,7 @@
 
 #define RENDER_16BIT_SMP_INTRP \
 	assert(smpPtr >= CDA_LinearAdr && smpPtr < CDA_LinearAdr+v->SLen); \
-	sample  = smpPtr[0]; \
+	sample = smpPtr[0]; \
 	sample2 = smpPtr[1]; \
 	INTERPOLATE16(sample, sample2, pos) \
 	sample <<= 12; \
@@ -218,7 +218,7 @@
 
 #define RENDER_16BIT_SMP_MONO_INTRP \
 	assert(smpPtr >= CDA_LinearAdr && smpPtr < CDA_LinearAdr+v->SLen); \
-	sample  = smpPtr[0]; \
+	sample = smpPtr[0]; \
 	sample2 = smpPtr[1]; \
 	INTERPOLATE16(sample, sample2, pos) \
 	sample <<= 12; \

@@ -1336,7 +1336,7 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 				}
 			}
 
-			/* old integer method with bad precision (FT2 way)
+			/* old integer method with low precision (FT2 way)
 			envVal >>= 8;
 			ch->finalVol = (song.globVol * (((envVal * ch->outVol) * ch->fadeOutAmp) >> (16 + 2))) >> 7;
 			*/
@@ -1349,13 +1349,15 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 			dVol *= 1.0 / ((64.0 * 64.0 * 32768.0 * 16384.0) / 2048.0); // 0..2048 (real FT2 is 0..256)
 
 			double2int32_round(vol, dVol);
-			ch->finalVol = (uint16_t)(CLAMP(vol, 0, 2048));
+			if (vol > 2048)
+				vol = 2048;
 
+			ch->finalVol = (uint16_t)vol;
 			ch->status |= IS_Vol;
 		}
 		else
 		{
-			/* old integer method with bad precision (FT2 way)
+			/* old integer method with low precision (FT2 way)
 			ch->finalVol = (song.globVol * (((ch->outVol << 4) * ch->fadeOutAmp) >> 16)) >> 7;
 			*/
 
@@ -1364,7 +1366,10 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 			dVol *= 1.0 / ((64.0 * 64.0 * 32768.0) / 2048.0); // 0..2048 (real FT2 is 0..256)
 
 			double2int32_round(vol, dVol);
-			ch->finalVol = (uint16_t)(CLAMP(vol, 0, 2048));
+			if (vol > 2048)
+				vol = 2048;
+
+			ch->finalVol = (uint16_t)vol;
 		}
 	}
 	else

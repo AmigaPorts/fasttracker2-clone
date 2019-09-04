@@ -24,6 +24,37 @@ static bool mouseBusyGfxBackwards;
 static int16_t mouseShape;
 static int32_t mouseModeGfxOffs, mouseBusyGfxFrame;
 
+static SDL_Cursor *cArrow, *cIBeam, *cBusy;
+
+void freeSDL2Cursors(void)
+{
+	if (cArrow != NULL)
+	{
+		SDL_FreeCursor(cArrow);
+		cArrow = NULL;
+	}
+
+	if (cIBeam != NULL)
+	{
+		SDL_FreeCursor(cIBeam);
+		cIBeam = NULL;
+	}
+
+	if (cBusy != NULL)
+	{
+		SDL_FreeCursor(cBusy);
+		cBusy = NULL;
+	}
+
+}
+
+void createSDL2Cursors(void)
+{
+	cArrow = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_ARROW);
+	cIBeam = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_IBEAM);
+	cBusy = SDL_CreateSystemCursor(SDL_SYSTEM_CURSOR_WAIT);
+}
+
 void setMousePosToCenter(void)
 {
 	if (video.fullscreen)
@@ -113,6 +144,9 @@ static void setTextEditMouse(void)
 	setMouseShape(MOUSE_IDLE_TEXT_EDIT);
 	mouse.xBias = -2;
 	mouse.yBias = -6;
+
+	if (config.specialFlags2 & HARDWARE_MOUSE && cIBeam != NULL)
+		SDL_SetCursor(cIBeam);
 }
 
 static void clearTextEditMouse(void)
@@ -120,6 +154,9 @@ static void clearTextEditMouse(void)
 	setMouseShape(config.mouseType);
 	mouse.xBias = 0;
 	mouse.yBias = 0;
+
+	if (config.specialFlags2 & HARDWARE_MOUSE && cArrow != NULL)
+		SDL_SetCursor(cArrow);
 }
 
 static void changeCursorIfOverTextBoxes(void)
@@ -200,6 +237,9 @@ void mouseAnimOn(void)
 
 	editor.busy = true;
 	setMouseShape(config.mouseAnimType);
+
+	if (config.specialFlags2 & HARDWARE_MOUSE && cBusy != NULL)
+		SDL_SetCursor(cBusy);
 }
 
 void mouseAnimOff(void)
@@ -209,6 +249,9 @@ void mouseAnimOff(void)
 
 	editor.busy = false;
 	setMouseShape(config.mouseType);
+
+	if (config.specialFlags2 & HARDWARE_MOUSE && cArrow != NULL)
+		SDL_SetCursor(cArrow);
 }
 
 static void mouseWheelDecRow(void)
@@ -654,19 +697,31 @@ void readMouseXY(void)
 	if (mx >= SCREEN_W) mx = SCREEN_W - 1;
 	if (my >= SCREEN_H) my = SCREEN_H - 1;
 
-	x = (int16_t)mx;
-	y = (int16_t)my;
+	if (config.specialFlags2 & HARDWARE_MOUSE)
+	{
+		// hardware mouse (OS)
+		mouse.x = (int16_t)mx;
+		mouse.y = (int16_t)my;
+		hideSprite(SPRITE_MOUSE_POINTER);
+	}
+	else
+	{
+		// software mouse (FT2 mouse)
+		x = (int16_t)mx;
+		y = (int16_t)my;
 
-	mouse.x = x;
-	mouse.y = y;
+		mouse.x = x;
+		mouse.y = y;
 
-	// for text editing cursor (do this after clamp)
-	x += mouse.xBias;
-	y += mouse.yBias;
+		// for text editing cursor (do this after clamp)
+		x += mouse.xBias;
+		y += mouse.yBias;
 
-	if (x < 0) x = 0;
-	if (y < 0) y = 0;
+		if (x < 0) x = 0;
+		if (y < 0) y = 0;
 
-	setSpritePos(SPRITE_MOUSE_POINTER, x, y);
+		setSpritePos(SPRITE_MOUSE_POINTER, x, y);
+	}
+
 	changeCursorIfOverTextBoxes();
 }

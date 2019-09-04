@@ -893,7 +893,7 @@ bool initScopes(void)
 	dFrac *= UINT32_MAX + 1.0;
 	if (dFrac > (double)UINT32_MAX)
 		dFrac = (double)UINT32_MAX;
-	double2int32_round(scopeTimeLenFrac, dFrac);
+	scopeTimeLenFrac = (uint32_t)round(dFrac);
 
 	scopeThread = SDL_CreateThread(scopeThreadFunc, NULL, NULL);
 	if (scopeThread == NULL)

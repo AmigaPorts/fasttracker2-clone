@@ -693,7 +693,7 @@ uint32_t mixReplayerTickToBuffer(uint8_t *stream, uint8_t bitDepth)
 	// normalize mix buffer and send to audio stream
 	if (bitDepth == 16)
 	{
-		if (config.audioDither)
+		if (config.specialFlags2 & DITHERED_AUDIO)
 			sendSamples16BitDitherStereo(stream, speedVal, 2);
 		else
 			sendSamples16BitStereo(stream, speedVal, 2);
@@ -1092,10 +1092,10 @@ void updateSendAudSamplesRoutine(bool lockMixer)
 		lockMixerCallback();
 
 	// force dither off if somehow set with 24-bit float (illegal)
-	if (config.audioDither && (config.specialFlags & BITDEPTH_24))
-		config.audioDither = false;
+	if ((config.specialFlags2 & DITHERED_AUDIO) && (config.specialFlags & BITDEPTH_24))
+		config.specialFlags2 &= ~DITHERED_AUDIO;
 
-	if (config.audioDither)
+	if (config.specialFlags2 & DITHERED_AUDIO)
 	{
 		if (config.specialFlags & BITDEPTH_16)
 		{
@@ -1146,7 +1146,7 @@ static void calcAudioLatencyVars(uint16_t haveSamples, int32_t haveFreq)
 	dFrac *= UINT32_MAX + 1.0;
 	if (dFrac > (double)UINT32_MAX)
 		dFrac = (double)UINT32_MAX;
-	double2int32_round(audio.audLatencyPerfValFrac, dFrac);
+	audio.audLatencyPerfValFrac = (uint32_t)round(dFrac);
 
 	audio.dAudioLatencyMs = dAudioLatencySecs * 1000.0;
 }
@@ -1279,8 +1279,8 @@ bool setupAudio(bool showErrorMsg)
 
 	calcAudioLatencyVars(have.samples, have.freq);
 
-	if (config.audioDither && newBitDepth == 24)
-		config.audioDither = false;
+	if ((config.specialFlags2 & DITHERED_AUDIO) && newBitDepth == 24)
+		config.specialFlags2 &= ~DITHERED_AUDIO;
 
 	pmpChannels = have.channels;
 	pmpCountDiv = pmpChannels * ((newBitDepth == 16) ? sizeof (int16_t) : sizeof (float));

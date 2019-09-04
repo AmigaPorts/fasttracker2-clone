@@ -855,13 +855,18 @@ END
 @LProblems/FAQ
 >@X020
 >@C001Q: Can I make fullscreen mode stretch out the whole screen?
->@C002A: If it doesn't already, enable the "Pixel filter" box in the config screen.
->@X035It won't look pretty, but for some people it's much better than nothing.
+>@C002A: Enable "Pixel filter" in Config -> Miscellaneous.
+>@X035It won't look pretty, but to some people it's much better than nothing.
 >@X020
 >@C001Q: I can't use ALT+F4 and ALT+F5!
 >@C002A: Windows: If you have GeForce Experience installed, you need to change
 >@X035the keybindings in its settings page.
 macOS/OS X: Change ALT+F4/ALT+F5 keys in the OS to something else. Also for GNU/Linux.
+>@X020
+>@C001Q: The mouse cursor is delayed/laggy!
+>@C002A: Enable "VSync off" in Config -> Miscellaneous. This however, will
+>@X035introduce stuttering because the rate is not exact to your monitor's
+>rate. Alternatively, enable "Hardware mouse" in Config -> Layout.
 >@X020
 >@C001Q: Will you implement MIDI out functionality?
 >@C002A: No, sorry. This is very difficult to implement correctly when having
@@ -876,21 +881,14 @@ It will be stored in the program directory if the path couldn't be used.
 If you put the configuration file in the program directory, it will read that
 one and not attempt to create config dirs for the OS user. (portable mode)
 >@X020
->@C001Q: The mouse cursor is delayed in its movement!
->@C002A: Enable "VSync off" in Config -> Miscellaneous. This however, will
->@X035introduce stuttering because the rate is not exact to your monitor's rate.
->@X020
 >@C001Q: Can the clone read FT2.CFG from real FT2, and vice versa?
 >@C002A: Yes, it should work just fine. Put it in the directory shown above.
 >@X020
 >@C001Q: Smp. Ed.: While zooming in, I sometimes can't mark the last sample point!
 >@C002A: This is normal. This is a limitation in the nature of scaling.
 >@X020
->@C001Q: I found a bug! What do I do?
->@C002A: First make sure that it's a bug and not just a copied behavior from FT2.
->@X035Try what you did in the real FT2 and see if it happens there as well.
-If it's indeed a bug, send a mail (address is in the About screen) and try
-to explain how it happened. Try to persistantly be able to reproduce it.
+>@C001Q: I found a bug!
+>@C002A: Please send a mail to olav.sorensen@live.no and try to explain it.
 
 END
 ;***************************************************************************
@@ -926,5 +924,9 @@ after a mouse button was held down.
 >
 >@X010- Not a bug, but if your monitor's refresh rate is not set to 60Hz (or 59Hz)
 >@X021you may experience visual stuttering because VSync will not be used then.
+>
+>@X010- macOS / OS X: If "Hardware mouse" is enabled, the mouse cursor won't
+>@X021change when the program is busy. The macOS "wait" cursor is missing in
+>SDL2...
 
 END

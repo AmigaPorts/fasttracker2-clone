@@ -2525,8 +2525,8 @@ void sampRepeatUp(void)
 			repL = currSmp->len - repS;
 	}
 
-	curSmpRepS = (currSmp->typ & 16) ? (repS & 0xFFFFFFFE) : repS;
-	curSmpRepL = (currSmp->typ & 16) ? (repL & 0xFFFFFFFE) : repL;
+	curSmpRepS = (currSmp->typ & 16) ? (int32_t)(repS & 0xFFFFFFFE) : repS;
+	curSmpRepL = (currSmp->typ & 16) ? (int32_t)(repL & 0xFFFFFFFE) : repL;
 
 	fixRepeatGadgets();
 	updateLoopsOnMouseUp = true;
@@ -2547,7 +2547,7 @@ void sampRepeatDown(void)
 	if (repS < 0)
 		repS = 0;
 
-	curSmpRepS = (currSmp->typ & 16) ? (repS & 0xFFFFFFFE) : repS;
+	curSmpRepS = (currSmp->typ & 16) ? (int32_t)(repS & 0xFFFFFFFE) : repS;
 
 	fixRepeatGadgets();
 	updateLoopsOnMouseUp = true;
@@ -2568,7 +2568,7 @@ void sampReplenUp(void)
 	if (curSmpRepS+repL > currSmp->len)
 		repL = currSmp->len - curSmpRepS;
 
-	curSmpRepL = (currSmp->typ & 16) ? (repL & 0xFFFFFFFE) : repL;
+	curSmpRepL = (currSmp->typ & 16) ? (int32_t)(repL & 0xFFFFFFFE) : repL;
 
 	fixRepeatGadgets();
 	updateLoopsOnMouseUp = true;
@@ -2589,7 +2589,7 @@ void sampReplenDown(void)
 	if (repL < 0)
 		repL = 0;
 
-	curSmpRepL = (currSmp->typ & 16) ? (repL & 0xFFFFFFFE) : repL;
+	curSmpRepL = (currSmp->typ & 16) ? (int32_t)(repL & 0xFFFFFFFE) : repL;
 
 	fixRepeatGadgets();
 	updateLoopsOnMouseUp = true;

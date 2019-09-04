@@ -13,7 +13,7 @@
 #endif
 #include "ft2_replayer.h"
 
-#define BETA_VERSION 161
+#define BETA_VERSION 162
 
 // do NOT change these! It will only mess things up...
 
@@ -21,7 +21,7 @@
 ** no vsync we will get stuttering because the rate is not perfect... */
 #define VBLANK_HZ 60
 
-/* scopes are clocked at 64Hz instead of 60Hz to prevent +/- interference
+/* Scopes are clocked at 64Hz instead of 60Hz to prevent possible stutters
 ** from monitors not being exactly 60Hz (and unstable non-vsync mode). */
 #define SCOPE_HZ 64
 
@@ -29,7 +29,9 @@
 #define SCREEN_W 632
 #define SCREEN_H 400
 
-/* Amount of extra bytes to allocate for every instrument sample.
+/* Amount of extra bytes to allocate for every instrument sample,
+** this is used for a hack for resampling interpolation to be
+** branchless in the inner channel mixer loop.
 ** Warning: Do not change this! */
 #define LOOP_FIX_LEN 4
 
@@ -72,22 +74,26 @@
 
 #if defined __APPLE__ || defined __amd64__ || defined _WIN64 // guaranteed to have SSE and SSE2
 
-#define float2int32_round(i, f)  (i = _mm_cvt_ss2si(_mm_load_ss(&f)))
+#define float2int32_round(i, f) (i = _mm_cvt_ss2si(_mm_load_ss(&f)))
 #define double2int32_round(i, d) (i = _mm_cvtsd_si32(_mm_load_sd(&d)))
 
-#elif defined _WIN32 || defined __i386__ // has SSE, may have SSE2
+#elif defined _WIN32 || defined __i386__ // may have SSE and SSE2
 
-#define float2int32_round(i, f) i = _mm_cvt_ss2si(_mm_load_ss(&f));
+#define float2int32_round(i, f) \
+	if (cpu.hasSSE) \
+		i = _mm_cvt_ss2si(_mm_load_ss(&f)); \
+	else \
+		 i = (int32_t)roundf(f); \
 
 #define double2int32_round(i, d) \
 	if (cpu.hasSSE2) \
 		i = _mm_cvtsd_si32(_mm_load_sd(&d)); \
 	else \
-		i = (int32_t)round(d);
+		i = (int32_t)round(d); \
 
-#else // no SSE/SSE2, let the compiler optimize
+#else // no SSE/SSE2 on this architecture, let the compiler optimize
 
-#define float2int32_round(i, f)  i = (int32_t)roundf(f);
+#define float2int32_round(i, f) i = (int32_t)roundf(f);
 #define double2int32_round(i, d) i = (int32_t)round(d);
 
 #endif

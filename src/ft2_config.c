@@ -213,6 +213,11 @@ void resetConfig(void)
 			enterFullscreen();
 		}
 	}
+
+	if (config.specialFlags2 & HARDWARE_MOUSE)
+		SDL_ShowCursor(SDL_TRUE);
+	else
+		SDL_ShowCursor(SDL_FALSE);
 }
 
 bool loadConfig(bool showErrorFlag)
@@ -338,6 +343,11 @@ void loadConfig2(void) // called by "Load config" button
 			enterFullscreen();
 		}
 	}
+
+	if (config.specialFlags2 & HARDWARE_MOUSE)
+		SDL_ShowCursor(SDL_TRUE);
+	else
+		SDL_ShowCursor(SDL_FALSE);
 }
 
 // used to calculate length of text in config's default paths (Pascal strings)
@@ -830,7 +840,7 @@ static void setConfigIOCheckButtonStates(void)
 {
 	checkBoxes[CB_CONF_INTERPOLATION].checked = config.interpolation;
 	checkBoxes[CB_CONF_VOL_RAMP].checked = (config.specialFlags & NO_VOLRAMP_FLAG) ? false : true;
-	checkBoxes[CB_CONF_DITHER].checked = (config.specialFlags & BITDEPTH_24) ? false : config.audioDither;
+	checkBoxes[CB_CONF_DITHER].checked = (config.specialFlags & BITDEPTH_24) ? false : config.specialFlags2 & DITHERED_AUDIO;
 
 	showCheckBox(CB_CONF_INTERPOLATION);
 	showCheckBox(CB_CONF_VOL_RAMP);
@@ -847,6 +857,7 @@ static void setConfigLayoutCheckButtonStates(void)
 	checkBoxes[CB_CONF_LINECOLORS].checked = config.ptnLineLight;
 	checkBoxes[CB_CONF_CHANNUMS].checked = config.ptnChnNumbers;
 	checkBoxes[CB_CONF_SHOW_VOLCOL].checked = config.ptnS3M;
+	checkBoxes[CB_CONF_HARDWARE_MOUSE].checked = (config.specialFlags2 & HARDWARE_MOUSE) ? true : false;
 
 	showCheckBox(CB_CONF_PATTSTRETCH);
 	showCheckBox(CB_CONF_HEXCOUNT);
@@ -856,6 +867,7 @@ static void setConfigLayoutCheckButtonStates(void)
 	showCheckBox(CB_CONF_LINECOLORS);
 	showCheckBox(CB_CONF_CHANNUMS);
 	showCheckBox(CB_CONF_SHOW_VOLCOL);
+	showCheckBox(CB_CONF_HARDWARE_MOUSE);
 }
 
 static void setConfigLayoutRadioButtonStates(void)
@@ -1189,9 +1201,11 @@ void showConfigScreen(void)
 			textOutShadow(272, 130, PAL_FORGRND, PAL_DSKTOP2, "Future");
 			textOutShadow(338, 129, PAL_FORGRND, PAL_DSKTOP2, "Bold");
 
-			textOutShadow(256, 146, PAL_FORGRND, PAL_DSKTOP2, "Scope style:");
-			textOutShadow(272, 159, PAL_FORGRND, PAL_DSKTOP2, "Original");
-			textOutShadow(338, 159, PAL_FORGRND, PAL_DSKTOP2, "Lined");
+			textOutShadow(256, 146, PAL_FORGRND, PAL_DSKTOP2, "Scopes:");
+			textOutShadow(319, 146, PAL_FORGRND, PAL_DSKTOP2, "Std.");
+			textOutShadow(360, 146, PAL_FORGRND, PAL_DSKTOP2, "Lined");
+
+			textOutShadow(272, 160, PAL_FORGRND, PAL_DSKTOP2, "Hardware mouse");
 
 			textOutShadow(414,   3, PAL_FORGRND, PAL_DSKTOP2, "Pattern text");
 			textOutShadow(414,  17, PAL_FORGRND, PAL_DSKTOP2, "Block mark");
@@ -1391,6 +1405,7 @@ void hideConfigScreen(void)
 	hideCheckBox(CB_CONF_LINECOLORS);
 	hideCheckBox(CB_CONF_CHANNUMS);
 	hideCheckBox(CB_CONF_SHOW_VOLCOL);
+	hideCheckBox(CB_CONF_HARDWARE_MOUSE);
 	hidePushButton(PB_CONFIG_PAL_R_DOWN);
 	hidePushButton(PB_CONFIG_PAL_R_UP);
 	hidePushButton(PB_CONFIG_PAL_G_DOWN);
@@ -1549,7 +1564,7 @@ void rbConfigAudio24bit(void)
 	config.specialFlags &= ~BITDEPTH_16;
 	config.specialFlags |=  BITDEPTH_24;
 
-	config.audioDither = false; // no dither in "24-bit float" mode
+	config.specialFlags2 &= ~DITHERED_AUDIO; // no dither in "24-bit float" mode
 
 	checkBoxes[CB_CONF_DITHER].checked = false;
 	if (editor.currConfigScreen == CONFIG_SCREEN_IO_DEVICES)
@@ -1611,7 +1626,7 @@ void cbConfigDither(void)
 {
 	if (config.specialFlags & BITDEPTH_24) // no dither in float mode, force off
 	{
-		config.audioDither = false;
+		config.specialFlags2 &= ~DITHERED_AUDIO;
 
 		checkBoxes[CB_CONF_DITHER].checked = false;
 		if (editor.currConfigScreen == CONFIG_SCREEN_IO_DEVICES)
@@ -1619,7 +1634,7 @@ void cbConfigDither(void)
 	}
 	else
 	{
-		config.audioDither ^= 1;
+		config.specialFlags2 ^= DITHERED_AUDIO;
 		updateSendAudSamplesRoutine(true);
 	}
 }
@@ -1685,6 +1700,16 @@ void cbConfigShowVolCol(void)
 	redrawPatternEditor();
 }
 
+void cbHardwareMouse(void)
+{
+	config.specialFlags2 ^= HARDWARE_MOUSE;
+
+	if (config.specialFlags2 & HARDWARE_MOUSE)
+		SDL_ShowCursor(true);
+	else
+		SDL_ShowCursor(false);
+}
+
 void rbConfigMouseNice(void)
 {
 	config.mouseType = MOUSE_IDLE_SHAPE_NICE;
@@ -1727,7 +1752,7 @@ void rbConfigMouseBusyMrH(void)
 	resetMouseBusyAnimation();
 }
 
-void rbConfigScopeOriginal(void)
+void rbConfigScopeStandard(void)
 {
 	config.specialFlags &= ~LINED_SCOPES;
 	checkRadioButton(RB_CONFIG_SCOPE_NORMAL);
