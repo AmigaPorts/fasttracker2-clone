@@ -80,12 +80,47 @@ void showErrorMsgBox(const char *fmt, ...)
 
 void updateRenderSizeVars(void)
 {
-    float fScaleX, fScaleY;
+#ifdef __APPLE__
+    int32_t actualScreenW, actualScreenH;
+    float fXUpscale, fYUpscale;
+#endif
+    float fXScale, fYScale;
+    SDL_DisplayMode dm;
 
-    SDL_RenderGetScale(video.renderer, &fScaleX, &fScaleY);
+    if (video.fullscreen)
+    {
+        if (config.windowFlags & FILTERING)
+        {
+            SDL_GetDesktopDisplayMode(0, &dm);
 
-    video.renderW = (int32_t)(SCREEN_W * fScaleX);
-    video.renderH = (int32_t)(SCREEN_H * fScaleY);
+            video.renderW = dm.w;
+            video.renderH = dm.h;
+        }
+        else
+        {
+            SDL_RenderGetScale(video.renderer, &fXScale, &fYScale);
+
+            video.renderW = (int32_t)(SCREEN_W * fXScale);
+            video.renderH = (int32_t)(SCREEN_H * fYScale);
+
+#ifdef __APPLE__
+            /* retina high-DPI hackery (SDL2 is bad at reporting actual rendering sizes on macOS w/ high-DPI) */
+            SDL_GL_GetDrawableSize(video.window, &actualScreenW, &actualScreenH);
+            SDL_GetDesktopDisplayMode(0, &dm);
+
+            fXUpscale = ((float)(actualScreenW) / dm.w);
+            fYUpscale = ((float)(actualScreenH) / dm.h);
+
+            /* downscale back to correct sizes */
+            if (fXUpscale != 0.0f) video.renderW = (int32_t)(video.renderW / fXUpscale);
+            if (fYUpscale != 0.0f) video.renderH = (int32_t)(video.renderH / fYUpscale);
+#endif
+        }
+    }
+    else
+    {
+        SDL_GetWindowSize(video.window, &video.renderW, &video.renderH);
+    }
 }
 
 void enterFullscreen(void)
@@ -100,6 +135,10 @@ void enterFullscreen(void)
     {
         SDL_GetDesktopDisplayMode(0, &dm);
         SDL_RenderSetLogicalSize(video.renderer, dm.w, dm.h);
+    }
+    else
+    {
+        SDL_RenderSetLogicalSize(video.renderer, SCREEN_W, SCREEN_H);
     }
 
     SDL_SetWindowSize(video.window, SCREEN_W, SCREEN_H);

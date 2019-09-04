@@ -1504,10 +1504,13 @@ void setChannelScrollPos(uint32_t pos)
     }
 }
 
-void jumpToChannel(uint8_t channel)
-{
-    channel %= song.antChn;
 
+void jumpToChannel(uint8_t channel) /* for ALT+q..i ALT+a..k */
+{
+    if (editor.ui.sampleEditorShown || editor.ui.instEditorShown)
+        return;
+
+    channel %= song.antChn;
     if (editor.cursor.ch != channel)
     {
         if (editor.ui.pattChanScrollShown && (song.antChn > editor.ui.numChannelsShown))

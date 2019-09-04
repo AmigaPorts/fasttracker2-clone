@@ -115,7 +115,7 @@ int8_t savePattern(UNICHAR *filenameU);
 void scrollChannelLeft(void);
 void scrollChannelRight(void);
 void setChannelScrollPos(uint32_t pos);
-void jumpToChannel(uint8_t channel);
+void jumpToChannel(uint8_t channel); /* for ALT+q..i ALT+a..k */
 void sbPosEdPos(uint32_t pos);
 void pbPosEdPosUp(void);
 void pbPosEdPosDown(void);

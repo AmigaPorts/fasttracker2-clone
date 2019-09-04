@@ -107,7 +107,6 @@ static uint8_t testEditKeys(SDL_Scancode scancode, SDL_Keycode keycode)
     if ((playMode != PLAYMODE_EDIT) && (playMode != PLAYMODE_RECSONG) && (playMode != PLAYMODE_RECPATT))
         return (false); /* we're not editing, test other keys */
 
-
     /* convert key to slot data */
 
     if (editor.cursor.object == CURSOR_VOL1)
@@ -152,7 +151,6 @@ static uint8_t testEditKeys(SDL_Scancode scancode, SDL_Keycode keycode)
 
     if ((i == -1) || !allocatePattern(editor.editPattern))
         return (false); /* no edit to be done */
-
 
     /* insert slot data */
 
@@ -248,7 +246,6 @@ static uint8_t testEditKeys(SDL_Scancode scancode, SDL_Keycode keycode)
         default: break;
     }
 
-
     /* increase row (only in edit mode) */
 
     pattLen = pattLens[editor.editPattern];
@@ -259,7 +256,6 @@ static uint8_t testEditKeys(SDL_Scancode scancode, SDL_Keycode keycode)
         killPatternIfUnused(editor.editPattern);
 
     editor.ui.updatePatternEditor = true;
-
     return (true);
 }
 
@@ -548,6 +544,7 @@ void recordNote(uint8_t note, int8_t vol)
 
 int8_t handleEditKeys(SDL_Keycode keycode, SDL_Scancode scancode)
 {
+    uint8_t frKeybHack;
     uint16_t pattLen;
     tonTyp *note;
 
@@ -608,10 +605,13 @@ int8_t handleEditKeys(SDL_Keycode keycode, SDL_Scancode scancode)
         return (true);
     }
 
-    if (keyb.keyModifierDown)
-        return (false); /* we held down a key modifier, test other keys */
+    /* a hack for french keyb. layouts to allow writing numbers in the pattern data with left SHIFT */
+    frKeybHack = keyb.leftShiftPressed && !keyb.leftAltPressed && !keyb.leftCtrlPressed && (scancode >= SDL_SCANCODE_1) && (scancode <= SDL_SCANCODE_0);
 
-    return (testEditKeys(scancode, keycode));
+    if (frKeybHack || !keyb.keyModifierDown)
+        return (testEditKeys(scancode, keycode));
+
+    return (false);
 }
 
 void writeToMacroSlot(uint8_t slot)

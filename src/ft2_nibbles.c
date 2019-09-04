@@ -969,9 +969,6 @@ uint8_t testNibblesCheatCodes(SDL_Keycode keycode)
     /* nibbles cheat codes can only be typed in while holding down left SHIFT+CTRL+ALT */
     if (keyb.leftShiftPressed && keyb.leftCtrlPressed && keyb.leftAltPressed)
     {
-        if (editor.ui.sysReqShown)
-            return (true); /* don't allow cheat input while a system request is shown */
-
         if (editor.NI_Play)
         {
             /* during game: "S", "K", "I", "P" (skip to next level) */

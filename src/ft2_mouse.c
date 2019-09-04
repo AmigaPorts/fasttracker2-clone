@@ -3,6 +3,7 @@
 #include <crtdbg.h>
 #endif
 
+#include <stdio.h>
 #include "ft2_header.h"
 #include "ft2_gui.h"
 #include "ft2_video.h"
@@ -550,54 +551,48 @@ void handleLastGUIObjectDown(void)
 
 void updateMouseScaling(void)
 {
+    int32_t x, y;
     float fScaleX, fScaleY;
     SDL_DisplayMode dm;
-#if SDL_PATCHLEVEL >= 4
-    int32_t mx, my;
-    SDL_WindowFlags wf;
-#endif
 
-    SDL_GetDesktopDisplayMode(0, &dm);
+    fScaleX = video.renderW / (float)(SCREEN_W);
+    fScaleY = video.renderH / (float)(SCREEN_H);
 
-    /* if we have the pixel filter on in fullscreen, calculate the scaling in a different way */
-    if ((config.windowFlags & FILTERING) && video.fullscreen)
-    {
-        fScaleX = dm.w / (float)(SCREEN_W);
-        fScaleY = dm.h / (float)(SCREEN_H);
-    }
-    else
-    {
-        SDL_RenderGetScale(video.renderer, &fScaleX, &fScaleY);
-    }
-
-    video.xScaleMul = (uint32_t)(65536.0f / fScaleX);
-    video.yScaleMul = (uint32_t)(65536.0f / fScaleY);
+    video.xScaleMul = (fScaleX == 0.0f) ? 65536 : ((uint32_t)(65536.0f / fScaleX));
+    video.yScaleMul = (fScaleY == 0.0f) ? 65536 : ((uint32_t)(65536.0f / fScaleY));
 
 #if SDL_PATCHLEVEL >= 4
     /* put mouse cursor in center */
-
-    wf = (SDL_WindowFlags)(SDL_GetWindowFlags(video.window));
-    if (video.fullscreen)
+    if (SDL_GetWindowFlags(video.window) & SDL_WINDOW_SHOWN)
     {
-        mx = dm.w / 2;
-        my = dm.h / 2;
-
-        if (!(config.windowFlags & FILTERING))
+        if (video.fullscreen)
         {
-            mx -= (dm.w - video.renderW) / 2;
-            my -= (dm.h - video.renderH) / 2;
+            SDL_GetDesktopDisplayMode(0, &dm);
 
-            if (mx < 0) mx = 0;
-            if (my < 0) my = 0;
+            x = dm.w / 2;
+            y = dm.h / 2;
+
+            if (video.renderW < dm.w)
+            {
+                x -= ((dm.w - video.renderW) / 2);
+                if (x < 0)
+                    x = 0;
+            }
+
+            if (video.renderH < dm.h)
+            {
+                y -= ((dm.h - video.renderH) / 2);
+                if (y < 0)
+                    y = 0;
+            }
+        }
+        else
+        {
+            x = video.renderW / 2;
+            y = video.renderH / 2;
         }
 
-        if (wf & SDL_WINDOW_SHOWN)
-            SDL_WarpMouseGlobal(mx, my);
-    }
-    else
-    {
-        if (wf & SDL_WINDOW_SHOWN)
-            SDL_WarpMouseInWindow(video.window, video.renderW / 2, video.renderH / 2);
+        SDL_WarpMouseInWindow(video.window, x, y);
     }
 #endif
 }

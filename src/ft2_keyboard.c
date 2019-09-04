@@ -110,7 +110,7 @@ void keyDownHandler(SDL_Scancode scancode, SDL_Keycode keycode, uint8_t keyWasRe
         return;
     }
 
-    if ((keycode == SDLK_UNKNOWN) || testNibblesCheatCodes(keycode))
+    if (testNibblesCheatCodes(keycode))
         return; /* ignore current key */
 
     if (keyWasRepeated)
@@ -351,6 +351,8 @@ void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
             }
         }
         break;
+
+        case SDLK_PRINTSCREEN: togglePatternEditorExtended(); break;
 
         /* EDIT/PLAY KEYS */
 
