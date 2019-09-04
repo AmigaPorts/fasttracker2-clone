@@ -677,6 +677,26 @@ void fillRect(uint16_t xPos, uint16_t yPos, uint16_t w, uint16_t h, uint8_t pale
 	}
 }
 
+void blit32(uint16_t xPos, uint16_t yPos, const uint32_t* srcPtr, uint16_t w, uint16_t h)
+{
+    uint32_t* dstPtr, x, y;
+
+    assert((srcPtr != NULL) && (xPos < SCREEN_W) && (yPos < SCREEN_H) && ((xPos + w) <= SCREEN_W) && ((yPos + h) <= SCREEN_H));
+
+    dstPtr = &video.frameBuffer[(yPos * SCREEN_W) + xPos];
+    for (y = 0; y < h; ++y)
+    {
+        for (x = 0; x < w; ++x)
+        {
+            if (srcPtr[x] != 0x00FF00)
+                dstPtr[x] = 0xFF000000 | srcPtr[x];
+        }
+
+        srcPtr += w;
+        dstPtr += SCREEN_W;
+    }
+}
+
 void blit(uint16_t xPos, uint16_t yPos, const uint8_t *srcPtr, uint16_t w, uint16_t h)
 {
 	uint32_t *dstPtr, x, y, pixel;

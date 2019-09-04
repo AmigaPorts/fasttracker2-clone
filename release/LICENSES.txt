@@ -85,7 +85,7 @@ freely, subject to the following restrictions:
 
 
 --------------------------------------------------------------------------------
-------------------------- Graphics (by Magnus Högdahl) -------------------------
+- Graphics, except program icon, MIDI logo and new FT2 logo: by Magnus Högdahl -
 --------------------------------------------------------------------------------
 
 Attribution-NonCommercial-ShareAlike 4.0 International

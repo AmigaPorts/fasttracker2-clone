@@ -1,6 +1,7 @@
-These graphics (except "midilogo.bmp") are copyrighted Magnus "Vogue" Högdahl
-and can ONLY be used for non-commercial purposes!
-"midilogo.bmp" uses the same BSD 3-clause license as the source code.
+These graphics (except "ft2-clone.ico", "logo.bmp" and "midilogo.bmp")
+are copyrighted Magnus "Vogue" Högdahl and can ONLY be used for non-commercial
+purposes!
+The rest of the graphics uses the same BSD 3-clause license as the source code.
 
 License (CC BY-NC-SA 4.0):
 Attribution-NonCommercial-ShareAlike 4.0 International

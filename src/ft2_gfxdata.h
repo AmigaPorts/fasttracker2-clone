@@ -16,7 +16,8 @@ extern const uint8_t font6Data[896];
 extern const uint8_t font7Data[1120];
 
 // ft2_gfx_logo.c
-extern const uint8_t ft2Logo[34573];
+extern const uint8_t aboutText[10121];
+extern const uint32_t ft2Logo[33675];
 extern const uint8_t ft2InfoBadges[3200];
 extern const uint8_t ft2LogoBadges[19712];
 

@@ -77,6 +77,7 @@ void line(int16_t x1, int16_t x2, int16_t y1, int16_t y2, uint8_t paletteIndex);
 void clearRect(uint16_t xPos, uint16_t yPos, uint16_t w, uint16_t h);
 void fillRect(uint16_t xPos, uint16_t yPos, uint16_t w, uint16_t h, uint8_t paletteIndex);
 void drawFramework(uint16_t x, uint16_t y, uint16_t w, uint16_t h, uint8_t type);
+void blit32(uint16_t xPos, uint16_t yPos, const uint32_t* srcPtr, uint16_t w, uint16_t h);
 void blit(uint16_t xPos, uint16_t yPos, const uint8_t *srcPtr, uint16_t w, uint16_t h);
 void blitFast(uint16_t xPos, uint16_t yPos, const uint8_t *srcPtr, uint16_t w, uint16_t h); // no colorkey
 void hexOut(uint16_t xPos, uint16_t yPos, uint8_t paletteIndex, uint32_t val, uint8_t numDigits);

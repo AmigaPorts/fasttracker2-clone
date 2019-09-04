@@ -11,7 +11,9 @@
 #define ABOUT_SCREEN_W 626
 #define ABOUT_SCREEN_H 167
 #define FT2_LOGO_W     449
-#define FT2_LOGO_H     111
+#define FT2_LOGO_H     75
+#define ABOUT_TEXT_W   349
+#define ABOUT_TEXT_H   29
 
 typedef struct
 {
@@ -235,7 +237,8 @@ void showAboutScreen(void) // called once when About screen is opened
 
 	showPushButton(PB_EXIT_ABOUT);
 
-	blit(91, 31, ft2Logo, FT2_LOGO_W, FT2_LOGO_H);
+	blit32(91, 31, ft2Logo, FT2_LOGO_W, FT2_LOGO_H);
+    blit(146, 113, aboutText, ABOUT_TEXT_W, ABOUT_TEXT_H);
 
 	x = 5 + (SCREEN_W - textWidth(infoString)) / 2;
 	y = 151;

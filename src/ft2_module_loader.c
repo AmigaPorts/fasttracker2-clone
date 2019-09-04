@@ -340,14 +340,6 @@ static bool loadMusicMOD(FILE *f, uint32_t fileLength)
 	b = 0;
 	for (a = 0; a < 128; ++a)
 	{
-		if (songTmp.songTab[a] > 99)
-		{
-			fclose(f);
-			okBoxThreadSafe(0, "System message", "Error loading module: Either not a module or a non-supported .mod!");
-			moduleFailedToLoad = true;
-			return (false);
-		}
-
 		if (songTmp.songTab[a] > b)
 			b = songTmp.songTab[a];
 	}
