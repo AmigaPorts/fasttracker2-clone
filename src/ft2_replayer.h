@@ -165,7 +165,7 @@ typedef struct sampleTyp_t  // DO NOT TOUCH!
 	uint8_t typ, pan;
 	int8_t relTon;
 	uint8_t reserved;
-	char name[22];
+	char name[22 + 1]; // +1 for tracker NUL termination, not present in sample header
 
 	// stuff from now on can be touched
 	int8_t *pek;

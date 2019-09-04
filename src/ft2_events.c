@@ -68,7 +68,7 @@ void usleep(uint32_t usec)
 	{
 		// this prevents a 64-bit MUL (will not overflow with the ranges we use anyway)
 		lpDueTime.HighPart = 0xFFFFFFFF;
-		lpDueTime.LowPart  = (DWORD)(-10 * (int32_t)usec);
+		lpDueTime.LowPart = (DWORD)(-10 * (int32_t)usec);
 
 		NtDelayExecution(false, &lpDueTime);
 	}
@@ -398,26 +398,29 @@ static void handleInput(void)
 	char *inputText;
 	uint8_t vibDepth;
 	uint32_t eventType;
-	SDL_Event inputEvent;
+	SDL_Event event;
 	SDL_Keycode key;
 
 	if (!editor.busy)
 		handleLastGUIObjectDown(); // this should be handled before main input poll (on next frame)
 
-	while (SDL_PollEvent(&inputEvent))
+	while (SDL_PollEvent(&event))
 	{
 		if (video.vsync60HzPresent)
 		{
 			/* if we minimize the window and vsync is present, vsync is temporarily turned off.
 			** recalc waitVBL() vars so that it can sleep properly in said mode. */
-			if (inputEvent.type == SDL_WINDOWEVENT && inputEvent.window.event == SDL_WINDOWEVENT_MINIMIZED)
+			if (event.type == SDL_WINDOWEVENT &&
+				(event.window.event == SDL_WINDOWEVENT_MINIMIZED || event.window.event == SDL_WINDOWEVENT_FOCUS_LOST))
+			{
 				setupWaitVBL();
+			}
 		}
 
 		if (editor.busy)
 		{
-			eventType = inputEvent.type;
-			key = inputEvent.key.keysym.scancode;
+			eventType = event.type;
+			key = event.key.keysym.scancode;
 
 			/* The Echo tool in Smp. Ed. can literally take forever if abused,
 			** let mouse buttons/ESC/SIGTERM force-stop it. */
@@ -444,10 +447,10 @@ static void handleInput(void)
 		}
 
 #ifdef _WIN32
-		handleSysMsg(inputEvent);
+		handleSysMsg(event);
 #endif
 		// text input when editing texts
-		if (inputEvent.type == SDL_TEXTINPUT)
+		if (event.type == SDL_TEXTINPUT)
 		{
 			if (editor.editTextFlag)
 			{
@@ -457,7 +460,7 @@ static void handleInput(void)
 					continue;
 				}
 
-				inputText = utf8ToCp437(inputEvent.text.text, false);
+				inputText = utf8ToCp437(event.text.text, false);
 				if (inputText != NULL)
 				{
 					if (inputText[0] != '\0')
@@ -467,18 +470,18 @@ static void handleInput(void)
 				}
 			}
 		}
-		else if (inputEvent.type == SDL_MOUSEWHEEL)
+		else if (event.type == SDL_MOUSEWHEEL)
 		{
-			     if (inputEvent.wheel.y > 0) mouseWheelHandler(MOUSE_WHEEL_UP);
-			else if (inputEvent.wheel.y < 0) mouseWheelHandler(MOUSE_WHEEL_DOWN);
+			     if (event.wheel.y > 0) mouseWheelHandler(MOUSE_WHEEL_UP);
+			else if (event.wheel.y < 0) mouseWheelHandler(MOUSE_WHEEL_DOWN);
 		}
-		else if (inputEvent.type == SDL_DROPFILE)
+		else if (event.type == SDL_DROPFILE)
 		{
 			editor.autoPlayOnDrop = false;
-			loadDroppedFile(inputEvent.drop.file, true);
-			SDL_free(inputEvent.drop.file);
+			loadDroppedFile(event.drop.file, true);
+			SDL_free(event.drop.file);
 		}
-		else if (inputEvent.type == SDL_QUIT)
+		else if (event.type == SDL_QUIT)
 		{
 			if (editor.ui.sysReqShown)
 				continue;
@@ -503,21 +506,21 @@ static void handleInput(void)
 					editor.throwExit = true;
 			}
 		}
-		else if (inputEvent.type == SDL_KEYUP)
+		else if (event.type == SDL_KEYUP)
 		{
-			keyUpHandler(inputEvent.key.keysym.scancode, inputEvent.key.keysym.sym);
+			keyUpHandler(event.key.keysym.scancode, event.key.keysym.sym);
 		}
-		else if (inputEvent.type == SDL_KEYDOWN)
+		else if (event.type == SDL_KEYDOWN)
 		{
-			keyDownHandler(inputEvent.key.keysym.scancode, inputEvent.key.keysym.sym, inputEvent.key.repeat);
+			keyDownHandler(event.key.keysym.scancode, event.key.keysym.sym, event.key.repeat);
 		}
-		else if (inputEvent.type == SDL_MOUSEBUTTONUP)
+		else if (event.type == SDL_MOUSEBUTTONUP)
 		{
-			mouseButtonUpHandler(inputEvent.button.button);
+			mouseButtonUpHandler(event.button.button);
 		}
-		else if (inputEvent.type == SDL_MOUSEBUTTONDOWN)
+		else if (event.type == SDL_MOUSEBUTTONDOWN)
 		{
-			mouseButtonDownHandler(inputEvent.button.button);
+			mouseButtonDownHandler(event.button.button);
 		}
 
 		if (editor.throwExit)

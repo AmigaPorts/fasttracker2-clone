@@ -429,9 +429,10 @@ static int32_t SDLCALL createEchoThread(void *ptr)
 {
 	int8_t *readPtr, *writePtr, *newPtr;
 	bool is16Bit;
-	int32_t numEchoes, distance, readLen, writeLen, i, j;
-	int32_t tmp32, smpOut, smpMul, echoRead, echoCycle, writeIdx;
-	double dTmp;
+	int16_t *readPtr16, *writePtr16;
+	int32_t nEchoes, distance, readLen, writeLen, i, j;
+	int32_t smpOut, volChange, smpMul, echoRead, echoCycle, writeIdx;
+	int64_t tmp64;
 	sampleTyp *s;
 
 	(void)ptr;
@@ -441,7 +442,7 @@ static int32_t SDLCALL createEchoThread(void *ptr)
 	readLen = s->len;
 	readPtr = s->pek;
 	is16Bit = (s->typ & 16) ? true : false;
-	distance = is16Bit ? (echo_Distance * 32) : (echo_Distance * 16);
+	distance = echo_Distance * 16;
 
 	// calculate real number of echoes
 	j = is16Bit ? 32768 : 128; i = 0;
@@ -450,17 +451,17 @@ static int32_t SDLCALL createEchoThread(void *ptr)
 		j = (j * echo_VolChange) / 100;
 		i++;
 	}
-	numEchoes = i + 1;
+	nEchoes = i + 1;
 
 	// set write length (either original length or full echo length)
 	writeLen = readLen;
 	if (echo_AddMemory)
 	{
-		dTmp = writeLen + ((double)distance * (numEchoes - 1));
-		if (dTmp > (double)MAX_SAMPLE_LEN)
+		tmp64 = writeLen + ((int64_t)distance * (nEchoes - 1));
+		if (tmp64 > MAX_SAMPLE_LEN)
 			writeLen = MAX_SAMPLE_LEN;
 		else
-			writeLen += distance * (numEchoes - 1);
+			writeLen += distance * (nEchoes - 1);
 
 		if (is16Bit)
 			writeLen &= 0xFFFFFFFE;
@@ -479,44 +480,60 @@ static int32_t SDLCALL createEchoThread(void *ptr)
 	restoreSample(s);
 
 	writeIdx = 0;
-	while (!stopThread && writeIdx < writeLen)
+
+	// scale value for faster math and suitable rounding for PCM waveforms (DIV -> arithmetic bitshift right)
+	volChange = (int32_t)round((echo_VolChange * 256) / 100.0);
+	if (volChange > 256)
+		volChange = 256;
+
+	if (is16Bit)
 	{
-		tmp32 = 0;
-		smpOut = 0;
-		smpMul = 32768;
+		readPtr16 = (int16_t *)readPtr;
+		writePtr16 = (int16_t *)writePtr;
 
-		echoRead = writeIdx;
-		echoCycle = numEchoes;
-
-		while (!stopThread && echoRead > 0 && echoCycle-- > 0)
+		writeLen >>= 1;
+		while (!stopThread && writeIdx < writeLen)
 		{
-			if (echoRead < readLen)
+			smpOut = 0;
+			smpMul = 32768;
+
+			echoRead = writeIdx;
+			echoCycle = nEchoes;
+
+			while (!stopThread && echoRead > 0 && echoCycle-- > 0)
 			{
-				if (is16Bit)
-					tmp32 = *(int16_t *)&readPtr[echoRead & 0xFFFFFFFE];
-				else
-					tmp32 = readPtr[echoRead] << 8;
+				if (echoRead < readLen)
+					smpOut += (readPtr16[echoRead] * smpMul) >> (16-1);
 
-				dTmp = (tmp32 * smpMul) / 32768.0;
-				double2int32_round(tmp32, dTmp);
-
-				smpOut += tmp32;
+				smpMul = (smpMul * volChange) >> 8;
+				echoRead -= distance;
 			}
+			CLAMP16(smpOut);
 
-			dTmp = (echo_VolChange * smpMul) / 100.0;
-			double2int32_round(smpMul, dTmp);
-
-			echoRead -= distance;
+			writePtr16[writeIdx++] = (int16_t)smpOut;
 		}
-		CLAMP16(smpOut);
+		writeLen <<= 1;
+	}
+	else
+	{
+		while (!stopThread && writeIdx < writeLen)
+		{
+			smpOut = 0;
+			smpMul = 65536;
 
-		if (is16Bit)
-		{
-			*(int16_t *)&writePtr[writeIdx & 0xFFFFFFFE] = (int16_t)smpOut;
-			writeIdx += 2;
-		}
-		else
-		{
+			echoRead = writeIdx;
+			echoCycle = nEchoes;
+
+			while (!stopThread && echoRead > 0 && echoCycle-- > 0)
+			{
+				if (echoRead < readLen)
+					smpOut += (readPtr[echoRead] * smpMul) >> (16-8);
+
+				smpMul = (smpMul * volChange) >> 8;
+				echoRead -= distance;
+			}
+			CLAMP16(smpOut);
+
 			writePtr[writeIdx++] = (int8_t)(smpOut >> 8);
 		}
 	}
@@ -821,8 +838,7 @@ static int32_t SDLCALL mixThread(void *ptr)
 	int8_t *destPtr, *mixPtr, *p;
 	uint8_t mixTyp, destTyp;
 	int16_t destIns, destSmp, mixIns, mixSmp;
-	int32_t smp32, x1, x2, i, destLen, mixLen, maxLen, dest8Size, max8Size, mix8Size;
-	double dSmp;
+	int32_t mixMul1, mixMul2, smp32, x1, x2, i, destLen, mixLen, maxLen, dest8Size, max8Size, mix8Size;
 
 	(void)ptr;
 
@@ -911,6 +927,12 @@ static int32_t SDLCALL mixThread(void *ptr)
 	if (instr[mixIns] != NULL)
 		restoreSample(&instr[mixIns]->samp[mixSmp]);
 
+	// scale value for faster math and suitable rounding for PCM waveforms (DIV -> arithmetic bitshift right)
+	mixMul1 = (int32_t)round((mix_Balance * 256) / 100.0);
+	if (mixMul1 > 256)
+		mixMul1 = 256;
+	mixMul2 = 256 - mixMul1;
+
 	for (i = 0; i < max8Size; i++)
 	{
 		x1 = (i >= mix8Size) ? 0 : getSampleValueNr(mixPtr, mixTyp, (mixTyp & 16) ? (i << 1) : i);
@@ -919,8 +941,7 @@ static int32_t SDLCALL mixThread(void *ptr)
 		if (!(mixTyp & 16)) x1 <<= 8;
 		if (!(destTyp & 16)) x2 <<= 8;
 
-		dSmp = (((double)x1 * mix_Balance) + ((double)x2 * (100 - mix_Balance))) / 100.0;
-		double2int32_round(smp32, dSmp);
+		smp32 = (int32_t)((((int64_t)x1 * mixMul1) + ((int64_t)x2 * mixMul2)) >> 8);
 		CLAMP16(smp32);
 
 		if (!(destTyp & 16))
@@ -1185,12 +1206,11 @@ static int32_t SDLCALL applyVolumeThread(void *ptr)
 {
 	int8_t *ptr8;
 	int16_t *ptr16;
-	int32_t smp, x1, x2, len, i;
-	double dSmp, dVolAdjust;
+	int32_t vol1, vol2, tmp32, x1, x2, len, i;
 	sampleTyp *s;
 
 	if (instr[editor.curInstr] == NULL)
-		return true;
+		goto applyVolumeExit;
 
 	s = &instr[editor.curInstr]->samp[editor.curSmp];
 
@@ -1208,11 +1228,7 @@ static int32_t SDLCALL applyVolumeThread(void *ptr)
 			x1 = 0;
 
 		if (x2 <= x1)
-		{
-			setMouseBusy(false);
-			editor.ui.sysReqShown = false;
-			return true;
-		}
+			goto applyVolumeExit;
 
 		if (s->typ & 16)
 		{
@@ -1233,21 +1249,25 @@ static int32_t SDLCALL applyVolumeThread(void *ptr)
 	}
 
 	len = x2 - x1;
+	if (len <= 0)
+		goto applyVolumeExit;
 
 	pauseAudio();
-
 	restoreSample(s);
+
+	// scale values for faster math and suitable rounding for PCM waveforms (DIV -> arithmetic bitshift right)
+	vol1 = (int32_t)round((vol_StartVol * 256) / 100.0);
+	vol2 = (int32_t)round((vol_EndVol * 256) / 100.0) - vol1;
+
 	if (s->typ & 16)
 	{
 		ptr16 = (int16_t *)s->pek;
 		for (i = x1; i < x2; i++)
 		{
-			dVolAdjust = vol_StartVol + (((vol_EndVol - vol_StartVol) * (double)(i - x1)) / len);
-
-			dSmp = (ptr16[i] * dVolAdjust) / 100.0;
-			double2int32_round(smp, dSmp);
-			CLAMP16(smp);
-			ptr16[i] = (int16_t)smp;
+			tmp32 = vol1 + (int32_t)(((int64_t)(i - x1) * vol2) / len);
+			tmp32 = (ptr16[i] * tmp32) >> 8;
+			CLAMP16(tmp32);
+			ptr16[i] = (int16_t)tmp32;
 		}
 	}
 	else
@@ -1255,21 +1275,19 @@ static int32_t SDLCALL applyVolumeThread(void *ptr)
 		ptr8 = s->pek;
 		for (i = x1; i < x2; i++)
 		{
-			dVolAdjust = vol_StartVol + (((vol_EndVol - vol_StartVol) * (double)(i - x1)) / len);
-
-			dSmp = (ptr8[i] * dVolAdjust) / 100.0;
-			double2int32_round(smp, dSmp);
-			CLAMP8(smp);
-			ptr8[i] = (int8_t)smp;
+			tmp32 = vol1 + (int32_t)(((int64_t)(i - x1) * vol2) / len);
+			tmp32 = (ptr8[i] * tmp32) >> 8;
+			CLAMP8(tmp32);
+			ptr8[i] = (int8_t)tmp32;
 		}
 	}
 	fixSample(s);
 
 	resumeAudio();
-
 	setSongModifiedFlag();
-	setMouseBusy(false);
 
+applyVolumeExit:
+	setMouseBusy(false);
 	editor.ui.sysReqShown = false;
 	return true;
 }
@@ -1279,7 +1297,7 @@ static void pbApplyVolume(void)
 	if (vol_StartVol == 100 && vol_EndVol == 100)
 	{
 		editor.ui.sysReqShown = false;
-		return; // we don't need to do anything
+		return; // no volume change to be done
 	}
 
 	mouseAnimOn();
@@ -1303,7 +1321,7 @@ static int32_t SDLCALL getMaxScaleThread(void *ptr)
 	(void)ptr;
 
 	if (instr[editor.curInstr] == NULL)
-		return true;
+		goto getScaleExit;
 
 	s = &instr[editor.curInstr]->samp[editor.curSmp];
 
@@ -1319,10 +1337,7 @@ static int32_t SDLCALL getMaxScaleThread(void *ptr)
 			x1 = 0;
 
 		if (x2 <= x1)
-		{
-			setMouseBusy(false);
-			return true;
-		}
+			goto getScaleExit;
 
 		if (s->typ & 16)
 		{
@@ -1340,6 +1355,13 @@ static int32_t SDLCALL getMaxScaleThread(void *ptr)
 	len = x2 - x1;
 	if (s->typ & 16)
 		len /= 2;
+
+	if (len <= 0)
+	{
+		vol_StartVol = 0;
+		vol_EndVol = 0;
+		goto getScaleExit;
+	}
 
 	restoreSample(s);
 
@@ -1384,6 +1406,7 @@ static int32_t SDLCALL getMaxScaleThread(void *ptr)
 		vol_EndVol = (int16_t)vol;
 	}
 
+getScaleExit:
 	setMouseBusy(false);
 	return true;
 }

@@ -160,28 +160,38 @@ void endFPSCounter(void)
 
 void flipFrame(void)
 {
+	uint32_t windowFlags = SDL_GetWindowFlags(video.window);
+
 	renderSprites();
-
 	drawFPSCounter();
-
 	SDL_UpdateTexture(video.texture, NULL, video.frameBuffer, SCREEN_W * sizeof (int32_t));
-
 	SDL_RenderClear(video.renderer);
 	SDL_RenderCopy(video.renderer, video.texture, NULL, NULL);
 	SDL_RenderPresent(video.renderer);
-
 	eraseSprites();
 
-	/* vsync is disabled if the window is minimized. Not sure if it's SDL2's fault or just
-	** how it works in the DWM. Anyhow, this means we need to call WaitVB() if so.
-	** In Fedora Linux on my laptop w/ GNOME3, VSync just turns itself off in fake fullscreen mode. (WTF?) */
-#ifdef __unix__
-	if (!video.vsync60HzPresent || (SDL_GetWindowFlags(video.window) & SDL_WINDOW_MINIMIZED) || video.fullscreen)
-		waitVBL();
+	if (!video.vsync60HzPresent)
+	{
+		waitVBL(); // we have no VSync, do crude thread sleeping to sync to ~60Hz
+	}
+	else
+	{
+		/* We have VSync, but it can unexpectedly get inactive in certain scenarios.
+		** We have to force thread sleeping (to ~60Hz) if so.
+		*/
+#ifdef __APPLE__
+		// macOS: VSync gets disabled if the window is 100% covered by another window. Let's add a (crude) fix:
+		if ((windowFlags & SDL_WINDOW_MINIMIZED) || !(windowFlags & SDL_WINDOW_INPUT_FOCUS))
+			waitVBL();
+#elif __unix__
+		// *NIX: VSync gets disabled in fullscreen mode (at least on some distros/systems). Let's add a fix:
+		if ((windowFlags & SDL_WINDOW_MINIMIZED) || video.fullscreen)
+			waitVBL();
 #else
-	if (!video.vsync60HzPresent || (SDL_GetWindowFlags(video.window) & SDL_WINDOW_MINIMIZED))
-		waitVBL();
+		if (!(windowFlags & SDL_WINDOW_MINIMIZED))
+			waitVBL();
 #endif
+	}
 
 	editor.framesPassed++;
 }
@@ -694,7 +704,6 @@ void waitVBL(void)
 	int32_t time32;
 	uint32_t diff32;
 	uint64_t time64;
-	double dTime;
 
 	time64 = SDL_GetPerformanceCounter();
 	if (time64 < timeNext64)
@@ -703,8 +712,7 @@ void waitVBL(void)
 		diff32 = (uint32_t)(timeNext64 - time64);
 
 		// convert and round to microseconds
-		dTime = diff32 * editor.dPerfFreqMulMicro;
-		double2int32_round(time32, dTime);
+		time32 = (int32_t)((diff32 * editor.dPerfFreqMulMicro) + 0.5);
 
 		// delay until we have reached next frame
 		if (time32 > 0)

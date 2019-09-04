@@ -87,6 +87,7 @@ void fixSampleName(int16_t nr) // removes spaces from right side of ins/smp name
 				else
 					break;
 			}
+			s->name[22] = '\0'; // just in case (for tracker, not present in sample header when saving)
 		}
 	}
 }
@@ -1373,7 +1374,7 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 			dVol *= envVal; // we need a float mul because it would overflow 32-bit integer
 			dVol *= 1.0 / ((64.0 * 64.0 * 32768.0 * 16384.0) / 2048.0); // 0..2048 (real FT2 is 0..256)
 
-			double2int32_round(vol, dVol);
+			vol = (int32_t)(dVol + 0.5);
 			if (vol > 2048)
 				vol = 2048;
 
@@ -1390,7 +1391,7 @@ static void fixaEnvelopeVibrato(stmTyp *ch)
 			dVol = song.globVol * ch->outVol * ch->fadeOutAmp;
 			dVol *= 1.0 / ((64.0 * 64.0 * 32768.0) / 2048.0); // 0..2048 (real FT2 is 0..256)
 
-			double2int32_round(vol, dVol);
+			vol = (int32_t)(dVol + 0.5);
 			if (vol > 2048)
 				vol = 2048;
 
@@ -2437,7 +2438,7 @@ void freeAllInstr(void)
 	{
 		if (instr[i] != NULL)
 		{
-			for (int8_t j = 0; j < 16; j++) // free sample data
+			for (int8_t j = 0; j < MAX_SMP_PER_INST; j++) // free sample data
 			{
 				if (instr[i]->samp[j].pek != NULL)
 					free(instr[i]->samp[j].pek);

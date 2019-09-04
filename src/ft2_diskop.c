@@ -15,6 +15,8 @@
 #include <direct.h>
 #include <shlobj.h> // SHGetFolderPathW()
 #else
+#include <sys/types.h>
+#include <sys/stat.h>
 #include <fts.h> // for fts_open() and stuff in recursiveDelete()
 #include <unistd.h>
 #include <dirent.h>
@@ -177,17 +179,17 @@ static void setupInitialPaths(void)
 	// the UNICHAR paths are already zeroed out
 
 #ifdef _WIN32
-	if (config.modulesPath[1]  != '\0') MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, &config.modulesPath[1],  -1, FReq_ModCurPathU, 80);
-	if (config.instrPath[1]    != '\0') MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, &config.instrPath[1],    -1, FReq_InsCurPathU, 80);
-	if (config.samplesPath[1]  != '\0') MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, &config.samplesPath[1],  -1, FReq_SmpCurPathU, 80);
-	if (config.patternsPath[1] != '\0') MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, &config.patternsPath[1], -1, FReq_PatCurPathU, 80);
-	if (config.tracksPath[1]   != '\0') MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, &config.tracksPath[1],   -1, FReq_TrkCurPathU, 80);
+	if (config.modulesPath[0]  != '\0') MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, config.modulesPath, -1, FReq_ModCurPathU, 80);
+	if (config.instrPath[0]    != '\0') MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, config.instrPath, -1, FReq_InsCurPathU, 80);
+	if (config.samplesPath[0]  != '\0') MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, config.samplesPath, -1, FReq_SmpCurPathU, 80);
+	if (config.patternsPath[0] != '\0') MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, config.patternsPath, -1, FReq_PatCurPathU, 80);
+	if (config.tracksPath[0]   != '\0') MultiByteToWideChar(CP_ACP, MB_PRECOMPOSED, config.tracksPath, -1, FReq_TrkCurPathU, 80);
 #else
-	if (config.modulesPath[1]  != '\0') strncpy(FReq_ModCurPathU, &config.modulesPath[1],  80);
-	if (config.instrPath[1]    != '\0') strncpy(FReq_InsCurPathU, &config.instrPath[1],    80);
-	if (config.samplesPath[1]  != '\0') strncpy(FReq_SmpCurPathU, &config.samplesPath[1],  80);
-	if (config.patternsPath[1] != '\0') strncpy(FReq_PatCurPathU, &config.patternsPath[1], 80);
-	if (config.tracksPath[1]   != '\0') strncpy(FReq_TrkCurPathU, &config.tracksPath[1],   80);
+	if (config.modulesPath[0]  != '\0') strncpy(FReq_ModCurPathU, config.modulesPath, 80);
+	if (config.instrPath[0]    != '\0') strncpy(FReq_InsCurPathU, config.instrPath, 80);
+	if (config.samplesPath[0]  != '\0') strncpy(FReq_SmpCurPathU, config.samplesPath, 80);
+	if (config.patternsPath[0] != '\0') strncpy(FReq_PatCurPathU, config.patternsPath, 80);
+	if (config.tracksPath[0]   != '\0') strncpy(FReq_TrkCurPathU, config.tracksPath, 80);
 #endif
 
 	// set initial path to user directory
@@ -1395,6 +1397,10 @@ static int8_t findFirst(DirRec *searchRec)
 	int64_t fSize;
 #endif
 
+#if defined(__sun) || defined(sun)
+	struct stat s;
+#endif
+
 	searchRec->nameU = NULL; // this one must be initialized
 
 #ifdef _WIN32
@@ -1422,9 +1428,19 @@ static int8_t findFirst(DirRec *searchRec)
 		return LFF_SKIP;
 
 	searchRec->filesize = 0;
-	searchRec->isDir = (fData->d_type == DT_DIR) ? true : false;
 
+#if defined(__sun) || defined(sun)
+	stat(fData->d_name, &s);
+	searchRec->isDir = (s.st_mode != S_IFDIR) ? true : false;
+#else
+	searchRec->isDir = (fData->d_type == DT_DIR) ? true : false;
+#endif
+
+#if defined(__sun) || defined(sun)
+	if (s.st_mode == S_IFLNK)
+#else
 	if (fData->d_type == DT_UNKNOWN || fData->d_type == DT_LNK)
+#endif
 	{
 		if (stat(fData->d_name, &st) == 0)
 		{
@@ -1467,6 +1483,10 @@ static int8_t findNext(DirRec *searchRec)
 	int64_t fSize;
 #endif
 
+#if defined(__sun) || defined(sun)
+	struct stat s;
+#endif
+
 	searchRec->nameU = NULL; // important
 
 #ifdef _WIN32
@@ -1488,9 +1508,19 @@ static int8_t findNext(DirRec *searchRec)
 		return LFF_SKIP;
 
 	searchRec->filesize = 0;
-	searchRec->isDir = (fData->d_type == DT_DIR) ? true : false;
 
+#if defined(__sun) || defined(sun)
+	stat(fData->d_name, &s);
+	searchRec->isDir = (s.st_mode != S_IFDIR) ? true : false;
+#else
+	searchRec->isDir = (fData->d_type == DT_DIR) ? true : false;
+#endif
+
+#if defined(__sun) || defined(sun)
+	if (s.st_mode == S_IFLNK)
+#else
 	if (fData->d_type == DT_UNKNOWN || fData->d_type == DT_LNK)
+#endif
 	{
 		if (stat(fData->d_name, &st) == 0)
 		{

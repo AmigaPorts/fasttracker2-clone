@@ -117,7 +117,6 @@ songS3MHeaderTyp;
 static volatile uint8_t loadedFormat;
 static volatile bool stereoSamplesWarn, linearFreqTable, musicIsLoading, moduleLoaded, moduleFailedToLoad;
 static uint8_t oldPlayMode, pattBuff[12288];
-static const uint8_t st2TempoFactor[16] = { 140, 50, 25, 15, 10, 7, 6, 4, 3, 3, 2, 2, 2, 2, 1, 1 };
 static const uint8_t stmEff[16] = { 0, 0, 11, 0, 10, 2, 1, 3, 4, 7, 0, 5 ,6, 0, 0, 0 };
 static SDL_Thread *thread;
 
@@ -593,22 +592,16 @@ modLoadError:
 	return false;
 }
 
-// taken with permission from the OpenMPT project (and slightly modified)
-static uint16_t stmTempoToBPM(uint8_t tempo)
+static uint8_t stmTempoToBPM(uint8_t tempo) // ported from original ST2.3 replayer code
 {
-	uint16_t bpm;
-	static const uint32_t st2MixingRate = 23863; // highest possible setting in ST2
-	int32_t samplesPerTick;
+	const uint8_t slowdowns[16] = { 140, 50, 25, 15, 10, 7, 6, 4, 3, 3, 2, 2, 2, 2, 1, 1 };
+	uint32_t bpm;
+	uint16_t hz = 50;
 
-	// this underflows at tempo 06...0F, and the resulting tick lengths depend on the mixing rate
-	samplesPerTick = st2MixingRate / (49 - ((st2TempoFactor[tempo >> 4] * (tempo & 0x0F)) / 16));
+	hz -= ((slowdowns[tempo >> 4] * (tempo & 15)) >> 4); // can and will underflow
 
-	// simulate unsigned 16-bit overflow
-	if (samplesPerTick <= 0)
-		samplesPerTick += 65536;
-
-	bpm = (uint16_t)round(st2MixingRate / (samplesPerTick / 2.5));
-	return CLAMP(bpm, 32, 255);
+	bpm = (uint32_t)round(hz * 2.5);
+	return (uint8_t)CLAMP(bpm, 32, 255); // result can be slightly off, but close enough...
 }
 
 static bool loadMusicSTM(FILE *f, uint32_t fileLength)

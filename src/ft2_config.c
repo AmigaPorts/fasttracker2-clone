@@ -73,7 +73,7 @@ static int32_t calcChecksum(uint8_t *p, uint16_t len) // for nibbles highscore d
 
 static void loadConfigFromBuffer(uint8_t defaults)
 {
-	int32_t checksum;
+	int32_t i, checksum;
 
 	lockMixerCallback();
 
@@ -89,10 +89,18 @@ static void loadConfigFromBuffer(uint8_t defaults)
 	// if Nibbles highscore table checksum is incorrect, load default highscore table instead
 	checksum = calcChecksum((uint8_t *)&config.NI_HighScore, sizeof (config.NI_HighScore));
 	if (config.NI_HighScoreChecksum != checksum)
+	{
 		memcpy(&config.NI_HighScore, &defConfigData[636], sizeof (config.NI_HighScore));
+		for (i = 0; i < 10; i++)
+		{
+			config.NI_HighScore[i].name[21] = '\0';
+			if (config.NI_HighScore[i].nameLen > 21)
+				config.NI_HighScore[i].nameLen = 21;
+		}
+	}
 
 	// clamp user palette values
-	for (int32_t i = 0; i < 16; i++)
+	for (i = 0; i < 16; i++)
 	{
 		config.userPal->r = palMax(config.userPal->r);
 		config.userPal->g = palMax(config.userPal->g);
@@ -350,21 +358,6 @@ void loadConfig2(void) // called by "Load config" button
 		SDL_ShowCursor(SDL_FALSE);
 }
 
-// used to calculate length of text in config's default paths (Pascal strings)
-static char getDefPathLen(char *ptr)
-{
-	int32_t i;
-
-	ptr++; // skip Pascal string length byte
-	for (i = 0; i < 80; i++)
-	{
-		if (ptr[i] == '\0')
-			break;
-	}
-
-	return (char)i;
-}
-
 bool saveConfig(bool showErrorFlag)
 {
 	FILE *out;
@@ -392,11 +385,11 @@ bool saveConfig(bool showErrorFlag)
 	config.NI_HighScoreChecksum = calcChecksum((uint8_t *)config.NI_HighScore, sizeof (config.NI_HighScore));
 
 	// set default path lengths (Pascal strings)
-	config.modulesPath[0] = getDefPathLen(config.modulesPath);
-	config.instrPath[0] = getDefPathLen(config.instrPath);
-	config.samplesPath[0] = getDefPathLen(config.samplesPath);
-	config.patternsPath[0] = getDefPathLen(config.patternsPath);
-	config.tracksPath[0] = getDefPathLen(config.tracksPath);
+	config.modulesPathLen = (uint8_t)strlen(config.modulesPath);
+	config.instrPathLen = (uint8_t)strlen(config.instrPath);
+	config.samplesPathLen = (uint8_t)strlen(config.samplesPath);
+	config.patternsPathLen = (uint8_t)strlen(config.patternsPath);
+	config.tracksPathLen = (uint8_t)strlen(config.tracksPath);
 
 	memcpy(configBuffer, &config, CONFIG_FILE_SIZE);
 

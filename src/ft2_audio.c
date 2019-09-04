@@ -171,7 +171,7 @@ void setSpeed(uint16_t bpm)
 		dFrac *= UINT32_MAX + 1.0;
 		if (dFrac > (double)UINT32_MAX)
 			dFrac = (double)UINT32_MAX;
-		double2int32_round(tickTimeLenFrac, dFrac);
+		tickTimeLenFrac = (uint32_t)dFrac;
 	}
 }
 

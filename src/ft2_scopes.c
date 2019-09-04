@@ -783,7 +783,6 @@ void drawScopeFramework(void)
 void handleScopesFromChQueue(chSyncData_t *chSyncData, uint8_t *scopeUpdateStatus)
 {
 	uint8_t status;
-	double dFrq;
 	syncedChannel_t *ch;
 	volatile scope_t *sc;
 	sampleTyp *smpPtr;
@@ -796,7 +795,7 @@ void handleScopesFromChQueue(chSyncData_t *chSyncData, uint8_t *scopeUpdateStatu
 
 		// set scope volume
 		if (status & IS_Vol)
-			sc->SVol = (int8_t)(((uint32_t)ch->finalVol * SCOPE_DATA_HEIGHT) >> 11);
+			sc->SVol = (int8_t)((ch->finalVol * SCOPE_DATA_HEIGHT) >> 11);
 
 		// set scope frequency
 		if (status & IS_Period)
@@ -804,8 +803,7 @@ void handleScopesFromChQueue(chSyncData_t *chSyncData, uint8_t *scopeUpdateStatu
 			if (ch->voiceDelta != oldVoiceDelta)
 			{
 				oldVoiceDelta = ch->voiceDelta;
-				dFrq = oldVoiceDelta * audio.dScopeFreqMul;
-				double2int32_round(oldSFrq, dFrq);
+				oldSFrq = (uint32_t)((oldVoiceDelta * audio.dScopeFreqMul) + 0.5);
 			}
 
 			sc->SFrq = oldSFrq;
@@ -836,7 +834,6 @@ static int32_t SDLCALL scopeThreadFunc(void *ptr)
 	int32_t time32;
 	uint32_t diff32;
 	uint64_t time64;
-	double dTime;
 
 	(void)ptr;
 
@@ -860,8 +857,7 @@ static int32_t SDLCALL scopeThreadFunc(void *ptr)
 			diff32 = (uint32_t)(timeNext64 - time64);
 
 			// convert to microseconds and round to integer
-			dTime = diff32 * editor.dPerfFreqMulMicro;
-			double2int32_round(time32, dTime);
+			time32 = (int32_t)((diff32 * editor.dPerfFreqMulMicro) + 0.5);
 
 			// delay until we have reached next tick
 			if (time32 > 0)

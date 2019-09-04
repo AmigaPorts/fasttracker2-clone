@@ -247,7 +247,7 @@ void restoreSample(sampleTyp *s)
 	}
 }
 
-int16_t getSampleValueNr(int8_t *ptr, uint8_t typ, int32_t pos)
+inline int16_t getSampleValueNr(int8_t *ptr, uint8_t typ, int32_t pos)
 {
 	assert(pos >= 0);
 	if (ptr == NULL)
@@ -264,7 +264,7 @@ int16_t getSampleValueNr(int8_t *ptr, uint8_t typ, int32_t pos)
 	}
 }
 
-void putSampleValueNr(int8_t *ptr, uint8_t typ, int32_t pos, int16_t val)
+inline void putSampleValueNr(int8_t *ptr, uint8_t typ, int32_t pos, int16_t val)
 {
 	assert(pos >= 0);
 	if (ptr == NULL)
@@ -743,7 +743,7 @@ static void sampleLine(int16_t x1, int16_t x2, int16_t y1, int16_t y2)
 
 static void getMinMax16(const void *p, uint32_t scanLen, int16_t *min16, int16_t *max16)
 {
-#if defined __APPLE__ || defined _WIN32 || defined __i386__ || defined __amd64__
+#if defined __APPLE__ || defined _WIN32 || defined __amd64__ || (defined __i386__ && defined __SSE2__)
 	if (cpu.hasSSE2)
 	{
 		/* Taken with permission from the OpenMPT project (and slightly modified).
@@ -769,37 +769,37 @@ static void getMinMax16(const void *p, uint32_t scanLen, int16_t *min16, int16_t
 			while (scanLen8--)
 			{
 				curVals = _mm_loadu_si128(v++);
-				minVal  = _mm_min_epi16(minVal, curVals);
-				maxVal  = _mm_max_epi16(maxVal, curVals);
+				minVal = _mm_min_epi16(minVal, curVals);
+				maxVal = _mm_max_epi16(maxVal, curVals);
 			}
 
 			/* Now we have 8 minima and maxima each.
 			** Move the upper 4 values to the lower half and compute the minima/maxima of that. */
 			minVal2 = _mm_unpackhi_epi64(minVal, minVal);
 			maxVal2 = _mm_unpackhi_epi64(maxVal, maxVal);
-			minVal  = _mm_min_epi16(minVal, minVal2);
-			maxVal  = _mm_max_epi16(maxVal, maxVal2);
+			minVal = _mm_min_epi16(minVal, minVal2);
+			maxVal = _mm_max_epi16(maxVal, maxVal2);
 
 			/* Now we have 4 minima and maxima each.
 			** Move the upper 2 values to the lower half and compute the minima/maxima of that. */
 			minVal2 = _mm_shuffle_epi32(minVal, _MM_SHUFFLE(1, 1, 1, 1));
 			maxVal2 = _mm_shuffle_epi32(maxVal, _MM_SHUFFLE(1, 1, 1, 1));
-			minVal  = _mm_min_epi16(minVal, minVal2);
-			maxVal  = _mm_max_epi16(maxVal, maxVal2);
+			minVal = _mm_min_epi16(minVal, minVal2);
+			maxVal = _mm_max_epi16(maxVal, maxVal2);
 
 			// Compute the minima/maxima of the both remaining values
 			minVal2 = _mm_shufflelo_epi16(minVal, _MM_SHUFFLE(1, 1, 1, 1));
 			maxVal2 = _mm_shufflelo_epi16(maxVal, _MM_SHUFFLE(1, 1, 1, 1));
-			minVal  = _mm_min_epi16(minVal, minVal2);
-			maxVal  = _mm_max_epi16(maxVal, maxVal2);
+			minVal = _mm_min_epi16(minVal, minVal2);
+			maxVal = _mm_max_epi16(maxVal, maxVal2);
 		}
 
 		p16 = (const int16_t *)p;
 		while (scanLen-- & 7)
 		{
 			curVals = _mm_set1_epi16(*p16++);
-			minVal  = _mm_min_epi16(minVal, curVals);
-			maxVal  = _mm_max_epi16(maxVal, curVals);
+			minVal = _mm_min_epi16(minVal, curVals);
+			maxVal = _mm_max_epi16(maxVal, curVals);
 		}
 
 		*min16 = (int16_t)_mm_cvtsi128_si32(minVal);
@@ -808,10 +808,10 @@ static void getMinMax16(const void *p, uint32_t scanLen, int16_t *min16, int16_t
 	else
 #endif
 	{
-		// non-SSE version (slow!)
+		// non-SSE version (really slow for big samples, especially when scrolling!)
 		int16_t smp16, minVal, maxVal, *ptr16;
 
-		minVal =  32767;
+		minVal = 32767;
 		maxVal = -32768;
 
 		ptr16 = (int16_t *)p;
@@ -829,7 +829,7 @@ static void getMinMax16(const void *p, uint32_t scanLen, int16_t *min16, int16_t
 
 static void getMinMax8(const void *p, uint32_t scanLen, int8_t *min8, int8_t *max8)
 {
-#if defined __APPLE__ || defined _WIN32 || defined __i386__ || defined __amd64__
+#if defined __APPLE__ || defined _WIN32 || defined __amd64__ || (defined __i386__ && defined __SSE2__)
 	if (cpu.hasSSE2)
 	{
 		/* Taken with permission from the OpenMPT project (and slightly modified).
@@ -859,44 +859,44 @@ static void getMinMax8(const void *p, uint32_t scanLen, int8_t *min8, int8_t *ma
 			{
 				curVals = _mm_loadu_si128(v++);
 				curVals = _mm_xor_si128(curVals, xorVal);
-				minVal  = _mm_min_epu8(minVal, curVals);
-				maxVal  = _mm_max_epu8(maxVal, curVals);
+				minVal = _mm_min_epu8(minVal, curVals);
+				maxVal = _mm_max_epu8(maxVal, curVals);
 			}
 
 			/* Now we have 16 minima and maxima each.
 			** Move the upper 8 values to the lower half and compute the minima/maxima of that. */
 			minVal2 = _mm_unpackhi_epi64(minVal, minVal);
 			maxVal2 = _mm_unpackhi_epi64(maxVal, maxVal);
-			minVal  = _mm_min_epu8(minVal, minVal2);
-			maxVal  = _mm_max_epu8(maxVal, maxVal2);
+			minVal = _mm_min_epu8(minVal, minVal2);
+			maxVal = _mm_max_epu8(maxVal, maxVal2);
 
 			/* Now we have 8 minima and maxima each.
 			** Move the upper 4 values to the lower half and compute the minima/maxima of that. */
 			minVal2 = _mm_shuffle_epi32(minVal, _MM_SHUFFLE(1, 1, 1, 1));
 			maxVal2 = _mm_shuffle_epi32(maxVal, _MM_SHUFFLE(1, 1, 1, 1));
-			minVal  = _mm_min_epu8(minVal, minVal2);
-			maxVal  = _mm_max_epu8(maxVal, maxVal2);
+			minVal = _mm_min_epu8(minVal, minVal2);
+			maxVal = _mm_max_epu8(maxVal, maxVal2);
 
 			/* Now we have 4 minima and maxima each.
 			** Move the upper 2 values to the lower half and compute the minima/maxima of that. */
 			minVal2 = _mm_srai_epi32(minVal, 16);
 			maxVal2 = _mm_srai_epi32(maxVal, 16);
-			minVal  = _mm_min_epu8(minVal, minVal2);
-			maxVal  = _mm_max_epu8(maxVal, maxVal2);
+			minVal = _mm_min_epu8(minVal, minVal2);
+			maxVal = _mm_max_epu8(maxVal, maxVal2);
 
 			// Compute the minima/maxima of the both remaining values
 			minVal2 = _mm_srai_epi16(minVal, 8);
 			maxVal2 = _mm_srai_epi16(maxVal, 8);
-			minVal  = _mm_min_epu8(minVal, minVal2);
-			maxVal  = _mm_max_epu8(maxVal, maxVal2);
+			minVal = _mm_min_epu8(minVal, minVal2);
+			maxVal = _mm_max_epu8(maxVal, maxVal2);
 		}
 
 		p8 = (const int8_t *)p;
 		while (scanLen-- & 15)
 		{
 			curVals = _mm_set1_epi8(*p8++ ^ 0x80);
-			minVal  = _mm_min_epu8(minVal, curVals);
-			maxVal  = _mm_max_epu8(maxVal, curVals);
+			minVal = _mm_min_epu8(minVal, curVals);
+			maxVal = _mm_max_epu8(maxVal, curVals);
 		}
 
 		*min8 = (int8_t)(_mm_cvtsi128_si32(minVal) ^ 0x80);
@@ -905,10 +905,10 @@ static void getMinMax8(const void *p, uint32_t scanLen, int8_t *min8, int8_t *ma
 	else
 #endif
 	{
-		// non-SSE version (slow!)
+		// non-SSE version (really slow for big samples, especially when scrolling!)
 		int8_t smp8, minVal, maxVal, *ptr8;
 
-		minVal =  127;
+		minVal = 127;
 		maxVal = -128;
 
 		ptr8 = (int8_t *)p;
@@ -1191,7 +1191,7 @@ void updateSampleEditorSample(void)
 void updateSampleEditor(void)
 {
 	char noteChar1, noteChar2, octaChar;
-	uint8_t note, sampleTyp;
+	uint8_t note, typ;
 	int32_t sampleLen;
 
 	if (!editor.ui.sampleEditorShown)
@@ -1199,18 +1199,18 @@ void updateSampleEditor(void)
 
 	if (instr[editor.curInstr] == NULL)
 	{
-		sampleTyp = 0;
+		typ = 0;
 		sampleLen = 0;
 	}
 	else
 	{
-		sampleTyp = instr[editor.curInstr]->samp[editor.curSmp].typ;
+		typ = instr[editor.curInstr]->samp[editor.curSmp].typ;
 		sampleLen = instr[editor.curInstr]->samp[editor.curSmp].len;
 	}
 
 	// sample bit depth radio buttons
 	uncheckRadioButtonGroup(RB_GROUP_SAMPLE_DEPTH);
-	if (sampleTyp & 16)
+	if (typ & 16)
 		radioButtons[RB_SAMPLE_16BIT].state = RADIOBUTTON_CHECKED;
 	else
 		radioButtons[RB_SAMPLE_8BIT].state = RADIOBUTTON_CHECKED;
@@ -1218,9 +1218,9 @@ void updateSampleEditor(void)
 
 	// sample loop radio buttons
 	uncheckRadioButtonGroup(RB_GROUP_SAMPLE_LOOP);
-	if (sampleTyp & 3)
+	if (typ & 3)
 	{
-		if (sampleTyp & 2)
+		if (typ & 2)
 			radioButtons[RB_SAMPLE_PINGPONG_LOOP].state = RADIOBUTTON_CHECKED;
 		else
 			radioButtons[RB_SAMPLE_FORWARD_LOOP].state = RADIOBUTTON_CHECKED;

@@ -95,7 +95,8 @@ enum
 #endif
 typedef struct highScoreType_t
 {
-	char name[1+22];
+	uint8_t nameLen;
+	char name[22];
 	int32_t score;
 	uint8_t level;
 }
@@ -129,7 +130,16 @@ typedef struct config_t // exact FT2.CFG layout (with some modifications)
 	uint8_t recMIDIAllowPC, smpCutToBuffer, ptnCutToBuffer, killNotesOnStopPlay;
 	uint8_t specialFlags; // was lo-byte of "ptnDefaultLen" (never used in FT2)
 	uint8_t windowFlags; // was hi-byte of "ptnDefaultLen" (never used in FT2)
-	char modulesPath[1+80], instrPath[1+80], samplesPath[1+80], patternsPath[1+80], tracksPath[1+80];
+	uint8_t modulesPathLen;
+	char modulesPath[79+1];
+	uint8_t instrPathLen;
+	char instrPath[79+1];
+	uint8_t samplesPathLen;
+	char samplesPath[79+1];
+	uint8_t patternsPathLen;
+	char patternsPath[79+1];
+	uint8_t tracksPathLen;
+	char tracksPath[79+1];
 	uint8_t id_FastLogo, id_TritonProd;
 	int16_t cfg_StdPalNr;
 	uint8_t cfg_AutoSave;

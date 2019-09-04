@@ -13,7 +13,7 @@
 #endif
 #include "ft2_replayer.h"
 
-#define BETA_VERSION 163
+#define BETA_VERSION 165
 
 // do NOT change these! It will only mess things up...
 
@@ -69,34 +69,6 @@
 	(((uint32_t)((value) & 0x00FF0000)) >>  8) | \
 	(((uint32_t)((value) & 0xFF000000)) >> 24)   \
 )
-
-// - float/double to int32_t intrinsics -
-
-#if defined __APPLE__ || defined __amd64__ || defined _WIN64 // guaranteed to have SSE and SSE2
-
-#define float2int32_round(i, f) (i = _mm_cvt_ss2si(_mm_load_ss(&f)))
-#define double2int32_round(i, d) (i = _mm_cvtsd_si32(_mm_load_sd(&d)))
-
-#elif defined _WIN32 || defined __i386__ // may have SSE and SSE2
-
-#define float2int32_round(i, f) \
-	if (cpu.hasSSE) \
-		i = _mm_cvt_ss2si(_mm_load_ss(&f)); \
-	else \
-		 i = (int32_t)roundf(f); \
-
-#define double2int32_round(i, d) \
-	if (cpu.hasSSE2) \
-		i = _mm_cvtsd_si32(_mm_load_sd(&d)); \
-	else \
-		i = (int32_t)round(d); \
-
-#else // no SSE/SSE2 on this architecture, let the compiler optimize
-
-#define float2int32_round(i, f) i = (int32_t)roundf(f);
-#define double2int32_round(i, d) i = (int32_t)round(d);
-
-#endif
 
 struct cpu_t
 {

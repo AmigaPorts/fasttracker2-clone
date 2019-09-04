@@ -793,11 +793,11 @@ void updateTextBoxPointers(void)
 
 void setupInitialTextBoxPointers(void)
 {
-	textBoxes[TB_CONF_DEF_MODS_DIR].textPtr = &config.modulesPath[1];
-	textBoxes[TB_CONF_DEF_INSTRS_DIR].textPtr = &config.instrPath[1];
-	textBoxes[TB_CONF_DEF_SAMPS_DIR].textPtr = &config.samplesPath[1];
-	textBoxes[TB_CONF_DEF_PATTS_DIR].textPtr = &config.patternsPath[1];
-	textBoxes[TB_CONF_DEF_TRACKS_DIR].textPtr = &config.tracksPath[1];
+	textBoxes[TB_CONF_DEF_MODS_DIR].textPtr = config.modulesPath;
+	textBoxes[TB_CONF_DEF_INSTRS_DIR].textPtr = config.instrPath;
+	textBoxes[TB_CONF_DEF_SAMPS_DIR].textPtr = config.samplesPath;
+	textBoxes[TB_CONF_DEF_PATTS_DIR].textPtr = config.patternsPath;
+	textBoxes[TB_CONF_DEF_TRACKS_DIR].textPtr = config.tracksPath;
 }
 
 void setTextCursorToEnd(textBox_t *t)
