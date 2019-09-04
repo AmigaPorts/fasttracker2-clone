@@ -1,0 +1,44 @@
+---- Guide on how to compile the FT2 clone for Mac/Windows/Linux ---
+
+LINUX NOTE: This code is NOT Big-endian compatible! And converting it would take
+            a ton of time, as I fread()/fwrite() directly to/from structs and
+            stuff (like original FT2). The structs are also packed, with
+            unaligned 16-bit/32-bit entries, so the clone might fail on certain
+            CPUs (except x86/x86_64, ARM11 and never). The clone might also
+            behave slightly wrong if bitshift-right on signed numbers is
+            compiled into using logical shift (LSR/SLR) instead of arithmetic
+            shift (ASR/SAR). Most CPUs have ASR/SAR instructions.
+              
+      
+Compiled Windows/macOS binaries are always available at 16-bits.org/ft2.php
+
+
+== COMPILING ON LINUX (Little-endian only!) ==
+ 1. Install the following packages:
+    Ubuntu/Debian and similar: build-essential libsdl2-dev
+    Fedora: gcc gcc-g++ alsa-lib-devel SDL2-devel
+    Others: www.google.com (you want gcc, g++, alsa dev and SDL2 dev)
+ 2. Compile the FT2 clone:     (folder: "ft2-clone-code")
+    chmod +x make-linux.sh     (only needed once)
+    ./make-linux.sh 
+       
+ Known issues: Audio recording (sampling) can update VERY slowly or not work at
+               all... I have no idea why, it works really well on Windows/maCOS.
+
+== COMPILING ON WINDOWS 7 SP1 OR NEWER ==
+ 1. Download and install Visual Studio Community 2017 (it's free)
+ 2. Open it and install ALL updates (flag icon to the right in the window title)
+ 3. Open "ft2-clone-code\vs2017_project\ft2-clone.sln"
+ 4. If you're missing the Windows 10 SDK, then you need to change the Windows
+    SDK version used in the project settings for both debug and release x86/x64.
+ 5. Compile (make sure it's in Release mode. Also note x86/x64)
+
+
+== COMPILING ON MAC OS X 10.7 OR NEWER ==
+ 1. Install XCode, it's in the App Store
+ 2. Download the SDL 2.0.9 framework here:
+    https://www.libsdl.org/release/SDL2-2.0.9.dmg
+ 3. Inside the package, copy SDL2.framework to /Library/Frameworks/
+ 4. Compile the FT2 clone:     (folder: "ft2-clone-code"):
+    chmod +x make-os-x.sh      (only needed once)
+   ./make-os-x.sh

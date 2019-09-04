@@ -1,0 +1,484 @@
+/* for finding memory leaks in debug mode with Visual Studio */
+#if defined _DEBUG && defined _MSC_VER
+#include <crtdbg.h>
+#endif
+
+#ifdef _WIN32
+#define WIN32_MEAN_AND_LEAN
+#include <windows.h>
+#include <SDL2/SDL_syswm.h>
+#else
+#include <limits.h> /* UINT_MAX etc */
+#include <signal.h>
+#include <unistd.h> /* chdir() */
+#endif
+#include <stdio.h>
+#include <sys/stat.h>
+#include "ft2_header.h"
+#include "ft2_config.h"
+#include "ft2_diskop.h"
+#include "ft2_module_loader.h"
+#include "ft2_module_saver.h"
+#include "ft2_sample_loader.h"
+#include "ft2_mouse.h"
+#include "ft2_midi.h"
+#include "ft2_video.h"
+#include "ft2_trim.h"
+#include "ft2_inst_ed.h"
+#include "ft2_sampling.h"
+#include "ft2_textboxes.h"
+#include "ft2_sysreqs.h"
+#include "ft2_keyboard.h"
+
+#ifdef __APPLE__
+static uint8_t commandQ_Kludge;
+#endif
+static uint8_t backupMadeAfterCrash;
+
+#ifdef _WIN32
+#define SYSMSG_FILE_ARG (WM_USER + 1)
+#define ARGV_SHARED_MEM_MAX_LEN ((MAX_PATH * 2) + 2)
+#define SHARED_HWND_NAME TEXT("Local\\FT2CloneHwnd")
+#define SHARED_FILENAME TEXT("Local\\FT2CloneFilename")
+static HWND hWnd;
+static HANDLE oneInstHandle, hMapFile;
+static LPCTSTR sharedMemBuf;
+#endif
+
+void handleEvents(void)
+{
+    /* called after MIDI has been initialized */
+    if (midi.rescanDevicesFlag)
+    {
+        midi.rescanDevicesFlag = false;
+
+        rescanMidiInputDevices();
+        if (editor.ui.configScreenShown && (editor.currentConfigScreen == CONFIG_SCREEN_MIDI_INPUT))
+            drawMidiInputList();
+    }
+
+    /* check if we were done trimming the song, update visuals */
+    if (editor.trimThreadWasDone)
+    {
+        editor.trimThreadWasDone = false;
+        trimThreadDone();
+    }
+
+    /* this flag is set from the sample/instrument loader threads (and make echo thread) */
+    if (editor.ui.updateLoadedSample)
+    {
+        editor.ui.updateLoadedSample = false;
+
+        updateNewInstrument();
+        updateNewSample();
+
+        diskOpSetFilename(DISKOP_ITEM_SAMPLE, editor.tmpFilenameU);
+
+        removeSampleIsLoadingFlag();
+        setMouseBusy(false);
+    }
+
+    /* called after loading an instrument */
+    if (editor.ui.updateLoadedInstrument)
+    {
+        editor.ui.updateLoadedInstrument = false;
+
+        updateNewInstrument();
+        updateNewSample();
+
+        diskOpSetFilename(DISKOP_ITEM_INSTR, editor.tmpInstrFilenameU);
+        setMouseBusy(false);
+    }
+
+    /* some Disk Op. stuff */
+
+    if (editor.diskOpReadDir)
+    {
+        editor.diskOpReadDir = false;
+        startDiskOpFillThread();
+    }
+
+    if (editor.diskOpReadDone)
+    {
+        editor.diskOpReadDone = false;
+        if (editor.ui.diskOpShown)
+            diskOp_DrawDirectory();
+    }
+
+    handleLoadMusicEvents();
+
+    if (editor.samplingAudioFlag) handleSamplingUpdates();
+    if (editor.ui.setMouseBusy)   setMouseBusyShape();
+    if (editor.ui.setMouseIdle)   setMouseIdleShape();
+
+    if (editor.updateWindowTitle)
+    {
+        editor.updateWindowTitle = false;
+        updateWindowTitle(false);
+    }
+}
+
+/* Windows specific routines */
+#ifdef _WIN32
+static int8_t instanceAlreadyOpen(void)
+{
+    hMapFile = OpenFileMapping(FILE_MAP_ALL_ACCESS, FALSE, SHARED_HWND_NAME);
+    if (hMapFile != NULL)
+        return (true); /* another instance is already open */
+
+    /* no instance is open, let's created a shared memory file with hWnd in it */
+    oneInstHandle = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, sizeof (HWND), SHARED_HWND_NAME);
+    if (oneInstHandle != NULL)
+    {
+        sharedMemBuf = (LPTSTR)(MapViewOfFile(oneInstHandle, FILE_MAP_ALL_ACCESS, 0, 0, sizeof (HWND)));
+        if (sharedMemBuf != NULL)
+        {
+            CopyMemory((PVOID)(sharedMemBuf), &video.hWnd, sizeof (HWND));
+            UnmapViewOfFile(sharedMemBuf);
+            sharedMemBuf = NULL;
+        }
+    }
+
+    return (false);
+}
+
+int8_t handleSingleInstancing(int32_t argc, char **argv)
+{
+    if (instanceAlreadyOpen())
+    {
+        if ((argc >= 2) && (argv[1][0] != '\0'))
+        {
+            sharedMemBuf = (LPTSTR)(MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS, 0, 0, sizeof (HWND)));
+            if (sharedMemBuf != NULL)
+            {
+                memcpy(&hWnd, sharedMemBuf, sizeof (HWND));
+                UnmapViewOfFile(sharedMemBuf);
+                sharedMemBuf = NULL;
+
+                CloseHandle(hMapFile);
+                hMapFile = NULL;
+
+                hMapFile = CreateFileMapping(INVALID_HANDLE_VALUE, NULL, PAGE_READWRITE, 0, ARGV_SHARED_MEM_MAX_LEN, SHARED_FILENAME);
+                if (hMapFile != NULL)
+                {
+                    sharedMemBuf = (LPTSTR)(MapViewOfFile(hMapFile, FILE_MAP_ALL_ACCESS, 0, 0, ARGV_SHARED_MEM_MAX_LEN));
+                    if (sharedMemBuf != NULL)
+                    {
+                        strcpy((char *)(sharedMemBuf), argv[1]);
+                        UnmapViewOfFile(sharedMemBuf);
+                        sharedMemBuf = NULL;
+
+                        SendMessage(hWnd, SYSMSG_FILE_ARG, 0, 0);
+                        Sleep(80); /* wait a bit to make sure first instance received msg */
+
+                        CloseHandle(hMapFile);
+                        hMapFile = NULL;
+
+                        return (true); /* quit instance now */
+                    }
+                }
+
+                return (true);
+            }
+
+            CloseHandle(hMapFile);
+            hMapFile = NULL;
+        }
+    }
+
+    return (false);
+}
+
+static void handleSysMsg(SDL_Event inputEvent)
+{
+    SDL_SysWMmsg *wmMsg;
+
+    if (inputEvent.type == SDL_SYSWMEVENT)
+    {
+        wmMsg = inputEvent.syswm.msg;
+        if ((wmMsg->subsystem == SDL_SYSWM_WINDOWS) && (wmMsg->msg.win.msg == SYSMSG_FILE_ARG))
+        {
+            hMapFile = OpenFileMapping(FILE_MAP_READ, FALSE, SHARED_FILENAME);
+            if (hMapFile != NULL)
+            {
+                sharedMemBuf = (LPTSTR)(MapViewOfFile(hMapFile, FILE_MAP_READ, 0, 0, ARGV_SHARED_MEM_MAX_LEN));
+                if (sharedMemBuf != NULL)
+                {
+                    editor.autoPlayOnDrop = true;
+                    loadDroppedFile((char *)(sharedMemBuf), true);
+
+                    UnmapViewOfFile(sharedMemBuf);
+                    sharedMemBuf = NULL;
+
+                    SDL_RestoreWindow(video.window);
+                }
+
+                CloseHandle(hMapFile);
+                hMapFile = NULL;
+            }
+        }
+    }
+}
+
+void closeSingleInstancing(void)
+{
+    if (oneInstHandle != NULL)
+    {
+        CloseHandle(oneInstHandle);
+        oneInstHandle = NULL;
+    }
+}
+
+static LONG WINAPI exceptionHandler(EXCEPTION_POINTERS *ptr)
+{
+#define BACKUP_FILES_TO_TRY 1000
+    char fileName[32];
+    uint16_t i;
+    UNICHAR *fileNameU;
+    struct stat statBuffer;
+
+    (void)(ptr);
+
+    if (oneInstHandle != NULL)
+        CloseHandle(oneInstHandle);
+
+    if (!backupMadeAfterCrash)
+    {
+        if ((getDiskOpModPath() != NULL) && (UNICHAR_CHDIR(getDiskOpModPath()) == 0))
+        {
+            /* find a free filename */
+            for (i = 1; i < 1000; ++i)
+            {
+                sprintf(fileName, "backup%03d.xm", i);
+                if (stat(fileName, &statBuffer) != 0)
+                    break; /* filename OK */
+            }
+
+            if (i != 1000)
+            {
+                fileNameU = cp437ToUnichar(fileName);
+                if (fileNameU != NULL)
+                {
+                    saveXM(fileNameU);
+                    free(fileNameU);
+                }
+            }
+        }
+
+        backupMadeAfterCrash = true; /* set this flag to prevent multiple backups from being saved at once */
+
+        showErrorMsgBox("Oh no!\nThe Fasttracker II clone has crashed...\n\nA backup .xm was hopefully " \
+                        "saved to the current module directory.\n\nPlease report this to 8bitbubsy " \
+                        "(IRC or olav.sorensen@live.no).\nTry to mention what you did before the crash happened.");
+    }
+
+    return (EXCEPTION_CONTINUE_SEARCH);
+}
+#else
+static void exceptionHandler(int32_t signal)
+{
+#define BACKUP_FILES_TO_TRY 1000
+    char fileName[32];
+    uint16_t i;
+    UNICHAR *fileNameU;
+    struct stat statBuffer;
+
+    if (signal == 15)
+        return;
+
+    if (!backupMadeAfterCrash)
+    {
+        if ((getDiskOpModPath() != NULL) && (UNICHAR_CHDIR(getDiskOpModPath()) == 0))
+        {
+            /* find a free filename */
+            for (i = 1; i < 1000; ++i)
+            {
+                sprintf(fileName, "backup%03d.xm", i);
+                if (stat(fileName, &statBuffer) != 0)
+                    break; /* filename OK */
+            }
+
+            if (i != 1000)
+            {
+                fileNameU = cp437ToUnichar(fileName);
+                if (fileNameU != NULL)
+                {
+                    saveXM(fileNameU);
+                    free(fileNameU);
+                }
+            }
+        }
+
+        backupMadeAfterCrash = true; /* set this flag to prevent multiple backups from being saved at once */
+
+        showErrorMsgBox("Oh no!\nThe Fasttracker II clone has crashed...\n\nA backup .xm was hopefully " \
+                        "saved to the current module directory.\n\nPlease report this to 8bitbubsy " \
+                        "(IRC or olav.sorensen@live.no).\nTry to mention what you did before the crash happened.");
+    }
+}
+#endif
+
+void setupCrashHandler(void)
+{
+#ifndef _DEBUG
+#ifdef _WIN32
+    SetUnhandledExceptionFilter(exceptionHandler);
+#else
+    struct sigaction act;
+    struct sigaction oldAct;
+
+    memset(&act, 0, sizeof (act));
+    act.sa_handler = exceptionHandler;
+    act.sa_flags   = SA_RESETHAND;
+
+    sigaction(SIGILL | SIGABRT | SIGFPE | SIGSEGV, &act, &oldAct);
+    sigaction(SIGILL,  &act, &oldAct);
+    sigaction(SIGABRT, &act, &oldAct);
+    sigaction(SIGFPE,  &act, &oldAct);
+    sigaction(SIGSEGV, &act, &oldAct);
+#endif
+#endif
+}
+
+void handleInput(void)
+{
+    char *inputText;
+    uint8_t vibDepth;
+    SDL_Event inputEvent;
+
+     if (!editor.busy)
+        handleLastGUIObjectDown(); /* this should be handled before main input poll (on next frame) */
+
+    SDL_PumpEvents();
+    while (SDL_PollEvent(&inputEvent))
+    {
+        if (editor.busy)
+        {
+            /* let certain mouse buttons or keyboard keys stop certain events */
+            if ((inputEvent.type == SDL_MOUSEBUTTONDOWN) || ((inputEvent.type == SDL_KEYDOWN) &&
+                (inputEvent.key.keysym.scancode != SDL_SCANCODE_MUTE) &&
+                (inputEvent.key.keysym.scancode != SDL_SCANCODE_AUDIOMUTE) &&
+                (inputEvent.key.keysym.scancode != SDL_SCANCODE_VOLUMEDOWN) &&
+                (inputEvent.key.keysym.scancode != SDL_SCANCODE_VOLUMEUP)))
+            {
+                /* only let keyboard keys interrupt audio sampling */
+                if (editor.samplingAudioFlag && (inputEvent.type != SDL_MOUSEBUTTONDOWN))
+                    stopSampling();
+
+                editor.wavIsRendering = false;
+            }
+
+            continue; /* another thread is busy with something, drop input */
+        }
+
+#ifdef _WIN32
+        handleSysMsg(inputEvent);
+#endif
+        /* text input when editing texts */
+        if (editor.ui.editTextFlag && (inputEvent.type == SDL_TEXTINPUT))
+        {
+            if (keyb.ignoreTextEditKey)
+            {
+                keyb.ignoreTextEditKey = false;
+                continue;
+            }
+
+            inputText = utf8ToCp437(inputEvent.text.text, false);
+            if (inputText == NULL)
+                continue; /* continue SDL event loop */
+
+            if (inputText[0] == '\0')
+            {
+                free(inputText);
+                continue;
+            }
+
+            handleTextEditInputChar(inputText[0]);
+            free(inputText);
+
+            continue;
+        }
+
+        if (inputEvent.type == SDL_MOUSEWHEEL)
+        {
+                 if (inputEvent.wheel.y > 0) mouseWheelHandler(MOUSE_WHEEL_UP);
+            else if (inputEvent.wheel.y < 0) mouseWheelHandler(MOUSE_WHEEL_DOWN);
+        }
+        else if (inputEvent.type == SDL_DROPFILE)
+        {
+            editor.autoPlayOnDrop = false;
+            loadDroppedFile(inputEvent.drop.file, true);
+            SDL_free(inputEvent.drop.file);
+            SDL_RaiseWindow(video.window); /* set window focus */
+        }
+        else if (inputEvent.type == SDL_QUIT)
+        {
+            if (editor.ui.editTextFlag)
+                exitTextEditing();
+
+            /* hack for making Command-Q ask if you want to quit */
+#ifdef __APPLE__
+            if (commandQ_Kludge)
+            {
+                commandQ_Kludge = false;
+
+                if (!editor.ui.systemRequestShown)
+                {
+                    if (!song.isModified)
+                        sysReqQueue(SR_EXIT);
+                    else
+                        sysReqQueue(SR_EXIT_SONG_MODIFIED);
+                }
+            }
+            else
+#endif
+
+            if (!song.isModified)
+            {
+                editor.ui.throwExit = true;
+            }
+            else
+            {
+                if (!editor.ui.systemRequestShown)
+                    sysReqQueue(SR_EXIT_SONG_MODIFIED);
+
+                if (!video.fullscreen)
+                {
+                    /* de-minimize window and set focus so that the user sees the message box */
+                    SDL_RestoreWindow(video.window);
+                    SDL_RaiseWindow(video.window);
+                }
+            }
+        }
+        else if (inputEvent.type == SDL_KEYUP)
+        {
+            keyUpHandler(inputEvent.key.keysym.scancode, inputEvent.key.keysym.sym);
+        }
+        else if (inputEvent.type == SDL_KEYDOWN)
+        {
+            /* hack for making Command-Q ask if you want to quit */
+#ifdef __APPLE__
+            if ((inputEvent.key.keysym.sym == SDLK_q) && (inputEvent.key.keysym.mod & (KMOD_LGUI | KMOD_RGUI)))
+                commandQ_Kludge = true;
+            else
+#endif
+            keyDownHandler(inputEvent.key.keysym.scancode, inputEvent.key.keysym.sym, inputEvent.key.repeat);
+        }
+        else if (inputEvent.type == SDL_MOUSEBUTTONUP)
+        {
+            mouseButtonUpHandler(inputEvent.button.button);
+        }
+        else if (inputEvent.type == SDL_MOUSEBUTTONDOWN)
+        {
+            mouseButtonDownHandler(inputEvent.button.button);
+        }
+
+        if (editor.ui.throwExit)
+            editor.programRunning = false;
+    }
+
+    /* MIDI vibrato */
+    vibDepth = (midi.currMIDIVibDepth >> 9) & 0x0F;
+    if (vibDepth > 0)
+        recordMIDIEffect(0x04, 0xA0 | vibDepth);
+}
