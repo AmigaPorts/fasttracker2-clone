@@ -224,6 +224,7 @@ void aboutFrame(void)
 void showAboutScreen(void) // called once when About screen is opened
 {
 	const char *infoString = "Clone by Olav \"8bitbubsy\" S\025rensen - https://16-bits.org";
+	const char *extraInfo = "SDL1.2/BigEndian version by Marlon Beijer @ AmigaDev.com";
 	char betaText[32];
 	uint16_t x, y;
 
@@ -241,8 +242,13 @@ void showAboutScreen(void) // called once when About screen is opened
     blit(146, 113, aboutText, ABOUT_TEXT_W, ABOUT_TEXT_H);
 
 	x = 5 + (SCREEN_W - textWidth(infoString)) / 2;
-	y = 151;
+	y = 148;
 	textOut(x, y, PAL_FORGRND, infoString);
+
+	x = 5 + (SCREEN_W - textWidth(extraInfo)) / 2;
+	y = 160;
+	textOut(x, y, PAL_FORGRND, extraInfo);
+
 
 	sprintf(betaText, "beta v.%d", BETA_VERSION);
 	x = (3 + ABOUT_SCREEN_W) - (textWidth(betaText) + 3);
