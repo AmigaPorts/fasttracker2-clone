@@ -43,6 +43,7 @@ enum
 	// custom clone palettes
 	PAL_LOOPPIN = 16,
 	PAL_TEXTMRK = 17,
+	PAL_BOXSLCT = 18,
 
 	PAL_NUM
 };

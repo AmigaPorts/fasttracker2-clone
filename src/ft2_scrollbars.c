@@ -75,7 +75,7 @@ scrollBar_t scrollBars[NUM_SCROLLBARS] =
 	// ------ CONFIG AUDIO SCROLLBARS ------
 	//x,   y,   w,  h,  type,                 style                   funcOnDown
 	{ 365,  29, 18, 43, SCROLLBAR_VERTICAL,   SCROLLBAR_THUMB_FLAT,   sbAudOutputSetPos },
-	{ 365, 116, 18, 42, SCROLLBAR_VERTICAL,   SCROLLBAR_THUMB_FLAT,   sbAudInputSetPos },
+	{ 365, 116, 18, 21, SCROLLBAR_VERTICAL,   SCROLLBAR_THUMB_FLAT,   sbAudInputSetPos },
 	{ 529, 132, 79, 13, SCROLLBAR_HORIZONTAL, SCROLLBAR_THUMB_NOFLAT, sbAmp },
 	{ 529, 158, 79, 13, SCROLLBAR_HORIZONTAL, SCROLLBAR_THUMB_NOFLAT, sbMasterVol },
 
@@ -650,7 +650,7 @@ void initializeScrollBars(void)
 	setScrollBarEnd(SB_MIDI_SENS, 200);
 	setScrollBarPageLength(SB_AUDIO_OUTPUT_SCROLL, 6);
 	setScrollBarEnd(SB_AUDIO_OUTPUT_SCROLL, 1);
-	setScrollBarPageLength(SB_AUDIO_INPUT_SCROLL, 6);
+	setScrollBarPageLength(SB_AUDIO_INPUT_SCROLL, 4);
 	setScrollBarEnd(SB_AUDIO_INPUT_SCROLL, 1);
 	setScrollBarPageLength(SB_MIDI_INPUT_SCROLL, 15);
 	setScrollBarEnd(SB_MIDI_INPUT_SCROLL, 1);

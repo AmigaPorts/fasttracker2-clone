@@ -107,7 +107,6 @@ void updateSendAudSamplesRoutine(bool lockMixer);
 void mix_SaveIPVolumes(void);
 void mix_UpdateChannelVolPanFrq(void);
 uint32_t mixReplayerTickToBuffer(uint8_t *stream, uint8_t bitDepth);
-//void benchmarkAudioChannelMixer(void); // for development testing
 
 extern pattSyncData_t *pattSyncEntry;
 extern chSyncData_t *chSyncEntry;

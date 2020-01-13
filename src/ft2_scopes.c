@@ -27,7 +27,7 @@ enum
 	LOOP_PINGPONG = 2
 };
 
-#define SCOPE_DATA_HEIGHT 36
+#define SCOPE_HEIGHT 36
 
 // data to be read from main update thread during sample trigger
 typedef struct scopeState_t
@@ -208,9 +208,8 @@ static void drawScopeNumber(uint16_t scopeXOffs, uint16_t scopeYOffs, uint8_t ch
 static void redrawScope(int16_t ch)
 {
 	uint8_t chansPerRow;
-	int16_t i, chanLookup, scopeLen, muteGfxLen, muteGfxX;
 	const uint16_t *scopeLens;
-	uint16_t x, y;
+	uint16_t x, y, i, chanLookup, scopeLen, muteGfxLen, muteGfxX;
 
 	chansPerRow = song.antChn / 2;
 	chanLookup = chansPerRow - 1;
@@ -455,59 +454,48 @@ static void updateScopes(void)
 		// scope position update
 
 		tempState.SPosDec += tempState.SFrq;
-		if (tempState.SPosDec >= 65536)
+		tempState.SPos += ((tempState.SPosDec >> 16) ^ tempState.posXOR);
+		tempState.SPosDec &= 0xFFFF;
+
+		// handle loop wrapping or sample end
+
+		if (tempState.posXOR == 0xFFFFFFFF && tempState.SPos < tempState.SRepS) // sampling backwards (definitely pingpong loop)
 		{
-			tempState.SPos += ((tempState.SPosDec >> 16) ^ tempState.posXOR);
-			tempState.SPosDec &= 0xFFFF;
+			tempState.posXOR = 0; // change direction to forwards
 
-			// handle loop wrapping or sample end
+			if (tempState.SRepL < 2)
+				tempState.SPos = tempState.SRepS;
+			else
+				tempState.SPos = tempState.SRepS + ((tempState.SRepS - tempState.SPos - 1) % tempState.SRepL);
 
-			if (tempState.posXOR == 0xFFFFFFFF) // sampling backwards (definitely pingpong loop)
+			assert(tempState.SPos >= tempState.SRepS && tempState.SPos < tempState.SLen);
+		}
+		else if (tempState.SPos >= tempState.SLen)
+		{
+			if (tempState.SRepL < 2)
+				loopOverflowVal = 0;
+			else
+				loopOverflowVal = (tempState.SPos - tempState.SLen) % tempState.SRepL;
+
+			if (tempState.loopType == LOOP_NONE)
 			{
-				if (tempState.SPos < tempState.SRepS)
-				{
-					tempState.posXOR = 0; // change direction to forwards
-
-					if (tempState.SRepL < 2)
-						tempState.SPos = tempState.SRepS;
-					else
-						tempState.SPos = tempState.SRepS + ((tempState.SRepS - tempState.SPos - 1) % tempState.SRepL);
-
-					assert(tempState.SPos >= tempState.SRepS && tempState.SPos < tempState.SLen);
-				}
+				tempState.active = false;
 			}
-			else if (tempState.loopType == LOOP_NONE) // no loop
+			else if (tempState.loopType == LOOP_FORWARD)
 			{
-				if (tempState.SPos >= tempState.SLen)
-				{
-					tempState.SPos = tempState.SLen - 1;
-					tempState.active = false;
-				}
-			}
-			else if (tempState.SPos >= tempState.SLen) // forward or pingpong loop
-			{
-				if (tempState.SRepL < 2)
-					loopOverflowVal = 0;
-				else
-					loopOverflowVal = (tempState.SPos - tempState.SLen) % tempState.SRepL;
-
-				if (tempState.loopType == LOOP_PINGPONG)
-				{
-					tempState.posXOR = 0xFFFFFFFF; // change direction to backwards
-					tempState.SPos = (tempState.SLen - 1) - loopOverflowVal;
-				}
-				else // forward loop
-				{
-					tempState.SPos = tempState.SRepS + loopOverflowVal;
-				}
-
+				tempState.SPos = tempState.SRepS + loopOverflowVal;
 				assert(tempState.SPos >= tempState.SRepS && tempState.SPos < tempState.SLen);
 			}
-
-			assert(tempState.SPos >= 0 && tempState.SPos < tempState.SLen);
-
-			*sc = tempState; // update it
+			else // pingpong loop
+			{
+				tempState.posXOR = 0xFFFFFFFF; // change direction to backwards
+				tempState.SPos = (tempState.SLen - 1) - loopOverflowVal;
+				assert(tempState.SPos >= tempState.SRepS && tempState.SPos < tempState.SLen);
+			}
 		}
+		assert(tempState.SPos >= 0);
+
+		*sc = tempState; // update scope state
 	}
 	scopesUpdatingFlag = false;
 }
@@ -563,7 +551,7 @@ static inline int8_t getScaledScopeSample8(scope_t *sc, int32_t drawPos)
 		return 0;
 
 	assert(drawPos >= 0 && drawPos < sc->SLen);
-	return (int8_t)((sc->sampleData8[drawPos] * sc->SVol) >> 8);
+	return (sc->sampleData8[drawPos] * sc->SVol) >> 8;
 }
 
 static inline int8_t getScaledScopeSample16(scope_t *sc, int32_t drawPos)
@@ -575,52 +563,47 @@ static inline int8_t getScaledScopeSample16(scope_t *sc, int32_t drawPos)
 	return (int8_t)((sc->sampleData16[drawPos] * sc->SVol) >> 16);
 }
 
-#define SCOPE_UPDATE_POS \
+#define SCOPE_UPDATE_DRAWPOS \
 	scopeDrawFrac += s.SFrq >> 6; \
-	if (scopeDrawFrac >= 65536) \
+	scopeDrawPos += ((scopeDrawFrac >> 16) ^ drawPosXOR); \
+	scopeDrawFrac &= 0xFFFF; \
+	\
+	if (drawPosXOR == 0xFFFFFFFF && scopeDrawPos < s.SRepS) /* sampling backwards (definitely pingpong loop) */ \
 	{ \
-		scopeDrawPos  += (int32_t)((scopeDrawFrac >> 16) ^ drawPosXOR); \
-		scopeDrawFrac &= 0xFFFF; \
+		drawPosXOR = 0; /* change direction to forwards */ \
+		\
+		if (s.SRepL < 2) \
+			scopeDrawPos = s.SRepS; \
+		else \
+			scopeDrawPos = s.SRepS + ((s.SRepS - scopeDrawPos - 1) % s.SRepL); \
+		\
+		assert(scopeDrawPos >= s.SRepS && scopeDrawPos < s.SLen); \
+	} \
+	else if (scopeDrawPos >= s.SLen) \
+	{ \
+		if (s.SRepL < 2) \
+			loopOverflowVal = 0; \
+		else \
+			loopOverflowVal = (scopeDrawPos - s.SLen) % s.SRepL; \
 		\
 		if (s.loopType == LOOP_NONE) \
 		{ \
-			if (scopeDrawPos >= s.SLen) \
-				s.active = false; \
+			s.active = false; \
 		} \
-		else if (drawPosXOR == 0xFFFFFFFF) /* sampling backwards (definitely pingpong loop) */ \
+		else if (s.loopType == LOOP_FORWARD) \
 		{ \
-			if (scopeDrawPos < s.SRepS) \
-			{ \
-				drawPosXOR = 0; /* change direction to forwards */ \
-				\
-				if (s.SRepL < 2) \
-					scopeDrawPos = s.SRepS; \
-				else \
-					scopeDrawPos = s.SRepS + ((s.SRepS - scopeDrawPos - 1) % s.SRepL); \
-				\
-				assert(scopeDrawPos >= s.SRepS && scopeDrawPos < s.SLen); \
-			} \
-		} \
-		else if (scopeDrawPos >= s.SLen) /* forward or pingpong loop */ \
-		{ \
-			if (s.SRepL < 2) \
-				loopOverflowVal = 0; \
-			else \
-				loopOverflowVal = (scopeDrawPos - s.SLen) % s.SRepL; \
-			\
-			if (s.loopType == LOOP_PINGPONG) \
-			{ \
-				drawPosXOR = 0xFFFFFFFF; /* change direction to backwards */ \
-				scopeDrawPos = (s.SLen - 1) - loopOverflowVal; \
-			} \
-			else /* forward loop */ \
-			{ \
-				scopeDrawPos = s.SRepS + loopOverflowVal; \
-			} \
-			\
+			scopeDrawPos = s.SRepS + loopOverflowVal; \
 			assert(scopeDrawPos >= s.SRepS && scopeDrawPos < s.SLen); \
 		} \
+		else /* pingpong loop */ \
+		{ \
+			drawPosXOR = 0xFFFFFFFF; /* change direction to backwards */ \
+			scopeDrawPos = (s.SLen - 1) - loopOverflowVal; \
+			assert(scopeDrawPos >= s.SRepS && scopeDrawPos < s.SLen); \
+		} \
+		\
 	} \
+	assert(scopeDrawPos >= 0); \
 
 void drawScopes(void)
 {
@@ -642,7 +625,7 @@ void drawScopes(void)
 
 	for (int16_t i = 0; i < song.antChn; i++)
 	{
-		// if we reached the last channel on the row, go to bottom left
+		// if we reached the last scope on the row, go to first scope on the next row
 		if (i == chansPerRow)
 		{
 			scopeXOffs = 3;
@@ -652,122 +635,123 @@ void drawScopes(void)
 
 		scopeDrawLen = scopeLens[i];
 
-		if (editor.chnMode[i])
+		if (!editor.chnMode[i]) // scope muted (mute graphics blit()'ed elsewhere)
 		{
-			s = scope[i]; // cache scope to lower thread race condition issues
+			scopeXOffs += scopeDrawLen + 3; // align x to next scope
+			continue;
+		}
 
-			if (s.active && s.SVol > 0 && !audio.locked)
+		s = scope[i]; // cache scope to lower thread race condition issues
+		if (s.active && s.SVol > 0 && !audio.locked)
+		{
+			// scope is active
+
+			scope[i].wasCleared = false;
+
+			// clear scope background
+			clearRect(scopeXOffs, scopeYOffs, scopeDrawLen, SCOPE_HEIGHT);
+
+			scopeDrawPos = s.SPos;
+			scopeDrawFrac = 0;
+			drawPosXOR = s.posXOR;
+
+			// draw current scope
+			if (config.specialFlags & LINED_SCOPES)
 			{
-				// scope is active
+				// LINE SCOPE
 
-				scope[i].wasCleared = false;
-
-				// clear scope background
-				clearRect(scopeXOffs, scopeYOffs, scopeDrawLen, SCOPE_DATA_HEIGHT);
-
-				scopeDrawPos = s.SPos;
-				scopeDrawFrac = 0;
-				drawPosXOR = s.posXOR;
-
-				// draw current scope
-				if (config.specialFlags & LINED_SCOPES)
+				if (s.sample16Bit)
 				{
-					// LINE SCOPE
+					y1 = scopeLineY - getScaledScopeSample16(&s, scopeDrawPos);
+					SCOPE_UPDATE_DRAWPOS
 
-					if (s.sample16Bit)
+					x16 = scopeXOffs;
+					len = scopeXOffs + (scopeDrawLen - 1);
+
+					for (; x16 < len; x16++)
 					{
-						y1 = scopeLineY - getScaledScopeSample16(&s, scopeDrawPos);
-						SCOPE_UPDATE_POS
+						y2 = scopeLineY - getScaledScopeSample16(&s, scopeDrawPos);
+						scopeLine(x16, y1, y2);
+						y1 = y2;
 
-						x16 = scopeXOffs;
-						len = scopeXOffs + (scopeDrawLen - 1);
-
-						for (; x16 < len; x16++)
-						{
-							y2 = scopeLineY - getScaledScopeSample16(&s, scopeDrawPos);
-							scopeLine(x16, y1, y2);
-							y1 = y2;
-
-							SCOPE_UPDATE_POS
-						}
-					}
-					else
-					{
-						y1 = scopeLineY - getScaledScopeSample8(&s, scopeDrawPos);
-						SCOPE_UPDATE_POS
-
-						x16 = scopeXOffs;
-						len = scopeXOffs + (scopeDrawLen - 1);
-
-						for (; x16 < len; x16++)
-						{
-							y2 = scopeLineY - getScaledScopeSample8(&s, scopeDrawPos);
-							scopeLine(x16, y1, y2);
-							y1 = y2;
-
-							SCOPE_UPDATE_POS
-						}
+						SCOPE_UPDATE_DRAWPOS
 					}
 				}
 				else
 				{
-					// PIXEL SCOPE
+					y1 = scopeLineY - getScaledScopeSample8(&s, scopeDrawPos);
+					SCOPE_UPDATE_DRAWPOS
 
-					scopePixelColor = video.palette[PAL_PATTEXT];
+					x16 = scopeXOffs;
+					len = scopeXOffs + (scopeDrawLen - 1);
 
-					x = scopeXOffs;
-					len = scopeXOffs + scopeDrawLen;
-
-					if (s.sample16Bit)
+					for (; x16 < len; x16++)
 					{
-						for (; x < len; x++)
-						{
-							sample = getScaledScopeSample16(&s, scopeDrawPos);
-							video.frameBuffer[((scopeLineY - sample) * SCREEN_W) + x] = scopePixelColor;
+						y2 = scopeLineY - getScaledScopeSample8(&s, scopeDrawPos);
+						scopeLine(x16, y1, y2);
+						y1 = y2;
 
-							SCOPE_UPDATE_POS
-						}
-					}
-					else
-					{
-						for (; x < len; x++)
-						{
-							sample = getScaledScopeSample8(&s, scopeDrawPos);
-							video.frameBuffer[((scopeLineY - sample) * SCREEN_W) + x] = scopePixelColor;
-
-							SCOPE_UPDATE_POS
-						}
+						SCOPE_UPDATE_DRAWPOS
 					}
 				}
 			}
 			else
 			{
-				// scope is inactive
+				// PIXEL SCOPE
 
-				sc = &scope[i];
-				if (!sc->wasCleared)
+				scopePixelColor = video.palette[PAL_PATTEXT];
+
+				x = scopeXOffs;
+				len = scopeXOffs + scopeDrawLen;
+
+				if (s.sample16Bit)
 				{
-					// clear scope background
-					clearRect(scopeXOffs, scopeYOffs, scopeDrawLen, SCOPE_DATA_HEIGHT);
+					for (; x < len; x++)
+					{
+						sample = getScaledScopeSample16(&s, scopeDrawPos);
+						video.frameBuffer[((scopeLineY - sample) * SCREEN_W) + x] = scopePixelColor;
 
-					// draw empty line
-					hLine(scopeXOffs, scopeLineY, scopeDrawLen, PAL_PATTEXT);
+						SCOPE_UPDATE_DRAWPOS
+					}
+				}
+				else
+				{
+					for (; x < len; x++)
+					{
+						sample = getScaledScopeSample8(&s, scopeDrawPos);
+						video.frameBuffer[((scopeLineY - sample) * SCREEN_W) + x] = scopePixelColor;
 
-					sc->wasCleared = true;
+						SCOPE_UPDATE_DRAWPOS
+					}
 				}
 			}
+		}
+		else
+		{
+			// scope is inactive
 
-			// draw channel numbering (if enabled)
-			if (config.ptnChnNumbers)
-				drawScopeNumber(scopeXOffs, scopeYOffs, (uint8_t)i, false);
+			sc = &scope[i];
+			if (!sc->wasCleared)
+			{
+				// clear scope background
+				clearRect(scopeXOffs, scopeYOffs, scopeDrawLen, SCOPE_HEIGHT);
 
-			// draw rec. symbol (if enabled)
-			if (config.multiRecChn[i])
-				blit(scopeXOffs, scopeYOffs + 31, scopeRecBMP, 13, 4);
+				// draw empty line
+				hLine(scopeXOffs, scopeLineY, scopeDrawLen, PAL_PATTEXT);
+
+				sc->wasCleared = true;
+			}
 		}
 
-		// align x to next scope
-		scopeXOffs += scopeDrawLen + 3;
+		// draw channel numbering (if enabled)
+		if (config.ptnChnNumbers)
+			drawScopeNumber(scopeXOffs, scopeYOffs, (uint8_t)i, false);
+
+		// draw rec. symbol (if enabled)
+		if (config.multiRecChn[i])
+			blit(scopeXOffs, scopeYOffs + 31, scopeRecBMP, 13, 4);
+
+		scopeXOffs += scopeDrawLen + 3; // align x to next scope
 	}
 
 	scopesDisplayingFlag = false;
@@ -795,7 +779,7 @@ void handleScopesFromChQueue(chSyncData_t *chSyncData, uint8_t *scopeUpdateStatu
 
 		// set scope volume
 		if (status & IS_Vol)
-			sc->SVol = (int8_t)((ch->finalVol * SCOPE_DATA_HEIGHT) >> 11);
+			sc->SVol = (int8_t)(((ch->finalVol * SCOPE_HEIGHT) + (1 << 10)) >> 11); // rounded
 
 		// set scope frequency
 		if (status & IS_Period)
@@ -803,7 +787,7 @@ void handleScopesFromChQueue(chSyncData_t *chSyncData, uint8_t *scopeUpdateStatu
 			if (ch->voiceDelta != oldVoiceDelta)
 			{
 				oldVoiceDelta = ch->voiceDelta;
-				oldSFrq = (uint32_t)((oldVoiceDelta * audio.dScopeFreqMul) + 0.5);
+				oldSFrq = (uint32_t)((oldVoiceDelta * audio.dScopeFreqMul) + 0.5); // rounded
 			}
 
 			sc->SFrq = oldSFrq;

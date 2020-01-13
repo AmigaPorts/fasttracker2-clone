@@ -212,7 +212,7 @@ void flipFrame(void)
 		if ((windowFlags & SDL_WINDOW_MINIMIZED) || video.fullscreen)
 			waitVBL();
 #else
-		if (!(windowFlags & SDL_WINDOW_MINIMIZED))
+		if (windowFlags & SDL_WINDOW_MINIMIZED)
 			waitVBL();
 #endif
 	}
@@ -292,6 +292,11 @@ void updateRenderSizeVars(void)
 		video.renderX = 0;
 		video.renderY = 0;
 	}
+
+	// for mouse cursor creation
+	video.xScale = (uint32_t)round(video.renderW / (double)SCREEN_W);
+	video.yScale = (uint32_t)round(video.renderH / (double)SCREEN_H);
+	createMouseCursors();
 }
 
 void enterFullscreen(void)
@@ -849,16 +854,16 @@ void updateWindowTitle(bool forceUpdate)
 	if (songTitle != NULL)
 	{
 		if (song.isModified)
-			sprintf(wndTitle, "Fasttracker II clone (beta #%d) - \"%s\" (unsaved)", BETA_VERSION, songTitle);
+			sprintf(wndTitle, "Fasttracker II clone v%s - \"%s\" (unsaved)", PROG_VER_STR, songTitle);
 		else
-			sprintf(wndTitle, "Fasttracker II clone (beta #%d) - \"%s\"", BETA_VERSION, songTitle);
+			sprintf(wndTitle, "Fasttracker II clone v%s - \"%s\"", PROG_VER_STR, songTitle);
 	}
 	else
 	{
 		if (song.isModified)
-			sprintf(wndTitle, "Fasttracker II clone (beta #%d) - \"untitled\" (unsaved)", BETA_VERSION);
+			sprintf(wndTitle, "Fasttracker II clone v%s - \"untitled\" (unsaved)", PROG_VER_STR);
 		else
-			sprintf(wndTitle, "Fasttracker II clone (beta #%d) - \"untitled\"", BETA_VERSION);
+			sprintf(wndTitle, "Fasttracker II clone v%s - \"untitled\"", PROG_VER_STR);
 	}
 
 	SDL_SetWindowTitle(video.window, wndTitle);
@@ -896,7 +901,11 @@ bool setupWindow(void)
 	SDL_DisplayMode dm;
 
 	video.vsync60HzPresent = false;
-	windowFlags = SDL_WINDOW_HIDDEN | SDL_WINDOW_ALLOW_HIGHDPI;
+
+	windowFlags = SDL_WINDOW_ALLOW_HIGHDPI;
+#if defined (__APPLE__) || defined (_WIN32) // yet another quirk!
+	windowFlags |= SDL_WINDOW_HIDDEN;
+#endif
 
 	setWindowSizeFromConfig(false);
 
@@ -913,10 +922,12 @@ bool setupWindow(void)
 
 	if (config.windowFlags & FORCE_VSYNC_OFF)
 		video.vsync60HzPresent = false;
-
+#ifdef __AMIGA__
+	video.upscaleFactor = 1;
+#endif
 	video.window = SDL_CreateWindow("", SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-					SCREEN_W /* video.upscaleFactor*/, SCREEN_H /* video.upscaleFactor*/,
-					windowFlags);
+		SCREEN_W * video.upscaleFactor, SCREEN_H * video.upscaleFactor,
+		windowFlags);
 
 	if (video.window == NULL)
 	{
@@ -924,8 +935,12 @@ bool setupWindow(void)
 		return false;
 	}
 
-	updateWindowTitle(true);
+#ifdef __APPLE__ // for macOS we need to do this here for reasons I can't be bothered to explain
+	SDL_PumpEvents();
+	SDL_ShowWindow(video.window);
+#endif
 
+	updateWindowTitle(true);
 	return true;
 }
 
@@ -933,7 +948,7 @@ bool setupRenderer(void)
 {
 	uint32_t rendererFlags;
 
-	rendererFlags = 0;
+	rendererFlags = SDL_RENDERER_ACCELERATED;
 	if (video.vsync60HzPresent)
 		rendererFlags |= SDL_RENDERER_PRESENTVSYNC;
 
@@ -1042,6 +1057,13 @@ void handleRedrawing(void)
 						else if (playMode == PLAYMODE_RECPATT) textOut(115, 80, PAL_FORGRND, "> Rec. ptn. <");
 					}
 				}
+			}
+
+			if (editor.ui.updatePosEdScrollBar)
+			{
+				editor.ui.updatePosEdScrollBar = false;
+				setScrollBarPos(SB_POS_ED, song.songPos, false);
+				setScrollBarEnd(SB_POS_ED, (song.len - 1) + 5);
 			}
 
 			if (!editor.ui.extended)

@@ -22,6 +22,7 @@ void setPal16(pal16 *p, bool redrawScreen)
 {
 #define LOOP_PIN_COL_SUB 106
 #define TEXT_MARK_COLOR 0x0078D7
+#define BOX_SELECT_COLOR 0x7F7F7F
 
 	int16_t r, g, b;
 
@@ -38,6 +39,7 @@ void setPal16(pal16 *p, bool redrawScreen)
 	// set custom FT2 clone palette entries
 
 	video.palette[PAL_TEXTMRK] = (PAL_TEXTMRK << 24) | TEXT_MARK_COLOR;
+	video.palette[PAL_BOXSLCT] = (PAL_BOXSLCT << 24) | BOX_SELECT_COLOR;
 
 	r = RGB32_R(video.palette[PAL_PATTEXT]);
 	g = RGB32_G(video.palette[PAL_PATTEXT]);
@@ -59,7 +61,7 @@ void setPal16(pal16 *p, bool redrawScreen)
 
 static void showColorErrorMsg(void)
 {
-	okBox(0, "System message", "Default colours cannot be modified.");
+	okBox(0, "System message", "Default colors cannot be modified.");
 }
 
 static double palPow(double dX, double dY)
@@ -124,6 +126,13 @@ static void paletteDragMoved(void)
 	{
 		updatePaletteEditor(); // resets colors/contrast vars
 		showColorErrorMsg();
+		return;
+	}
+
+	if ((config.specialFlags2 & HARDWARE_MOUSE) && cfg_ColorNr == 3)
+	{
+		updatePaletteEditor(); // resets colors/contrast vars
+		okBox(0, "System message", "Mouse color can only be changed when \"Software mouse\" is enabled.");
 		return;
 	}
 

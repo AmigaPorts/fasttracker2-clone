@@ -301,7 +301,7 @@ uint32_t getSampleMiddleCRate(sampleTyp *s)
 	// replayer is shifting the finetune to the right by 3
 	dFTune = (s->fine >> 3) / (128.0 / (double)(1 << 3));
 
-	return (uint32_t)round(8363.0 * pow(2.0, (s->relTon + dFTune) / 12.0));
+	return (uint32_t)round(8363.0 * exp2((s->relTon + dFTune) / 12.0));
 }
 
 int32_t getSampleRangeStart(void)
@@ -3355,8 +3355,8 @@ void drawSampleEditorExt(void)
 
 	textOutShadow( 4,  96, PAL_FORGRND, PAL_DSKTOP2, "Rng.:");
 	charOutShadow(91,  95, PAL_FORGRND, PAL_DSKTOP2, '-');
-	textOutShadow( 4, 109, PAL_FORGRND, PAL_DSKTOP2, "Rangesize");
-	textOutShadow( 4, 123, PAL_FORGRND, PAL_DSKTOP2, "Copybuffersize");
+	textOutShadow( 4, 109, PAL_FORGRND, PAL_DSKTOP2, "Range size");
+	textOutShadow( 4, 123, PAL_FORGRND, PAL_DSKTOP2, "Copy buf. size");
 
 	textOutShadow(162,  95, PAL_FORGRND, PAL_DSKTOP2, "Src.instr.");
 	textOutShadow(245,  96, PAL_FORGRND, PAL_DSKTOP2, "smp.");

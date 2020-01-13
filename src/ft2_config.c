@@ -24,6 +24,7 @@
 #include "ft2_pattern_ed.h"
 #include "ft2_mouse.h"
 #include "ft2_wav_renderer.h"
+#include "ft2_sampling.h"
 #include "ft2_audioselector.h"
 #ifdef MIDI_ENABLED
 #include "ft2_midi.h"
@@ -154,8 +155,24 @@ static void loadConfigFromBuffer(uint8_t defaults)
 #endif
 	}
 
+	if (config.audioInputFreq <= 1) // default value from FT2 (this was cdr_Sync) - set defaults
+	{
+#ifdef __APPLE__
+		config.audioInputFreq = INPUT_FREQ_44KHZ;
+#else
+		config.audioInputFreq = INPUT_FREQ_48KHZ;
+#endif
+	}
+
 	if (config.specialFlags == 64) // default value from FT2 (this was ptnDefaultLen byte #1) - set defaults
 		config.specialFlags = BUFFSIZE_1024 | BITDEPTH_16;
+
+	if (config.specialFlags & 64) // deprecated BUFFSIZE_4096 ("Very large") setting
+	{
+		// set to current highest setting ("Large" aka. 2048)
+		config.specialFlags &= ~(BUFFSIZE_1024 + 64);
+		config.specialFlags |= BUFFSIZE_2048;
+	}
 
 	if (config.windowFlags == 0) // default value from FT2 (this was ptnDefaultLen byte #2) - set defaults
 		config.windowFlags = WINSIZE_AUTO;
@@ -796,7 +813,6 @@ void setConfigIORadioButtonStates(void) // accessed by other .c files
 	tmpID = RB_CONFIG_SBS_1024;
 	     if (config.specialFlags & BUFFSIZE_512)  tmpID = RB_CONFIG_SBS_512;
 	else if (config.specialFlags & BUFFSIZE_2048) tmpID = RB_CONFIG_SBS_2048;
-	else if (config.specialFlags & BUFFSIZE_4096) tmpID = RB_CONFIG_SBS_4096;
 
 	radioButtons[tmpID].state = RADIOBUTTON_CHECKED;
 
@@ -824,6 +840,21 @@ void setConfigIORadioButtonStates(void) // accessed by other .c files
 	}
 	radioButtons[tmpID].state = RADIOBUTTON_CHECKED;
 
+	// AUDIO INPUT FREQUENCY
+	uncheckRadioButtonGroup(RB_GROUP_CONFIG_AUDIO_INPUT_FREQ);
+	switch (config.audioInputFreq)
+	{
+#ifdef __APPLE__
+		default: case INPUT_FREQ_44KHZ: tmpID = RB_CONFIG_AUDIO_INPUT_44KHZ; break;
+		         case INPUT_FREQ_48KHZ: tmpID = RB_CONFIG_AUDIO_INPUT_48KHZ; break;
+#else
+		         case INPUT_FREQ_44KHZ: tmpID = RB_CONFIG_AUDIO_INPUT_44KHZ; break;
+		default: case INPUT_FREQ_48KHZ: tmpID = RB_CONFIG_AUDIO_INPUT_48KHZ; break;
+#endif
+		         case INPUT_FREQ_96KHZ: tmpID = RB_CONFIG_AUDIO_INPUT_96KHZ; break;
+	}
+	radioButtons[tmpID].state = RADIOBUTTON_CHECKED;
+
 	// FREQUENCY TABLE
 	uncheckRadioButtonGroup(RB_GROUP_CONFIG_FREQ_TABLE);
 	tmpID = audio.linearFreqTable ? RB_CONFIG_FREQ_LINEAR : RB_CONFIG_FREQ_AMIGA;
@@ -834,6 +865,7 @@ void setConfigIORadioButtonStates(void) // accessed by other .c files
 	showRadioButtonGroup(RB_GROUP_CONFIG_SOUND_BUFF_SIZE);
 	showRadioButtonGroup(RB_GROUP_CONFIG_AUDIO_BIT_DEPTH);
 	showRadioButtonGroup(RB_GROUP_CONFIG_AUDIO_FREQ);
+	showRadioButtonGroup(RB_GROUP_CONFIG_AUDIO_INPUT_FREQ);
 	showRadioButtonGroup(RB_GROUP_CONFIG_FREQ_TABLE);
 }
 
@@ -858,7 +890,7 @@ static void setConfigLayoutCheckButtonStates(void)
 	checkBoxes[CB_CONF_LINECOLORS].checked = config.ptnLineLight;
 	checkBoxes[CB_CONF_CHANNUMS].checked = config.ptnChnNumbers;
 	checkBoxes[CB_CONF_SHOW_VOLCOL].checked = config.ptnS3M;
-	checkBoxes[CB_CONF_HARDWARE_MOUSE].checked = (config.specialFlags2 & HARDWARE_MOUSE) ? true : false;
+	checkBoxes[CB_CONF_SOFTWARE_MOUSE].checked = (config.specialFlags2 & HARDWARE_MOUSE) ? false : true;
 
 	showCheckBox(CB_CONF_PATTSTRETCH);
 	showCheckBox(CB_CONF_HEXCOUNT);
@@ -868,7 +900,7 @@ static void setConfigLayoutCheckButtonStates(void)
 	showCheckBox(CB_CONF_LINECOLORS);
 	showCheckBox(CB_CONF_CHANNUMS);
 	showCheckBox(CB_CONF_SHOW_VOLCOL);
-	showCheckBox(CB_CONF_HARDWARE_MOUSE);
+	showCheckBox(CB_CONF_SOFTWARE_MOUSE);
 }
 
 static void setConfigLayoutRadioButtonStates(void)
@@ -883,7 +915,7 @@ static void setConfigLayoutRadioButtonStates(void)
 		case MOUSE_IDLE_SHAPE_NICE:    tmpID = RB_CONFIG_MOUSE_NICE;    break;
 		case MOUSE_IDLE_SHAPE_UGLY:    tmpID = RB_CONFIG_MOUSE_UGLY;    break;
 		case MOUSE_IDLE_SHAPE_AWFUL:   tmpID = RB_CONFIG_MOUSE_AWFUL;   break;
-		case MOUSE_IDLE_SHAPE_USEABLE: tmpID = RB_CONFIG_MOUSE_USEABLE; break;
+		case MOUSE_IDLE_SHAPE_USABLE:  tmpID = RB_CONFIG_MOUSE_USABLE;  break;
 	}
 	radioButtons[tmpID].state = RADIOBUTTON_CHECKED;
 
@@ -909,7 +941,7 @@ static void setConfigLayoutRadioButtonStates(void)
 		case MOUSE_IDLE_SHAPE_NICE:    tmpID = RB_CONFIG_MOUSE_NICE;    break;
 		case MOUSE_IDLE_SHAPE_UGLY:    tmpID = RB_CONFIG_MOUSE_UGLY;    break;
 		case MOUSE_IDLE_SHAPE_AWFUL:   tmpID = RB_CONFIG_MOUSE_AWFUL;   break;
-		case MOUSE_IDLE_SHAPE_USEABLE: tmpID = RB_CONFIG_MOUSE_USEABLE; break;
+		case MOUSE_IDLE_SHAPE_USABLE:  tmpID = RB_CONFIG_MOUSE_USABLE;  break;
 	}
 	radioButtons[tmpID].state = RADIOBUTTON_CHECKED;
 
@@ -989,7 +1021,7 @@ static void setConfigMiscCheckButtonStates(void)
 	checkBoxes[CB_CONF_MIDI_ENABLE].checked = midi.enable;
 	checkBoxes[CB_CONF_MIDI_REC_ALL].checked = config.recMIDIAllChn;
 	checkBoxes[CB_CONF_MIDI_REC_TRANS].checked = config.recMIDITransp;
-	checkBoxes[CB_CONF_MIDI_REC_VELOC].checked = config.recMIDIVelosity;
+	checkBoxes[CB_CONF_MIDI_REC_VELOC].checked = config.recMIDIVelocity;
 	checkBoxes[CB_CONF_MIDI_REC_AFTERTOUCH].checked = config.recMIDIAftert;
 #endif
 	checkBoxes[CB_CONF_FORCE_VSYNC_OFF].checked = (config.windowFlags & FORCE_VSYNC_OFF) ? true : false;
@@ -1069,7 +1101,7 @@ void showConfigScreen(void)
 	showPushButton(PB_CONFIG_EXIT);
 
 	textOutShadow(5,    4, PAL_FORGRND, PAL_DSKTOP2, "Configuration:");
-	textOutShadow(22,  20, PAL_FORGRND, PAL_DSKTOP2, "I/O Devices");
+	textOutShadow(22,  20, PAL_FORGRND, PAL_DSKTOP2, "I/O devices");
 	textOutShadow(22,  36, PAL_FORGRND, PAL_DSKTOP2, "Layout");
 	textOutShadow(22,  52, PAL_FORGRND, PAL_DSKTOP2, "Miscellaneous");
 	textOutShadow(22,  68, PAL_FORGRND, PAL_DSKTOP2, "MIDI input");
@@ -1093,7 +1125,7 @@ void showConfigScreen(void)
 			drawFramework(505,  73, 127,  44, FRAMEWORK_TYPE1);
 
 			drawFramework(112,  16, AUDIO_SELECTORS_BOX_WIDTH+4, 69, FRAMEWORK_TYPE2);
-			drawFramework(112, 103, AUDIO_SELECTORS_BOX_WIDTH+4, 68, FRAMEWORK_TYPE2);
+			drawFramework(112, 103, AUDIO_SELECTORS_BOX_WIDTH+4, 47, FRAMEWORK_TYPE2);
 
 			drawAudioOutputList();
 			drawAudioInputList();
@@ -1113,11 +1145,15 @@ void showConfigScreen(void)
 			textOutShadow(114,   4, PAL_FORGRND, PAL_DSKTOP2, "Audio output devices:");
 			textOutShadow(114,  91, PAL_FORGRND, PAL_DSKTOP2, "Audio input devices (sampling):");
 
+			textOutShadow(114, 157, PAL_FORGRND, PAL_DSKTOP2, "Input rate:");
+			textOutShadow(194, 157, PAL_FORGRND, PAL_DSKTOP2, "44.1kHz");
+			textOutShadow(265, 157, PAL_FORGRND, PAL_DSKTOP2, "48.0kHz");
+			textOutShadow(336, 157, PAL_FORGRND, PAL_DSKTOP2, "96.0kHz");
+
 			textOutShadow(390,   3, PAL_FORGRND, PAL_DSKTOP2, "Audio buffer size:");
 			textOutShadow(406,  17, PAL_FORGRND, PAL_DSKTOP2, "Small");
 			textOutShadow(406,  31, PAL_FORGRND, PAL_DSKTOP2, "Medium (default)");
 			textOutShadow(406,  45, PAL_FORGRND, PAL_DSKTOP2, "Large");
-			textOutShadow(406,  59, PAL_FORGRND, PAL_DSKTOP2, "Very large");
 
 			textOutShadow(390,  76, PAL_FORGRND, PAL_DSKTOP2, "Audio bit depth:");
 			textOutShadow(406,  90, PAL_FORGRND, PAL_DSKTOP2, "16-bit (default)");
@@ -1139,8 +1175,8 @@ void showConfigScreen(void)
 			textOutShadow(525,  45, PAL_FORGRND, PAL_DSKTOP2, "96000Hz");
 
 			textOutShadow(509,  76, PAL_FORGRND, PAL_DSKTOP2, "Frequency table:");
-			textOutShadow(525,  90, PAL_FORGRND, PAL_DSKTOP2, "Amiga freq.-table");
-			textOutShadow(525, 104, PAL_FORGRND, PAL_DSKTOP2, "Linear freq.-table");
+			textOutShadow(525,  90, PAL_FORGRND, PAL_DSKTOP2, "Amiga freq. table");
+			textOutShadow(525, 104, PAL_FORGRND, PAL_DSKTOP2, "Linear freq. table");
 
 			textOutShadow(509, 120, PAL_FORGRND, PAL_DSKTOP2, "Amplification:");
 			charOutShadow(621, 120, PAL_FORGRND, PAL_DSKTOP2, 'X');
@@ -1176,14 +1212,14 @@ void showConfigScreen(void)
 			textOutShadow(130, 121, PAL_FORGRND, PAL_DSKTOP2, "Nice");
 			textOutShadow(194, 121, PAL_FORGRND, PAL_DSKTOP2, "Ugly");
 			textOutShadow(130, 135, PAL_FORGRND, PAL_DSKTOP2, "Awful");
-			textOutShadow(194, 135, PAL_FORGRND, PAL_DSKTOP2, "Useable");
+			textOutShadow(194, 135, PAL_FORGRND, PAL_DSKTOP2, "Usable");
 			textOutShadow(114, 148, PAL_FORGRND, PAL_DSKTOP2, "Mouse busy shape:");
 			textOutShadow(130, 160, PAL_FORGRND, PAL_DSKTOP2, "Vogue");
 			textOutShadow(194, 160, PAL_FORGRND, PAL_DSKTOP2, "Mr. H");
 
 			textOutShadow(114,   3, PAL_FORGRND, PAL_DSKTOP2, "Pattern layout:");
 			textOutShadow(130,  16, PAL_FORGRND, PAL_DSKTOP2, "Pattern stretch");
-			textOutShadow(130,  29, PAL_FORGRND, PAL_DSKTOP2, "Hex count");
+			textOutShadow(130,  29, PAL_FORGRND, PAL_DSKTOP2, "Hex line numbers");
 			textOutShadow(130,  42, PAL_FORGRND, PAL_DSKTOP2, "Accidential");
 			textOutShadow(130,  55, PAL_FORGRND, PAL_DSKTOP2, "Show zeroes");
 			textOutShadow(130,  68, PAL_FORGRND, PAL_DSKTOP2, "Framework");
@@ -1208,7 +1244,7 @@ void showConfigScreen(void)
 			textOutShadow(319, 146, PAL_FORGRND, PAL_DSKTOP2, "Std.");
 			textOutShadow(360, 146, PAL_FORGRND, PAL_DSKTOP2, "Lined");
 
-			textOutShadow(272, 160, PAL_FORGRND, PAL_DSKTOP2, "Hardware mouse");
+			textOutShadow(272, 160, PAL_FORGRND, PAL_DSKTOP2, "Software mouse");
 
 			textOutShadow(414,   3, PAL_FORGRND, PAL_DSKTOP2, "Pattern text");
 			textOutShadow(414,  17, PAL_FORGRND, PAL_DSKTOP2, "Block mark");
@@ -1226,7 +1262,7 @@ void showConfigScreen(void)
 			textOutShadow(414, 132, PAL_FORGRND, PAL_DSKTOP2, "Gold");
 			textOutShadow(528, 132, PAL_FORGRND, PAL_DSKTOP2, "Violent");
 			textOutShadow(414, 146, PAL_FORGRND, PAL_DSKTOP2, "Heavy Metal");
-			textOutShadow(528, 146, PAL_FORGRND, PAL_DSKTOP2, "Why colors ?");
+			textOutShadow(528, 146, PAL_FORGRND, PAL_DSKTOP2, "Why colors?");
 			textOutShadow(414, 160, PAL_FORGRND, PAL_DSKTOP2, "Jungle");
 			textOutShadow(528, 160, PAL_FORGRND, PAL_DSKTOP2, "User defined");
 
@@ -1260,9 +1296,9 @@ void showConfigScreen(void)
 			textOutShadow(130,  16, PAL_FORGRND, PAL_DSKTOP2, "Ext.");
 			textOutShadow(130,  30, PAL_FORGRND, PAL_DSKTOP2, "Name");
 
-			textOutShadow(228,   4, PAL_FORGRND, PAL_DSKTOP2, "Sample cut-to-buffer");
-			textOutShadow(228,  17, PAL_FORGRND, PAL_DSKTOP2, "Pattern cut-to-buffer");
-			textOutShadow(228,  30, PAL_FORGRND, PAL_DSKTOP2, "Kill notes at music stop");
+			textOutShadow(228,   4, PAL_FORGRND, PAL_DSKTOP2, "Sample \"cut to buffer\"");
+			textOutShadow(228,  17, PAL_FORGRND, PAL_DSKTOP2, "Pattern \"cut to buffer\"");
+			textOutShadow(228,  30, PAL_FORGRND, PAL_DSKTOP2, "Kill voices at music stop");
 			textOutShadow(228,  43, PAL_FORGRND, PAL_DSKTOP2, "File-overwrite warning");
 
 			textOutShadow(464,   3, PAL_FORGRND, PAL_DSKTOP2, "Default directories:");
@@ -1285,23 +1321,23 @@ void showConfigScreen(void)
 
 			textOutShadow(213,  58, PAL_FORGRND, PAL_DSKTOP2, "Rec./Edit/Play:");
 			textOutShadow(228,  71, PAL_FORGRND, PAL_DSKTOP2, "Multichannel record");
-			textOutShadow(228,  84, PAL_FORGRND, PAL_DSKTOP2, "Multichannel \"keyjazz\"");
+			textOutShadow(228,  84, PAL_FORGRND, PAL_DSKTOP2, "Multichannel \"key jazz\"");
 			textOutShadow(228,  97, PAL_FORGRND, PAL_DSKTOP2, "Multichannel edit");
-			textOutShadow(228, 110, PAL_FORGRND, PAL_DSKTOP2, "Record keyrelease notes");
-			textOutShadow(228, 123, PAL_FORGRND, PAL_DSKTOP2, "Quantisize");
+			textOutShadow(228, 110, PAL_FORGRND, PAL_DSKTOP2, "Record key-off notes");
+			textOutShadow(228, 123, PAL_FORGRND, PAL_DSKTOP2, "Quantization");
 			textOutShadow(338, 123, PAL_FORGRND, PAL_DSKTOP2, "1/");
 			textOutShadow(228, 136, PAL_FORGRND, PAL_DSKTOP2, "Change pattern length when");
 			textOutShadow(228, 147, PAL_FORGRND, PAL_DSKTOP2, "inserting/deleting line.");
 			textOutShadow(228, 161, PAL_FORGRND, PAL_DSKTOP2, "Allow MIDI-in program change");
 
-			textOutShadow(428,  95, PAL_FORGRND, PAL_DSKTOP2, "MIDI Enable");
-			textOutShadow(412, 108, PAL_FORGRND, PAL_DSKTOP2, "Record MIDI-chn.");
+			textOutShadow(428,  95, PAL_FORGRND, PAL_DSKTOP2, "Enable MIDI");
+			textOutShadow(412, 108, PAL_FORGRND, PAL_DSKTOP2, "Record MIDI chn.");
 			charOutShadow(523, 108, PAL_FORGRND, PAL_DSKTOP2, '(');
-			textOutShadow(546, 108, PAL_FORGRND, PAL_DSKTOP2, "All )");
+			textOutShadow(546, 108, PAL_FORGRND, PAL_DSKTOP2, "all )");
 			textOutShadow(428, 121, PAL_FORGRND, PAL_DSKTOP2, "Record transpose");
-			textOutShadow(428, 134, PAL_FORGRND, PAL_DSKTOP2, "Record velosity");
+			textOutShadow(428, 134, PAL_FORGRND, PAL_DSKTOP2, "Record velocity");
 			textOutShadow(428, 147, PAL_FORGRND, PAL_DSKTOP2, "Record aftertouch");
-			textOutShadow(412, 160, PAL_FORGRND, PAL_DSKTOP2, "Vel./A.t. Senstvty.");
+			textOutShadow(412, 160, PAL_FORGRND, PAL_DSKTOP2, "Vel./A.t. senstvty.");
 			charOutShadow(547, 160, PAL_FORGRND, PAL_DSKTOP2, '%');
 
 			setConfigMiscCheckButtonStates();
@@ -1374,6 +1410,7 @@ void hideConfigScreen(void)
 	hideRadioButtonGroup(RB_GROUP_CONFIG_SOUND_BUFF_SIZE);
 	hideRadioButtonGroup(RB_GROUP_CONFIG_AUDIO_BIT_DEPTH);
 	hideRadioButtonGroup(RB_GROUP_CONFIG_AUDIO_FREQ);
+	hideRadioButtonGroup(RB_GROUP_CONFIG_AUDIO_INPUT_FREQ);
 	hideRadioButtonGroup(RB_GROUP_CONFIG_FREQ_TABLE);
 	hideCheckBox(CB_CONF_INTERPOLATION);
 	hideCheckBox(CB_CONF_VOL_RAMP);
@@ -1408,7 +1445,7 @@ void hideConfigScreen(void)
 	hideCheckBox(CB_CONF_LINECOLORS);
 	hideCheckBox(CB_CONF_CHANNUMS);
 	hideCheckBox(CB_CONF_SHOW_VOLCOL);
-	hideCheckBox(CB_CONF_HARDWARE_MOUSE);
+	hideCheckBox(CB_CONF_SOFTWARE_MOUSE);
 	hidePushButton(PB_CONFIG_PAL_R_DOWN);
 	hidePushButton(PB_CONFIG_PAL_R_UP);
 	hidePushButton(PB_CONFIG_PAL_G_DOWN);
@@ -1524,7 +1561,7 @@ void rbConfigMidiInput(void)
 
 void rbConfigSbs512(void)
 {
-	config.specialFlags &= ~(BUFFSIZE_1024 + BUFFSIZE_2048 + BUFFSIZE_4096);
+	config.specialFlags &= ~(BUFFSIZE_1024 + BUFFSIZE_2048);
 	config.specialFlags |= BUFFSIZE_512;
 
 	setNewAudioSettings();
@@ -1532,7 +1569,7 @@ void rbConfigSbs512(void)
 
 void rbConfigSbs1024(void)
 {
-	config.specialFlags &= ~(BUFFSIZE_512 + BUFFSIZE_2048 + BUFFSIZE_4096);
+	config.specialFlags &= ~(BUFFSIZE_512 + BUFFSIZE_2048);
 	config.specialFlags |= BUFFSIZE_1024;
 
 	setNewAudioSettings();
@@ -1540,16 +1577,8 @@ void rbConfigSbs1024(void)
 
 void rbConfigSbs2048(void)
 {
-	config.specialFlags &= ~(BUFFSIZE_512 + BUFFSIZE_1024 + BUFFSIZE_4096);
+	config.specialFlags &= ~(BUFFSIZE_512 + BUFFSIZE_1024);
 	config.specialFlags |= BUFFSIZE_2048;
-
-	setNewAudioSettings();
-}
-
-void rbConfigSbs4096(void)
-{
-	config.specialFlags &= ~(BUFFSIZE_512 + BUFFSIZE_1024 + BUFFSIZE_2048);
-	config.specialFlags |= BUFFSIZE_4096;
 
 	setNewAudioSettings();
 }
@@ -1592,6 +1621,24 @@ void rbConfigAudio96kHz(void)
 {
 	config.audioFreq = 96000;
 	setNewAudioSettings();
+}
+
+void rbConfigAudioInput44kHz(void)
+{
+	config.audioInputFreq = INPUT_FREQ_44KHZ;
+	checkRadioButton(RB_CONFIG_AUDIO_INPUT_44KHZ);
+}
+
+void rbConfigAudioInput48kHz(void)
+{
+	config.audioInputFreq = INPUT_FREQ_48KHZ;
+	checkRadioButton(RB_CONFIG_AUDIO_INPUT_48KHZ);
+}
+
+void rbConfigAudioInput96kHz(void)
+{
+	config.audioInputFreq = INPUT_FREQ_96KHZ;
+	checkRadioButton(RB_CONFIG_AUDIO_INPUT_96KHZ);
 }
 
 void rbConfigFreqTableAmiga(void)
@@ -1703,20 +1750,31 @@ void cbConfigShowVolCol(void)
 	redrawPatternEditor();
 }
 
-void cbHardwareMouse(void)
+void cbSoftwareMouse(void)
 {
 	config.specialFlags2 ^= HARDWARE_MOUSE;
+	if (!createMouseCursors())
+		okBox(0, "System message", "Error: Couldn't create/show mouse cursor!");
 
 	if (config.specialFlags2 & HARDWARE_MOUSE)
-		SDL_ShowCursor(true);
+	{
+		checkBoxes[CB_CONF_SOFTWARE_MOUSE].checked = false;
+		drawCheckBox(CB_CONF_SOFTWARE_MOUSE);
+		SDL_ShowCursor(SDL_TRUE);
+	}
 	else
-		SDL_ShowCursor(false);
+	{
+		checkBoxes[CB_CONF_SOFTWARE_MOUSE].checked = true;
+		drawCheckBox(CB_CONF_SOFTWARE_MOUSE);
+		SDL_ShowCursor(SDL_FALSE);
+	}
 }
 
 void rbConfigMouseNice(void)
 {
 	config.mouseType = MOUSE_IDLE_SHAPE_NICE;
 	checkRadioButton(RB_CONFIG_MOUSE_NICE);
+	createMouseCursors();
 	setMouseShape(config.mouseType);
 }
 
@@ -1724,6 +1782,7 @@ void rbConfigMouseUgly(void)
 {
 	config.mouseType = MOUSE_IDLE_SHAPE_UGLY;
 	checkRadioButton(RB_CONFIG_MOUSE_UGLY);
+	createMouseCursors();
 	setMouseShape(config.mouseType);
 }
 
@@ -1731,13 +1790,15 @@ void rbConfigMouseAwful(void)
 {
 	config.mouseType = MOUSE_IDLE_SHAPE_AWFUL;
 	checkRadioButton(RB_CONFIG_MOUSE_AWFUL);
+	createMouseCursors();
 	setMouseShape(config.mouseType);
 }
 
-void rbConfigMouseUseable(void)
+void rbConfigMouseUsable(void)
 {
-	config.mouseType = MOUSE_IDLE_SHAPE_USEABLE;
-	checkRadioButton(RB_CONFIG_MOUSE_USEABLE);
+	config.mouseType = MOUSE_IDLE_SHAPE_USABLE;
+	checkRadioButton(RB_CONFIG_MOUSE_USABLE);
+	createMouseCursors();
 	setMouseShape(config.mouseType);
 }
 
@@ -1951,7 +2012,7 @@ void cbRecKeyOff(void)
 	config.recRelease ^= 1;
 }
 
-void cbQuantisize(void)
+void cbQuantization(void)
 {
 	config.recQuant ^= 1;
 }
@@ -1983,9 +2044,9 @@ void cbMIDIRecAllChn(void)
 	config.recMIDIAllChn ^= 1;
 }
 
-void cbMIDIRecVelosity(void)
+void cbMIDIRecVelocity(void)
 {
-	config.recMIDIVelosity ^= 1;
+	config.recMIDIVelocity ^= 1;
 }
 
 void cbMIDIRecAftert(void)
@@ -2137,7 +2198,7 @@ const uint8_t defConfigData[CONFIG_FILE_SIZE] =
 {
 	0x46,0x61,0x73,0x74,0x54,0x72,0x61,0x63,0x6B,0x65,0x72,0x20,0x32,0x2E,0x30,0x20,0x63,0x6F,0x6E,0x66,
 	0x69,0x67,0x75,0x72,0x61,0x74,0x69,0x6F,0x6E,0x20,0x66,0x69,0x6C,0x65,0x1A,0x01,0x01,0x80,0xBB,0x00,
-	0x00,0xFF,0x00,0x00,0x01,0xDC,0x00,0x00,0x00,0x01,0x01,0x00,0x00,0x00,0xFF,0x00,0x20,0x02,0x01,0x00,
+	0x00,0xFF,0x00,0x00,0x01,0xDC,0x00,0x00,0x00,0x01,0x01,0x00,0x02,0x00,0xFF,0x00,0x20,0x02,0x01,0x00,
 	0x05,0x00,0x05,0x00,0x00,0x00,0x00,0x00,0x01,0x00,0x01,0x01,0x01,0x01,0x04,0x00,0x00,0x00,0x00,0x00,
 	0x00,0x00,0x00,0x24,0x2F,0x3F,0x09,0x09,0x10,0x3F,0x3F,0x3F,0x13,0x18,0x26,0x3F,0x3F,0x3F,0x27,0x27,
 	0x27,0x00,0x00,0x00,0x08,0x0A,0x0F,0x20,0x29,0x3F,0x0F,0x0F,0x0F,0x3F,0x3F,0x3F,0x3F,0x3F,0x3F,0x3F,

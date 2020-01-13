@@ -124,8 +124,7 @@ int main(int argc, char *argv[])
 		showErrorMsgBox("Couldn't initialize SDL:\n%s", SDL_GetError());
 		return 1;
 	}
-
-	createSDL2Cursors();
+	SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 
 	/* Text input is started by default in SDL2, turn it off to remove ~2ms spikes per key press.
 	** We manuallay start it again when a text edit box is activated, and stop it when done.
@@ -173,7 +172,7 @@ int main(int argc, char *argv[])
 		config.audioFreq = 48000;
 #endif
 		// try 16-bit audio at 1024 samples (44.1kHz/48kHz)
-		config.specialFlags &= ~(BITDEPTH_24 + BUFFSIZE_512 + BUFFSIZE_2048 + BUFFSIZE_4096);
+		config.specialFlags &= ~(BITDEPTH_24 + BUFFSIZE_512 + BUFFSIZE_2048);
 		config.specialFlags |=  (BITDEPTH_16 + BUFFSIZE_1024);
 
 		setToDefaultAudioOutputDevice();
@@ -194,14 +193,15 @@ int main(int argc, char *argv[])
 	resumeAudio();
 	rescanAudioDevices();
 
+#ifdef _WIN32 // on Windows we show the window at this point
 	SDL_ShowWindow(video.window);
+#endif
 	if (config.windowFlags & START_IN_FULLSCR)
 	{
 		video.fullscreen = true;
 		enterFullscreen();
 	}
 
-	//benchmarkAudioChannelMixer(); // for development testing
 #ifdef MIDI_ENABLED
 	// set up MIDI input (in a thread because it can take quite a while on f.ex. macOS)
 	initMidiThread = SDL_CreateThread(initMidiFunc, NULL
@@ -217,11 +217,11 @@ int main(int argc, char *argv[])
 	}
 #if SDL_VERSION_ATLEAST(2,0,4)
 	SDL_DetachThread(initMidiThread); // don't wait for this thread, let it clean up when done
-	SDL_EventState(SDL_DROPFILE, SDL_ENABLE);
 #endif
 #endif
 	setupWaitVBL();
 	handleModuleLoadFromArg(argc, argv);
+
 	while (editor.programRunning)
 	{
 		beginFPSCounter();
@@ -244,18 +244,18 @@ static void initializeVars(void)
 {
 	int32_t i;
 
-	cpu.hasSSE  = false; //SDL_HasSSE();
-	cpu.hasSSE2 = false; //SDL_HasSSE2();
+	cpu.hasSSE = SDL_HasSSE();
+	cpu.hasSSE2 = SDL_HasSSE2();
 
 	// clear common structs
-	memset(&video,    0, sizeof (video));
-	memset(&keyb,     0, sizeof (keyb));
-	memset(&mouse,    0, sizeof (mouse));
-	memset(&editor,   0, sizeof (editor));
+	memset(&video, 0, sizeof (video));
+	memset(&keyb, 0, sizeof (keyb));
+	memset(&mouse, 0, sizeof (mouse));
+	memset(&editor, 0, sizeof (editor));
 	memset(&pattMark, 0, sizeof (pattMark));
 	memset(&pattSync, 0, sizeof (pattSync));
-	memset(&chSync,   0, sizeof (chSync));
-	memset(&song,     0, sizeof (song));
+	memset(&chSync, 0, sizeof (chSync));
+	memset(&song, 0, sizeof (song));
 
 	for (i = 0; i < MAX_VOICES; i++)
 	{
@@ -324,7 +324,7 @@ static void cleanUpAndExit(void) // never call this inside the main loop!
 #endif
 	windUpFTHelp();
 	freeTextBoxes();
-	freeSDL2Cursors();
+	freeMouseCursors();
 
 #ifdef MIDI_ENABLED
 	if (midi.inputDeviceName != NULL)

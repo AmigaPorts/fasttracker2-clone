@@ -7,7 +7,7 @@
 
 // ported from original FT2 code
 
-#define NUM_STARS 512
+#define NUM_STARS 650
 #define ABOUT_SCREEN_W 626
 #define ABOUT_SCREEN_H 167
 #define FT2_LOGO_W 449
@@ -46,14 +46,14 @@ void seedAboutScreenRandom(uint32_t newseed)
 	randSeed = newseed;
 }
 
-static inline int32_t random32(int32_t l)
+static inline int32_t random32(int32_t l) // Turbo Pascal Random() implementation
 {
 	int32_t r;
 
 	randSeed *= 134775813;
 	randSeed += 1;
 
-	r = (int32_t)(((int64_t)(randSeed) * l) >> 32);
+	r = (int32_t)(((int64_t)randSeed * l) >> 32);
 	return r;
 }
 
@@ -61,19 +61,23 @@ static void fixaMatris(rotate_t a, matrix_t *mat)
 {
 	int16_t sa, sb, sc, ca, cb, cc;
 
-	sa = sin32767[a.x >> 6]; sb = sin32767[a.y >> 6]; sc = sin32767[a.z >> 6];
-	ca = cos32767[a.x >> 6]; cb = cos32767[a.y >> 6]; cc = cos32767[a.z >> 6];
+	sa = sin32767[a.x >> 6];
+	ca = cos32767[a.x >> 6];
+	sb = sin32767[a.y >> 6];
+	cb = cos32767[a.y >> 6];
+	sc = sin32767[a.z >> 6];
+	cc = cos32767[a.z >> 6];
 
 	mat->x.x = ((ca * cc) >> 16) + (((sc * ((sa * sb) >> 16)) >> 16) << 1);
-	mat->y.x =  (sa * cb) >> 16;
+	mat->y.x = (sa * cb) >> 16;
 	mat->z.x = (((cc * ((sa * sb) >> 16)) >> 16) << 1) - ((ca * sc) >> 16);
 
 	mat->x.y = (((sc * ((ca * sb) >> 16)) >> 16) << 1) - ((sa * cc) >> 16);
-	mat->y.y =  (ca * cb) >> 16;
+	mat->y.y = (ca * cb) >> 16;
 	mat->z.y = ((sa * sc) >> 16) + (((cc * ((ca * sb) >> 16)) >> 16) << 1);
 
 	mat->x.z = (cb * sc) >> 16;
-	mat->y.z =   0 - (sb >> 1);
+	mat->y.z = 0 - (sb >> 1);
 	mat->z.z = (cb * cc) >> 16;
 }
 
@@ -109,7 +113,7 @@ static void aboutInit(void)
 			hastighet = 0;
 			for (i = 0; i < NUM_STARS; i++)
 			{
-				if (i < (NUM_STARS / 4))
+				if (i < NUM_STARS/4)
 				{
 					starcrd[i].z = (int16_t)random32(0xFFFF) - 0x8000;
 					starcrd[i].y = (int16_t)random32(0xFFFF) - 0x8000;
@@ -123,8 +127,8 @@ static void aboutInit(void)
 					ww = (((M_PI * 2.0) / 5.0) * n) + (r / 12000.0) + (w / 3000000.0);
 					h = ((sqr(r) / 30000) * (random32(10000) - 5000)) / 12000;
 
-					starcrd[i].x = (int16_t)trunc(r * cos(ww));
-					starcrd[i].y = (int16_t)trunc(r * sin(ww));
+					starcrd[i].x = (int16_t)(r * cos(ww));
+					starcrd[i].y = (int16_t)(r * sin(ww));
 					starcrd[i].z = (int16_t)h;
 				}
 			}
@@ -151,6 +155,10 @@ static void aboutInit(void)
 		default:
 			break;
 	}
+
+	star_a.x = 0;
+	star_a.y = 748;
+	star_a.z = 200;
 
 	for (i = 0; i < NUM_STARS; i++)
 		lastStarScreenPos[i] = -1;
@@ -182,18 +190,19 @@ static void realStars(void)
 		star = &starcrd[i];
 		star->z += hastighet;
 
-		z = (((xz * star->x) >> 16) + ((yz * star->y) >> 16) + ((zz * star->z) >> 16)) + 9000;
+		z = ((xz * star->x) >> 16) + ((yz * star->y) >> 16) + ((zz * star->z) >> 16);
+		z += 9000;
 		if (z <= 100)
 			continue;
 
 		y = ((xy * star->x) >> 16) + ((yy * star->y) >> 16) + ((zy * star->z) >> 16);
 		y = (int16_t)((y << 7) / z) + 84;
-		if ((uint16_t)y >= (173 - 6))
+		if ((uint16_t)y >= 173-6)
 			continue;
 
 		x = ((xx * star->x) >> 16) + ((yx * star->y) >> 16) + ((zx * star->z) >> 16);
-		x = (int16_t)((((x >> 2) + x) << 7) / z) + (320 - 8);
-		if ((uint16_t)x >= (640 - 16))
+		x = (int16_t)((((x >> 2) + x) << 7) / z) + (320-8);
+		if ((uint16_t)x >= 640-16)
 			continue;
 
 		// render star pixel if the pixel under it is the background
@@ -203,7 +212,7 @@ static void realStars(void)
 			col = ((uint8_t)~(z >> 8) >> 3) - (22 - 8);
 			if (col < 24)
 			{
-				video.frameBuffer[screenBufferPos] = video.palette[starColConv[col]] & 0xFFFFFF;
+				video.frameBuffer[screenBufferPos] = video.palette[starColConv[col]] & 0x00FFFFFF;
 				lastStarScreenPos[i] = screenBufferPos;
 			}
 		}
@@ -212,12 +221,11 @@ static void realStars(void)
 
 void aboutFrame(void)
 {
-	star_a.x += (3 * 64);
-	star_a.y += (2 * 64);
-	star_a.z -= (1 * 64);
+	star_a.x += 3*64;
+	star_a.y += 2*64;
+	star_a.z -= 1*64;
 
 	fixaMatris(star_a, &starmat);
-
 	realStars();
 }
 
@@ -225,7 +233,7 @@ void showAboutScreen(void) // called once when About screen is opened
 {
 	const char *infoString = "Clone by Olav \"8bitbubsy\" S\025rensen - https://16-bits.org";
 	const char *extraInfo = "SDL1.2/BigEndian version by Marlon Beijer @ AmigaDev.com";
-	char betaText[32];
+	char verText[32];
 	uint16_t x, y;
 
 	if (editor.ui.extended)
@@ -239,21 +247,19 @@ void showAboutScreen(void) // called once when About screen is opened
 	showPushButton(PB_EXIT_ABOUT);
 
 	blit32(91, 31, ft2Logo, FT2_LOGO_W, FT2_LOGO_H);
-    blit(146, 113, aboutText, ABOUT_TEXT_W, ABOUT_TEXT_H);
+	blit(146, 113, aboutText, ABOUT_TEXT_W, ABOUT_TEXT_H);
 
 	x = 5 + (SCREEN_W - textWidth(infoString)) / 2;
-	y = 148;
-	textOut(x, y, PAL_FORGRND, infoString);
+	y = 147;
+	textOutBorder(x, y, PAL_FORGRND, PAL_BUTTON2, infoString);
 
 	x = 5 + (SCREEN_W - textWidth(extraInfo)) / 2;
 	y = 160;
 	textOut(x, y, PAL_FORGRND, extraInfo);
-
-
-	sprintf(betaText, "beta v.%d", BETA_VERSION);
-	x = (3 + ABOUT_SCREEN_W) - (textWidth(betaText) + 3);
-	y = (3 + ABOUT_SCREEN_H) - ((FONT1_CHAR_H - 2) + 2);
-	textOut(x, y, PAL_FORGRND, betaText);
+	sprintf(verText, "v%s (compiled on %s)", PROG_VER_STR, __DATE__);
+	x = ((3 + ABOUT_SCREEN_W) - textWidth(verText)) / 2;
+	y = (3 + ABOUT_SCREEN_H) - ((FONT1_CHAR_H - 2) + 3);
+	textOutBorder(x, y, PAL_FORGRND, PAL_BUTTON2, verText);
 
 	aboutInit();
 

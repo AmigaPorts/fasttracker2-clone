@@ -349,7 +349,7 @@ static bool loadMusicMOD(FILE *f, uint32_t fileLength)
 
 	for (a = 0; a <= b; a++)
 	{
-		pattTmp[a] = (tonTyp *)calloc(64 * MAX_VOICES, sizeof (tonTyp));
+		pattTmp[a] = (tonTyp *)calloc((MAX_PATT_LEN * TRACK_WIDTH) + 16, 1);
 		if (pattTmp[a] == NULL)
 		{
 			okBoxThreadSafe(0, "System message", "Not enough memory!");
@@ -674,7 +674,7 @@ static bool loadMusicSTM(FILE *f, uint32_t fileLength)
 	ap = h_STM.ap;
 	for (i = 0; i < ap; i++)
 	{
-		pattTmp[i] = (tonTyp *)calloc(64 * MAX_VOICES, sizeof (tonTyp));
+		pattTmp[i] = (tonTyp *)calloc((MAX_PATT_LEN * TRACK_WIDTH) + 16, 1);
 		if (pattTmp[i] == NULL)
 		{
 			okBoxThreadSafe(0, "System message", "Not enough memory!");
@@ -1013,7 +1013,7 @@ static bool loadMusicS3M(FILE *f, uint32_t dataLength)
 		if (songTmp.songTab[i] != 254)
 			songTmp.songTab[j++] = songTmp.songTab[i];
 		else
-			++k;
+			k++;
 	}
 
 	if (k <= songTmp.len)
@@ -1099,7 +1099,7 @@ static bool loadMusicS3M(FILE *f, uint32_t dataLength)
 
 		if (j > 0 && j <= 12288)
 		{
-			pattTmp[i] = (tonTyp *)calloc(64 * MAX_VOICES, sizeof (tonTyp));
+			pattTmp[i] = (tonTyp *)calloc((MAX_PATT_LEN * TRACK_WIDTH) + 16, 1);
 			if (pattTmp[i] == NULL)
 			{
 				okBoxThreadSafe(0, "System message", "Not enough memory!");
@@ -1696,7 +1696,7 @@ static int32_t SDLCALL loadMusicThread(void *ptr)
 	}
 
 	if (SDL_SwapLE16(h.antInstrs) > MAX_INST)
-		okBoxThreadSafe(0, "System message", "The module has over 128 instruments! Only 128 of them are getting loaded.");
+		okBoxThreadSafe(0, "System message", "This module has over 128 instruments! Only the first 128 will be loaded.");
 
 	fseek(f, 60 + SDL_SwapLE32(h.headerSize), SEEK_SET);
 	if (filelength != 336 && feof(f)) // 336 in length at this point = empty XM
@@ -1851,31 +1851,6 @@ void loadMusic(UNICHAR *filenameU)
 	SDL_DetachThread(thread);
 #endif
 }
-
-/*
-bool loadMusicUnthreaded(UNICHAR *filenameU) // for development testing
-{
-	if (editor.tmpFilenameU == NULL)
-		return false;
-
-	// clear deprecated pointers from possible last loading session (super important)
-	memset(pattTmp,  0, sizeof (pattTmp));
-	memset(instrTmp, 0, sizeof (instrTmp));
-
-	UNICHAR_STRCPY(editor.tmpFilenameU, filenameU);
-
-	loadMusicThread(NULL);
-	editor.loadMusicEvent = EVENT_NONE;
-
-	if (moduleLoaded)
-	{
-		setupLoadedModule();
-		return true;
-	}
-
-	return false;
-}
-*/
 
 static void freeTmpModule(void)
 {
@@ -2249,14 +2224,14 @@ static bool loadPatterns(FILE *f, uint16_t antPtn)
 
 		if (SDL_SwapLE16(ph.dataLen) > 0)
 		{
-			a = SDL_SwapLE16(ph.pattLen) * TRACK_WIDTH;
-
-			pattTmp[i] = (tonTyp *)malloc(a + 16); // + 16 = a little extra for safety
+			pattTmp[i] = (tonTyp *)calloc((MAX_PATT_LEN * TRACK_WIDTH) + 16, 1);
 			if (pattTmp[i] == NULL)
 			{
 				okBoxThreadSafe(0, "System message", "Not enough memory!");
 				return false;
 			}
+
+			a = SDL_SwapLE16(ph.pattLen) * TRACK_WIDTH;
 
 			pattPtr = (uint8_t *)pattTmp[i];
 			memset(pattPtr, 0, a);
@@ -2355,7 +2330,7 @@ static void setupLoadedModule(void)
 
 	resetChannels();
 	refreshScopes();
-	setPos(0, 0);
+	setPos(0, 0, false);
 	setSpeed(song.speed);
 
 	editor.tmpPattern = editor.editPattern; // set kludge variable
