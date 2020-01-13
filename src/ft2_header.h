@@ -7,13 +7,12 @@
 #ifdef _WIN32
 #define WIN32_MEAN_AND_LEAN
 #include <windows.h>
-#include <emmintrin.h> // for intrinsics
 #else
 #include <limits.h> // PATH_MAX
 #endif
 #include "ft2_replayer.h"
 
-#define BETA_VERSION 168
+#define PROG_VER_STR "1.05"
 
 // do NOT change these! It will only mess things up...
 
@@ -91,7 +90,7 @@ struct editor_t
 		bool scopesShown, diskOpShown, nibblesShown, transposeShown, instEditorExtShown;
 		bool sampleEditorExtShown, advEditShown, wavRendererShown, trimScreenShown;
 		bool drawBPMFlag, drawSpeedFlag, drawGlobVolFlag, drawPosEdFlag, drawPattNumLenFlag;
-		bool updatePosSections;
+		bool updatePosSections, updatePosEdScrollBar;
 		uint8_t oldTopLeftScreen;
 
 		// bottom screens

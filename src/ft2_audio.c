@@ -65,7 +65,7 @@ bool setNewAudioSettings(void) // only call this from the main input/video threa
 		// set back old known working settings
 
 		config.audioFreq = audio.lastWorkingAudioFreq;
-		config.specialFlags &= ~(BITDEPTH_16 + BITDEPTH_24 + BUFFSIZE_512 + BUFFSIZE_1024 + BUFFSIZE_2048 + BUFFSIZE_4096);
+		config.specialFlags &= ~(BITDEPTH_16 + BITDEPTH_24 + BUFFSIZE_512 + BUFFSIZE_1024 + BUFFSIZE_2048);
 		config.specialFlags |= audio.lastWorkingAudioBits;
 
 		if (audio.lastWorkingAudioDeviceName != NULL)
@@ -1202,7 +1202,6 @@ bool setupAudio(bool showErrorMsg)
 	configAudioBufSize = 1024;
 	     if (config.specialFlags & BUFFSIZE_512)  configAudioBufSize = 512;
 	else if (config.specialFlags & BUFFSIZE_2048) configAudioBufSize = 2048;
-	else if (config.specialFlags & BUFFSIZE_4096) configAudioBufSize = 4096;
 
 	audio.wantFreq = config.audioFreq;
 	audio.wantSamples = configAudioBufSize;
@@ -1292,7 +1291,7 @@ bool setupAudio(bool showErrorMsg)
 	// make a copy of the new known working audio settings
 
 	audio.lastWorkingAudioFreq = config.audioFreq;
-	audio.lastWorkingAudioBits = config.specialFlags & (BITDEPTH_16 + BITDEPTH_24 + BUFFSIZE_512 + BUFFSIZE_1024 + BUFFSIZE_2048 + BUFFSIZE_4096);
+	audio.lastWorkingAudioBits = config.specialFlags & (BITDEPTH_16 + BITDEPTH_24 + BUFFSIZE_512 + BUFFSIZE_1024 + BUFFSIZE_2048);
 	setLastWorkingAudioDevName();
 
 	// update config audio radio buttons if we're on that screen at the moment
@@ -1334,73 +1333,6 @@ void closeAudio(void)
 
 	freeAudioBuffers();
 }
-
-/*
-void benchmarkAudioChannelMixer(void) // for development testing
-{
-#define TICKS_TO_MIX 50000
-
-#ifdef _WIN32
-#define DEBUG_MOD_FILENAME L"C:\\programming\\debug.xm"
-#elif __APPLE__
-#define DEBUG_MOD_FILENAME "/users/olav/debug.xm"
-#else
-#define DEBUG_MOD_FILENAME "/home/olav/debug.xm"
-#endif
-
-	char str[128];
-	uint8_t result, *buffer;
-	uint32_t maxSamplesPerTick, start, end;
-
-	maxSamplesPerTick = ((config.audioFreq * 5) / 2) / MIN_BPM;
-
-	buffer = (uint8_t *)malloc(maxSamplesPerTick * (2 * sizeof (int32_t)));
-	if (buffer == NULL)
-	{
-		editor.programRunning = false;
-		showErrorMsgBox("Out of memory!\n");
-		return;
-	}
-
-	result = loadMusicUnthreaded(DEBUG_MOD_FILENAME);
-	if (!result)
-	{
-		editor.programRunning = false;
-		showErrorMsgBox("Couldn't load debug module for mixer benchmarking!\n");
-		return;
-	}
-
-	pauseAudio();
-	editor.wavIsRendering = true;
-
-	setPos(0, 0);
-	playMode = PLAYMODE_SONG;
-	songPlaying = true;
-
-	resetChannels();
-	setNewAudioFreq(config.audioFreq);
-	setAudioAmp(config.boostLevel, config.masterVol, false);
-
-	stopVoices();
-	song.globVol = 64;
-	setSpeed(song.speed);
-
-	start = SDL_GetTicks();
-	for (uint32_t i = 0; i < TICKS_TO_MIX; i++)
-		dump_RenderTick(buffer);
-	end = SDL_GetTicks();
-
-	stopPlaying();
-	resumeAudio();
-
-	free(buffer);
-
-	sprintf(str, "It took approximately %dms to mix %d ticks.\nRun this test again to confirm.", end - start, TICKS_TO_MIX);
-	SDL_ShowSimpleMessageBox(0, "Channel mixer benchmark result", str, video.window);
-
-	editor.programRunning = false;
-}
-*/
 
 const uint32_t panningTab[257] = // panning table from FT2 code
 {

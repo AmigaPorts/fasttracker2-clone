@@ -137,6 +137,7 @@ int16_t okBox(int16_t typ, char *headline, char *text)
 	if (editor.editTextFlag)
 		exitTextEditing();
 
+	// revert "delete/rename" mouse modes (disk op.)
 	if (mouse.mode != MOUSE_MODE_NORMAL)
 		setMouseMode(MOUSE_MODE_NORMAL);
 
@@ -345,6 +346,7 @@ int16_t inputBox(int16_t typ, char *headline, char *edText, uint16_t maxStrLen)
 	if (editor.editTextFlag)
 		exitTextEditing();
 
+	// revert "delete/rename" mouse modes (disk op.)
 	if (mouse.mode != MOUSE_MODE_NORMAL)
 		setMouseMode(MOUSE_MODE_NORMAL);
 
@@ -576,13 +578,14 @@ int16_t inputBox(int16_t typ, char *headline, char *edText, uint16_t maxStrLen)
 int16_t okBoxThreadSafe(int16_t typ, char *headline, char *text)
 {
 	// block multiple calls before they are completed (for safety)
-	while (okBoxData.active) SDL_Delay(1000 / VBLANK_HZ);
+	while (okBoxData.active)
+		SDL_Delay(1000 / VBLANK_HZ);
 
 	okBoxData.typ = typ;
 	okBoxData.headline = headline;
 	okBoxData.text = text;
-
 	okBoxData.active = true;
+
 	while (okBoxData.active)
 		SDL_Delay(1000 / VBLANK_HZ);
 

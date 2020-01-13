@@ -77,8 +77,10 @@ void keyUpHandler(SDL_Scancode scancode, SDL_Keycode keycode)
 	(void)keycode;
 
 	if (editor.editTextFlag || editor.ui.sysReqShown)
-		return; // kludge: don't handle key up!
+		return; // kludge: don't handle key up! (XXX: Is this hack really needed anymore?)
 
+	/* Yet another kludge for not leaving a ghost key-up event after an inputBox/okBox
+	** was exited with a key press. They could be picked up as note release events. */
 	if (keyb.ignoreCurrKeyUp)
 	{
 		keyb.ignoreCurrKeyUp = false;
@@ -99,6 +101,7 @@ void keyDownHandler(SDL_Scancode scancode, SDL_Keycode keycode, bool keyWasRepea
 	if (keycode == SDLK_UNKNOWN)
 		return;
 
+	// revert "delete/rename" mouse modes (disk op.)
 	if (mouse.mode != MOUSE_MODE_NORMAL)
 		setMouseMode(MOUSE_MODE_NORMAL);
 
@@ -111,7 +114,7 @@ void keyDownHandler(SDL_Scancode scancode, SDL_Keycode keycode, bool keyWasRepea
 	}
 
 	if (testNibblesCheatCodes(keycode))
-		return; // ignore current key
+		return; // current key (+ modifiers) matches nibbles cheat code sequence, ignore current key here
 
 	if (keyWasRepeated)
 	{
@@ -169,7 +172,7 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 		}
 	}
 
-	// scan keys
+	// handle scankeys (actual key on keyboard, using US keyb. layout)
 	switch (scanKey)
 	{
 		case SDL_SCANCODE_KP_ENTER: pbSwapInstrBank(); return;
@@ -254,7 +257,7 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 		{
 			if (editor.curInstr > 0)
 			{
-				if (keyb.leftShiftPressed)
+				if (keyb.leftShiftPressed) // this only triggers if num lock is off. Probably an SDL bug...
 				{
 					clearSample();
 				}
@@ -274,15 +277,15 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 		}
 		return;
 
-		case SDL_SCANCODE_KP_0: setNewInstr(0);                          return;
-		case SDL_SCANCODE_KP_1: setNewInstr(editor.instrBankOffset + 1); return;
-		case SDL_SCANCODE_KP_2: setNewInstr(editor.instrBankOffset + 2); return;
-		case SDL_SCANCODE_KP_3: setNewInstr(editor.instrBankOffset + 3); return;
-		case SDL_SCANCODE_KP_4: setNewInstr(editor.instrBankOffset + 4); return;
-		case SDL_SCANCODE_KP_5: setNewInstr(editor.instrBankOffset + 5); return;
-		case SDL_SCANCODE_KP_6: setNewInstr(editor.instrBankOffset + 6); return;
-		case SDL_SCANCODE_KP_7: setNewInstr(editor.instrBankOffset + 7); return;
-		case SDL_SCANCODE_KP_8: setNewInstr(editor.instrBankOffset + 8); return;
+		case SDL_SCANCODE_KP_0: setNewInstr(0); return;
+		case SDL_SCANCODE_KP_1: setNewInstr(editor.instrBankOffset+1); return;
+		case SDL_SCANCODE_KP_2: setNewInstr(editor.instrBankOffset+2); return;
+		case SDL_SCANCODE_KP_3: setNewInstr(editor.instrBankOffset+3); return;
+		case SDL_SCANCODE_KP_4: setNewInstr(editor.instrBankOffset+4); return;
+		case SDL_SCANCODE_KP_5: setNewInstr(editor.instrBankOffset+5); return;
+		case SDL_SCANCODE_KP_6: setNewInstr(editor.instrBankOffset+6); return;
+		case SDL_SCANCODE_KP_7: setNewInstr(editor.instrBankOffset+7); return;
+		case SDL_SCANCODE_KP_8: setNewInstr(editor.instrBankOffset+8); return;
 
 		case SDL_SCANCODE_GRAVE: // "key below esc"
 		{
@@ -315,11 +318,11 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 		default: break;
 	}
 
-	// no normal key pressed
+	// no normal key (keycode) pressed (XXX: shouldn't happen? Whatever...)
 	if (keycode == SDLK_UNKNOWN)
 		return;
 
-	// layout keys
+	// handle normal keys (keycodes - affected by keyb. layout in OS)
 	switch (keycode)
 	{
 		default: return;
@@ -344,7 +347,7 @@ static void handleKeys(SDL_Keycode keycode, SDL_Scancode scanKey)
 
 				pattLen = pattLens[editor.editPattern];
 				if (playMode == PLAYMODE_EDIT && pattLen >= 1)
-					setPos(-1, (editor.pattPos + editor.ID_Add) % pattLen);
+					setPos(-1, (editor.pattPos + editor.ID_Add) % pattLen, true);
 
 				editor.ui.updatePatternEditor = true;
 				setSongModifiedFlag();
@@ -841,13 +844,21 @@ static bool checkModifiedKeys(SDL_Keycode keycode)
 			break;
 
 		case SDLK_f:
+#ifdef __APPLE__
+			if (keyb.leftCommandPressed && keyb.leftCtrlPressed)
+			{
+				toggleFullScreen();
+				return true;
+			}
+			else
+#endif
 			if (keyb.leftShiftPressed && keyb.leftCtrlPressed)
 			{
 				resetFPSCounter();
 				video.showFPSCounter ^= 1;
 				if (!video.showFPSCounter)
 				{
-					if (editor.ui.extended) // kludge, my best friend
+					if (editor.ui.extended) // Mr. Kludge, my only friend
 						exitPatternEditorExtended();
 
 					showTopScreen(false);

@@ -43,7 +43,7 @@ static inline void midiInKeyAction(int8_t m, uint8_t mv)
 	if (mv > 0 && vol == 0)
 		vol = 1;
 
-	if (mv > 0 && !config.recMIDIVelosity)
+	if (mv > 0 && !config.recMIDIVelocity)
 		vol = -1; // don't record volume (velocity)
 
 	m -= 11;
@@ -408,7 +408,7 @@ void drawMidiInputList(void)
 	uint16_t y;
 	int32_t deviceEntry;
 
-	clearRect(114, 4, 365, 164);
+	clearRect(114, 4, 365, 165);
 
 	if (!midi.initThreadDone || midiDev == NULL || midi.numInputDevices == 0)
 	{
@@ -431,7 +431,7 @@ void drawMidiInputList(void)
 			if (midi.inputDeviceName != NULL)
 			{
 				if (_stricmp(midi.inputDeviceName, midi.inputDeviceNames[deviceEntry]) == 0)
-					fillRect(114, y, 365, 10, PAL_BUTTONS); // selection background color
+					fillRect(114, y, 365, 10, PAL_BOXSLCT); // selection background color
 			}
 
 			tmpString = utf8ToCp437(midi.inputDeviceNames[deviceEntry], true);

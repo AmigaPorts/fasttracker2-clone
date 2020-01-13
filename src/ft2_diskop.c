@@ -1089,7 +1089,7 @@ static void fileListPressed(int32_t index)
 				// in case of UTF8 -> CP437 encoding failure, there can be question marks. Remove them...
 				removeQuestionmarksFromString(FReq_NameTemp);
 
-				if (inputBox(2, dirEntry->isDir ? "Enter new directoryname:" : "Enter new filename:", FReq_NameTemp, PATH_MAX - 1) == 1)
+				if (inputBox(2, dirEntry->isDir ? "Enter new directory name:" : "Enter new filename:", FReq_NameTemp, PATH_MAX - 1) == 1)
 				{
 					if ((FReq_NameTemp == NULL) || (FReq_NameTemp[0] == '\0'))
 					{
@@ -2153,7 +2153,7 @@ static void drawDiskOpScreen(void)
 	drawFramework(168,   0, 164,   3, FRAMEWORK_TYPE1);
 	drawFramework(168, 170, 164,   3, FRAMEWORK_TYPE1);
 	drawFramework(332,   0,  24, 173, FRAMEWORK_TYPE1);
-	drawFramework(61,  157, 105,  14, FRAMEWORK_TYPE2);
+	drawFramework(30,  157, 136,  14, FRAMEWORK_TYPE2);
 
 	clearRect(168, 2, 164, 168);
 
@@ -2196,7 +2196,7 @@ static void drawDiskOpScreen(void)
 	setDiskOpItemRadioButtons();
 
 	// filename
-	textOutShadow(4, 159, PAL_FORGRND, PAL_DSKTOP2, "Filename:");
+	textOutShadow(4, 159, PAL_FORGRND, PAL_DSKTOP2, "File:");
 
 	diskOp_DrawDirectory();
 }
@@ -2333,7 +2333,7 @@ void pbDiskOpRename(void)
 void pbDiskOpMakeDir(void)
 {
 	FReq_NameTemp[0] = '\0';
-	if (inputBox(1, "Enter directoryname:", FReq_NameTemp, PATH_MAX - 1) == 1)
+	if (inputBox(1, "Enter directory name:", FReq_NameTemp, PATH_MAX - 1) == 1)
 	{
 		if (FReq_NameTemp[0] == '\0')
 		{

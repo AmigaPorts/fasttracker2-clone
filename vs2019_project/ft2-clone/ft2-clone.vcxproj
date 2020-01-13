@@ -22,6 +22,7 @@
     <ProjectGuid>{6C633792-F87D-4F1C-AB02-C25202FFEDE6}</ProjectGuid>
     <RootNamespace>ft2-clone</RootNamespace>
     <ProjectName>ft2-clone</ProjectName>
+    <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
@@ -67,12 +68,12 @@
     <IncludePath>sdl\include;$(VCInstallDir)include;$(IncludePath)</IncludePath>
     <OutDir>..\..\release\win32\</OutDir>
     <LinkIncremental>false</LinkIncremental>
-    <TargetName>ft2-win32</TargetName>
+    <TargetName>ft2-clone-win32</TargetName>
     <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
     <LinkIncremental>false</LinkIncremental>
-    <TargetName>ft2-win64</TargetName>
+    <TargetName>ft2-clone-win64</TargetName>
     <CodeAnalysisRuleSet>AllRules.ruleset</CodeAnalysisRuleSet>
     <LibraryPath>sdl\lib64;$(VCInstallDir)lib;$(LibraryPath)</LibraryPath>
     <IncludePath>sdl\include;$(VCInstallDir)include;$(IncludePath)</IncludePath>
